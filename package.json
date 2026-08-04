@@ -2,6 +2,7 @@
   "name": "@personal-os/source",
   "version": "0.0.0",
   "license": "MIT",
+  "packageManager": "pnpm@11.13.1",
   "scripts": {
     "up": "docker compose up --build",
     "down": "docker compose down",

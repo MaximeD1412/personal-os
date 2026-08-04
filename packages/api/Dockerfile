@@ -3,6 +3,8 @@
 FROM node:24-alpine AS build
 WORKDIR /workspace
 
+# corepack installe la version de pnpm épinglée par `packageManager`.
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 
 # Le schéma Prisma est copié avant l'installation : le postinstall génère le
