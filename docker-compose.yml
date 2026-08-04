@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: personal-os-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-personalos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-personalos}
+      POSTGRES_DB: ${POSTGRES_DB:-personalos}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      # Postgres 18+ attend le montage sur le répertoire parent : les données
+      # vivent dans un sous-répertoire nommé d'après la version majeure.
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-personalos} -d ${POSTGRES_DB:-personalos}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    container_name: personal-os-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-personalos}:${POSTGRES_PASSWORD:-personalos}@db:5432/${POSTGRES_DB:-personalos}?schema=public
+      PORT: 3000
+    ports:
+      - '${API_PORT:-3000}:3000'
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: packages/dashboard/Dockerfile
+    container_name: personal-os-dashboard
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '${DASHBOARD_PORT:-4200}:80'
+
+  portfolio:
+    build:
+      context: .
+      dockerfile: packages/portfolio/Dockerfile
+    container_name: personal-os-portfolio
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '${PORTFOLIO_PORT:-4201}:80'
+
+volumes:
+  db-data:

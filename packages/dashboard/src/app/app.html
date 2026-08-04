@@ -1,0 +1,16 @@
+<main class="tableau-de-bord">
+  <h1>Tableau de bord</h1>
+
+  @if (probe(); as sonde) {
+    <p class="sonde">
+      Sonde lue en base : <strong>{{ sonde.label }}</strong>
+      <small>(enregistrée le {{ sonde.recordedAt }})</small>
+    </p>
+  } @else if (error(); as message) {
+    <p class="erreur">{{ message }}</p>
+  } @else {
+    <p class="attente">Lecture de la sonde…</p>
+  }
+
+  <router-outlet></router-outlet>
+</main>

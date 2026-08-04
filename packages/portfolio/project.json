@@ -1,0 +1,92 @@
+{
+  "name": "portfolio",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "pos",
+  "sourceRoot": "packages/portfolio/src",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@angular/build:application",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/packages/portfolio",
+        "browser": "packages/portfolio/src/main.ts",
+        "tsConfig": "packages/portfolio/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "packages/portfolio/public"
+          }
+        ],
+        "styles": [
+          "packages/portfolio/src/styles.css"
+        ]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "4kb",
+              "maximumError": "8kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      }
+    },
+    "serve": {
+      "continuous": true,
+      "executor": "@angular/build:dev-server",
+      "defaultConfiguration": "development",
+      "configurations": {
+        "production": {
+          "buildTarget": "portfolio:build:production"
+        },
+        "development": {
+          "buildTarget": "portfolio:build:development"
+        }
+      },
+      "options": {
+        "port": 4201,
+        "host": "localhost"
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": [
+        "{workspaceRoot}/coverage/{projectRoot}"
+      ],
+      "options": {
+        "jestConfig": "packages/portfolio/jest.config.cts",
+        "tsConfig": "packages/portfolio/tsconfig.spec.json"
+      }
+    },
+    "serve-static": {
+      "continuous": true,
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "portfolio:build",
+        "staticFilePath": "dist/packages/portfolio/browser",
+        "spa": true
+      }
+    }
+  }
+}
