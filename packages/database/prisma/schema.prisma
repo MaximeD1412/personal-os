@@ -1,0 +1,24 @@
+// Schéma de la base Personal OS.
+//
+// Les migrations restent toujours compatibles avec la version précédente
+// (ADR 0024) : on ajoute, on remplit, on lit ; on ne supprime qu'à une
+// livraison ultérieure.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Sonde technique du squelette applicatif : elle prouve que le tableau de
+/// bord lit bien une valeur venue de la base en passant par l'API. Elle ne
+/// porte aucun concept du domaine.
+model HealthProbe {
+  id         String   @id @default(uuid())
+  label      String
+  recordedAt DateTime @default(now())
+}
