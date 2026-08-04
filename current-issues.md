@@ -14,8 +14,7 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 | Issue | Titre | Type | État | Bloquée par |
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/MaximeD1412/personal-os/issues/1) | PRD — Personal OS V1 | agent | Épique — ne s'implémente pas directement | — |
-| [#2](https://github.com/MaximeD1412/personal-os/issues/2) | Squelette applicatif : monorepo, API, tableau de bord, base et socle de test | agent | **En revue** — [PR #25](https://github.com/MaximeD1412/personal-os/pull/25) | — |
-| [#3](https://github.com/MaximeD1412/personal-os/issues/3) | Sauvegardes Restic chiffrées chez un autre fournisseur | hitl | À faire | #2 |
+| [#3](https://github.com/MaximeD1412/personal-os/issues/3) | Sauvegardes Restic chiffrées chez un autre fournisseur | hitl | **Disponible** | — |
 | [#4](https://github.com/MaximeD1412/personal-os/issues/4) | Déploiement automatique tiré par le VPS, avec répétition de migration | hitl | À faire | #3 |
 | [#5](https://github.com/MaximeD1412/personal-os/issues/5) | Session serveur OIDC via Authentik | hitl | À faire | #4 |
 | [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | À faire | #5 |
@@ -46,7 +45,7 @@ l'[ADR 0016](docs/adr/0016-modules-plats-et-filtrage-espace-centralise.md)
 interdit de le rattraper module par module ensuite.
 
 ```
-#2 squelette ──▶ #3 sauvegardes ──▶ #4 déploiement ──▶ #5 Authentik ──▶ #6 garde d'Espace
+#3 sauvegardes ──▶ #4 déploiement ──▶ #5 Authentik ──▶ #6 garde d'Espace
                                                                             │
                         ┌───────────────────────────────┬───────────────────┤
                         ▼                               ▼                   ▼
@@ -67,17 +66,18 @@ interdit de le rattraper module par module ensuite.
                                             #19 Stock domestique
 ```
 
-Les quatre tranches qui suivent le squelette (#3 → #5) sont toutes `hitl` :
-elles touchent des secrets et des accès fournisseur. Un agent ne peut pas les
-prendre seul, et **rien d'autre ne se débloque tant qu'elles ne sont pas
-faites**.
+Les trois tranches en tête (#3 → #5) sont toutes `hitl` : elles touchent des
+secrets et des accès fournisseur. Un agent ne peut pas les prendre seul, et
+**rien d'autre ne se débloque tant qu'elles ne sont pas faites**. C'est le
+goulot du moment : #3 est la seule issue disponible, et elle demande une
+intervention humaine.
 
 ## Journal
 
 ### 2026-08-04 — #2 Squelette applicatif
 
-Implémenté, [PR #25](https://github.com/MaximeD1412/personal-os/pull/25)
-ouverte sur `develop`.
+**Fusionnée** dans `develop`
+([PR #25](https://github.com/MaximeD1412/personal-os/pull/25), `c784213`).
 
 Monorepo Nx avec l'API NestJS, le tableau de bord Angular, le portfolio Angular
 et la bibliothèque de contrats partagés, adossés à PostgreSQL via Prisma.
@@ -95,7 +95,7 @@ Conventions posées, qui font jurisprudence pour les tranches suivantes :
 - Deux campagnes de test : `pnpm test` sans infrastructure,
   `pnpm test:integration` sur une base créée, migrée puis supprimée.
 
-Trois contraintes rencontrées, à connaître avant de reprendre le code :
+Quatre contraintes rencontrées, à connaître avant de reprendre le code :
 
 - Angular ne supporte pas les project references TypeScript
   ([angular#37276](https://github.com/angular/angular/issues/37276)) : le
@@ -105,3 +105,7 @@ Trois contraintes rencontrées, à connaître avant de reprendre le code :
 - Prisma 7 impose le générateur `prisma-client`, un `prisma.config.ts` et un
   driver adapter. La sonde technique est posée par une migration plutôt qu'un
   script de seed, pour que le conteneur démarre amorcé sans étape supplémentaire.
+- La version de pnpm est épinglée par `packageManager` dans `package.json` :
+  `pnpm/action-setup` refuse de s'installer sans, et corepack s'en sert dans les
+  images. La changer à un seul endroit suffit — ne pas la dupliquer dans le
+  workflow.
