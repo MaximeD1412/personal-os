@@ -14,7 +14,7 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 | Issue | Titre | Type | État | Bloquée par |
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/MaximeD1412/personal-os/issues/1) | PRD — Personal OS V1 | agent | Épique — ne s'implémente pas directement | — |
-| [#3](https://github.com/MaximeD1412/personal-os/issues/3) | Sauvegardes Restic chiffrées chez un autre fournisseur | hitl | **Disponible** | — |
+| [#3](https://github.com/MaximeD1412/personal-os/issues/3) | Sauvegardes Restic chiffrées chez un autre fournisseur | hitl | [PR #26](https://github.com/MaximeD1412/personal-os/pull/26) ouverte — reste les gestes manuels | — |
 | [#4](https://github.com/MaximeD1412/personal-os/issues/4) | Déploiement automatique tiré par le VPS, avec répétition de migration | hitl | À faire | #3 |
 | [#5](https://github.com/MaximeD1412/personal-os/issues/5) | Session serveur OIDC via Authentik | hitl | À faire | #4 |
 | [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | À faire | #5 |
@@ -73,6 +73,31 @@ goulot du moment : #3 est la seule issue disponible, et elle demande une
 intervention humaine.
 
 ## Journal
+
+### 2026-08-04 — #3 Sauvegardes Restic
+
+[PR #26](https://github.com/MaximeD1412/personal-os/pull/26) ouverte, **issue
+volontairement non fermée** : la PR porte `Refs #3`, pas `Closes #3`.
+
+Ce qui est livré : `infra/backup/` — sauvegarde, restauration scriptée, unités
+systemd, signalement d'échec, runbook. Le va-et-vient est exercé contre le vrai
+binaire Restic en test d'intégration, et la vérification interroge la base
+restaurée.
+
+Ce qui reste, et qu'aucun agent ne peut faire : créer le bucket chez le
+fournisseur, poser les secrets sur la machine, exécuter une restauration
+vérifiée. Procédure dans `infra/backup/README.md`.
+
+Deux critères d'acceptation portent sur ce qui n'existe pas encore — la base et
+la configuration **Authentik** (#5), et le **stockage objet**. Ils s'ajouteront
+par une ligne de `BACKUP_PATHS`, sans toucher aux scripts. C'est la seule
+tranche du tableau dont le périmètre dépasse ce qui tourne au moment de la
+prendre : le chemin critique la place en tête parce que #4 dépend de la
+restauration, pas parce que tout son périmètre est déjà là.
+
+**#4 reste bloquée** tant que #3 n'est pas fermée. Retirer sa ligne à
+l'ouverture de la PR débloquerait un déploiement dont le banc d'essai n'a jamais
+tourné pour de vrai.
 
 ### 2026-08-04 — #2 Squelette applicatif
 
