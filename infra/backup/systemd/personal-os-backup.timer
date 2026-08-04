@@ -1,0 +1,16 @@
+[Unit]
+Description=Déclenche la sauvegarde Restic de Personal OS
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+# L'heure est locale et la machine passe à l'heure d'été : sans cette ligne, la
+# nuit du changement d'heure saute ou double une exécution.
+Persistent=true
+
+# Sans délai, toutes les machines réglées sur 03:30 frappent le fournisseur de
+# stockage à la même seconde. Ça n'a pas d'importance à une machine, mais le
+# homelab en ajoutera d'autres.
+RandomizedDelaySec=30m
+
+[Install]
+WantedBy=timers.target

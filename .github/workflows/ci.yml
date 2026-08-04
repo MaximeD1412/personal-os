@@ -57,6 +57,12 @@ jobs:
       - name: Tests unitaires
         run: pnpm exec nx run-many -t test
 
+      # Le va-et-vient de sauvegarde exerce le vrai binaire : le simuler
+      # reviendrait à tester la simulation, et c'est précisément la restauration
+      # qu'on ne peut pas se permettre de croire sur parole.
+      - name: Installer restic
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends restic
+
       - name: Tests d'intégration sur base jetable
         run: pnpm exec nx run-many -t test-integration
 

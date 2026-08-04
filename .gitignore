@@ -50,5 +50,10 @@ Thumbs.db
 .env
 .env.local
 
+# secrets de sauvegarde — seuls les .example entrent dans le dépôt (ADR 0020)
+restic.env
+restic-password
+infra/backup/backup.conf
+
 # client Prisma généré
 packages/database/src/generated

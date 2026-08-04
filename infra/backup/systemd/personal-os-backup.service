@@ -1,0 +1,36 @@
+[Unit]
+Description=Sauvegarde Restic de Personal OS
+Documentation=https://github.com/MaximeD1412/personal-os/blob/develop/infra/backup/README.md
+# La sauvegarde lit un dump depuis le conteneur PostgreSQL : sans Docker, elle
+# échouerait bruyamment à chaque déclenchement.
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+OnFailure=personal-os-backup-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/personal-os/backup/bin/backup.sh
+
+# Les secrets sont lus par le script depuis /etc/personal-os/restic.env, pas
+# injectés ici : une directive Environment= apparaîtrait dans `systemctl show`,
+# lisible par tout utilisateur de la machine.
+User=root
+Group=root
+
+# Une sauvegarde qui traîne bloque la suivante et masque le vrai problème.
+# Trois heures couvrent une reprise complète sur lien lent ; au-delà, c'est un
+# incident, et l'échec vaut mieux que l'attente.
+TimeoutStartSec=3h
+
+# La sauvegarde est un travail de fond : elle ne doit jamais rendre l'API lente.
+Nice=10
+IOSchedulingClass=idle
+CPUSchedulingPolicy=batch
+
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
