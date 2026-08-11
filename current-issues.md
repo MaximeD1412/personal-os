@@ -14,8 +14,7 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 | Issue | Titre | Type | État | Bloquée par |
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/MaximeD1412/personal-os/issues/1) | PRD — Personal OS V1 | agent | Épique — ne s'implémente pas directement | — |
-| [#3](https://github.com/MaximeD1412/personal-os/issues/3) | Sauvegardes Restic chiffrées chez un autre fournisseur | hitl | [PR #26](https://github.com/MaximeD1412/personal-os/pull/26) ouverte — reste les gestes manuels | — |
-| [#4](https://github.com/MaximeD1412/personal-os/issues/4) | Déploiement automatique tiré par le VPS, avec répétition de migration | hitl | À faire | #3 |
+| [#4](https://github.com/MaximeD1412/personal-os/issues/4) | Déploiement automatique tiré par le VPS, avec répétition de migration | hitl | **Disponible** | — |
 | [#5](https://github.com/MaximeD1412/personal-os/issues/5) | Session serveur OIDC via Authentik | hitl | À faire | #4 |
 | [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | À faire | #5 |
 | [#7](https://github.com/MaximeD1412/personal-os/issues/7) | Calendrier : l'Événement daté avec son Espace explicite | agent | À faire | #6 |
@@ -45,7 +44,7 @@ l'[ADR 0016](docs/adr/0016-modules-plats-et-filtrage-espace-centralise.md)
 interdit de le rattraper module par module ensuite.
 
 ```
-#3 sauvegardes ──▶ #4 déploiement ──▶ #5 Authentik ──▶ #6 garde d'Espace
+#4 déploiement ──▶ #5 Authentik ──▶ #6 garde d'Espace
                                                                             │
                         ┌───────────────────────────────┬───────────────────┤
                         ▼                               ▼                   ▼
@@ -66,38 +65,59 @@ interdit de le rattraper module par module ensuite.
                                             #19 Stock domestique
 ```
 
-Les trois tranches en tête (#3 → #5) sont toutes `hitl` : elles touchent des
-secrets et des accès fournisseur. Un agent ne peut pas les prendre seul, et
-**rien d'autre ne se débloque tant qu'elles ne sont pas faites**. C'est le
-goulot du moment : #3 est la seule issue disponible, et elle demande une
-intervention humaine.
+Les deux tranches en tête (#4 et #5) sont `hitl` : elles touchent des secrets et
+des accès fournisseur. Un agent ne peut pas les prendre seul, et **rien d'autre
+ne se débloque tant qu'elles ne sont pas faites**. C'est le goulot du moment :
+#4 est la seule issue disponible, et elle demande une intervention humaine.
+
+Une contrainte découverte en posant #3, qui pèse sur les deux : **le VPS n'est
+pas dédié**. Le projet `mairie` y tourne et occupe 80, 443, 3000 et 5432. La
+répartition des ports et le choix « Caddy partagé ou cloisonné » sont posés en
+[commentaire de #4](https://github.com/MaximeD1412/personal-os/issues/4#issuecomment-5258398573),
+et #5 en dépend : l'`issuer` OIDC est adossé au nom d'hôte, donc trancher après
+coup obligerait à refaire le client OIDC.
 
 ## Journal
 
-### 2026-08-04 — #3 Sauvegardes Restic
+### 2026-08-11 — #3 Sauvegardes Restic
 
-[PR #26](https://github.com/MaximeD1412/personal-os/pull/26) ouverte, **issue
-volontairement non fermée** : la PR porte `Refs #3`, pas `Closes #3`.
+**Fermée**, [PR #26](https://github.com/MaximeD1412/personal-os/pull/26)
+fusionnée dans `develop` (`e11215d`).
 
-Ce qui est livré : `infra/backup/` — sauvegarde, restauration scriptée, unités
-systemd, signalement d'échec, runbook. Le va-et-vient est exercé contre le vrai
-binaire Restic en test d'intégration, et la vérification interroge la base
-restaurée.
+`infra/backup/` livre la sauvegarde, la restauration scriptée, les unités
+systemd, le signalement d'échec et le runbook. Le va-et-vient est exercé contre
+le vrai binaire Restic en test d'intégration, et la vérification interroge la
+base **restaurée** — l'interroger sur la source ne prouverait que la santé de la
+source.
 
-Ce qui reste, et qu'aucun agent ne peut faire : créer le bucket chez le
-fournisseur, poser les secrets sur la machine, exécuter une restauration
-vérifiée. Procédure dans `infra/backup/README.md`.
+Validé sur la machine : dépôt chez Backblaze B2, secrets posés hors de Git,
+timer en place, restauration complète vérifiée, et chemin d'échec déclenché
+volontairement — courriel reçu, témoin d'inactivité passé au rouge.
 
-Deux critères d'acceptation portent sur ce qui n'existe pas encore — la base et
-la configuration **Authentik** (#5), et le **stockage objet**. Ils s'ajouteront
-par une ligne de `BACKUP_PATHS`, sans toucher aux scripts. C'est la seule
-tranche du tableau dont le périmètre dépasse ce qui tourne au moment de la
-prendre : le chemin critique la place en tête parce que #4 dépend de la
-restauration, pas parce que tout son périmètre est déjà là.
+Deux critères sont partis en aval plutôt que de rester ouverts ici, parce
+qu'Authentik et le stockage objet n'existaient pas au moment de poser la
+tranche :
 
-**#4 reste bloquée** tant que #3 n'est pas fermée. Retirer sa ligne à
-l'ouverture de la PR débloquerait un déploiement dont le banc d'essai n'a jamais
-tourné pour de vrai.
+- base et configuration **Authentik** → critère 1 de #5 ;
+- **objets stockés** → critère 1 de #23.
+
+C'est le bon sens de dépendance. Rouvrir #3 en la déclarant bloquée par #5
+fermerait une boucle avec #4, elle-même bloquée par #3 : plus rien ne serait
+prenable.
+
+Deux choses à savoir avant de reprendre le code :
+
+- `backup.sh` ne dumpe **qu'une** base. Authentik ayant la sienne, #5 devra lui
+  faire accepter une liste. C'est la seule évolution de script prévue —
+  l'ajout de chemins passe par `BACKUP_PATHS`, sans toucher au code.
+- `restore.sh` expose une ligne `dsn:` seule sur la sortie standard : c'est le
+  contrat que le banc d'essai de migration de #4 consomme, et un test le
+  verrouille.
+
+`.env.example` ne documente que les variables de `nx serve`, pas celles du
+compose. Recopié tel quel sur le VPS, il fait retomber compose sur ses valeurs
+par défaut — donc `0.0.0.0` sur tous les ports publiés, en silence. Reporté à
+#4 avec la configuration de production.
 
 ### 2026-08-04 — #2 Squelette applicatif
 
