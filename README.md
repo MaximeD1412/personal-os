@@ -6,6 +6,11 @@ et publie un **Portfolio** public bilingue.
 Le vocabulaire du domaine fait autorité : voir [`CONTEXT.md`](CONTEXT.md) et les
 décisions d'architecture dans [`docs/adr/`](docs/adr).
 
+Les sauvegardes font partie du produit : voir
+[`infra/backup/`](infra/backup). L'hébergement cible est un homelab personnel,
+et les contraintes à connaître avant d'y basculer sont rassemblées dans
+[`docs/migration-homelab.md`](docs/migration-homelab.md).
+
 ## Démarrer
 
 Tout part d'une seule commande :

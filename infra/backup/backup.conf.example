@@ -1,0 +1,47 @@
+# Configuration de la sauvegarde Personal OS.
+#
+# S'installe en /etc/personal-os/backup.conf. Ce fichier est versionné et ne
+# contient AUCUN secret : les identifiants Restic et Backblaze vivent dans
+# restic.env, en mode 600, et n'entrent jamais dans le dépôt Git.
+#
+# Il est sourcé par bash : c'est du shell, pas un .ini.
+
+# --- PostgreSQL ---------------------------------------------------------
+POSTGRES_CONTAINER=personal-os-db
+POSTGRES_USER=personalos
+POSTGRES_DB=personalos
+
+# --- Cibles supplémentaires ---------------------------------------------
+#
+# Chemins ajoutés à l'instantané, en plus du dump PostgreSQL. Séparés par des
+# espaces ou des retours à la ligne.
+#
+# C'est ici que le périmètre s'élargit sans toucher au script :
+#   - #5 (Authentik) ajoutera son répertoire de configuration ;
+#   - le stockage objet ajoutera son point de montage.
+#
+# Ne jamais y mettre /etc/personal-os/restic.env ni le fichier de clé : une
+# sauvegarde qui contient sa propre clé de déchiffrement ne protège plus rien.
+BACKUP_PATHS="
+/etc/personal-os/backup.conf
+/opt/personal-os/docker-compose.yml
+"
+
+# --- Rétention ----------------------------------------------------------
+#
+# Une semaine de quotidiennes couvre la faute qu'on remarque tout de suite ; six
+# mois de mensuelles couvrent celle qu'on ne remarque qu'à la déclaration
+# d'impôts.
+KEEP_DAILY=7
+KEEP_WEEKLY=4
+KEEP_MONTHLY=6
+
+# --- Signalement --------------------------------------------------------
+#
+# URL de témoin d'inactivité (Healthchecks.io ou équivalent). Le script y ajoute
+# /start et /fail. Laisser vide pour désactiver — au prix de ne plus détecter
+# une sauvegarde qui a cessé de tourner.
+BACKUP_HEARTBEAT_URL=
+
+# Destinataire des courriels d'échec. Vide = pas de courriel.
+BACKUP_ALERT_EMAIL=

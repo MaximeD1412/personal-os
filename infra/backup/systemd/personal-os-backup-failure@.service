@@ -1,0 +1,8 @@
+[Unit]
+Description=Signale l'échec de %i
+
+[Service]
+Type=oneshot
+ExecStart=/opt/personal-os/backup/bin/notify-failure.sh %i
+User=root
+Group=root
