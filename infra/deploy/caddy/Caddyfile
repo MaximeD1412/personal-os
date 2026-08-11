@@ -1,0 +1,34 @@
+# Carte de routage de Personal OS.
+#
+# TLS est terminé par le proxy de tête de la machine, qui transmet ici en clair
+# sur loopback : `auto_https off` empêche Caddy de tenter d'obtenir un
+# certificat qu'il n'a ni le port ni le besoin d'obtenir.
+{
+	admin off
+	auto_https off
+	# Le proxy de tête est le seul client. Sans cette ligne, l'adresse notée
+	# dans le journal serait la sienne, et toutes les requêtes sembleraient
+	# venir du même endroit.
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+# Le portfolio est public : c'est sa raison d'être (ADR 0019).
+http://{$PORTFOLIO_HOST} {
+	encode gzip zstd
+	reverse_proxy portfolio:80
+	log {
+		output stderr
+	}
+}
+
+# Le tableau de bord n'est **pas** ici, et c'est délibéré : il n'aura
+# d'authentification qu'avec Authentik (#5, ADR 0015). L'exposer avant
+# reviendrait à publier des données personnelles sur Internet en pariant que
+# personne ne trouve l'hôte. D'ici là il reste joignable sur 127.0.0.1:4200,
+# par tunnel SSH.
+#
+# Le bloc tout prêt attend dans conf.d/dashboard.caddy.desactive : #5 le renomme
+# en .caddy, et l'import ci-dessous le ramasse.
+import /etc/caddy/conf.d/*.caddy

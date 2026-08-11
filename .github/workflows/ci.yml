@@ -1,70 +1,20 @@
 name: CI
 
+# Branches de travail et propositions de fusion. La branche principale, elle,
+# est une branche de livraison : elle est traitée par livraison.yml
+# (ADR 0023).
 on:
   push:
-    branches: [develop, main]
+    branches: [develop]
   pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # La base jetable des tests d'intégration est créée sur ce serveur.
-  TEST_DATABASE_URL: postgresql://personalos:personalos@localhost:5432/postgres?schema=public
-
 jobs:
   verify:
-    name: Construit, teste et échoue sur régression
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: personalos
-          POSTGRES_PASSWORD: personalos
-          POSTGRES_DB: personalos
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U personalos"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Installer les dépendances
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm exec nx run-many -t lint
-
-      - name: Construire
-        run: pnpm exec nx run-many -t build
-
-      - name: Tests unitaires
-        run: pnpm exec nx run-many -t test
-
-      # Le va-et-vient de sauvegarde exerce le vrai binaire : le simuler
-      # reviendrait à tester la simulation, et c'est précisément la restauration
-      # qu'on ne peut pas se permettre de croire sur parole.
-      - name: Installer restic
-        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends restic
-
-      - name: Tests d'intégration sur base jetable
-        run: pnpm exec nx run-many -t test-integration
+    uses: ./.github/workflows/verify.yml
 
   images:
     name: Construit les images Docker

@@ -114,6 +114,25 @@ téléchargement de la sauvegarde ne passe plus par la bande passante d'un VPS.
   adresse dynamique, réputation d'envoi de courriel médiocre. À vérifier avant de
   s'engager sur une date.
 
+### Le cloisonnement du proxy se démonte, il ne se réécrit pas
+
+Découvert en posant #4 : le VPS n'est pas dédié. Le projet `mairie` y tient déjà
+443, donc Personal OS a un **Caddy interne**, sur loopback, derrière le proxy de
+tête de la machine. Ce Caddy ne termine pas TLS aujourd'hui — sa raison d'être
+est que la carte de routage vive dans le dépôt, versionnée et déployée par
+l'agent.
+
+Sur le homelab, Personal OS retrouve son propre proxy : il suffit de remplacer
+`http://{$PORTFOLIO_HOST}` par `{$PORTFOLIO_HOST}` et de retirer
+`auto_https off`. Rien d'autre ne bouge — ni le compose, ni les images, ni
+l'agent. C'est ce qui a fait préférer le cloisonnement au partage du Caddyfile de
+`mairie` : un partage aurait fait vivre la configuration de Personal OS hors de
+son dépôt, et il aurait fallu la **réécrire** au lieu de la démonter.
+
+Point d'hygiène hérité du VPS : `mairie-postgres-1` publie PostgreSQL sur l'IP
+publique. C'est un autre projet, mais la machine hébergera fiches de paie et
+documents immobiliers — à corriger là-bas, et à ne pas reproduire ici.
+
 ## Le VPS après la bascule
 
 Ne pas le résilier le jour même. Il peut devenir relais, point de sauvegarde,

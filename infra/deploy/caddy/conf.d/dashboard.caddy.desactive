@@ -1,0 +1,15 @@
+# Tableau de bord — bloc désactivé jusqu'à Authentik (#5).
+#
+# L'extension `.desactive` le tient hors du glob `conf.d/*.caddy` du Caddyfile.
+# Pour l'activer, le renommer en `dashboard.caddy` et redéployer.
+#
+# Ne pas l'activer avant que #5 soit livrée : le tableau de bord n'a aucune
+# authentification propre, et son nginx relaie /api/ vers l'API. L'ouvrir
+# publierait la lecture **et** l'écriture de toutes les données personnelles.
+http://{$DASHBOARD_HOST} {
+	encode gzip zstd
+	reverse_proxy dashboard:80
+	log {
+		output stderr
+	}
+}
