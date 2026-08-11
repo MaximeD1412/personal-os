@@ -14,7 +14,7 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 | Issue | Titre | Type | État | Bloquée par |
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/MaximeD1412/personal-os/issues/1) | PRD — Personal OS V1 | agent | Épique — ne s'implémente pas directement | — |
-| [#4](https://github.com/MaximeD1412/personal-os/issues/4) | Déploiement automatique tiré par le VPS, avec répétition de migration | hitl | **Disponible** | — |
+| [#4](https://github.com/MaximeD1412/personal-os/issues/4) | Déploiement automatique tiré par le VPS, avec répétition de migration | hitl | [PR #27](https://github.com/MaximeD1412/personal-os/pull/27) ouverte — reste les gestes manuels | — |
 | [#5](https://github.com/MaximeD1412/personal-os/issues/5) | Session serveur OIDC via Authentik | hitl | À faire | #4 |
 | [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | À faire | #5 |
 | [#7](https://github.com/MaximeD1412/personal-os/issues/7) | Calendrier : l'Événement daté avec son Espace explicite | agent | À faire | #6 |
@@ -67,17 +67,59 @@ interdit de le rattraper module par module ensuite.
 
 Les deux tranches en tête (#4 et #5) sont `hitl` : elles touchent des secrets et
 des accès fournisseur. Un agent ne peut pas les prendre seul, et **rien d'autre
-ne se débloque tant qu'elles ne sont pas faites**. C'est le goulot du moment :
-#4 est la seule issue disponible, et elle demande une intervention humaine.
+ne se débloque tant qu'elles ne sont pas faites**. C'est toujours le goulot :
+le code de #4 est en revue, mais l'issue reste ouverte tant que la machine n'a
+pas été touchée, et **aucune ligne du tableau ne bouge d'ici là**.
 
-Une contrainte découverte en posant #3, qui pèse sur les deux : **le VPS n'est
-pas dédié**. Le projet `mairie` y tourne et occupe 80, 443, 3000 et 5432. La
-répartition des ports et le choix « Caddy partagé ou cloisonné » sont posés en
-[commentaire de #4](https://github.com/MaximeD1412/personal-os/issues/4#issuecomment-5258398573),
-et #5 en dépend : l'`issuer` OIDC est adossé au nom d'hôte, donc trancher après
-coup obligerait à refaire le client OIDC.
+La contrainte découverte en posant #3 — **le VPS n'est pas dédié**, `mairie` y
+occupe 80, 443, 3000 et 5432 — est traitée. La répartition des ports du
+[commentaire de #4](https://github.com/MaximeD1412/personal-os/issues/4#issuecomment-5258398573)
+est en place, et le choix « Caddy partagé ou cloisonné » est **tranché en faveur
+du cloisonnement**. #5 hérite donc d'un nom d'hôte stable : l'`issuer` OIDC y est
+adossé, et trancher après coup aurait obligé à refaire le client OIDC.
 
 ## Journal
+
+### 2026-08-11 — #4 Déploiement tiré
+
+[PR #27](https://github.com/MaximeD1412/personal-os/pull/27) ouverte, **issue
+volontairement non fermée** : la PR porte `Refs #4`, pas `Closes #4`.
+
+Ce qui est livré : `verify.yml` partagé par la CI et la livraison, `livraison.yml`
+qui publie les trois images sur GHCR et ne déplace le canal qu'une fois les trois
+poussées, et `infra/deploy/` — l'agent, la pile de production, le routage Caddy,
+les unités systemd, l'installation idempotente.
+
+Deux arbitrages tranchés avant de commencer :
+
+- **Cloisonnement du proxy**, pas partage. `mairie-caddy-1` reste proxy de tête
+  et transmet à un Caddy interne sur `127.0.0.1:8080`. Ce Caddy ne termine pas
+  TLS aujourd'hui — sa raison d'être est que la carte de routage vive dans le
+  dépôt, versionnée et déployée par l'agent. Au homelab il reprend TLS : le
+  cloisonnement se démonte, le partage se serait réécrit.
+- **Le tableau de bord n'est pas publié.** Il n'aura d'authentification qu'avec
+  #5, et son nginx relaie déjà `/api/`. Son bloc Caddy attend, désactivé.
+
+Trois choses à savoir avant de reprendre le code :
+
+- La révision déployée est un **commit**, lu dans le libellé OCI de l'image du
+  canal. Jamais un tag mouvant : `main` désignerait autre chose demain, et le
+  retour arrière perdrait sa cible.
+- L'agent reprend le compose et le routage **du dépôt** à chaque déploiement,
+  depuis un clone local. Il ne se met pas à jour lui-même : la dérive est
+  signalée dans le journal et se corrige par un `install.sh`.
+- Les deux campagnes d'intégration portent `"parallelism": false`. Elles
+  nettoient toutes deux les conteneurs par le préfixe `personal-os-restore-` :
+  lancées côte à côte, l'une détruit la restauration que l'autre interroge.
+
+Ce qui reste, et qu'aucun agent ne peut faire : le DNS, la visibilité des
+paquets GHCR, le bloc `reverse_proxy` dans le Caddyfile de `mairie`, et la pose
+des secrets sur la machine. Runbook dans `infra/deploy/README.md`. Le critère
+« joignable en HTTPS sur son domaine » se vérifie à ce moment-là.
+
+**#5 reste bloquée** tant que #4 n'est pas fermée. Retirer sa ligne à
+l'ouverture de la PR débloquerait une tranche OIDC dont le nom d'hôte n'existe
+pas encore.
 
 ### 2026-08-11 — #3 Sauvegardes Restic
 
