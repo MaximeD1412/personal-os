@@ -1,0 +1,93 @@
+name: Livraison
+
+# Un commit atteignant la branche principale part en production (ADR 0023).
+#
+# Ce workflow s'arrête à GHCR. Il n'a **aucun accès entrant** au VPS : pas de
+# clé SSH, pas de secret de production, rien qui permette d'atteindre la machine
+# qui héberge fiches de paie, finances et documents immobiliers. C'est l'agent
+# installé sur le VPS qui détecte la nouvelle version et l'applique.
+on:
+  push:
+    branches: [main]
+
+# Deux livraisons ne se doublent pas : la seconde attend que la première ait
+# fini de promouvoir son canal, sinon le canal pourrait reculer.
+concurrency:
+  group: livraison
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+
+  publier:
+    name: Pousse ${{ matrix.image }} sur GHCR
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      # Une image en échec ne doit pas empêcher les autres d'être construites :
+      # on veut savoir si le problème est isolé ou général. Rien n'est promu
+      # tant que les trois ne sont pas là, donc rien ne se déploie à moitié.
+      fail-fast: false
+      matrix:
+        image: [api, dashboard, portfolio]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Se connecter à GHCR
+        run: |
+          printf '%s' '${{ secrets.GITHUB_TOKEN }}' |
+            docker login ghcr.io --username '${{ github.actor }}' --password-stdin
+
+      - name: Construire et pousser
+        run: |
+          set -euo pipefail
+          # GHCR n'accepte que des minuscules ; le nom du dépôt GitHub, lui,
+          # garde sa casse d'origine.
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          ref="${registry}/${{ matrix.image }}:${GITHUB_SHA}"
+
+          # `revision` n'est pas décoratif : c'est ce que l'agent du VPS lit sur
+          # le canal pour savoir quelle version épingler. Sans ce libellé, il ne
+          # pourrait déployer qu'un tag mouvant, et le retour arrière n'aurait
+          # plus de cible stable.
+          docker build \
+            --file "packages/${{ matrix.image }}/Dockerfile" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --tag "$ref" \
+            .
+          docker push "$ref"
+
+  promouvoir:
+    name: Promeut le lot complet sur le canal
+    needs: publier
+    runs-on: ubuntu-latest
+    steps:
+      - name: Se connecter à GHCR
+        run: |
+          printf '%s' '${{ secrets.GITHUB_TOKEN }}' |
+            docker login ghcr.io --username '${{ github.actor }}' --password-stdin
+
+      # Le canal ne bouge qu'ici, une fois les trois images poussées. Un échec
+      # de construction sur une seule d'entre elles laisse donc le canal sur la
+      # version précédente, et l'agent du VPS ne voit rien de nouveau — plutôt
+      # qu'un lot dépareillé où l'API a avancé et le tableau de bord non.
+      - name: Déplacer le canal
+        run: |
+          set -euo pipefail
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          for image in api dashboard portfolio; do
+            # Recopie de manifeste, côté registre : rien n'est retéléchargé.
+            docker buildx imagetools create \
+              --tag "${registry}/${image}:${CHANNEL}" \
+              "${registry}/${image}:${GITHUB_SHA}"
+          done
+          echo "canal ${CHANNEL} promu sur ${GITHUB_SHA}"
+        env:
+          CHANNEL: main

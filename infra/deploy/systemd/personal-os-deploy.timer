@@ -1,0 +1,18 @@
+[Unit]
+Description=Personal OS — surveille le canal de livraison
+
+[Timer]
+# Le délai entre une fusion sur la branche principale et sa mise en production.
+# Deux minutes est un compromis : assez court pour que livrer reste un geste
+# vivant, assez long pour que la consultation du registre reste négligeable —
+# elle ne télécharge qu'un manifeste, pas une image.
+OnBootSec=2min
+OnUnitActiveSec=2min
+
+# Sans Persistent : rien à rattraper. Le canal porte l'état courant, pas une
+# file d'événements — au démarrage, l'agent voit directement la dernière
+# version, et rejouer les passages manqués ne changerait rien.
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

@@ -6,9 +6,10 @@ et publie un **Portfolio** public bilingue.
 Le vocabulaire du domaine fait autorité : voir [`CONTEXT.md`](CONTEXT.md) et les
 décisions d'architecture dans [`docs/adr/`](docs/adr).
 
-Les sauvegardes font partie du produit : voir
-[`infra/backup/`](infra/backup). L'hébergement cible est un homelab personnel,
-et les contraintes à connaître avant d'y basculer sont rassemblées dans
+Les sauvegardes et le déploiement font partie du produit : voir
+[`infra/backup/`](infra/backup) et [`infra/deploy/`](infra/deploy).
+L'hébergement cible est un homelab personnel, et les contraintes à connaître
+avant d'y basculer sont rassemblées dans
 [`docs/migration-homelab.md`](docs/migration-homelab.md).
 
 ## Démarrer
@@ -105,8 +106,23 @@ pnpm prisma:generate   # régénère le client (fait au postinstall)
 
 Le client généré (`packages/database/src/generated`) n'est pas versionné.
 
-## Intégration continue
+## Intégration continue et livraison
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) lint, construit, passe
-les tests unitaires puis les tests d'intégration sur base jetable, et construit
-les images Docker. Toute étape en échec fait échouer la CI.
+Une campagne unique,
+[`.github/workflows/verify.yml`](.github/workflows/verify.yml), lint, construit,
+passe les tests unitaires puis les tests d'intégration sur base jetable. Elle est
+appelée par les deux workflows, et c'est ce qui rend vraie la phrase « rien n'est
+publié sans avoir passé exactement les mêmes tests qu'une PR ».
+
+| Workflow | Déclencheur | Ce qu'il fait |
+| --- | --- | --- |
+| [`ci.yml`](.github/workflows/ci.yml) | PR, push sur `develop` | Vérification, et construction des images |
+| [`livraison.yml`](.github/workflows/livraison.yml) | push sur `main` | Vérification, publication sur GHCR, déplacement du canal |
+
+**`main` est une branche de livraison** : un commit qui l'atteint part en
+production ([ADR 0023](docs/adr/0023-deploiement-automatique-tire-par-le-vps.md)).
+Il n'y a pas de « je pousse pour sauvegarder mon travail » sur cette branche.
+
+La livraison s'arrête à GHCR : GitHub n'a **aucun accès entrant** au serveur.
+C'est un agent installé sur la machine qui détecte la nouvelle version et
+l'applique — voir [`infra/deploy/`](infra/deploy).

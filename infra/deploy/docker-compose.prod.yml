@@ -1,0 +1,96 @@
+# Pile de production. S'installe en /opt/personal-os/docker-compose.yml.
+#
+# Ce fichier ne construit rien : il **tire** des images déjà construites et
+# testées par la livraison (ADR 0023). C'est la différence avec le
+# docker-compose.yml de la racine, qui construit et sert le poste local — et
+# c'est pourquoi les deux ne sont pas superposés par un fichier d'override :
+# lire la configuration de production ne doit pas demander de tenir deux
+# fichiers en tête.
+#
+# `IMAGE_TAG` est **toujours** une révision précise, jamais un tag mouvant :
+# c'est ce qui donne au retour arrière une cible stable (ADR 0024).
+#
+# Règle de publication : seul le proxy de tête écoute sur une interface
+# publique. Tout ce qui est ici est sur loopback, joignable par le proxy ou par
+# tunnel SSH, et rien d'autre.
+
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: personal-os-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER manquant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB manquant}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
+    volumes:
+      # Postgres 18+ attend le montage sur le répertoire parent : les données
+      # vivent dans un sous-répertoire nommé d'après la version majeure.
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: ${REGISTRY:?REGISTRY manquant}/api:${IMAGE_TAG:?IMAGE_TAG manquant}
+    container_name: personal-os-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      PORT: 3000
+      # Le tableau de bord appelle l'API sous son propre hôte, via son nginx :
+      # en production il n'y a pas de requête inter-origine à autoriser.
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    ports:
+      - '127.0.0.1:${API_PORT:-3001}:3000'
+
+  dashboard:
+    image: ${REGISTRY}/dashboard:${IMAGE_TAG}
+    container_name: personal-os-dashboard
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '127.0.0.1:${DASHBOARD_PORT:-4200}:80'
+
+  portfolio:
+    image: ${REGISTRY}/portfolio:${IMAGE_TAG}
+    container_name: personal-os-portfolio
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '127.0.0.1:${PORTFOLIO_PORT:-4201}:80'
+
+  # Proxy interne de Personal OS. Il ne termine pas TLS : le proxy de tête de la
+  # machine s'en charge et lui transmet le trafic sur loopback. Son intérêt est
+  # ailleurs — la carte de routage de Personal OS vit dans **ce dépôt**, versionnée
+  # et déployée par l'agent, plutôt que dans la configuration d'un autre projet.
+  #
+  # À la migration vers le homelab, c'est ce conteneur qui reprend TLS : on
+  # change les adresses de site, pas l'architecture.
+  caddy:
+    image: caddy:2-alpine
+    container_name: personal-os-caddy
+    restart: unless-stopped
+    depends_on:
+      - dashboard
+      - portfolio
+    environment:
+      PORTFOLIO_HOST: ${PORTFOLIO_HOST:?PORTFOLIO_HOST manquant}
+      DASHBOARD_HOST: ${DASHBOARD_HOST:-}
+    ports:
+      - '127.0.0.1:${CADDY_PORT:-8080}:80'
+    volumes:
+      - ${CADDY_DIR:-/opt/personal-os/caddy}/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${CADDY_DIR:-/opt/personal-os/caddy}/conf.d:/etc/caddy/conf.d:ro
+
+volumes:
+  db-data:
