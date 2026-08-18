@@ -135,13 +135,37 @@ docker run --detach --rm \
 PROBE_STARTED=1
 
 log "attente de disponibilité"
-# `pg_isready` ne suffit pas : l'image PostgreSQL démarre un serveur temporaire
-# pendant l'initialisation, et répond « prêt » avant que POSTGRES_DB existe. On
-# attend donc qu'une requête aboutisse *sur la base visée*.
+# Deux faux positifs se succèdent au démarrage de l'image PostgreSQL, et il faut
+# les écarter tous les deux.
+#
+# `pg_isready` répond « prêt » avant que POSTGRES_DB existe. Mais interroger la
+# base visée ne suffit pas non plus : l'initialisation crée cette base sur un
+# serveur **temporaire**, qu'elle éteint ensuite pour lancer le vrai. Une
+# requête peut donc aboutir juste avant l'extinction :
+#
+#     LOG:  database system is ready to accept connections   <- temporaire
+#     LOG:  shutting down
+#     PostgreSQL init process complete; ready for start up.
+#     LOG:  database system is ready to accept connections   <- le vrai
+#
+# La commande suivante tombe alors sur « the database system is shutting down »,
+# et la répétition de migration échoue pour une raison qui n'a rien à voir avec
+# la migration — donc un déploiement sain est arrêté. On attend la marque de fin
+# d'initialisation, *puis* la requête.
+init_complete() {
+  docker logs "$PROBE_CONTAINER" 2>&1 | grep -q 'PostgreSQL init process complete'
+}
+
 probe_ready() {
   docker exec --env PGPASSWORD="$PROBE_PASSWORD" "$PROBE_CONTAINER" \
     psql --username postgres --dbname "$POSTGRES_DB" --command 'select 1' >/dev/null 2>&1
 }
+
+for _ in $(seq 1 60); do
+  init_complete && break
+  sleep 1
+done
+init_complete || die "le conteneur jetable n'a pas fini son initialisation"
 
 for _ in $(seq 1 60); do
   probe_ready && break

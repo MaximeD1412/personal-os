@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import {
+  attendreInitPostgres,
   clonerDepot,
   commettreStack,
   creerDepot,
@@ -273,6 +274,14 @@ describe('déploiement tiré, de bout en bout', () => {
     ], {
       env: { REGISTRY: registre.prefixe, IMAGE_TAG: revisionSaine },
     });
+
+    // Le `--wait` de Compose s'appuie sur le healthcheck, qui peut passer au
+    // vert contre le serveur **temporaire** de l'initialisation — celui que
+    // l'image éteint avant de lancer le vrai. Semer là-dessus tombe sur
+    // « the database system is shutting down ». La marque de fin
+    // d'initialisation est le seul point de bascule fiable.
+    attendreInitPostgres(DB_CONTENEUR);
+
     sh('docker', ['exec', '--interactive', '--env', `PGPASSWORD=${MOT_DE_PASSE}`, DB_CONTENEUR,
       'psql', '--username', 'postgres', '--dbname', 'personalos'], {
       input: `create table evenement (id serial primary key, titre text not null);

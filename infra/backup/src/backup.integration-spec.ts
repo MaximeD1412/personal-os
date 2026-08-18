@@ -43,20 +43,38 @@ function requireTool(tool: string): void {
   }
 }
 
-function waitForPostgres(container: string): void {
-  // `pg_isready` répond « prêt » pendant l'initialisation de l'image, avant que
-  // POSTGRES_DB existe : on attend une requête aboutie sur la base visée.
+/** Attend une condition, une seconde entre deux essais. */
+function waitFor(condition: () => boolean, echec: string): void {
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    try {
-      sh('docker', [
-        'exec', container, 'psql', '-U', 'postgres', '-d', DB, '-c', 'select 1',
-      ]);
-      return;
-    } catch {
-      sh('sleep', ['1']);
-    }
+    if (condition()) return;
+    sh('sleep', ['1']);
   }
-  throw new Error(`${container} n'a pas démarré`);
+  throw new Error(echec);
+}
+
+function waitForPostgres(container: string): void {
+  // Deux faux positifs se succèdent, et il faut les écarter tous les deux.
+  //
+  // `pg_isready` répond « prêt » avant que POSTGRES_DB existe. Mais interroger
+  // la base visée ne suffit pas non plus : l'initialisation crée cette base sur
+  // un serveur **temporaire**, qu'elle éteint ensuite pour lancer le vrai. Une
+  // requête peut donc aboutir juste avant l'extinction, et la commande suivante
+  // tombe sur « the database system is shutting down ».
+  //
+  // La marque de fin d'initialisation est le seul point de bascule fiable.
+  waitFor(
+    () => sh('docker', ['logs', container]).includes('PostgreSQL init process complete'),
+    `${container} n'a pas fini son initialisation`
+  );
+
+  waitFor(() => {
+    try {
+      sh('docker', ['exec', container, 'psql', '-U', 'postgres', '-d', DB, '-c', 'select 1']);
+      return true;
+    } catch {
+      return false;
+    }
+  }, `${container} n'a pas démarré`);
 }
 
 /** Supprime les conteneurs jetables laissés par --keep, quel que soit leur suffixe. */
@@ -155,7 +173,12 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
       fixture,
       { RESTORE_PROBE_PORT: PROBE_PORT }
     );
-    expect(restore.status).toBe(0);
+    // Le code de sortie seul ne dit pas pourquoi. Sans la sortie du script,
+    // un échec ici oblige à rejouer la campagne à la main pour apprendre quoi
+    // que ce soit — et sur une machine de CI, on ne la rejoue pas.
+    if (restore.status !== 0) {
+      throw new Error(`restore.sh a rendu ${restore.status} :\n${restore.output}`);
+    }
 
     // Contrat consommé par le déploiement (#4, ADR 0021) : une ligne « dsn: »
     // seule sur la sortie standard, tout le reste sur l'erreur standard.

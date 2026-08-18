@@ -47,6 +47,32 @@ export function silence(action: () => void): void {
   }
 }
 
+/**
+ * Attend que l'image PostgreSQL ait fini son initialisation.
+ *
+ * Ni `pg_isready` ni le healthcheck de Compose ne suffisent : l'initialisation
+ * crée la base sur un serveur **temporaire**, qu'elle éteint ensuite pour
+ * lancer le vrai. Une sonde peut donc passer au vert juste avant l'extinction,
+ * et la commande suivante tombe sur « the database system is shutting down ».
+ *
+ *     LOG:  database system is ready to accept connections   <- temporaire
+ *     LOG:  shutting down
+ *     PostgreSQL init process complete; ready for start up.
+ *     LOG:  database system is ready to accept connections   <- le vrai
+ *
+ * La marque de fin d'initialisation est le seul point de bascule fiable. Elle
+ * part sur la sortie standard, contrairement aux journaux du serveur.
+ */
+export function attendreInitPostgres(conteneur: string): void {
+  for (let essai = 0; essai < 60; essai += 1) {
+    if (sh('docker', ['logs', conteneur]).includes('PostgreSQL init process complete')) {
+      return;
+    }
+    sh('sleep', ['1']);
+  }
+  throw new Error(`${conteneur} n'a pas fini son initialisation`);
+}
+
 // --------------------------------------------------------------------------
 // Registre local
 // --------------------------------------------------------------------------
