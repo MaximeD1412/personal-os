@@ -14,7 +14,7 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 | Issue | Titre | Type | État | Bloquée par |
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/MaximeD1412/personal-os/issues/1) | PRD — Personal OS V1 | agent | Épique — ne s'implémente pas directement | — |
-| [#5](https://github.com/MaximeD1412/personal-os/issues/5) | Session serveur OIDC via Authentik | hitl | **Disponible** | — |
+| [#5](https://github.com/MaximeD1412/personal-os/issues/5) | Session serveur OIDC via Authentik | hitl | [PR #35](https://github.com/MaximeD1412/personal-os/pull/35) ouverte — reste les gestes sur la machine | — |
 | [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | À faire | #5 |
 | [#7](https://github.com/MaximeD1412/personal-os/issues/7) | Calendrier : l'Événement daté avec son Espace explicite | agent | À faire | #6 |
 | [#8](https://github.com/MaximeD1412/personal-os/issues/8) | Agenda : port AgendaContributor et vue en lecture seule | agent | À faire | #7 |
@@ -64,10 +64,18 @@ interdit de le rattraper module par module ensuite.
                                             #19 Stock domestique
 ```
 
-#5 est désormais la seule issue disponible, et elle est `hitl` : elle touche des
-secrets et des accès fournisseur. Un agent ne peut pas la prendre seul, et
-**rien d'autre ne se débloque tant qu'elle n'est pas faite**. C'est le goulot du
-moment.
+#5 est le goulot du moment, et **rien d'autre ne se débloque tant qu'elle n'est
+pas fermée**. Sa PR est ouverte ([#35](https://github.com/MaximeD1412/personal-os/pull/35)) :
+le code est là, les gestes sur la machine ne le sont pas.
+
+Sa ligne reste donc dans le tableau. La retirer à l'ouverture de la PR
+débloquerait #6, #12, #14 et #21 alors que la garde d'Espace de #6 s'appuie sur
+une authentification qui ne tourne encore nulle part.
+
+Ce qui reste à faire, et que personne d'autre ne peut faire : les
+enregistrements DNS pour `app.` et `auth.`, la création du fournisseur OIDC et
+des deux comptes dans Authentik, puis le report des valeurs dans
+`/opt/personal-os/.env`. Le runbook est dans `infra/deploy/README.md`.
 
 Elle arrive dans de meilleures conditions que #4 : la contrainte du VPS partagé
 est absorbée, et les deux questions qui l'auraient piégée sont tranchées.
@@ -82,10 +90,11 @@ est absorbée, et les deux questions qui l'auraient piégée sont tranchées.
   le `Caddyfile` de Personal OS, et un fichier à renommer dans `caddy/conf.d/`
   pour ouvrir le tableau de bord.
 
-Deux dettes lui reviennent, posées en #3 et rappelées ici pour qu'elles ne se
-perdent pas : `backup.sh` ne dumpe **qu'une** base et devra accepter une liste,
-Authentik ayant la sienne ; et la configuration d'Authentik s'ajoute par une
-ligne de `BACKUP_PATHS`.
+Les deux dettes posées en #3 sont réglées par la PR : `backup.sh` accepte une
+liste de bases (`POSTGRES_DATABASES`) et `restore.sh` sait remonter celle qu'on
+lui nomme. La configuration d'Authentik, elle, vit en **base** et non dans des
+fichiers — c'est `POSTGRES_DATABASES` qui l'emporte, pas `BACKUP_PATHS`, qui ne
+prend que ses médias et certificats.
 
 ## Journal
 
