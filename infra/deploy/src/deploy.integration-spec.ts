@@ -244,8 +244,14 @@ describe('déploiement tiré, de bout en bout', () => {
         `REHEARSAL_TARGET=${join(racine, 'repetition')}`,
         `REHEARSAL_PROBE_PORT=${REPETITION_PORT}`,
         `HEALTH_URL=${SANTE_URL}`,
-        'HEALTH_RETRIES=10',
-        'HEALTH_DELAY=2',
+        // Le banc éprouve la boucle de sonde, pas la patience : sur le test
+        // de retour arrière la santé *doit* échouer, et chaque tour est du
+        // temps mort. Huit tours d'une seconde laissent largement de quoi
+        // voir démarrer un httpd busybox dont l'image est déjà locale, tout
+        // en coupant une quinzaine de secondes au chemin d'échec. Le VPS,
+        // lui, garde les valeurs par défaut de common.sh (30 essais, 2 s).
+        'HEALTH_RETRIES=8',
+        'HEALTH_DELAY=1',
         `DEPLOY_STATE_FILE=${statePath}`,
         `DEPLOY_HISTORY_FILE=${historyPath}`,
         'DEPLOY_HEARTBEAT_URL=',
