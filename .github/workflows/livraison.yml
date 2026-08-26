@@ -23,6 +23,11 @@ permissions:
 jobs:
   verify:
     uses: ./.github/workflows/verify.yml
+    # Campagne entière, sans filtre : rien ne part sur GHCR sans avoir passé la
+    # totalité des tests, y compris ceux qu'aucun diff de la branche n'aurait
+    # désignés.
+    with:
+      portee: complete
 
   publier:
     name: Pousse ${{ matrix.image }} sur GHCR

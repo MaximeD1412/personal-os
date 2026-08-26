@@ -1,19 +1,71 @@
 name: Vérification
 
 # Campagne unique, appelée par la CI des branches de travail et par la
-# livraison. La partager est ce qui rend vraie la phrase « un commit sur la
-# branche principale déclenche construction, tests et publication » : rien n'est
-# poussé sur GHCR sans avoir passé exactement les mêmes tests qu'une PR.
+# livraison. Elle a deux portées, et la différence entre les deux est le seul
+# endroit où le contrat se joue :
+#
+#   - « complete » rejoue tout. C'est ce que la livraison demande, et c'est ce
+#     qui rend vraie la phrase « rien n'est poussé sur GHCR sans avoir passé la
+#     campagne entière ».
+#   - « affectee » ne fait tourner que ce que le diff atteint réellement. Une
+#     proposition qui ne touche que le tableau de bord n'a aucune raison de
+#     rejouer quatre-vingt-seize secondes de chaîne de déploiement.
+#
+# Le filet, c'est que la branche principale ne connaît que la première portée :
+# ce qu'une proposition a sauté sera de toute façon rejoué avant publication.
 on:
   workflow_call:
+    inputs:
+      portee:
+        description: '« complete » rejoue toute la campagne, « affectee » ne prend que ce que le diff touche'
+        type: string
+        required: false
+        default: affectee
+
+env:
+  # Les deux portées ne diffèrent que par le verbe passé à Nx : le reste de la
+  # ligne de commande — cibles, filtres de projet — reste mot pour mot le même,
+  # pour qu'aucune des deux ne puisse mesurer autre chose que l'autre.
+  NX: ${{ inputs.portee == 'complete' && 'run-many' || 'affected' }}
 
 jobs:
-  verify:
-    name: Construit, teste et échoue sur régression
+  # Trois jobs plutôt qu'un, parce qu'ils n'ont aucune dépendance entre eux et
+  # que le dépôt est public : les minutes sont gratuites, et les enchaîner sur
+  # un seul coureur ne payait que du temps d'attente. Le découpage suit le coût
+  # réel, pas la logique : le banc de déploiement pèse à lui seul plus que tout
+  # le reste, il a donc son coureur.
+
+  statique:
+    name: Lint, construit et teste
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # `nx affected` compare deux commits. Un clone superficiel n'aurait
+          # rien à comparer.
+          fetch-depth: 0
+
+      - uses: ./.github/actions/preparer
+        with:
+          affectee: ${{ inputs.portee != 'complete' }}
+
+      - name: Lint
+        run: pnpm exec nx $NX -t lint
+
+      - name: Construire
+        run: pnpm exec nx $NX -t build
+
+      - name: Tests unitaires
+        run: pnpm exec nx $NX -t test
+
+  integration:
+    name: Éprouve l'API et les sauvegardes sur de vraies pièces
     runs-on: ubuntu-latest
 
     env:
-      # La base jetable des tests d'intégration est créée sur ce serveur.
+      # La base jetable des tests d'intégration de l'API est créée sur ce
+      # serveur. Les sauvegardes, elles, montent le leur.
       TEST_DATABASE_URL: postgresql://personalos:personalos@localhost:5432/postgres?schema=public
 
     services:
@@ -36,31 +88,36 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v5
+      - uses: ./.github/actions/preparer
         with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Installer les dépendances
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm exec nx run-many -t lint
-
-      - name: Construire
-        run: pnpm exec nx run-many -t build
-
-      - name: Tests unitaires
-        run: pnpm exec nx run-many -t test
+          affectee: ${{ inputs.portee != 'complete' }}
 
       # Le va-et-vient de sauvegarde exerce le vrai binaire : le simuler
       # reviendrait à tester la simulation, et c'est précisément la restauration
-      # qu'on ne peut pas se permettre de croire sur parole. Le déploiement
-      # tourne sur un vrai registre local, pour la même raison.
+      # qu'on ne peut pas se permettre de croire sur parole.
       - name: Installer restic
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends restic
 
       - name: Tests d'intégration sur base jetable
-        run: pnpm exec nx run-many -t test-integration
+        run: pnpm exec nx $NX -t test-integration --exclude=deploy
+
+  deploiement:
+    name: Rejoue la chaîne de déploiement de bout en bout
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/preparer
+        with:
+          affectee: ${{ inputs.portee != 'complete' }}
+
+      # Le banc monte sa propre pile — registre, images, dépôt Git, base — donc
+      # aucun service ici. Il appelle restore.sh, d'où restic.
+      - name: Installer restic
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends restic
+
+      - name: Banc de déploiement
+        run: pnpm exec nx $NX -t test-integration --exclude='*,!deploy'
