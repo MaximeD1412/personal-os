@@ -1,0 +1,19 @@
+# Tableau de bord.
+#
+# Ouvert depuis #5 : il a désormais une authentification propre — session
+# serveur émise par l'API, cookie HttpOnly, garde globale sur tous les endpoints
+# (ADR 0015). Avant elle, son nginx relayait /api/ vers une API qui ne demandait
+# rien à personne, et l'ouvrir aurait publié la lecture **et** l'écriture de
+# toutes les données personnelles.
+#
+# DASHBOARD_HOST n'est plus facultatif : ce bloc est chargé par le glob
+# conf.d/*.caddy, et un nom d'hôte vide donnerait une adresse de site que Caddy
+# refuse — donc un proxy interne qui ne démarre pas, donc le portfolio hors
+# ligne avec lui.
+http://{$DASHBOARD_HOST} {
+	encode gzip zstd
+	reverse_proxy dashboard:80
+	log {
+		output stderr
+	}
+}
