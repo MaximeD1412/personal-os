@@ -55,5 +55,8 @@ restic.env
 restic-password
 infra/backup/backup.conf
 
+# secret de lecture du registre — seul le .example entre dans le dépôt
+ghcr.env
+
 # client Prisma généré
 packages/database/src/generated
