@@ -166,13 +166,6 @@ if [ "$REVISION" = "$FAILED" ] && [ "$FORCE" != 1 ]; then
 fi
 
 assert_tools
-heartbeat start
-trap 'heartbeat fail' EXIT
-
-log "déploiement de $REVISION (en place : ${DEPLOYED:-aucune})"
-history_append debut "$REVISION" "depuis ${DEPLOYED:-aucune}"
-
-# --- 1. Répétition de la migration sur une restauration -------------------
 
 # Le conteneur jetable de la restauration est laissé en vie par --keep, et son
 # nom porte le PID de restore.sh : on le retrouve par son préfixe plutôt qu'en
@@ -188,12 +181,47 @@ remove_rehearsal_containers() {
 cleanup_rehearsal() {
   remove_rehearsal_containers
   rm -rf -- "$REHEARSAL_TARGET"
+  REHEARSAL_ACTIVE=0
 }
+
+REHEARSAL_ACTIVE=0
+
+# Passé à 1 par chaque chemin d'échec **prévu**, qui écrit lui-même sa ligne
+# d'historique — la sienne est plus précise que ce que le filet saurait dire.
+FAILURE_RECORDED=0
+
+# Filet de dernier recours.
+#
+# `set -e` fait sortir le script sur n'importe quelle commande en échec, sans
+# repasser par les chemins qui enregistrent. Un déploiement pouvait donc
+# s'interrompre en ne laissant qu'une ligne « debut » dans l'historique et
+# aucune révision fautive dans l'état — et le timer, deux minutes plus tard,
+# rejouait exactement la même chose.
+on_exit() {
+  local code=$?
+  [ "$REHEARSAL_ACTIVE" = 1 ] && cleanup_rehearsal
+  if [ "$code" -ne 0 ]; then
+    if [ "$FAILURE_RECORDED" != 1 ]; then
+      history_append echec-inattendu "$REVISION" "sortie $code"
+      write_state "${DEPLOYED:-}" "$PREVIOUS" "$REVISION"
+    fi
+    heartbeat fail
+  fi
+  return $code
+}
+
+heartbeat start
+trap on_exit EXIT
+
+log "déploiement de $REVISION (en place : ${DEPLOYED:-aucune})"
+history_append debut "$REVISION" "depuis ${DEPLOYED:-aucune}"
+
+# --- 1. Répétition de la migration sur une restauration -------------------
 
 log "répétition de la migration sur une restauration de la dernière sauvegarde"
 remove_rehearsal_containers
 rm -rf -- "$REHEARSAL_TARGET"
-trap 'cleanup_rehearsal; heartbeat fail' EXIT
+REHEARSAL_ACTIVE=1
 
 # `dsn:` seule sur la sortie standard, tout le reste sur l'erreur standard :
 # c'est le contrat de restore.sh, verrouillé par ses tests.
@@ -202,6 +230,7 @@ REHEARSAL_OUTPUT=$(RESTORE_PROBE_PORT="$REHEARSAL_PROBE_PORT" \
   {
     history_append repetition-echouee "$REVISION" "restauration impossible"
     write_state "${DEPLOYED:-}" "$PREVIOUS" "$REVISION"
+    FAILURE_RECORDED=1
     die "restauration impossible — déploiement arrêté, la production n'a pas bougé"
   }
 
@@ -225,6 +254,7 @@ if ! docker run --rm --network host \
   # La révision est mémorisée comme fautive, sinon le timer la représenterait
   # au banc d'essai toutes les deux minutes.
   write_state "${DEPLOYED:-}" "$PREVIOUS" "$REVISION"
+  FAILURE_RECORDED=1
   # On s'arrête ici, et c'est tout l'intérêt : la production n'a pas été
   # touchée, les images ne sont même pas récupérées.
   die "la migration échoue sur la restauration — déploiement arrêté, production intacte"
@@ -232,7 +262,6 @@ fi
 
 log "répétition réussie"
 cleanup_rehearsal
-trap 'heartbeat fail' EXIT
 
 # --- 2. Récupération, migration réelle, redémarrage ------------------------
 
@@ -244,13 +273,20 @@ sync_stack "$REVISION"
 log "récupération des images en $REVISION"
 compose_at "$REVISION" pull --quiet
 
-log "migration réelle"
 # La base doit être debout pour recevoir la migration, et elle ne redémarre pas
 # entre deux versions : seuls les services applicatifs changent d'image.
+#
+# Cette étape a son propre message : l'annoncer sous « migration réelle »
+# laissait croire qu'une migration avait eu lieu alors que c'est le démarrage
+# de la base qui échouait.
+log "démarrage de la base"
 compose_at "$REVISION" up --detach --no-recreate db
+
+log "migration réelle"
 if ! compose_at "$REVISION" run --rm --no-deps "$MIGRATE_SERVICE" "${MIGRATE_ARGV[@]}"; then
   history_append migration-echouee "$REVISION" "migration réelle en échec"
   write_state "${DEPLOYED:-}" "$PREVIOUS" "$REVISION"
+  FAILURE_RECORDED=1
   die "migration réelle en échec — les images n'ont pas été basculées"
 fi
 
@@ -275,6 +311,7 @@ if [ -z "$DEPLOYED" ]; then
   # Premier déploiement : il n'y a pas de version d'avant, donc pas de retour
   # possible. Le dire franchement vaut mieux que laisser croire à un rollback.
   write_state "" "" "$REVISION"
+  FAILURE_RECORDED=1
   die "santé en échec et aucune version précédente — la pile reste sur $REVISION, intervention nécessaire"
 fi
 
@@ -287,9 +324,11 @@ if health_ok; then
   # sur le canal et ne la rejouera pas.
   write_state "$DEPLOYED" "$PREVIOUS" "$REVISION"
   history_append retour-arriere "$DEPLOYED" "après échec de $REVISION"
+  FAILURE_RECORDED=1
   die "santé en échec sur $REVISION — retour arrière effectué sur $DEPLOYED"
 fi
 
 write_state "$DEPLOYED" "$PREVIOUS" "$REVISION"
 history_append retour-arriere-echoue "$DEPLOYED" "après échec de $REVISION"
+FAILURE_RECORDED=1
 die "santé en échec sur $REVISION et retour arrière infructueux — intervention nécessaire"

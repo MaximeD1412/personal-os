@@ -115,7 +115,31 @@ fi
 install -m 644 "$SOURCE_DIR"/systemd/*.service "$SOURCE_DIR"/systemd/*.timer "$UNIT_DIR/"
 
 systemctl daemon-reload
-systemctl enable --now personal-os-deploy.timer
 
-echo "installé. Prochaine surveillance du canal :" >&2
-systemctl list-timers personal-os-deploy.timer --no-pager >&2
+# Ce script **n'arme jamais le timer de lui-même.**
+#
+# Une première installation pose des modèles de configuration vides. Armer à
+# cet instant déclenche un déploiement dans les deux minutes, avant que
+# quiconque ait pu renseigner quoi que ce soit : il échoue, et il alerte — au
+# moment précis où l'opérateur a les mains dans les fichiers et où une alerte
+# ne lui apprend rien.
+#
+# Une réinstallation, elle, ne doit pas désarmer un timer en service. On se
+# contente donc de le redémarrer pour qu'il reprenne les unités mises à jour.
+if systemctl is-enabled --quiet personal-os-deploy.timer 2>/dev/null; then
+  systemctl restart personal-os-deploy.timer
+  echo "installé. Timer déjà armé, rechargé :" >&2
+  systemctl list-timers personal-os-deploy.timer --no-pager >&2
+else
+  cat >&2 <<'FIN'
+installé. Le timer n'est PAS armé — c'est volontaire.
+
+Renseigner la configuration, vérifier le plan, puis armer :
+
+  sudo -e /opt/personal-os/.env
+  sudo -e /etc/personal-os/deploy.conf
+  sudo /opt/personal-os/deploy/bin/deploy.sh --dry-run
+  sudo /opt/personal-os/deploy/bin/deploy.sh
+  sudo systemctl enable --now personal-os-deploy.timer
+FIN
+fi
