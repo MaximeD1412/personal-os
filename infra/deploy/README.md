@@ -123,6 +123,12 @@ Authentik l'accompagne, sur son propre hôte.
 > site que Caddy refuse : le proxy interne ne démarre alors pas du tout, et le
 > portfolio tombe avec lui.
 >
+> Le compose les exige donc explicitement (`:?`), au même titre que
+> `PORTFOLIO_HOST`. Sans cette exigence, l'oubli passerait l'interpolation, le
+> déploiement serait déclaré **réussi** — la sonde de santé n'interroge que
+> l'API, sur son port loopback — et le site serait hors ligne sans qu'aucun
+> retour arrière ne se déclenche.
+>
 > Le fichier `caddy/conf.d/dashboard.caddy.desactive` posé par la tranche
 > précédente reste sur la machine — l'agent copie, il ne synchronise pas. Il est
 > inerte (le glob ne le prend pas), mais autant le supprimer une fois :
