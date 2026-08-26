@@ -1,0 +1,21 @@
+# Authentik, le fournisseur d'identité (ADR 0015).
+#
+# Il est public par nécessité : c'est la page où l'on saisit son mot de passe,
+# et le navigateur y va tout seul depuis /api/auth/login. Ce n'est pas une
+# exposition de données — Authentik n'en détient aucune de Personal OS.
+#
+# L'émetteur OIDC est bâti sur ce nom d'hôte, et le `iss` des jetons le porte.
+# En changer après coup oblige à refaire le client OIDC dans Authentik et à
+# reconfigurer l'API : c'est un nom qu'on arrête une fois.
+#
+# TLS est terminé par le proxy de tête, qui transmet ici en clair. Le
+# `trusted_proxies` du Caddyfile fait conserver les en-têtes X-Forwarded-* qu'il
+# a posés — sans quoi Authentik se croirait en HTTP et fabriquerait des URL de
+# redirection en clair, que le navigateur refuserait.
+http://{$AUTHENTIK_HOST} {
+	encode gzip zstd
+	reverse_proxy authentik:9000
+	log {
+		output stderr
+	}
+}

@@ -27,10 +27,34 @@ docker compose up --build
 | Tableau de bord | http://localhost:4200 |
 | Portfolio       | http://localhost:4201 |
 | API             | http://localhost:3000/api |
+| Authentik       | http://authentik:9000 |
 | Base            | `localhost:5432`      |
 
 Le tableau de bord affiche une valeur lue en base via l'API : c'est le fil
-traceur qui prouve que les quatre couches se parlent.
+traceur qui prouve que les quatre couches se parlent. Il est protégé — s'y
+rendre renvoie vers Authentik.
+
+### Se connecter en local
+
+Le tableau de bord n'a **aucun écran** à montrer sans session : l'API est fermée
+par défaut ([ADR 0026](docs/adr/0026-session-en-base-et-api-fermee-par-defaut.md)).
+La pile locale embarque donc un Authentik, et trois gestes suffisent à l'ouvrir.
+
+1. **Un nom d'hôte commun.** L'émetteur OIDC est la chaîne que porte le `iss`
+   des jetons : elle doit désigner la même chose vue du navigateur et vue du
+   conteneur de l'API. Ajouter à `/etc/hosts` :
+
+   ```
+   127.0.0.1 authentik
+   ```
+
+2. **Le fournisseur OIDC**, une fois. Ouvrir http://authentik:9000/if/flow/initial-setup/,
+   créer l'administrateur, puis suivre les mêmes étapes qu'en production —
+   elles sont détaillées dans [`infra/deploy/`](infra/deploy#5-authentik--le-client-oidc-et-les-deux-comptes).
+   En local, la **Redirect URI** est `http://localhost:4200/api/auth/callback`.
+
+3. **Reporter dans `.env`** `OIDC_CLIENT_SECRET` et `AUTH_ALLOWED_EMAILS`, puis
+   `docker compose up -d api`.
 
 ### En développement
 
@@ -42,6 +66,12 @@ pnpm exec nx serve api        # http://localhost:3000/api
 pnpm exec nx serve dashboard  # http://localhost:4200
 pnpm exec nx serve portfolio  # http://localhost:4201
 ```
+
+`nx serve dashboard` relaie `/api` vers `localhost:3000`
+([`proxy.conf.json`](packages/dashboard/proxy.conf.json)). Ce n'est pas un
+confort : le cookie de session est `SameSite=Lax`, et servi depuis `:4200` pour
+appeler `:3000` il ne partirait tout simplement pas. C'est l'équivalent, pour
+`nx serve`, de ce que fait le nginx de l'image en production.
 
 ## Structure
 
@@ -69,6 +99,9 @@ Le dépôt était vide avant cette tranche : ce qui suit fait jurisprudence.
 - **Filtrage par Espace centralisé.** Aucun service n'ajoute « à la main » un
   filtre par **Espace** : la garantie de cloisonnement sera portée par une
   extension Prisma, dans `packages/database` (ADR 0016).
+- **Fermé par défaut.** La garde de session est globale : un endpoint est
+  protégé parce qu'il existe. Il s'ouvre en portant `@Public()`, en toutes
+  lettres ([ADR 0026](docs/adr/0026-session-en-base-et-api-fermee-par-defaut.md)).
 - **Contrats partagés.** Un type qui traverse le réseau vit dans
   `@personal-os/contracts` et nulle part ailleurs. Les contrats transitent en
   JSON : ils portent des dates ISO-8601, jamais de `Date`.

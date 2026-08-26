@@ -9,16 +9,26 @@
 # --- PostgreSQL ---------------------------------------------------------
 POSTGRES_CONTAINER=personal-os-db
 POSTGRES_USER=personalos
+
+# La base de l'**application**. C'est celle que restore.sh remonte quand on ne
+# lui dit rien, donc celle du banc d'essai de migration (ADR 0021).
 POSTGRES_DB=personalos
+
+# Ce que la sauvegarde emporte. Authentik a la sienne depuis #5, sur le même
+# serveur : n'en sauvegarder qu'une laisserait une restauration où
+# l'application revient intacte mais où plus personne ne peut se connecter.
+#
+# POSTGRES_USER doit pouvoir les dumper toutes — c'est le superutilisateur du
+# serveur, il le peut. Absente, cette variable retombe sur POSTGRES_DB seule.
+POSTGRES_DATABASES="personalos authentik"
 
 # --- Cibles supplémentaires ---------------------------------------------
 #
 # Chemins ajoutés à l'instantané, en plus du dump PostgreSQL. Séparés par des
 # espaces ou des retours à la ligne.
 #
-# C'est ici que le périmètre s'élargit sans toucher au script :
-#   - #5 (Authentik) ajoutera son répertoire de configuration ;
-#   - le stockage objet ajoutera son point de montage.
+# C'est ici que le périmètre s'élargit sans toucher au script : le stockage
+# objet y ajoutera son point de montage.
 #
 # Ne jamais y mettre /etc/personal-os/restic.env ni le fichier de clé : une
 # sauvegarde qui contient sa propre clé de déchiffrement ne protège plus rien.
@@ -30,12 +40,16 @@ POSTGRES_DB=personalos
 # /opt/edge porte la configuration du proxy de tête et son jeton DNS. Les
 # certificats, eux, vivent dans un volume Docker et ne sont pas ici : ils se
 # réémettent, contrairement à un jeton d'API qu'il faudrait recréer à la main.
+# /opt/personal-os/authentik porte les médias et les certificats d'Authentik.
+# Sa configuration — fournisseur OIDC, comptes, flux — vit en base, et part
+# donc par POSTGRES_DATABASES plutôt que par ici.
 BACKUP_PATHS="
 /etc/personal-os/backup.conf
 /etc/personal-os/deploy.conf
 /opt/personal-os/docker-compose.yml
 /opt/personal-os/.env
 /opt/personal-os/caddy
+/opt/personal-os/authentik
 /opt/edge
 "
 

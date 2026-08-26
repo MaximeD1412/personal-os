@@ -17,10 +17,14 @@ import { Fixture, makeFixture, run } from './run-script';
 const SOURCE_CONTAINER = 'personal-os-backup-it';
 const SOURCE_PASSWORD = 'mot-de-passe-jetable';
 const DB = 'personalos';
+/** Authentik a sa propre base sur le même serveur (#5, ADR 0015). */
+const AUTHENTIK_DB = 'authentik';
 const PROBE_PORT = '55433';
+const AUTHENTIK_PROBE_PORT = '55434';
 
 /** Lignes semées : la base restaurée doit en retrouver exactement autant. */
 const SEEDED_ROWS = 3;
+const SEEDED_AUTHENTIK_ROWS = 2;
 
 function sh(command: string, args: string[], options: { input?: string; env?: NodeJS.ProcessEnv } = {}): string {
   return execFileSync(command, args, {
@@ -195,6 +199,66 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     ]).trim();
 
     expect(Number(count)).toBe(SEEDED_ROWS);
+  });
+
+  it("emporte la base d'Authentik dans le même instantané, et la rend", () => {
+    // Le critère « Authentik est inclus dans les sauvegardes » (#5) ne se
+    // prouve pas en lisant la configuration : il se prouve en remontant sa base
+    // et en l'interrogeant. Une sauvegarde où l'application revient intacte
+    // mais où plus personne ne peut se connecter n'est pas une sauvegarde.
+    sh('docker', ['exec', SOURCE_CONTAINER, 'createdb', '-U', 'postgres', AUTHENTIK_DB]);
+    sh(
+      'docker',
+      ['exec', '--interactive', SOURCE_CONTAINER, 'psql', '-U', 'postgres', '-d', AUTHENTIK_DB],
+      {
+        input: `create table authentik_core_user (id serial primary key, username text not null);
+                insert into authentik_core_user (username) values ('moi'), ('elle');`,
+      }
+    );
+
+    writeFileSync(
+      fixture.confPath,
+      [
+        `POSTGRES_CONTAINER=${SOURCE_CONTAINER}`,
+        'POSTGRES_USER=postgres',
+        `POSTGRES_DB=${DB}`,
+        `POSTGRES_DATABASES="${DB} ${AUTHENTIK_DB}"`,
+        'BACKUP_PATHS=',
+        'KEEP_DAILY=7',
+        'KEEP_WEEKLY=4',
+        'KEEP_MONTHLY=6',
+      ].join('\n')
+    );
+
+    expect(run('backup.sh', [], fixture).status).toBe(0);
+
+    const restore = run(
+      'restore.sh',
+      [
+        '--target', mkdtempSync(join(tmpdir(), 'restic-restore-authentik-')),
+        '--into-postgres',
+        '--database', AUTHENTIK_DB,
+        '--keep',
+      ],
+      fixture,
+      // Un port distinct de celui du va-et-vient précédent : son conteneur est
+      // resté en vie (--keep) et tient toujours le sien.
+      { RESTORE_PROBE_PORT: AUTHENTIK_PROBE_PORT }
+    );
+    if (restore.status !== 0) {
+      throw new Error(`restore.sh a rendu ${restore.status} :\n${restore.output}`);
+    }
+
+    const match = restore.stdout.match(/^dsn: (postgresql:\/\/\S+)$/m);
+    expect(match).not.toBeNull();
+
+    const count = sh('docker', [
+      'run', '--rm', '--network', 'host', 'postgres:18-alpine',
+      'psql', (match as RegExpMatchArray)[1], '--tuples-only', '--no-align',
+      '--command', 'select count(*) from authentik_core_user',
+    ]).trim();
+
+    expect(Number(count)).toBe(SEEDED_AUTHENTIK_ROWS);
   });
 
   it('applique la rétention sans laisser le dépôt grossir indéfiniment', () => {

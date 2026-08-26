@@ -36,6 +36,63 @@ describe('restore.sh --dry-run', () => {
     expect(result.stdout).toMatch(/^plan: dsn: postgresql:\/\//m);
   });
 
+  it("remonte la base de l'application par défaut", () => {
+    // C'est le contrat du banc d'essai de migration (#4, ADR 0021) : il appelle
+    // restore.sh sans rien préciser et attend la base de l'application.
+    const result = run(
+      'restore.sh',
+      ['--dry-run', '--target', '/var/tmp/restauration', '--into-postgres'],
+      makeFixture()
+    );
+
+    expect(result.stdout).toContain('postgres/personalos.dump');
+  });
+
+  it('remonte une autre base du même instantané quand on la nomme', () => {
+    // Authentik a la sienne (#5). Sans ce chemin, son dump serait sauvegardé
+    // mais ne se restaurerait qu'à la main, hors de tout garde-fou.
+    const result = run(
+      'restore.sh',
+      [
+        '--dry-run',
+        '--target',
+        '/var/tmp/restauration',
+        '--into-postgres',
+        '--database',
+        'authentik',
+      ],
+      makeFixture({
+        conf: [
+          'POSTGRES_DB=personalos',
+          'POSTGRES_DATABASES="personalos authentik"',
+        ].join('\n'),
+      })
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('postgres/authentik.dump');
+  });
+
+  it("refuse de remonter une base qui n'est pas sauvegardée", () => {
+    // Sinon l'erreur n'apparaîtrait qu'après la restauration Restic, sous la
+    // forme d'un « aucun dump » incompréhensible.
+    const result = run(
+      'restore.sh',
+      [
+        '--dry-run',
+        '--target',
+        '/var/tmp/restauration',
+        '--into-postgres',
+        '--database',
+        'inexistante',
+      ],
+      makeFixture()
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('inexistante');
+  });
+
   it('ne relit les paquets que si on le demande', () => {
     // `--read-data` retélécharge tout le dépôt : utile pour la vérification
     // trimestrielle, ruineux à chaque déploiement.

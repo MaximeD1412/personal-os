@@ -27,6 +27,52 @@ describe('backup.sh --dry-run', () => {
     expect(result.stdout).toContain('-Z0');
   });
 
+  it('dumpe chacune des bases du serveur, pas seulement celle de l\'application', () => {
+    // Authentik a la sienne (#5). N'en sauvegarder qu'une laisserait une
+    // restauration où l'application revient intacte mais où plus personne ne
+    // peut se connecter — c'est-à-dire une restauration inutilisable.
+    const fixture = makeFixture({
+      conf: [
+        'POSTGRES_DB=personalos',
+        'POSTGRES_DATABASES="personalos authentik"',
+        'BACKUP_PATHS=""',
+      ].join('\n'),
+    });
+
+    const result = run('backup.sh', ['--dry-run'], fixture);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('-d personalos');
+    expect(result.stdout).toContain('-d authentik');
+    expect(result.stdout).toContain('postgres/personalos.dump');
+    expect(result.stdout).toContain('postgres/authentik.dump');
+  });
+
+  it("dumpe la base de l'application quand aucune liste n'est donnée", () => {
+    // Les configurations déjà posées sur la machine ne nomment que
+    // POSTGRES_DB : leur ajouter une variable ne doit pas être la condition
+    // pour que la sauvegarde continue de tourner.
+    const result = run('backup.sh', ['--dry-run'], makeFixture());
+
+    expect(result.stdout).toContain('postgres/personalos.dump');
+  });
+
+  it('refuse un nom de base qui ne ressemble pas à un nom de base', () => {
+    // La liste est découpée par le shell et interpolée dans une commande
+    // docker : un nom fantaisiste doit s'arrêter à la lecture, pas plus loin.
+    const fixture = makeFixture({
+      conf: [
+        'POSTGRES_DB=personalos',
+        'POSTGRES_DATABASES="personalos ../evasion"',
+      ].join('\n'),
+    });
+
+    const result = run('backup.sh', ['--dry-run'], fixture);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('nom de base');
+  });
+
   it("inclut les cibles du fichier de configuration, sans toucher au script", () => {
     // C'est le mécanisme d'élargissement du périmètre : #5 ajoutera Authentik
     // ici, et le stockage objet suivra le même chemin.

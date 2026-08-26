@@ -50,6 +50,14 @@ _Éviter_ : employer « calendrier » pour la vue agrégée ou pour l'écran.
 Les personnes qui vivent ensemble et pour qui on planifie les repas et les courses. Il n'existe qu'un seul **Foyer**.
 _Éviter_ : « famille », « groupe », « équipe ».
 
+**Compte** (`User`) :
+L'un des deux membres du **Foyer**, tel que l'application le connaît. Il est apparié à une identité du **Fournisseur d'identité** et porte l'**Espace personnel** de cette personne. Les comptes ne s'ouvrent pas : ils sont admis, un par un, et il n'y en a que deux.
+_Éviter_ : « utilisateur » quand on désigne la rangée, « profil », « membre ».
+
+**Fournisseur d'identité** (Authentik) :
+Le service extérieur qui répond à « qui es-tu », et à cela seulement. Ce qu'un **Compte** peut voir n'est jamais de son ressort : c'est l'**Espace** qui le dit.
+_Éviter_ : « SSO », « annuaire », et l'idée qu'il détiendrait des droits.
+
 **Espace** (`Scope`) :
 Le compartiment auquel appartient une donnée, et la seule chose qui détermine qui peut la voir. Il en existe trois : un **Espace personnel** par utilisateur, et l'**Espace foyer**. Chaque enregistrement porte son espace ; chaque module déclare les espaces qu'il accepte (les repas, les courses et le stock sont toujours dans l'**Espace foyer** ; les finances et les documents toujours dans un **Espace personnel** ; le calendrier accepte les deux).
 _Éviter_ : « partage », « visibilité » (réservé au public — voir **Visibilité**), « permission », « propriétaire ».
