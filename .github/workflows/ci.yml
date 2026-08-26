@@ -24,3 +24,34 @@ jobs:
 
       - name: Construire les images
         run: docker compose build
+
+  edge:
+    name: Construit le proxy de tête et valide son routage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Construire l'image
+        run: docker build --file infra/edge/Dockerfile --tag personal-os-edge:ci infra/edge
+
+      # `caddy validate` contre l'image **construite**, pas contre le Caddy
+      # standard : la directive `dns ovh` n'existe que dans celle-ci. Valider
+      # ailleurs ne prouverait rien, et la faute ne se verrait que sur la
+      # machine — c'est-à-dire au moment où le proxy de tête refuse de démarrer
+      # et où plus rien n'est joignable.
+      #
+      # Les identifiants sont factices : la validation lit la configuration,
+      # elle ne contacte personne.
+      - name: Valider le Caddyfile
+        run: |
+          docker run --rm \
+            --env ACME_EMAIL=ci@exemple.test \
+            --env PERSONAL_OS_DOMAIN=exemple.test \
+            --env PERSONAL_OS_UPSTREAM=personal-os-caddy:80 \
+            --env OVH_ENDPOINT=ovh-eu \
+            --env OVH_APPLICATION_KEY=cle \
+            --env OVH_APPLICATION_SECRET=secret \
+            --env OVH_CONSUMER_KEY=consommateur \
+            --volume "$PWD/infra/edge/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            personal-os-edge:ci \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
