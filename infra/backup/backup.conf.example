@@ -27,12 +27,16 @@ POSTGRES_DB=personalos
 # boîte — mais l'omettre laisserait une base restaurée que plus rien ne sait
 # joindre. Le fichier de clé Restic, lui, reste exclu : une sauvegarde qui
 # contient sa propre clé de déchiffrement ne protège plus rien.
+# /opt/edge porte la configuration du proxy de tête et son jeton DNS. Les
+# certificats, eux, vivent dans un volume Docker et ne sont pas ici : ils se
+# réémettent, contrairement à un jeton d'API qu'il faudrait recréer à la main.
 BACKUP_PATHS="
 /etc/personal-os/backup.conf
 /etc/personal-os/deploy.conf
 /opt/personal-os/docker-compose.yml
 /opt/personal-os/.env
 /opt/personal-os/caddy
+/opt/edge
 "
 
 # --- Rétention ----------------------------------------------------------

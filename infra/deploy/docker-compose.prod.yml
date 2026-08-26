@@ -70,12 +70,15 @@ services:
       - '127.0.0.1:${PORTFOLIO_PORT:-4201}:80'
 
   # Proxy interne de Personal OS. Il ne termine pas TLS : le proxy de tête de la
-  # machine s'en charge et lui transmet le trafic sur loopback. Son intérêt est
-  # ailleurs — la carte de routage de Personal OS vit dans **ce dépôt**, versionnée
-  # et déployée par l'agent, plutôt que dans la configuration d'un autre projet.
+  # machine s'en charge et lui transmet le trafic par le réseau `edge`
+  # (ADR 0025). Son intérêt est ailleurs — la carte de routage de Personal OS
+  # vit dans **ce dépôt**, versionnée et déployée par l'agent.
   #
-  # À la migration vers le homelab, c'est ce conteneur qui reprend TLS : on
-  # change les adresses de site, pas l'architecture.
+  # C'est ce qui permet d'ajouter un sous-domaine sans toucher à l'edge : il
+  # reçoit tout le domaine et laisse ce conteneur décider.
+  #
+  # À la migration vers le homelab, il reprend TLS : on change les adresses de
+  # site, pas l'architecture.
   caddy:
     image: caddy:2-alpine
     container_name: personal-os-caddy
@@ -86,11 +89,30 @@ services:
     environment:
       PORTFOLIO_HOST: ${PORTFOLIO_HOST:?PORTFOLIO_HOST manquant}
       DASHBOARD_HOST: ${DASHBOARD_HOST:-}
+    # L'edge joint ce conteneur par son nom, sur le réseau partagé. Le port
+    # publié ne sert donc plus qu'à déboguer depuis l'hôte — un conteneur ne
+    # peut pas joindre un port publié sur 127.0.0.1, c'est le loopback de
+    # l'hôte, pas le sien.
     ports:
       - '127.0.0.1:${CADDY_PORT:-8080}:80'
     volumes:
       - ${CADDY_DIR:-/opt/personal-os/caddy}/Caddyfile:/etc/caddy/Caddyfile:ro
       - ${CADDY_DIR:-/opt/personal-os/caddy}/conf.d:/etc/caddy/conf.d:ro
+    networks:
+      # `default` doit être répété : dès qu'un service nomme ses réseaux, il ne
+      # rejoint plus celui par défaut tout seul — et il perdrait l'accès au
+      # tableau de bord et au portfolio.
+      - default
+      - edge
+
+networks:
+  # Créé par le projet de l'edge, jamais par celui-ci : l'edge démarre en
+  # premier. Le déclarer externe fait échouer le déploiement avec un message
+  # clair si l'ordre n'est pas respecté, plutôt que de créer en silence un
+  # second réseau du même nom où personne ne se parle.
+  edge:
+    external: true
+    name: ${EDGE_NETWORK:-edge}
 
 volumes:
   db-data:

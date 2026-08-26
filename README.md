@@ -7,7 +7,9 @@ Le vocabulaire du domaine fait autorité : voir [`CONTEXT.md`](CONTEXT.md) et le
 décisions d'architecture dans [`docs/adr/`](docs/adr).
 
 Les sauvegardes et le déploiement font partie du produit : voir
-[`infra/backup/`](infra/backup) et [`infra/deploy/`](infra/deploy).
+[`infra/backup/`](infra/backup) et [`infra/deploy/`](infra/deploy). Le proxy de
+tête de la machine, commun à tous les projets qui y tournent, vit dans
+[`infra/edge/`](infra/edge).
 L'hébergement cible est un homelab personnel, et les contraintes à connaître
 avant d'y basculer sont rassemblées dans
 [`docs/migration-homelab.md`](docs/migration-homelab.md).
