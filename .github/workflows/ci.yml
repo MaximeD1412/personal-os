@@ -12,9 +12,20 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  # nx-set-shas remonte à la dernière exécution réussie pour savoir depuis où
+  # comparer : sur un push, c'est la seule base qui ne laisse pas filer ce
+  # qu'une exécution en échec n'a jamais vérifié.
+  actions: read
+  contents: read
+
 jobs:
   verify:
     uses: ./.github/workflows/verify.yml
+    # Une proposition ne rejoue que ce que son diff atteint. Ce qu'elle saute
+    # sera de toute façon rejoué par la livraison, avant toute publication.
+    with:
+      portee: affectee
 
   images:
     name: Construit les images Docker
