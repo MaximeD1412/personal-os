@@ -49,21 +49,33 @@ cleanup() {
 }
 trap cleanup EXIT
 
-DUMP_RELATIVE="postgres/${POSTGRES_DB}.dump"
+load_database_list
 
 # `-Z0` : pas de compression côté PostgreSQL. Un dump compressé change
 # intégralement à chaque octet modifié, ce qui annule la déduplication de Restic
 # et fait grossir le dépôt d'un dump complet par jour. Restic compresse
 # lui-même, après avoir dédupliqué.
-PG_DUMP_CMD=(docker exec -i "$POSTGRES_CONTAINER"
-  pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom -Z0)
+pg_dump_cmd() {
+  printf '%s\n' docker exec -i "$POSTGRES_CONTAINER" \
+    pg_dump -U "$POSTGRES_USER" -d "$1" --format=custom -Z0
+}
+
+# Chaque base a son dump, sous son propre nom. restore.sh retrouve celui de
+# l'application par ce chemin : le nommer d'après la base est ce qui permet
+# d'en ajouter d'autres sans rien changer au banc d'essai de migration.
+dump_relative() {
+  printf 'postgres/%s.dump\n' "$1"
+}
 
 RESTIC_BACKUP_ARGS=(backup --tag personal-os --tag "hôte=$(hostname)")
 
 if [ "$DRY_RUN" = 1 ]; then
   plan "dépôt ${RESTIC_REPOSITORY}"
   plan "clé lue dans ${RESTIC_PASSWORD_FILE}"
-  plan "dump ${PG_DUMP_CMD[*]} -> <transit>/${DUMP_RELATIVE}"
+  for base in "${POSTGRES_DATABASE_LIST[@]}"; do
+    mapfile -t commande < <(pg_dump_cmd "$base")
+    plan "dump ${commande[*]} -> <transit>/$(dump_relative "$base")"
+  done
   for path in ${BACKUP_PATHS:-}; do
     plan "inclut ${path}"
   done
@@ -81,18 +93,23 @@ trap 'heartbeat fail; cleanup' EXIT
 
 STAGING=$(mktemp -d)
 chmod 700 "$STAGING"
-mkdir -p "$STAGING/$(dirname "$DUMP_RELATIVE")"
 
-log "dump de $POSTGRES_DB depuis $POSTGRES_CONTAINER"
-"${PG_DUMP_CMD[@]}" >"$STAGING/$DUMP_RELATIVE"
+for base in "${POSTGRES_DATABASE_LIST[@]}"; do
+  relative=$(dump_relative "$base")
+  mkdir -p "$STAGING/$(dirname "$relative")"
 
-# Un pg_dump qui échoue à mi-parcours laisse un fichier tronqué et rend 0 dans
-# certaines configurations de tube. Le format custom se vérifie : si
-# `pg_restore --list` ne sait pas le lire, il n'est pas restaurable, et le
-# sauvegarder reviendrait à archiver une illusion.
-log "vérification de la lisibilité du dump"
-docker exec -i "$POSTGRES_CONTAINER" pg_restore --list >/dev/null <"$STAGING/$DUMP_RELATIVE" ||
-  die "dump illisible par pg_restore — sauvegarde interrompue"
+  log "dump de $base depuis $POSTGRES_CONTAINER"
+  mapfile -t commande < <(pg_dump_cmd "$base")
+  "${commande[@]}" >"$STAGING/$relative"
+
+  # Un pg_dump qui échoue à mi-parcours laisse un fichier tronqué et rend 0
+  # dans certaines configurations de tube. Le format custom se vérifie : si
+  # `pg_restore --list` ne sait pas le lire, il n'est pas restaurable, et le
+  # sauvegarder reviendrait à archiver une illusion.
+  log "vérification de la lisibilité du dump de $base"
+  docker exec -i "$POSTGRES_CONTAINER" pg_restore --list >/dev/null <"$STAGING/$relative" ||
+    die "dump de $base illisible par pg_restore — sauvegarde interrompue"
+done
 
 log "envoi vers $RESTIC_REPOSITORY"
 # shellcheck disable=SC2086 # BACKUP_PATHS est une liste de chemins, à découper

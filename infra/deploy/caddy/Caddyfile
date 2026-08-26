@@ -23,12 +23,12 @@ http://{$PORTFOLIO_HOST} {
 	}
 }
 
-# Le tableau de bord n'est **pas** ici, et c'est délibéré : il n'aura
-# d'authentification qu'avec Authentik (#5, ADR 0015). L'exposer avant
-# reviendrait à publier des données personnelles sur Internet en pariant que
-# personne ne trouve l'hôte. D'ici là il reste joignable sur 127.0.0.1:4200,
-# par tunnel SSH.
+# Le tableau de bord et Authentik vivent dans conf.d/, ouverts depuis #5. Le
+# tableau de bord a désormais une authentification propre — session serveur
+# émise par l'API, garde globale sur tous les endpoints (ADR 0015) — et
+# Authentik est la page où l'on saisit son mot de passe.
 #
-# Le bloc tout prêt attend dans conf.d/dashboard.caddy.desactive : #5 le renomme
-# en .caddy, et l'import ci-dessous le ramasse.
+# Chacun exige son nom d'hôte : un bloc dont la variable est vide donne une
+# adresse de site que Caddy refuse, et le proxy interne ne démarre pas du tout.
+# C'est tout le portfolio qui tombe avec lui.
 import /etc/caddy/conf.d/*.caddy

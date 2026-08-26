@@ -16,13 +16,24 @@ et restauration scriptée réutilisable comme banc d'essai de migration
 
 ## Périmètre actuel
 
-Couvert aujourd'hui : **PostgreSQL** et les fichiers de configuration listés dans
-`BACKUP_PATHS`.
+Couvert aujourd'hui : **toutes les bases** nommées dans `POSTGRES_DATABASES` —
+celle de l'application et celle d'**Authentik**
+([ADR 0027](../../docs/adr/0027-un-seul-postgresql-pour-l-application-et-authentik.md)) —
+et les fichiers de configuration listés dans `BACKUP_PATHS`, où figurent
+désormais les médias et certificats d'Authentik.
 
-Pas encore couvert, faute d'exister : la base et la configuration **Authentik**
-(issue #5) et le **stockage objet**. Les deux s'ajoutent en une ligne de
-`BACKUP_PATHS` — c'est la raison d'être de ce fichier de configuration, et
-aucune modification de script ne sera nécessaire.
+Toute la configuration d'Authentik — fournisseur OIDC, comptes, flux — vit en
+**base**, pas dans des fichiers : c'est `POSTGRES_DATABASES` qui l'emporte, pas
+`BACKUP_PATHS`. N'en sauvegarder qu'une laisserait une restauration où
+l'application revient intacte mais où plus personne ne peut se connecter.
+
+Pas encore couvert, faute d'exister : le **stockage objet** (issue #23). Il
+s'ajoutera en une ligne de `BACKUP_PATHS`, sans toucher au script.
+
+Les deux bases partent dans le **même** instantané, sous
+`postgres/<base>.dump`. Deux instantanés séparés se restaureraient à des dates
+différentes, et plus rien ne garantirait que les comptes correspondent aux
+données.
 
 ## Ce qui ne peut pas être automatisé
 
@@ -94,6 +105,19 @@ sudo /opt/personal-os/backup/bin/restore.sh \
 trafic entrant, mais c'est la seule façon de détecter une corruption silencieuse.
 Le script se termine sur une requête qui compte les tables de la base restaurée,
 et échoue si elle est vide.
+
+Sans autre précision, c'est la base de l'**application** qui remonte —
+`POSTGRES_DB`, celle qu'attend le banc d'essai de migration. Pour vérifier
+celle d'Authentik, la nommer :
+
+```bash
+sudo /opt/personal-os/backup/bin/restore.sh \
+  --target /var/tmp/verification-authentik --into-postgres --database authentik
+```
+
+Une base qui n'est pas dans `POSTGRES_DATABASES` est refusée tout de suite,
+plutôt qu'après une restauration complète sous la forme d'un « aucun dump » qui
+ne dirait pas pourquoi.
 
 **Chronométrer cette exécution** : cette durée est le RTO réel, et le
 déploiement (#4) la paiera à chaque livraison.

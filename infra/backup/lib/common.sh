@@ -42,6 +42,11 @@ load_config() {
   : "${POSTGRES_CONTAINER:=personal-os-db}"
   : "${POSTGRES_USER:=personalos}"
   : "${POSTGRES_DB:=personalos}"
+  # POSTGRES_DB reste la base de l'**application** : c'est elle que restore.sh
+  # remonte pour le banc d'essai de migration (ADR 0021), et ce contrat ne
+  # change pas. POSTGRES_DATABASES dit ce que la sauvegarde emporte, ce qui est
+  # une autre question depuis qu'Authentik a la sienne (#5).
+  : "${POSTGRES_DATABASES:=$POSTGRES_DB}"
   : "${KEEP_DAILY:=7}"
   : "${KEEP_WEEKLY:=4}"
   : "${KEEP_MONTHLY:=6}"
@@ -53,6 +58,38 @@ load_config() {
 # /proc/<pid>/environ, dans un `docker inspect`, et dans les traces d'un
 # gestionnaire de processus. L'ADR 0020 veut le contraire : un fichier, sur
 # cette machine, lisible par root seul.
+# Remplit POSTGRES_DATABASE_LIST à partir de POSTGRES_DATABASES.
+#
+# Elle **affecte une variable** au lieu d'imprimer sa liste, et ce n'est pas un
+# détail de style : appelée dans une substitution, elle tournerait dans un
+# sous-shell, où `die` ne ferait sortir que le sous-shell. Le script appelant
+# continuerait avec une liste tronquée et un état de sortie nul — c'est-à-dire
+# qu'une configuration refusée produirait quand même une sauvegarde, amputée et
+# silencieuse.
+#
+# Le nom est interpolé dans une commande `docker exec` et dans un chemin de
+# fichier : le laisser libre reviendrait à laisser le fichier de configuration
+# décider de la commande exécutée. La forme acceptée est celle d'un identifiant
+# PostgreSQL ordinaire, ce que sont toutes nos bases.
+load_database_list() {
+  # Découpage par IFS : la liste s'écrit avec des espaces ou des retours à la
+  # ligne, comme BACKUP_PATHS juste à côté.
+  # shellcheck disable=SC2206
+  POSTGRES_DATABASE_LIST=(${POSTGRES_DATABASES})
+
+  [ ${#POSTGRES_DATABASE_LIST[@]} -gt 0 ] ||
+    die "POSTGRES_DATABASES est vide — aucune base à sauvegarder"
+
+  local base
+  for base in "${POSTGRES_DATABASE_LIST[@]}"; do
+    case "$base" in
+      *[!A-Za-z0-9_-]*)
+        die "nom de base refusé : « $base » n'est pas un nom de base PostgreSQL"
+        ;;
+    esac
+  done
+}
+
 assert_password_file() {
   [ -n "${RESTIC_PASSWORD_FILE:-}" ] ||
     die "RESTIC_PASSWORD_FILE absent — le mot de passe doit vivre dans un fichier, pas dans l'environnement"

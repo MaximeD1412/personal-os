@@ -63,7 +63,8 @@
       },
       "options": {
         "port": 4200,
-        "host": "localhost"
+        "host": "localhost",
+        "proxyConfig": "packages/dashboard/proxy.conf.json"
       }
     },
     "lint": {

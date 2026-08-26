@@ -35,6 +35,89 @@ services:
       timeout: 5s
       retries: 10
 
+  # Un seul serveur PostgreSQL, deux bases : celle de l'application et celle
+  # d'Authentik. Le VPS est partagé et contraint, et une seule instance se
+  # sauvegarde d'un seul geste (POSTGRES_DATABASES dans backup.conf).
+  #
+  # Ce service n'est pas dans /docker-entrypoint-initdb.d : celui-ci ne tourne
+  # que sur un volume vierge, or celui de production existe depuis #2. Une
+  # étape qui ne s'exécute que sur une installation neuve est une étape qu'on
+  # oublie le jour d'une restauration. Ici elle est idempotente et rejouée à
+  # chaque déploiement.
+  db-init:
+    image: postgres:18-alpine
+    container_name: personal-os-db-init
+    restart: 'no'
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      AUTHENTIK_DB: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      AUTHENTIK_PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD:?AUTHENTIK_POSTGRES_PASSWORD manquant}
+    entrypoint: ['/bin/sh', '-c']
+    # `%I` cite comme identifiant, `%L` comme littéral : un mot de passe portant
+    # une apostrophe ne sort pas de sa chaîne.
+    command:
+      - |
+        set -e
+        psql -v ON_ERROR_STOP=1 -d postgres \
+          -v u="$$AUTHENTIK_USER" -v p="$$AUTHENTIK_PASSWORD" -v d="$$AUTHENTIK_DB" <<'SQL'
+        SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'u', :'p')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'u') \gexec
+        ALTER ROLE :"u" WITH LOGIN PASSWORD :'p';
+        SELECT format('CREATE DATABASE %I OWNER %I', :'d', :'u')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'d') \gexec
+        SQL
+
+  # Authentik n'a plus besoin de Redis depuis 2025 : il tient ses files et son
+  # cache dans PostgreSQL. Le socket Docker de la composition officielle n'est
+  # pas monté non plus — il ne sert qu'aux outposts, et Personal OS est un
+  # client OIDC ordinaire (ADR 0015). Le monter donnerait à l'IdP la main sur
+  # toute la machine, celle-là même qui héberge fiches de paie et documents.
+  #
+  # Ses données sont en montage lié, et non en volume Docker : la sauvegarde
+  # emporte des chemins (BACKUP_PATHS), pas des volumes.
+  authentik:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG:-2026.5.6}
+    container_name: personal-os-authentik
+    command: server
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment: &authentik-env
+      AUTHENTIK_POSTGRESQL__HOST: db
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?AUTHENTIK_SECRET_KEY manquant}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: 'false'
+      AUTHENTIK_DISABLE_UPDATE_CHECK: 'true'
+      AUTHENTIK_DISABLE_STARTUP_ANALYTICS: 'true'
+    ports:
+      - '127.0.0.1:${AUTHENTIK_PORT:-9000}:9000'
+    volumes:
+      - ${AUTHENTIK_DIR:-/opt/personal-os/authentik}/data:/data
+      - ${AUTHENTIK_DIR:-/opt/personal-os/authentik}/templates:/templates
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG:-2026.5.6}
+    container_name: personal-os-authentik-worker
+    command: worker
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment: *authentik-env
+    volumes:
+      - ${AUTHENTIK_DIR:-/opt/personal-os/authentik}/data:/data
+      - ${AUTHENTIK_DIR:-/opt/personal-os/authentik}/certs:/certs
+      - ${AUTHENTIK_DIR:-/opt/personal-os/authentik}/templates:/templates
+
   api:
     image: ${REGISTRY:?REGISTRY manquant}/api:${IMAGE_TAG:?IMAGE_TAG manquant}
     container_name: personal-os-api
@@ -48,6 +131,16 @@ services:
       # Le tableau de bord appelle l'API sous son propre hôte, via son nginx :
       # en production il n'y a pas de requête inter-origine à autoriser.
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # L'API est un client OIDC ordinaire (ADR 0015). Elle joint Authentik par
+      # le réseau interne, mais l'émetteur reste le nom **public** : c'est la
+      # chaîne que porte le `iss` des jetons, et celle où le navigateur est
+      # envoyé. Les deux doivent coïncider.
+      OIDC_ISSUER: ${OIDC_ISSUER:?OIDC_ISSUER manquant}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-personal-os}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?OIDC_CLIENT_SECRET manquant}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:?OIDC_REDIRECT_URI manquant}
+      DASHBOARD_URL: ${DASHBOARD_URL:?DASHBOARD_URL manquant}
+      AUTH_ALLOWED_EMAILS: ${AUTH_ALLOWED_EMAILS:?AUTH_ALLOWED_EMAILS manquant}
     ports:
       - '127.0.0.1:${API_PORT:-3001}:3000'
 
@@ -89,6 +182,7 @@ services:
     environment:
       PORTFOLIO_HOST: ${PORTFOLIO_HOST:?PORTFOLIO_HOST manquant}
       DASHBOARD_HOST: ${DASHBOARD_HOST:-}
+      AUTHENTIK_HOST: ${AUTHENTIK_HOST:-}
     # L'edge joint ce conteneur par son nom, sur le réseau partagé. Le port
     # publié ne sert donc plus qu'à déboguer depuis l'hôte — un conteneur ne
     # peut pas joindre un port publié sur 127.0.0.1, c'est le loopback de
