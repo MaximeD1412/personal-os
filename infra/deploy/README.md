@@ -31,9 +31,9 @@ posé sur la machine, et encore : seulement si les images sont privées.
          │
          ▼
    GitHub Actions ──▶ GHCR : api, dashboard, portfolio en <commit>
-         ╵                              │
+         ╵                              │  (+ edge, tiré à la main)
          ╵ (rien ne repart vers le VPS) │  canal `main` déplacé,
-         ╵                              │  une fois les trois poussées
+         ╵                              │  une fois toutes poussées
                                         ▼
                           VPS ── timer, toutes les 2 min
                                         │
@@ -90,15 +90,27 @@ Tout le reste est sur loopback, joignable par le proxy ou par tunnel SSH.
 | Tableau de bord | `127.0.0.1:4200` |
 | Portfolio | `127.0.0.1:4201` |
 | PostgreSQL | `127.0.0.1:5433` |
-| Caddy interne | `127.0.0.1:8080` |
+| Caddy interne | `127.0.0.1:8080` — débogage seulement |
 | Authentik (#5) | `127.0.0.1:9000` — réservé |
 
-Le proxy de tête (`mairie-caddy-1`) termine TLS et transmet à `127.0.0.1:8080`.
-Le Caddy interne de Personal OS ne termine pas TLS : son intérêt est que la
-carte de routage vive dans **ce dépôt**, versionnée et déployée par l'agent,
-plutôt que dans la configuration d'un autre projet. À la migration vers le
-homelab, c'est ce conteneur qui reprendra TLS — on change les adresses de site,
-pas l'architecture.
+Le proxy de tête est `caddy-edge`, neutre et commun à tous les projets de la
+machine ([ADR 0025](../../docs/adr/0025-un-proxy-de-tete-neutre-devant-les-projets.md),
+[`infra/edge/`](../edge)). Il détient 80 et 443, termine TLS derrière un
+certificat **joker**, et transmet **tout le domaine** au Caddy interne de
+Personal OS — qui décide ensuite quoi en faire.
+
+C'est la propriété qui compte : ajouter un sous-domaine se fait dans le
+`Caddyfile` de ce dépôt, versionné et déployé par l'agent, sans toucher au
+proxy de tête ni à aucun autre projet.
+
+> **L'edge joint le Caddy interne par son nom de conteneur**, sur le réseau
+> Docker `edge` — pas par le port publié. Un conteneur ne peut pas atteindre un
+> port publié sur `127.0.0.1` : c'est le loopback de l'hôte, pas le sien. Le
+> port de la table ci-dessus ne sert qu'à déboguer depuis l'hôte, avec un
+> en-tête `Host` explicite.
+
+À la migration vers le homelab, le Caddy interne reprendra TLS — on change les
+adresses de site, pas l'architecture.
 
 Le tableau de bord n'est **pas** routé publiquement : il n'aura
 d'authentification qu'avec Authentik ([#5](https://github.com/MaximeD1412/personal-os/issues/5),
@@ -127,18 +139,16 @@ chemins :
 
 ### 3. Le proxy de tête
 
-Ajouter au Caddyfile de `mairie` un bloc qui transmet l'hôte de Personal OS au
-Caddy interne, en conservant l'en-tête `Host` — sans lui, aucun bloc ne
-correspond de l'autre côté :
+Il s'installe une fois, et se documente chez lui : [`infra/edge/`](../edge).
 
-```caddyfile
-portfolio.exemple.fr {
-	reverse_proxy 127.0.0.1:8080
-}
-```
+Ce qu'il faut en retenir ici : l'edge doit être **démarré avant** cette pile,
+parce que c'est lui qui crée le réseau Docker `edge` que le compose de
+production déclare en réseau externe. Dans l'autre ordre, le déploiement
+s'arrête sur un message clair — plutôt que de créer en silence un second réseau
+du même nom où personne ne se parle.
 
-C'est le seul endroit où la configuration de Personal OS touche celle d'un autre
-projet, et c'est une ligne par hôte.
+Une fois l'edge en place, il n'y a plus rien à y faire : il transmet tout le
+domaine, et les hôtes se déclarent dans le `Caddyfile` de ce dépôt.
 
 ### 4. Pose des secrets et première installation
 
