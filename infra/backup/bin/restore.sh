@@ -179,7 +179,7 @@ log "attente de disponibilité"
 # la migration — donc un déploiement sain est arrêté. On attend la marque de fin
 # d'initialisation, *puis* la requête.
 init_complete() {
-  docker logs "$PROBE_CONTAINER" 2>&1 | grep -q 'PostgreSQL init process complete'
+  conteneur_initialise "$PROBE_CONTAINER"
 }
 
 probe_ready() {
