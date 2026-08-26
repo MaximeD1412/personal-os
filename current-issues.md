@@ -14,8 +14,7 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 | Issue | Titre | Type | État | Bloquée par |
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/MaximeD1412/personal-os/issues/1) | PRD — Personal OS V1 | agent | Épique — ne s'implémente pas directement | — |
-| [#5](https://github.com/MaximeD1412/personal-os/issues/5) | Session serveur OIDC via Authentik | hitl | [PR #35](https://github.com/MaximeD1412/personal-os/pull/35) ouverte — reste les gestes sur la machine | — |
-| [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | À faire | #5 |
+| [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | **Disponible** | — |
 | [#7](https://github.com/MaximeD1412/personal-os/issues/7) | Calendrier : l'Événement daté avec son Espace explicite | agent | À faire | #6 |
 | [#8](https://github.com/MaximeD1412/personal-os/issues/8) | Agenda : port AgendaContributor et vue en lecture seule | agent | À faire | #7 |
 | [#9](https://github.com/MaximeD1412/personal-os/issues/9) | Récurrence : règle, exceptions et occurrences calculées | agent | À faire | #8 |
@@ -43,7 +42,7 @@ l'[ADR 0016](docs/adr/0016-modules-plats-et-filtrage-espace-centralise.md)
 interdit de le rattraper module par module ensuite.
 
 ```
-#5 Authentik ──▶ #6 garde d'Espace
+#6 garde d'Espace
                                                                             │
                         ┌───────────────────────────────┬───────────────────┤
                         ▼                               ▼                   ▼
@@ -64,39 +63,86 @@ interdit de le rattraper module par module ensuite.
                                             #19 Stock domestique
 ```
 
-#5 est le goulot du moment, et **rien d'autre ne se débloque tant qu'elle n'est
-pas fermée**. Sa PR est ouverte ([#35](https://github.com/MaximeD1412/personal-os/pull/35)) :
-le code est là, les gestes sur la machine ne le sont pas.
+#6 est la seule issue disponible, et elle rouvre quatre chemins à elle seule :
+#7 le calendrier, #12 les ingrédients, #14 le foyer et #21 les projets. C'est
+la dernière tranche qui ne produit rien de visible.
 
-Sa ligne reste donc dans le tableau. La retirer à l'ouverture de la PR
-débloquerait #6, #12, #14 et #21 alors que la garde d'Espace de #6 s'appuie sur
-une authentification qui ne tourne encore nulle part.
+Elle arrive sur un terrain préparé : `packages/database` est le point d'accès
+unique où le filtrage se branche, la table `User` existe et porte l'identité, et
+la garde de session prouve déjà que le mécanisme central tient — c'est le même
+raisonnement, appliqué une couche plus bas.
 
-Ce qui reste à faire, et que personne d'autre ne peut faire : les
-enregistrements DNS pour `app.` et `auth.`, la création du fournisseur OIDC et
-des deux comptes dans Authentik, puis le report des valeurs dans
-`/opt/personal-os/.env`. Le runbook est dans `infra/deploy/README.md`.
-
-Elle arrive dans de meilleures conditions que #4 : la contrainte du VPS partagé
-est absorbée, et les deux questions qui l'auraient piégée sont tranchées.
-
-- **Le nom d'hôte est arrêté.** Authentik vivra sur `auth.dccm.fr`, le tableau
-  de bord sur `app.dccm.fr`, et les enregistrements DNS existent déjà.
-  L'`issuer` OIDC s'y adosse : en changer après coup aurait obligé à refaire le
-  client OIDC.
-- **Le certificat les couvre déjà.** Le proxy de tête détient un joker
-  `*.dccm.fr` ([ADR 0025](docs/adr/0025-un-proxy-de-tete-neutre-devant-les-projets.md)),
-  donc #5 n'a ni DNS ni certificat à obtenir — seulement un bloc à écrire dans
-  le `Caddyfile` de Personal OS, et un fichier à renommer dans `caddy/conf.d/`
-  pour ouvrir le tableau de bord.
-
-Les deux dettes posées en #3 sont réglées par la PR : `backup.sh` accepte une
-liste de bases (`POSTGRES_DATABASES`) et `restore.sh` sait remonter celle qu'on
-lui nomme. La configuration d'Authentik, elle, vit en **base** et non dans des
-fichiers — c'est `POSTGRES_DATABASES` qui l'emporte, pas `BACKUP_PATHS`, qui ne
-prend que ses médias et certificats.
+**Ce qu'il reste de #5 est sur la machine, pas dans le code.** L'issue est
+fermée et le code est dans `develop`, mais Authentik n'est configuré nulle
+part : DNS pour `app.` et `auth.`, fournisseur OIDC, deux comptes, report des
+valeurs dans `/opt/personal-os/.env`. Le runbook est dans
+`infra/deploy/README.md`. Rien de tout cela ne bloque #6, qui se développe et se
+teste en local.
 
 ## Journal
+
+### 2026-08-26 — #5 Session serveur OIDC
+
+**Fermée**, [PR #35](https://github.com/MaximeD1412/personal-os/pull/35)
+fusionnée dans `develop`. Suite dans
+[#37](https://github.com/MaximeD1412/personal-os/pull/37) — deux correctifs de
+déploiement, à faire passer **avant** de livrer sur `main`.
+
+L'API est un client OIDC ordinaire : elle échange le code avec PKCE, vérifie la
+signature contre le jeu de clés publié, et émet sa propre session. Le jeton
+d'Authentik meurt dans l'API. La session est une rangée en base, le cookie ne
+porte qu'un jeton opaque dont seule l'empreinte est stockée — c'est ce qui rend
+la déconnexion réelle. Deux ADR : [0026](docs/adr/0026-session-en-base-et-api-fermee-par-defaut.md)
+et [0027](docs/adr/0027-un-seul-postgresql-pour-l-application-et-authentik.md).
+
+**Rien n'est configuré sur la machine.** Le code est là, Authentik ne tourne
+nulle part. La tranche n'est vraiment finie qu'après les gestes du runbook
+(`infra/deploy/README.md`).
+
+Cinq choses à savoir avant de reprendre le code :
+
+- **L'API est fermée par défaut.** La garde est en `APP_GUARD` ; une route
+  s'ouvre en portant `@Public()`, et quatre le font — départ du flux, retour,
+  déconnexion, sonde de santé. Un module nouveau est protégé sans que personne
+  n'y pense. C'est le même raisonnement que le filtrage par **Espace** de #6,
+  une couche plus haut.
+- **L'admission est une liste d'adresses en configuration**
+  (`AUTH_ALLOWED_EMAILS`). Hors liste : 403, et **aucune rangée créée**. Une
+  liste vide fait refuser le démarrage de l'API.
+- **`DASHBOARD_HOST` et `AUTHENTIK_HOST` ne sont plus facultatifs.** Leurs blocs
+  Caddy sont chargés par le glob `conf.d/*.caddy`, et un nom vide donne une
+  adresse de site que Caddy refuse : le proxy interne ne démarre pas, le
+  portfolio tombe avec lui. La sonde de santé n'interrogeant que l'API, aucun
+  retour arrière ne se déclenchait — d'où le `:?` ajouté en #37.
+- **Le rôle et la base d'Authentik se créent seuls**, par un service `db-init`
+  idempotent rejoué à chaque déploiement. Pas par
+  `/docker-entrypoint-initdb.d`, qui ne tourne que sur un volume vierge : cette
+  étape compte surtout le jour d'une restauration.
+- **Les données d'Authentik sont en montage lié**, sous uid 1000. Docker
+  créerait les répertoires en `root` et l'IdP ne pourrait pas y écrire : les
+  créer avant, avec le bon propriétaire.
+
+Deux défauts trouvés en chemin, tous deux du genre qui revient :
+
+- **`die` dans une substitution de processus n'arrête que le sous-shell.** La
+  validation des noms de bases y vivait : une configuration refusée produisait
+  quand même une sauvegarde, amputée et silencieuse, avec un état de sortie nul.
+- **`docker logs … | grep -q` sous `pipefail` rend 141 quand la marque EST
+  trouvée.** `grep -q` sort à la première correspondance, le producteur qui
+  écrit encore prend EPIPE. La boucle d'attente sortait sur un succès et le
+  contrôle juste après échouait — trois secondes au lieu de soixante. Le défaut
+  datait de #4 et pouvait **arrêter un déploiement sain**, puisque `restore.sh`
+  est le banc d'essai de migration. Corrigé en #37.
+
+Les deux dettes posées en #3 sont réglées : `backup.sh` accepte une liste de
+bases (`POSTGRES_DATABASES`) et `restore.sh` remonte celle qu'on lui nomme. La
+configuration d'Authentik vit en **base**, pas dans des fichiers — c'est
+`POSTGRES_DATABASES` qui l'emporte, `BACKUP_PATHS` ne prenant que ses médias.
+
+Deux contraintes d'outillage, qui vaudront pour les tranches suivantes :
+`cookie@2` et `jose@6` sont **ESM purs** et l'API est en CommonJS. Le premier
+est parti — l'en-tête `Cookie` se découpe en huit lignes — et le second est
+épinglé en `^5`.
 
 ### 2026-08-26 — #4 Déploiement tiré
 
