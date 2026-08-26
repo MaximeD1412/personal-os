@@ -1,0 +1,12 @@
+node_modules
+dist
+tmp
+coverage
+.nx
+.angular
+.git
+.github
+.env
+.env.local
+packages/database/src/generated
+**/node_modules

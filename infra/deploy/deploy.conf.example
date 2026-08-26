@@ -1,0 +1,85 @@
+# Configuration de l'agent de déploiement Personal OS.
+#
+# S'installe en /etc/personal-os/deploy.conf. Ce fichier est versionné et ne
+# contient AUCUN secret : le jeton de lecture GHCR vit dans ghcr.env, en mode
+# 600, et n'entre jamais dans le dépôt Git.
+#
+# Il est sourcé par bash : c'est du shell, pas un .ini.
+
+# --- Source des images --------------------------------------------------
+#
+# REGISTRY est le préfixe commun aux trois images. GHCR n'accepte que des
+# minuscules, quelle que soit la casse du dépôt GitHub.
+REGISTRY=ghcr.io/maximed1412/personal-os
+IMAGES="api dashboard portfolio"
+
+# Tag mouvant que la livraison déplace **une fois les trois images poussées**.
+# L'agent ne le déploie jamais tel quel : il y lit le libellé
+# org.opencontainers.image.revision, et épingle ce commit. Un tag mouvant
+# désignerait autre chose demain, et le retour arrière n'aurait plus de cible.
+CHANNEL_TAG=main
+
+# Image interrogée pour connaître la révision du canal. Les trois portent le
+# même libellé — la livraison les construit du même commit — mais il en faut
+# une, et l'API est celle dont la migration décide de tout.
+CHANNEL_IMAGE=api
+
+# --- Pile de production -------------------------------------------------
+COMPOSE_FILE=/opt/personal-os/docker-compose.yml
+COMPOSE_ENV_FILE=/opt/personal-os/.env
+COMPOSE_PROJECT=personal-os
+CADDY_DIR=/opt/personal-os/caddy
+
+# Clone du dépôt, d'où l'agent reprend la pile et le routage à chaque
+# déploiement. Sans lui, une livraison qui ajoute un service publierait ses
+# images sans la configuration qui les branche.
+#
+# Le dépôt est public : ce clone ne demande aucun identifiant. Il sert aussi à
+# relire sur la machine le code exactement tel qu'il tourne.
+SOURCE_CHECKOUT=/opt/personal-os/src
+
+# Emplacement de l'agent lui-même. Il ne se met pas à jour tout seul — la
+# dérive est signalée dans le journal, et se corrige par un install.sh.
+DEPLOY_PREFIX=/opt/personal-os/deploy
+
+# --- Migration ----------------------------------------------------------
+#
+# Le même binaire, le même schéma et les mêmes migrations servent à la
+# répétition et à l'application réelle. Les faire diverger reviendrait à
+# répéter autre chose que ce qu'on va jouer.
+MIGRATE_SERVICE=api
+MIGRATE_COMMAND="node_modules/.bin/prisma migrate deploy"
+
+# Banc d'essai de migration : le script de restauration de la sauvegarde
+# (ADR 0021). Son absence arrête le déploiement — la répétition n'est pas une
+# option qu'on désactive quand elle gêne.
+RESTORE_SCRIPT=/opt/personal-os/backup/bin/restore.sh
+REHEARSAL_TARGET=/var/tmp/personal-os-repetition
+
+# Port loopback du conteneur jetable de la répétition. Distinct de celui de la
+# base de production, et de celui de la vérification manuelle de restauration.
+REHEARSAL_PROBE_PORT=55432
+
+# --- Vérification de santé ----------------------------------------------
+#
+# Une pile qui démarre n'est pas une pile qui marche. La sonde interroge l'API
+# sur son port loopback, et l'API interroge la base : un seul appel couvre la
+# chaîne complète.
+HEALTH_URL=http://127.0.0.1:3001/api/health
+HEALTH_RETRIES=30
+HEALTH_DELAY=2
+
+# --- Trace et signalement -----------------------------------------------
+#
+# Le résultat d'un déploiement n'apparaît pas dans l'interface GitHub
+# (ADR 0023) : la trace vit ici.
+DEPLOY_STATE_FILE=/var/lib/personal-os/deploy-state
+DEPLOY_HISTORY_FILE=/var/log/personal-os/deploy.log
+
+# URL de témoin d'inactivité (Healthchecks.io ou équivalent). Le script y ajoute
+# /start et /fail. Laisser vide pour désactiver — au prix de ne plus détecter un
+# agent qui a cessé de tourner, seul mode de panne qu'aucun OnFailure ne voit.
+DEPLOY_HEARTBEAT_URL=
+
+# Destinataire des courriels d'échec. Vide = pas de courriel.
+DEPLOY_ALERT_EMAIL=

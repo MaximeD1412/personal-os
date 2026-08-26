@@ -1,0 +1,25 @@
+{
+  "name": "deploy",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "infra/deploy/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "infra/deploy/jest.config.cts"
+      }
+    },
+    "test-integration": {
+      "executor": "@nx/jest:jest",
+      "cache": false,
+      "parallelism": false,
+      "options": {
+        "jestConfig": "infra/deploy/jest.integration.config.cts",
+        "runInBand": true
+      }
+    }
+  }
+}
