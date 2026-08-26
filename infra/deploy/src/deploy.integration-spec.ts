@@ -347,6 +347,14 @@ describe('déploiement tiré, de bout en bout', () => {
     // La migration réelle a bien été appliquée à la production.
     expect(requeteProduction("select to_regclass('public.migration_v1') is not null")).toBe('t');
     expect(readFileSync(historyPath, 'utf8')).toContain(`succes\t${revisionSaine}`);
+
+    // Le démarrage de la base a son propre message, avant celui de la
+    // migration : les annoncer ensemble laissait croire qu'une migration avait
+    // eu lieu quand c'est la base qui n'avait pas démarré.
+    const journal = resultat.stderr;
+    expect(journal.indexOf('démarrage de la base')).toBeLessThan(
+      journal.indexOf('migration réelle')
+    );
   });
 
   it('arrête le déploiement quand la migration échoue sur la restauration', () => {
@@ -399,5 +407,43 @@ describe('déploiement tiré, de bout en bout', () => {
     // ligne saisie entre les deux n'a pas disparu.
     expect(requeteProduction("select to_regclass('public.migration_v2') is not null")).toBe('t');
     expect(requeteProduction('select count(*) from evenement')).toBe(String(LIGNES_SEMEES + 1));
+  });
+
+  it('laisse une trace même là où rien ne prévoyait d’échouer', () => {
+    // On casse le contrat de restore.sh : il rend 0 mais n'imprime aucun
+    // « dsn: ». Aucun `history_append` ne couvre ce chemin — c'est précisément
+    // la classe d'échec qui ne laissait qu'une ligne « debut » dans
+    // l'historique et aucune révision fautive dans l'état, si bien que le timer
+    // rejouait la même chose deux minutes plus tard.
+    const muet = join(racine, 'restore-muet.sh');
+    writeFileSync(muet, '#!/usr/bin/env bash\necho "rien a dire" >&2\n');
+    chmodSync(muet, 0o755);
+
+    const confMuette = join(racine, 'deploy-muet.conf');
+    writeFileSync(
+      confMuette,
+      readFileSync(fixture.confPath, 'utf8').replace(
+        /^RESTORE_SCRIPT=.*$/m,
+        `RESTORE_SCRIPT=${muet}`
+      )
+    );
+
+    const avant = readFileSync(historyPath, 'utf8');
+    const resultat = run('deploy.sh', ['--revision', revisionRefusee, '--force'], fixture, {
+      ...environnement,
+      DEPLOY_CONF: confMuette,
+    });
+
+    expect(resultat.status).not.toBe(0);
+    expect(resultat.stderr).toContain('contrat rompu');
+
+    const ajout = readFileSync(historyPath, 'utf8').slice(avant.length);
+    expect(ajout).toContain(`echec-inattendu\t${revisionRefusee}`);
+    expect(etat('FAILED_REVISION')).toBe(revisionRefusee);
+
+    // Et la production n'a pas bougé : l'échec est survenu avant qu'elle soit
+    // touchée.
+    expect(imageEnPlace()).toBe(`${registre.prefixe}/api:${revisionSaine}`);
+    expect(sante()).toBe(200);
   });
 });
