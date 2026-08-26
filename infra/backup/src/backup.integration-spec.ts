@@ -26,7 +26,11 @@ const AUTHENTIK_PROBE_PORT = '55434';
 const SEEDED_ROWS = 3;
 const SEEDED_AUTHENTIK_ROWS = 2;
 
-function sh(command: string, args: string[], options: { input?: string; env?: NodeJS.ProcessEnv } = {}): string {
+function sh(
+  command: string,
+  args: string[],
+  options: { input?: string; env?: NodeJS.ProcessEnv } = {},
+): string {
   return execFileSync(command, args, {
     encoding: 'utf8',
     input: options.input,
@@ -42,7 +46,7 @@ function requireTool(tool: string): void {
     sh('which', [tool]);
   } catch {
     throw new Error(
-      `${tool} est absent. La campagne d'intégration exige restic et docker sur la machine.`
+      `${tool} est absent. La campagne d'intégration exige restic et docker sur la machine.`,
     );
   }
 }
@@ -67,13 +71,26 @@ function waitForPostgres(container: string): void {
   //
   // La marque de fin d'initialisation est le seul point de bascule fiable.
   waitFor(
-    () => sh('docker', ['logs', container]).includes('PostgreSQL init process complete'),
-    `${container} n'a pas fini son initialisation`
+    () =>
+      sh('docker', ['logs', container]).includes(
+        'PostgreSQL init process complete',
+      ),
+    `${container} n'a pas fini son initialisation`,
   );
 
   waitFor(() => {
     try {
-      sh('docker', ['exec', container, 'psql', '-U', 'postgres', '-d', DB, '-c', 'select 1']);
+      sh('docker', [
+        'exec',
+        container,
+        'psql',
+        '-U',
+        'postgres',
+        '-d',
+        DB,
+        '-c',
+        'select 1',
+      ]);
       return true;
     } catch {
       return false;
@@ -85,7 +102,11 @@ function waitForPostgres(container: string): void {
 function removeProbeContainers(): void {
   try {
     const ids = sh('docker', [
-      'ps', '--all', '--quiet', '--filter', 'name=personal-os-restore-',
+      'ps',
+      '--all',
+      '--quiet',
+      '--filter',
+      'name=personal-os-restore-',
     ]).trim();
     if (ids) {
       sh('docker', ['rm', '--force', ...ids.split('\n')]);
@@ -99,6 +120,7 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
   let fixture: Fixture;
   let repoDir: string;
   let restoreDir: string;
+  let restoreAuthentikDir: string;
 
   beforeAll(() => {
     requireTool('docker');
@@ -106,11 +128,17 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
 
     repoDir = mkdtempSync(join(tmpdir(), 'restic-repo-'));
     restoreDir = mkdtempSync(join(tmpdir(), 'restic-restore-'));
+    restoreAuthentikDir = mkdtempSync(
+      join(tmpdir(), 'restic-restore-authentik-'),
+    );
 
     fixture = makeFixture();
     writeFileSync(
       fixture.envPath,
-      [`RESTIC_REPOSITORY=${repoDir}`, `RESTIC_PASSWORD_FILE=${fixture.passwordPath}`].join('\n')
+      [
+        `RESTIC_REPOSITORY=${repoDir}`,
+        `RESTIC_PASSWORD_FILE=${fixture.passwordPath}`,
+      ].join('\n'),
     );
     writeFileSync(
       fixture.confPath,
@@ -122,7 +150,7 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
         'KEEP_DAILY=7',
         'KEEP_WEEKLY=4',
         'KEEP_MONTHLY=6',
-      ].join('\n')
+      ].join('\n'),
     );
 
     removeProbeContainers();
@@ -133,17 +161,35 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     }
 
     sh('docker', [
-      'run', '--detach', '--name', SOURCE_CONTAINER,
-      '--env', `POSTGRES_PASSWORD=${SOURCE_PASSWORD}`,
-      '--env', `POSTGRES_DB=${DB}`,
+      'run',
+      '--detach',
+      '--name',
+      SOURCE_CONTAINER,
+      '--env',
+      `POSTGRES_PASSWORD=${SOURCE_PASSWORD}`,
+      '--env',
+      `POSTGRES_DB=${DB}`,
       'postgres:18-alpine',
     ]);
     waitForPostgres(SOURCE_CONTAINER);
 
-    sh('docker', ['exec', '--interactive', SOURCE_CONTAINER, 'psql', '-U', 'postgres', '-d', DB], {
-      input: `create table evenement (id serial primary key, titre text not null);
+    sh(
+      'docker',
+      [
+        'exec',
+        '--interactive',
+        SOURCE_CONTAINER,
+        'psql',
+        '-U',
+        'postgres',
+        '-d',
+        DB,
+      ],
+      {
+        input: `create table evenement (id serial primary key, titre text not null);
               insert into evenement (titre) values ('un'), ('deux'), ('trois');`,
-    });
+      },
+    );
 
     sh('restic', ['init'], {
       env: {
@@ -160,7 +206,9 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     } catch {
       // Déjà parti.
     }
-    for (const dir of [repoDir, restoreDir].filter(Boolean)) {
+    for (const dir of [repoDir, restoreDir, restoreAuthentikDir].filter(
+      Boolean,
+    )) {
       rmSync(dir, { recursive: true, force: true });
     }
   });
@@ -175,13 +223,15 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
       'restore.sh',
       ['--target', restoreDir, '--into-postgres', '--read-data', '--keep'],
       fixture,
-      { RESTORE_PROBE_PORT: PROBE_PORT }
+      { RESTORE_PROBE_PORT: PROBE_PORT },
     );
     // Le code de sortie seul ne dit pas pourquoi. Sans la sortie du script,
     // un échec ici oblige à rejouer la campagne à la main pour apprendre quoi
     // que ce soit — et sur une machine de CI, on ne la rejoue pas.
     if (restore.status !== 0) {
-      throw new Error(`restore.sh a rendu ${restore.status} :\n${restore.output}`);
+      throw new Error(
+        `restore.sh a rendu ${restore.status} :\n${restore.output}`,
+      );
     }
 
     // Contrat consommé par le déploiement (#4, ADR 0021) : une ligne « dsn: »
@@ -193,9 +243,17 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     // La preuve : la requête part sur la base **restaurée**, jamais sur la
     // source. Interroger la source ne prouverait que la santé de la source.
     const count = sh('docker', [
-      'run', '--rm', '--network', 'host', 'postgres:18-alpine',
-      'psql', dsn, '--tuples-only', '--no-align',
-      '--command', 'select count(*) from evenement',
+      'run',
+      '--rm',
+      '--network',
+      'host',
+      'postgres:18-alpine',
+      'psql',
+      dsn,
+      '--tuples-only',
+      '--no-align',
+      '--command',
+      'select count(*) from evenement',
     ]).trim();
 
     expect(Number(count)).toBe(SEEDED_ROWS);
@@ -206,14 +264,30 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     // prouve pas en lisant la configuration : il se prouve en remontant sa base
     // et en l'interrogeant. Une sauvegarde où l'application revient intacte
     // mais où plus personne ne peut se connecter n'est pas une sauvegarde.
-    sh('docker', ['exec', SOURCE_CONTAINER, 'createdb', '-U', 'postgres', AUTHENTIK_DB]);
+    sh('docker', [
+      'exec',
+      SOURCE_CONTAINER,
+      'createdb',
+      '-U',
+      'postgres',
+      AUTHENTIK_DB,
+    ]);
     sh(
       'docker',
-      ['exec', '--interactive', SOURCE_CONTAINER, 'psql', '-U', 'postgres', '-d', AUTHENTIK_DB],
+      [
+        'exec',
+        '--interactive',
+        SOURCE_CONTAINER,
+        'psql',
+        '-U',
+        'postgres',
+        '-d',
+        AUTHENTIK_DB,
+      ],
       {
         input: `create table authentik_core_user (id serial primary key, username text not null);
                 insert into authentik_core_user (username) values ('moi'), ('elle');`,
-      }
+      },
     );
 
     writeFileSync(
@@ -227,7 +301,7 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
         'KEEP_DAILY=7',
         'KEEP_WEEKLY=4',
         'KEEP_MONTHLY=6',
-      ].join('\n')
+      ].join('\n'),
     );
 
     expect(run('backup.sh', [], fixture).status).toBe(0);
@@ -235,27 +309,39 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     const restore = run(
       'restore.sh',
       [
-        '--target', mkdtempSync(join(tmpdir(), 'restic-restore-authentik-')),
+        '--target',
+        restoreAuthentikDir,
         '--into-postgres',
-        '--database', AUTHENTIK_DB,
+        '--database',
+        AUTHENTIK_DB,
         '--keep',
       ],
       fixture,
       // Un port distinct de celui du va-et-vient précédent : son conteneur est
       // resté en vie (--keep) et tient toujours le sien.
-      { RESTORE_PROBE_PORT: AUTHENTIK_PROBE_PORT }
+      { RESTORE_PROBE_PORT: AUTHENTIK_PROBE_PORT },
     );
     if (restore.status !== 0) {
-      throw new Error(`restore.sh a rendu ${restore.status} :\n${restore.output}`);
+      throw new Error(
+        `restore.sh a rendu ${restore.status} :\n${restore.output}`,
+      );
     }
 
     const match = restore.stdout.match(/^dsn: (postgresql:\/\/\S+)$/m);
     expect(match).not.toBeNull();
 
     const count = sh('docker', [
-      'run', '--rm', '--network', 'host', 'postgres:18-alpine',
-      'psql', (match as RegExpMatchArray)[1], '--tuples-only', '--no-align',
-      '--command', 'select count(*) from authentik_core_user',
+      'run',
+      '--rm',
+      '--network',
+      'host',
+      'postgres:18-alpine',
+      'psql',
+      (match as RegExpMatchArray)[1],
+      '--tuples-only',
+      '--no-align',
+      '--command',
+      'select count(*) from authentik_core_user',
     ]).trim();
 
     expect(Number(count)).toBe(SEEDED_AUTHENTIK_ROWS);

@@ -90,6 +90,33 @@ load_database_list() {
   done
 }
 
+# Vrai quand le conteneur a fini d'initialiser PostgreSQL.
+#
+# Le journal est lu **en entier**, puis examiné. Surtout pas
+# `docker logs … | grep -q` : `grep -q` sort à la première correspondance, et le
+# producteur qui écrit encore après prend EPIPE. Avec `pipefail`, le tube rend
+# alors 141 — un échec — alors que la marque a bien été trouvée.
+#
+# Ce n'est pas théorique. La marque est suivie, une fraction de seconde plus
+# tard, de « database system is ready to accept connections » : selon que
+# postgres l'a déjà écrite ou non, le même appel rend 0 ou 141. La boucle
+# d'attente sortait donc sur un succès, et le contrôle juste après échouait —
+# trois secondes au lieu de soixante, et une restauration saine déclarée
+# impossible.
+#
+# Ce que ça coûte en production : restore.sh est le banc d'essai de migration
+# du déploiement (ADR 0021). Un faux échec ici arrête un déploiement sain, et la
+# révision est retenue comme fautive — le timer ne la rejoue pas.
+conteneur_initialise() {
+  local journal
+  journal=$(docker logs "$1" 2>&1) || return 1
+
+  case "$journal" in
+    *'PostgreSQL init process complete'*) return 0 ;;
+  esac
+  return 1
+}
+
 assert_password_file() {
   [ -n "${RESTIC_PASSWORD_FILE:-}" ] ||
     die "RESTIC_PASSWORD_FILE absent — le mot de passe doit vivre dans un fichier, pas dans l'environnement"
