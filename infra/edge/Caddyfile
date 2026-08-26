@@ -5,7 +5,14 @@
 # c'est ce qui lui permet de ne jamais changer (ADR 0025).
 
 {
-	admin off
+	# L'API d'administration reste active, et c'est délibéré : c'est elle que
+	# `caddy reload` utilise. La couper obligerait à **redémarrer** le proxy
+	# pour ajouter un locataire — donc à couper tous les autres au passage,
+	# exactement ce qu'un rechargement évite.
+	#
+	# Elle n'écoute que sur le loopback **du conteneur**, et aucun port n'est
+	# publié pour elle : y accéder suppose déjà un `docker exec`, c'est-à-dire
+	# des droits équivalents à root sur la machine.
 	email {$ACME_EMAIL}
 }
 

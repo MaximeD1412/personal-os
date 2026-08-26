@@ -97,16 +97,43 @@ networks:
 
 ### 4. Démarrer, dans cet ordre
 
-L'edge crée le réseau ; les locataires le rejoignent en réseau **externe**.
-L'inverse échoue.
+Deux contraintes se croisent ici : l'edge **crée** le réseau que les locataires
+rejoignent en réseau externe, mais il ne peut prendre 80 et 443 que si le
+locataire qui les détient les a **libérés d'abord**.
+
+> **Avant de couper quoi que ce soit**, vérifier que l'image existe. Une image
+> absente laisse les locataires à terre pendant qu'on cherche pourquoi — c'est
+> arrivé.
+>
+> ```bash
+> docker pull ghcr.io/maximed1412/personal-os/edge:main
+> ```
+>
+> Elle n'est publiée qu'après une fusion sur la branche principale. Tant qu'elle
+> manque, GHCR répond `denied` et non « introuvable ».
+
+Toutes les éditions de l'étape 3 sont faites **avant** de commencer : c'est ce
+qui garde l'interruption courte.
 
 ```bash
-cd /opt/edge && sudo docker compose up -d      # crée le réseau « edge »
+# 1. Libérer 80 et 443
+cd <projet mairie> && sudo docker compose stop caddy
+
+# 2. L'edge prend les ports et crée le réseau
+cd /opt/edge && sudo docker compose up -d
+docker logs caddy-edge --tail 20
+
+# 3. Le locataire revient, sans ports, sur le réseau partagé
+cd <projet mairie> && sudo docker compose up -d
 docker network inspect edge --format '{{len .Containers}} conteneur(s)'
 
-cd <projet mairie> && sudo docker compose up -d
+# 4. Personal OS rejoint à son tour
 sudo /opt/personal-os/deploy/bin/deploy.sh --force
 ```
+
+Entre 1 et 5, le locataire est injoignable : l'edge tient 443 mais ne sait pas
+encore où router son domaine. Compte deux à trois minutes en tout, dont la
+première émission de son certificat.
 
 ### 5. Le bloc du locataire
 
