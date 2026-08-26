@@ -14,8 +14,7 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 | Issue | Titre | Type | État | Bloquée par |
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/MaximeD1412/personal-os/issues/1) | PRD — Personal OS V1 | agent | Épique — ne s'implémente pas directement | — |
-| [#4](https://github.com/MaximeD1412/personal-os/issues/4) | Déploiement automatique tiré par le VPS, avec répétition de migration | hitl | [PR #27](https://github.com/MaximeD1412/personal-os/pull/27) ouverte — reste les gestes manuels | — |
-| [#5](https://github.com/MaximeD1412/personal-os/issues/5) | Session serveur OIDC via Authentik | hitl | À faire | #4 |
+| [#5](https://github.com/MaximeD1412/personal-os/issues/5) | Session serveur OIDC via Authentik | hitl | **Disponible** | — |
 | [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | À faire | #5 |
 | [#7](https://github.com/MaximeD1412/personal-os/issues/7) | Calendrier : l'Événement daté avec son Espace explicite | agent | À faire | #6 |
 | [#8](https://github.com/MaximeD1412/personal-os/issues/8) | Agenda : port AgendaContributor et vue en lecture seule | agent | À faire | #7 |
@@ -44,7 +43,7 @@ l'[ADR 0016](docs/adr/0016-modules-plats-et-filtrage-espace-centralise.md)
 interdit de le rattraper module par module ensuite.
 
 ```
-#4 déploiement ──▶ #5 Authentik ──▶ #6 garde d'Espace
+#5 Authentik ──▶ #6 garde d'Espace
                                                                             │
                         ┌───────────────────────────────┬───────────────────┤
                         ▼                               ▼                   ▼
@@ -65,61 +64,83 @@ interdit de le rattraper module par module ensuite.
                                             #19 Stock domestique
 ```
 
-Les deux tranches en tête (#4 et #5) sont `hitl` : elles touchent des secrets et
-des accès fournisseur. Un agent ne peut pas les prendre seul, et **rien d'autre
-ne se débloque tant qu'elles ne sont pas faites**. C'est toujours le goulot :
-le code de #4 est en revue, mais l'issue reste ouverte tant que la machine n'a
-pas été touchée, et **aucune ligne du tableau ne bouge d'ici là**.
+#5 est désormais la seule issue disponible, et elle est `hitl` : elle touche des
+secrets et des accès fournisseur. Un agent ne peut pas la prendre seul, et
+**rien d'autre ne se débloque tant qu'elle n'est pas faite**. C'est le goulot du
+moment.
 
-La contrainte découverte en posant #3 — **le VPS n'est pas dédié**, `mairie` y
-occupe 80, 443, 3000 et 5432 — est traitée. La répartition des ports du
-[commentaire de #4](https://github.com/MaximeD1412/personal-os/issues/4#issuecomment-5258398573)
-est en place, et le choix « Caddy partagé ou cloisonné » est **tranché en faveur
-du cloisonnement**. #5 hérite donc d'un nom d'hôte stable : l'`issuer` OIDC y est
-adossé, et trancher après coup aurait obligé à refaire le client OIDC.
+Elle arrive dans de meilleures conditions que #4 : la contrainte du VPS partagé
+est absorbée, et les deux questions qui l'auraient piégée sont tranchées.
+
+- **Le nom d'hôte est arrêté.** Authentik vivra sur `auth.dccm.fr`, le tableau
+  de bord sur `app.dccm.fr`, et les enregistrements DNS existent déjà.
+  L'`issuer` OIDC s'y adosse : en changer après coup aurait obligé à refaire le
+  client OIDC.
+- **Le certificat les couvre déjà.** Le proxy de tête détient un joker
+  `*.dccm.fr` ([ADR 0025](docs/adr/0025-un-proxy-de-tete-neutre-devant-les-projets.md)),
+  donc #5 n'a ni DNS ni certificat à obtenir — seulement un bloc à écrire dans
+  le `Caddyfile` de Personal OS, et un fichier à renommer dans `caddy/conf.d/`
+  pour ouvrir le tableau de bord.
+
+Deux dettes lui reviennent, posées en #3 et rappelées ici pour qu'elles ne se
+perdent pas : `backup.sh` ne dumpe **qu'une** base et devra accepter une liste,
+Authentik ayant la sienne ; et la configuration d'Authentik s'ajoute par une
+ligne de `BACKUP_PATHS`.
 
 ## Journal
 
-### 2026-08-11 — #4 Déploiement tiré
+### 2026-08-26 — #4 Déploiement tiré
 
-[PR #27](https://github.com/MaximeD1412/personal-os/pull/27) ouverte, **issue
-volontairement non fermée** : la PR porte `Refs #4`, pas `Closes #4`.
+**Fermée**, timer armé sur la machine. PR [#27](https://github.com/MaximeD1412/personal-os/pull/27),
+[#28](https://github.com/MaximeD1412/personal-os/pull/28),
+[#30](https://github.com/MaximeD1412/personal-os/pull/30) et
+[#32](https://github.com/MaximeD1412/personal-os/pull/32).
 
-Ce qui est livré : `verify.yml` partagé par la CI et la livraison, `livraison.yml`
-qui publie les trois images sur GHCR et ne déplace le canal qu'une fois les trois
-poussées, et `infra/deploy/` — l'agent, la pile de production, le routage Caddy,
-les unités systemd, l'installation idempotente.
+Un commit sur `main` part en production. L'agent lit la révision au libellé OCI
+du canal, répète la migration sur une restauration de la dernière sauvegarde,
+applique, vérifie la santé, et revient aux images précédentes sans toucher la
+base. `portfolio.dccm.fr` répond en HTTPS.
 
-Deux arbitrages tranchés avant de commencer :
+**Le montage du proxy a changé en cours de route.** Le plan initial promouvait
+`mairie-caddy-1` en proxy de tête. Ça marchait, mais la séparation était
+nominale : chaque hôte ajouté à Personal OS demandait une modification dans la
+configuration d'un autre projet. Un proxy **neutre** l'a remplacé, avec un
+certificat joker `*.dccm.fr` obtenu par DNS-01
+([ADR 0025](docs/adr/0025-un-proxy-de-tete-neutre-devant-les-projets.md),
+`infra/edge/`). Ajouter un sous-domaine ne touche plus rien hors de ce dépôt.
 
-- **Cloisonnement du proxy**, pas partage. `mairie-caddy-1` reste proxy de tête
-  et transmet à un Caddy interne sur `127.0.0.1:8080`. Ce Caddy ne termine pas
-  TLS aujourd'hui — sa raison d'être est que la carte de routage vive dans le
-  dépôt, versionnée et déployée par l'agent. Au homelab il reprend TLS : le
-  cloisonnement se démonte, le partage se serait réécrit.
-- **Le tableau de bord n'est pas publié.** Il n'aura d'authentification qu'avec
-  #5, et son nginx relaie déjà `/api/`. Son bloc Caddy attend, désactivé.
+Quatre choses à savoir avant de reprendre le code :
 
-Trois choses à savoir avant de reprendre le code :
-
-- La révision déployée est un **commit**, lu dans le libellé OCI de l'image du
-  canal. Jamais un tag mouvant : `main` désignerait autre chose demain, et le
-  retour arrière perdrait sa cible.
+- La révision déployée est un **commit**, lu dans le libellé OCI. Jamais un tag
+  mouvant : `main` désignerait autre chose demain, et le retour arrière
+  perdrait sa cible.
 - L'agent reprend le compose et le routage **du dépôt** à chaque déploiement,
   depuis un clone local. Il ne se met pas à jour lui-même : la dérive est
-  signalée dans le journal et se corrige par un `install.sh`.
+  signalée dans le journal et se corrige par un `install.sh`. Une PR qui touche
+  `infra/deploy/bin/` ou `lib/` demande donc ce geste sur la machine.
+- L'edge n'est **pas** déployé par l'agent, et c'est délibéré : le faire
+  redonnerait à Personal OS la propriété de l'entrée de la machine.
 - Les deux campagnes d'intégration portent `"parallelism": false`. Elles
   nettoient toutes deux les conteneurs par le préfixe `personal-os-restore-` :
   lancées côte à côte, l'une détruit la restauration que l'autre interroge.
 
-Ce qui reste, et qu'aucun agent ne peut faire : le DNS, la visibilité des
-paquets GHCR, le bloc `reverse_proxy` dans le Caddyfile de `mairie`, et la pose
-des secrets sur la machine. Runbook dans `infra/deploy/README.md`. Le critère
-« joignable en HTTPS sur son domaine » se vérifie à ce moment-là.
+Quatre défauts découverts en posant la tranche sur la machine, tous corrigés —
+ils valent d'être connus parce que les mêmes formes reviendront :
 
-**#5 reste bloquée** tant que #4 n'est pas fermée. Retirer sa ligne à
-l'ouverture de la PR débloquerait une tranche OIDC dont le nom d'hôte n'existe
-pas encore.
+- un conteneur ne peut pas joindre un port publié sur `127.0.0.1` de l'hôte ;
+  c'est son propre loopback qu'il voit. Le README prescrivait l'inverse ;
+- `admin off` dans un Caddyfile coupe l'API que `caddy reload` utilise —
+  et oblige à redémarrer, donc à couper tous les locataires ;
+- l'image PostgreSQL crée la base sur un serveur **temporaire** qu'elle éteint
+  ensuite : une requête qui aboutit ne prouve pas que le serveur est le bon
+  ([#28](https://github.com/MaximeD1412/personal-os/pull/28)) ;
+- `set -e` faisait sortir l'agent sans repasser par ses enregistrements : un
+  échec imprévu ne laissait qu'une ligne `debut`, et le timer le rejouait
+  toutes les deux minutes.
+
+Deux traces à nettoyer quand la confiance sera acquise : le volume `src_db-data`
+de l'ancienne pile, et `/opt/personal-os/src/.env` qui en portait le mot de
+passe.
 
 ### 2026-08-11 — #3 Sauvegardes Restic
 
