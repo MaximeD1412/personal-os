@@ -9,6 +9,7 @@ import {
   creerDepot,
   demarrerRegistre,
   Depot,
+  portsPris,
   promouvoir,
   publierImage,
   Registre,
@@ -110,10 +111,57 @@ describe('déploiement tiré, de bout en bout', () => {
     return run('deploy.sh', args, fixture, environnement);
   }
 
-  beforeAll(() => {
+  /**
+   * Cette campagne s'approprie Docker le temps de tourner : noms de conteneurs
+   * fixes, projet compose fixe, ports fixes, et un balayage qui détruit tous
+   * les `personal-os-restore-*`. C'est délibéré — `parallelism: false` dans
+   * `project.json` le dit —, mais Nx ne peut l'imposer qu'à l'intérieur d'une
+   * même invocation : rien n'empêche deux terminaux de la lancer ensemble.
+   *
+   * Alors Docker refuse un port quarante secondes plus tard, sous une erreur
+   * de bas niveau que chaque test répercute en échec sans rapport. On pose donc
+   * la question tout de suite, et on y répond en français.
+   */
+  async function exigerLaMachinePourSoi(): Promise<void> {
+    // Nos propres restes d'abord : une campagne interrompue tient encore ses
+    // ports, et ne doit pas pour autant bloquer la suivante.
+    for (const conteneur of [REGISTRE_CONTENEUR, DB_CONTENEUR, API_CONTENEUR]) {
+      silence(() => sh('docker', ['rm', '--force', conteneur]));
+    }
+
+    const pris = await portsPris([
+      { port: REGISTRE_PORT, role: 'le registre' },
+      { port: APP_PORT, role: "l'API" },
+      { port: REPETITION_PORT, role: 'la répétition de migration' },
+    ]);
+
+    if (pris.length === 0) {
+      return;
+    }
+
+    const liste = pris
+      .map(({ port, role }) => `le port ${port} (${role})`)
+      .join(', ');
+
+    throw new Error(
+      [
+        `La campagne de déploiement ne peut pas tourner : ${liste} ` +
+          `${pris.length > 1 ? 'sont déjà pris' : 'est déjà pris'}, alors que ` +
+          `ses propres conteneurs viennent d’être retirés.`,
+        '',
+        'Une autre campagne de déploiement tourne probablement en parallèle —',
+        'elles ne se partagent ni ports ni noms de conteneurs, et se',
+        'détruiraient mutuellement. Attendre qu’elle finisse, puis relancer.',
+      ].join('\n')
+    );
+  }
+
+  beforeAll(async () => {
     for (const outil of ['docker', 'restic', 'git', 'curl']) {
       requireTool(outil);
     }
+
+    await exigerLaMachinePourSoi();
 
     racine = mkdtempSync(join(tmpdir(), 'personal-os-livraison-'));
 
