@@ -7,6 +7,7 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import type { Event, Scope } from '@personal-os/contracts';
 import {
   choisirDansLeSelect,
@@ -47,13 +48,26 @@ const DECLARATION: Event = {
 
 describe('Calendrier', () => {
   let httpMock: HttpTestingController;
+  let parametres: Record<string, string>;
 
   beforeEach(async () => {
+    parametres = {};
+
     await TestBed.configureTestingModule({
       imports: [Calendrier],
       providers: [
         provideHttpClient(withInterceptorsFromDi()),
         provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              get queryParamMap() {
+                return convertToParamMap(parametres);
+              },
+            },
+          },
+        },
         { provide: API_BASE_URL, useValue: BASE },
       ],
     }).compileComponents();
@@ -63,7 +77,12 @@ describe('Calendrier', () => {
 
   afterEach(() => httpMock.verify());
 
-  async function monter(evenements: Event[] = [DENTISTE, DECLARATION]) {
+  async function monter(
+    evenements: Event[] = [DENTISTE, DECLARATION],
+    depuisLAgenda: Record<string, string> = {},
+  ) {
+    parametres = depuisLAgenda;
+
     const fixture = TestBed.createComponent(Calendrier);
     fixture.detectChanges();
 
@@ -278,6 +297,35 @@ describe('Calendrier', () => {
       fixture.detectChanges();
 
       expect(element(fixture).textContent).not.toContain('Dentiste');
+    });
+  });
+
+  /*
+   * L'Agenda est en lecture seule et renvoie ici. Atterrir sur l'écran sans
+   * atterrir sur l'objet ferait recommencer la recherche à la main : le
+   * paramètre que porte le lien ouvre directement l'Événement visé.
+   */
+  describe("Arriver depuis l'Agenda", () => {
+    it("reprend l'Événement que le lien désigne", async () => {
+      const fixture = await monter([DENTISTE, DECLARATION], {
+        evenement: 'event-2',
+      });
+
+      expect(champ<HTMLInputElement>(element(fixture), 'titre').value).toBe(
+        'Déclaration de revenus',
+      );
+    });
+
+    it("laisse le formulaire vierge quand l'Événement désigné n'est pas là", async () => {
+      const fixture = await monter([DENTISTE], { evenement: 'event-inconnu' });
+
+      expect(champ<HTMLInputElement>(element(fixture), 'titre').value).toBe('');
+    });
+
+    it('laisse le formulaire vierge quand le lien ne désigne rien', async () => {
+      const fixture = await monter();
+
+      expect(champ<HTMLInputElement>(element(fixture), 'titre').value).toBe('');
     });
   });
 });

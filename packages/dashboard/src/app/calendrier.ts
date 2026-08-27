@@ -1,5 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import {
   estEcheance,
   type Event,
@@ -22,6 +23,7 @@ import { HlmLabel } from '@personal-os/ui/label';
 import { HlmSelectImports } from '@personal-os/ui/select';
 import { EspaceService } from './espace.service';
 import { EventService } from './event.service';
+import { PARAMETRE_D_EVENEMENT } from './modules-d-origine';
 
 /** Les catégories, dans l'ordre où l'écran les propose. */
 const CATEGORIES: readonly { valeur: EventCategory; libelle: string }[] = [
@@ -88,6 +90,7 @@ const SAISIE_VIERGE: Saisie = {
 export class Calendrier {
   private readonly espacesApi = inject(EspaceService);
   private readonly evenementsApi = inject(EventService);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly categories = CATEGORIES;
   protected readonly paliers = PALIERS_DE_RAPPEL;
@@ -112,9 +115,33 @@ export class Calendrier {
     });
 
     this.evenementsApi.lister().subscribe({
-      next: (evenements) => this.evenements.set(parDate(evenements)),
+      next: (evenements) => {
+        this.evenements.set(parDate(evenements));
+        this.reprendreCeluiDuLien();
+      },
       error: () => this.erreur.set("Les Événements n'ont pas pu être lus."),
     });
+  }
+
+  /**
+   * L'Agenda est en lecture seule et renvoie ici pour modifier (ADR 0011).
+   * Le lien porte l'identité de l'Événement : on atterrit sur l'objet, pas
+   * seulement sur l'écran.
+   *
+   * Un identifiant qui ne désigne rien de visible laisse le formulaire
+   * vierge — c'est le même silence que partout ailleurs, et il ne confirme
+   * pas l'existence d'un Événement hors de portée (ADR 0028).
+   */
+  private reprendreCeluiDuLien(): void {
+    const vise = this.route.snapshot.queryParamMap.get(PARAMETRE_D_EVENEMENT);
+    if (!vise) {
+      return;
+    }
+
+    const evenement = this.evenements().find(({ id }) => id === vise);
+    if (evenement) {
+      this.reprendre(evenement);
+    }
   }
 
   /*

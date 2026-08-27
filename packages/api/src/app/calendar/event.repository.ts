@@ -36,6 +36,25 @@ export class EventRepository {
     return this.prisma.event.findMany({ orderBy: { startsAt: 'asc' } });
   }
 
+  /**
+   * Les Événements qui **rencontrent** la période, et non ceux qui y
+   * commencent : des vacances entamées en juillet appartiennent bien à
+   * l'agenda du mois d'août. Un Événement sans fin distincte finit là où il
+   * commence.
+   */
+  listerEntre(debut: Date, fin: Date): Promise<EventRecord[]> {
+    return this.prisma.event.findMany({
+      where: {
+        startsAt: { lte: fin },
+        OR: [
+          { endsAt: { gte: debut } },
+          { endsAt: null, startsAt: { gte: debut } },
+        ],
+      },
+      orderBy: { startsAt: 'asc' },
+    });
+  }
+
   lire(id: string): Promise<EventRecord | null> {
     return this.prisma.event.findUnique({ where: { id } });
   }
