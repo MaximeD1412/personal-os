@@ -86,6 +86,15 @@ describe('App', () => {
     expect(texte(fixture)).toContain('moi@exemple.test');
   });
 
+  it('donne accès au Calendrier depuis la coque', async () => {
+    const lien = (
+      (await monter()).nativeElement as HTMLElement
+    ).querySelector('[data-test="vers-calendrier"]') as HTMLAnchorElement;
+
+    expect(lien).not.toBeNull();
+    expect(lien.getAttribute('href')).toBe('/calendrier');
+  });
+
   it('quitte la session côté serveur avant de quitter la page', async () => {
     const fixture = await monter();
 

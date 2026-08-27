@@ -1,8 +1,19 @@
 .tableau-de-bord {
   font-family: system-ui, sans-serif;
   margin: 0 auto;
-  max-width: 40rem;
+  max-width: 52rem;
   padding: 2rem 1rem;
+}
+
+.modules {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.modules a {
+  color: #1a73e8;
+  text-decoration: none;
 }
 
 .entete {
