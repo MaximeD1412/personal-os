@@ -43,20 +43,12 @@ describe('Authentification OIDC', () => {
     await authentik?.close();
   });
 
-  /**
-   * La garde de session est **globale** : un endpoint est protégé parce qu'il
-   * existe, pas parce que quelqu'un a pensé à le protéger. C'est le corollaire
-   * des modules plats (ADR 0016) — la garantie est portée par un mécanisme
-   * unique, jamais par la vigilance de chaque module.
-   */
   describe('Garde de session', () => {
     it('refuse une requête API présentée sans session', async () => {
       await request(app.getHttpServer()).get('/api/auth/me').expect(401);
     });
 
     it('laisse la sonde de santé joignable sans session', async () => {
-      // L'agent de déploiement l'interroge pour décider s'il garde la nouvelle
-      // version : la protéger arrêterait tous les déploiements.
       const response = await request(app.getHttpServer()).get('/api/health');
 
       expect(response.status).not.toBe(401);
@@ -86,8 +78,6 @@ describe('Authentification OIDC', () => {
     });
 
     it("rattache l'aller-retour au navigateur par un cookie HttpOnly", async () => {
-      // Sans ce lien, n'importe qui pourrait terminer le flux à la place du
-      // navigateur qui l'a commencé : c'est la CSRF de connexion.
       const response = await request(app.getHttpServer())
         .get('/api/auth/login')
         .expect(302);
@@ -151,9 +141,6 @@ describe('Authentification OIDC', () => {
     });
 
     it("ne laisse aucun jeton du fournisseur d'identité atteindre le navigateur", async () => {
-      // C'est la raison d'être de la session serveur (ADR 0015) : le jeton
-      // d'Authentik meurt dans l'API. S'il ressortait, le tableau de bord
-      // porterait une identité qu'aucune révocation applicative n'atteint.
       const depart = await commencer();
       authentik.autoriserCode('code-sans-fuite', {
         nonce: depart.nonce,
@@ -178,8 +165,6 @@ describe('Authentification OIDC', () => {
     it('échange le code contre un jeton, sans jamais le confier au navigateur', async () => {
       await connecter({ sub: 'sujet-1', email: ADMIS });
 
-      // La preuve que c'est bien le flux authorization code qui a été joué :
-      // l'API a présenté le code et le vérificateur PKCE au point de jeton.
       const echange = authentik.dernierEchange();
       expect(echange?.get('grant_type')).toBe('authorization_code');
       expect(echange?.get('code_verifier')).toBeTruthy();
@@ -189,9 +174,6 @@ describe('Authentification OIDC', () => {
 
   describe('Admission', () => {
     it('refuse une identité valide chez Authentik mais absente de la liste', async () => {
-      // Authentik répond « qui tu es », l'application répond « ce que tu peux
-      // voir » (ADR 0015). Un compte Authentik parfaitement valide — créé pour
-      // Grafana, par exemple — n'entre pas ici pour autant.
       const avant = await prisma.user.count();
       const depart = await commencer();
       authentik.autoriserCode('code-inconnu', {
@@ -205,8 +187,6 @@ describe('Authentification OIDC', () => {
         .set('Cookie', depart.cookieLogin)
         .expect(403);
 
-      // Aucun parcours d'inscription, pas même involontaire : un refus ne
-      // laisse rien derrière lui.
       expect(await prisma.user.count()).toBe(avant);
     });
 
@@ -239,8 +219,6 @@ describe('Authentification OIDC', () => {
     });
 
     it("refuse un retour présenté sans le cookie d'aller-retour", async () => {
-      // C'est la CSRF de connexion : sans ce cookie, un tiers pourrait faire
-      // aboutir chez la victime un flux qu'il a commencé, lui.
       const depart = await commencer();
       authentik.autoriserCode('code-sans-cookie', {
         nonce: depart.nonce,
@@ -307,8 +285,6 @@ describe('Authentification OIDC', () => {
         .set('Cookie', session)
         .expect(200);
 
-      // Le navigateur peut très bien garder son cookie : ce n'est pas lui qui
-      // décide. La session n'existe plus là où elle comptait.
       await request(app.getHttpServer())
         .get('/api/auth/me')
         .set('Cookie', session)
@@ -344,7 +320,6 @@ describe('Authentification OIDC', () => {
     });
   });
 
-  /** Joue un flux complet, et rend le cookie de session obtenu. */
   async function connecter(identite: {
     sub: string;
     email?: string;
@@ -366,7 +341,6 @@ describe('Authentification OIDC', () => {
     return setCookie(retour, 'pos_session').split(';')[0];
   }
 
-  /** Joue le départ du flux, et l'étape que le navigateur ferait chez l'IdP. */
   async function commencer(): Promise<{
     cookieLogin: string;
     state: string;

@@ -19,20 +19,6 @@ import {
 } from './livraison';
 import { Fixture, run } from './run-script';
 
-/**
- * Chaîne de livraison complète, contre de vraies pièces : un registre, des
- * images étiquetées, un dépôt Git, une sauvegarde Restic et une pile Compose.
- *
- * Ce que ce banc prouve, et qu'aucune simulation ne prouverait :
- *
- *  - l'agent **détecte** la version publiée sur le canal, sans qu'on la lui
- *    donne (ADR 0023) ;
- *  - une migration qui échoue sur la restauration **arrête** le déploiement, et
- *    la production n'a pas bougé (ADR 0021) ;
- *  - une sonde de santé en échec **ramène les images précédentes**, et la base
- *    conserve tout ce qui y avait été écrit (ADR 0024).
- */
-
 const REGISTRE_CONTENEUR = 'personal-os-deploy-it-registry';
 const REGISTRE_PORT = 5088;
 const DB_CONTENEUR = 'personal-os-deploy-it-db';
@@ -45,7 +31,6 @@ const MOT_DE_PASSE = 'mot-de-passe-jetable';
 const SANTE_URL = `http://127.0.0.1:${APP_PORT}/api/health`;
 const BACKUP_BIN = resolve(SOURCE_ROOT, '..', 'backup', 'bin');
 
-/** Lignes semées avant le premier déploiement : aucune ne doit disparaître. */
 const LIGNES_SEMEES = 3;
 
 function compose(marque: string): string {
@@ -92,7 +77,6 @@ describe('déploiement tiré, de bout en bout', () => {
   let revisionMalade: string;
   let revisionRefusee: string;
 
-  /** Interroge la base de **production**, jamais une copie. */
   function requeteProduction(sql: string): string {
     return sh('docker', [
       'exec', '--env', `PGPASSWORD=${MOT_DE_PASSE}`, DB_CONTENEUR,
@@ -112,7 +96,6 @@ describe('déploiement tiré, de bout en bout', () => {
     return ligne ? ligne.slice(clef.length + 1) : '';
   }
 
-  /** Code HTTP rendu par la sonde, 0 si rien ne répond. */
   function sante(): number {
     try {
       return Number(
@@ -134,14 +117,12 @@ describe('déploiement tiré, de bout en bout', () => {
 
     racine = mkdtempSync(join(tmpdir(), 'personal-os-livraison-'));
 
-    // --- Dépôt : trois commits, trois révisions réelles --------------------
     depot = creerDepot(racine);
     revisionSaine = commettreStack(depot, compose('version saine'), 'pile initiale');
     revisionMalade = commettreStack(depot, compose('version sans sonde'), 'pile sans sonde');
     revisionRefusee = commettreStack(depot, compose('version refusee'), 'pile refusée');
     clonerDepot(depot);
 
-    // --- Registre et images ------------------------------------------------
     registre = demarrerRegistre(REGISTRE_CONTENEUR, REGISTRE_PORT);
 
     publierImage(
@@ -158,9 +139,6 @@ describe('déploiement tiré, de bout en bout', () => {
       registre,
       revisionMalade,
       {
-        // La migration passe : c'est l'application qui ne répond pas. C'est le
-        // cas que le retour arrière doit couvrir, et le seul où la base a déjà
-        // reçu sa migration au moment où l'on décide de reculer.
         migration:
           'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "create table if not exists migration_v2 (id serial primary key)"',
         sante: false,
@@ -171,8 +149,6 @@ describe('déploiement tiré, de bout en bout', () => {
       registre,
       revisionRefusee,
       {
-        // Une migration qui suppose une table absente de la production : le cas
-        // exact que la répétition sur restauration existe pour attraper.
         migration:
           'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "alter table table_absente add column x int"',
         sante: true,
@@ -180,7 +156,6 @@ describe('déploiement tiré, de bout en bout', () => {
       join(racine, 'image-refusee')
     );
 
-    // --- Sauvegarde : dépôt Restic et configuration ------------------------
     const depotRestic = join(racine, 'restic');
     const clePath = join(racine, 'restic-password');
     const backupConf = join(racine, 'backup.conf');
@@ -209,7 +184,6 @@ describe('déploiement tiré, de bout en bout', () => {
       env: { RESTIC_REPOSITORY: depotRestic, RESTIC_PASSWORD_FILE: clePath },
     });
 
-    // --- Configuration de l'agent -----------------------------------------
     composePath = join(racine, 'docker-compose.yml');
     statePath = join(racine, 'deploy-state');
     historyPath = join(racine, 'deploy.log');
@@ -217,8 +191,6 @@ describe('déploiement tiré, de bout en bout', () => {
     const deployConf = join(racine, 'deploy.conf');
     const ghcrEnv = join(racine, 'ghcr.env');
 
-    // La pile initiale est posée à la main, comme le ferait install.sh : le
-    // premier déploiement doit avoir un compose à lire avant d'en reprendre un.
     writeFileSync(composePath, compose('version saine'));
     writeFileSync(
       stackEnv,
@@ -244,12 +216,6 @@ describe('déploiement tiré, de bout en bout', () => {
         `REHEARSAL_TARGET=${join(racine, 'repetition')}`,
         `REHEARSAL_PROBE_PORT=${REPETITION_PORT}`,
         `HEALTH_URL=${SANTE_URL}`,
-        // Le banc éprouve la boucle de sonde, pas la patience : sur le test
-        // de retour arrière la santé *doit* échouer, et chaque tour est du
-        // temps mort. Huit tours d'une seconde laissent largement de quoi
-        // voir démarrer un httpd busybox dont l'image est déjà locale, tout
-        // en coupant une quinzaine de secondes au chemin d'échec. Le VPS,
-        // lui, garde les valeurs par défaut de common.sh (30 essais, 2 s).
         'HEALTH_RETRIES=8',
         'HEALTH_DELAY=1',
         `DEPLOY_STATE_FILE=${statePath}`,
@@ -268,11 +234,8 @@ describe('déploiement tiré, de bout en bout', () => {
       historyPath,
       restorePath: join(BACKUP_BIN, 'restore.sh'),
     };
-    // restore.sh lit sa configuration depuis l'environnement : sur le VPS elle
-    // est aux emplacements par défaut, ici elle est jetable.
     environnement = { BACKUP_CONF: backupConf, RESTIC_ENV_FILE: resticEnv };
 
-    // --- Production existante : une base semée, et sa sauvegarde -----------
     nettoyerPile();
     sh('docker', [
       'compose', '--file', composePath, '--env-file', stackEnv,
@@ -281,11 +244,6 @@ describe('déploiement tiré, de bout en bout', () => {
       env: { REGISTRY: registre.prefixe, IMAGE_TAG: revisionSaine },
     });
 
-    // Le `--wait` de Compose s'appuie sur le healthcheck, qui peut passer au
-    // vert contre le serveur **temporaire** de l'initialisation — celui que
-    // l'image éteint avant de lancer le vrai. Semer là-dessus tombe sur
-    // « the database system is shutting down ». La marque de fin
-    // d'initialisation est le seul point de bascule fiable.
     attendreInitPostgres(DB_CONTENEUR);
 
     sh('docker', ['exec', '--interactive', '--env', `PGPASSWORD=${MOT_DE_PASSE}`, DB_CONTENEUR,
@@ -344,13 +302,9 @@ describe('déploiement tiré, de bout en bout', () => {
     expect(imageEnPlace()).toBe(`${registre.prefixe}/api:${revisionSaine}`);
     expect(sante()).toBe(200);
 
-    // La migration réelle a bien été appliquée à la production.
     expect(requeteProduction("select to_regclass('public.migration_v1') is not null")).toBe('t');
     expect(readFileSync(historyPath, 'utf8')).toContain(`succes\t${revisionSaine}`);
 
-    // Le démarrage de la base a son propre message, avant celui de la
-    // migration : les annoncer ensemble laissait croire qu'une migration avait
-    // eu lieu quand c'est la base qui n'avait pas démarré.
     const journal = resultat.stderr;
     expect(journal.indexOf('démarrage de la base')).toBeLessThan(
       journal.indexOf('migration réelle')
@@ -365,7 +319,6 @@ describe('déploiement tiré, de bout en bout', () => {
     expect(resultat.status).not.toBe(0);
     expect(resultat.stderr).toContain('production intacte');
 
-    // Tout l'intérêt de l'ADR 0021 : la production n'a pas bougé d'un pouce.
     expect(imageEnPlace()).toBe(`${registre.prefixe}/api:${revisionSaine}`);
     expect(sante()).toBe(200);
     expect(etat('DEPLOYED_REVISION')).toBe(revisionSaine);
@@ -374,8 +327,6 @@ describe('déploiement tiré, de bout en bout', () => {
   });
 
   it('ne représente pas au banc d’essai une révision déjà refusée', () => {
-    // Le canal porte toujours la révision refusée : sans mémoire, le timer la
-    // rejouerait toutes les deux minutes.
     const resultat = deployer();
 
     expect(resultat.status).toBe(0);
@@ -383,8 +334,6 @@ describe('déploiement tiré, de bout en bout', () => {
   });
 
   it('revient aux images précédentes quand la santé échoue, sans toucher la base', () => {
-    // Une ligne saisie après le dernier déploiement : c'est elle que la
-    // restauration de sauvegarde aurait perdue, et que l'ADR 0024 protège.
     sh('docker', ['exec', '--env', `PGPASSWORD=${MOT_DE_PASSE}`, DB_CONTENEUR,
       'psql', '--username', 'postgres', '--dbname', 'personalos',
       '--command', "insert into evenement (titre) values ('saisi entre deux versions')"]);
@@ -396,25 +345,16 @@ describe('déploiement tiré, de bout en bout', () => {
     expect(resultat.status).not.toBe(0);
     expect(resultat.stderr).toContain('retour arrière effectué');
 
-    // Les images sont revenues, et le service répond de nouveau.
     expect(imageEnPlace()).toBe(`${registre.prefixe}/api:${revisionSaine}`);
     expect(sante()).toBe(200);
     expect(etat('DEPLOYED_REVISION')).toBe(revisionSaine);
     expect(etat('FAILED_REVISION')).toBe(revisionMalade);
 
-    // La base, elle, n'est pas revenue : la migration de la version fautive est
-    // toujours là — elle reste compatible avec la version précédente — et la
-    // ligne saisie entre les deux n'a pas disparu.
     expect(requeteProduction("select to_regclass('public.migration_v2') is not null")).toBe('t');
     expect(requeteProduction('select count(*) from evenement')).toBe(String(LIGNES_SEMEES + 1));
   });
 
   it('laisse une trace même là où rien ne prévoyait d’échouer', () => {
-    // On casse le contrat de restore.sh : il rend 0 mais n'imprime aucun
-    // « dsn: ». Aucun `history_append` ne couvre ce chemin — c'est précisément
-    // la classe d'échec qui ne laissait qu'une ligne « debut » dans
-    // l'historique et aucune révision fautive dans l'état, si bien que le timer
-    // rejouait la même chose deux minutes plus tard.
     const muet = join(racine, 'restore-muet.sh');
     writeFileSync(muet, '#!/usr/bin/env bash\necho "rien a dire" >&2\n');
     chmodSync(muet, 0o755);
@@ -441,8 +381,6 @@ describe('déploiement tiré, de bout en bout', () => {
     expect(ajout).toContain(`echec-inattendu\t${revisionRefusee}`);
     expect(etat('FAILED_REVISION')).toBe(revisionRefusee);
 
-    // Et la production n'a pas bougé : l'échec est survenu avant qu'elle soit
-    // touchée.
     expect(imageEnPlace()).toBe(`${registre.prefixe}/api:${revisionSaine}`);
     expect(sante()).toBe(200);
   });

@@ -12,12 +12,6 @@ import { API_BASE_URL } from './api-base-url';
 import { Redirection } from './redirection';
 import { sessionInterceptor } from './session.interceptor';
 
-/**
- * Le tableau de bord est entièrement protégé : il n'a pas d'écran à montrer à
- * qui n'a pas de session. Le seul geste possible devant un 401 est donc de
- * repartir vers Authentik — et il vaut mieux que ce geste soit posé une fois,
- * pour toutes les requêtes, que répété dans chaque écran.
- */
 describe('sessionInterceptor', () => {
   let http: HttpClient;
   let httpMock: HttpTestingController;
@@ -52,8 +46,6 @@ describe('sessionInterceptor', () => {
   });
 
   it("ne renvoie nulle part sur une erreur qui n'est pas un défaut de session", () => {
-    // Une API en panne n'est pas une session absente. Confondre les deux
-    // ferait boucler le navigateur entre Authentik et une API qui répond 500.
     http.get('/api/health').subscribe({ error: () => undefined });
 
     httpMock
@@ -64,8 +56,6 @@ describe('sessionInterceptor', () => {
   });
 
   it("ne renvoie pas vers la connexion quand c'est le compte qui est refusé", () => {
-    // 403 dit « ce compte n'entre pas ici ». Repartir vers Authentik
-    // rouvrirait la même session et referait le même refus, en boucle.
     http.get('/api/auth/me').subscribe({ error: () => undefined });
 
     httpMock

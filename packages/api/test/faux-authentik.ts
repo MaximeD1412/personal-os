@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-/** L'identité qu'Authentik rendra pour un code donné. */
 export interface IdentiteFournie {
   sub: string;
   email?: string;
@@ -14,32 +13,15 @@ interface CodeAutorise {
   nonce: string;
   codeChallenge: string;
   identite: IdentiteFournie;
-  /** Fabrique un jeton d'identité que l'API doit refuser. */
   jetonInvalide?: 'signature' | 'audience' | 'expire';
 }
 
-/**
- * Un fournisseur d'identité de laboratoire, en tout point conforme à ce
- * qu'Authentik expose : découverte, jeu de clés, point de jeton.
- *
- * Il existe pour que le flux soit exercé **entier** — redirection, échange du
- * code contre un jeton, vérification de la signature contre le jeu de clés —
- * sans dépendre d'un service extérieur. Remplacer le client OIDC par un
- * mensonge reviendrait à tester le mensonge, et c'est précisément la partie
- * qu'on ne peut pas se permettre de croire sur parole.
- */
 export interface FauxAuthentik {
   issuer: string;
   clientId: string;
   clientSecret: string;
-  /**
-   * Joue l'étape que le navigateur ferait : l'utilisateur s'authentifie, et
-   * Authentik retient le code, le nonce et le défi PKCE de la demande.
-   */
   autoriserCode(code: string, autorisation: CodeAutorise): void;
-  /** Le dernier jeton d'identité émis — celui qui ne doit jamais ressortir. */
   dernierJetonEmis(): string | null;
-  /** Ce que le point de jeton a reçu au dernier échange. */
   dernierEchange(): URLSearchParams | null;
   close(): Promise<void>;
 }
@@ -111,7 +93,6 @@ export async function demarrerFauxAuthentik(): Promise<FauxAuthentik> {
           return;
         }
 
-        // Un code d'autorisation ne s'échange qu'une fois.
         codes.delete(parametres.get('code') ?? '');
 
         dernierJeton = await signerJetonIdentite(autorisation);
@@ -153,7 +134,6 @@ export async function demarrerFauxAuthentik(): Promise<FauxAuthentik> {
       );
 
     if (autorisation.jetonInvalide === 'signature') {
-      // Signé par une clé que le jeu de clés publié ne contient pas.
       const { privateKey: autreCle } = await generateKeyPair('RS256', {
         extractable: true,
       });

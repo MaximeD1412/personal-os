@@ -14,8 +14,6 @@ import { OidcClient } from './oidc.client';
     AuthService,
     AuthRepository,
     OidcClient,
-    // Globale, et posée ici : chaque module reste plat (ADR 0016) et n'a rien
-    // à faire pour être protégé.
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
 })

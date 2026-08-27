@@ -1,15 +1,9 @@
 #!/usr/bin/env bash
-#
 # Sauvegarde Personal OS vers le dépôt Restic distant.
 #
 #   backup.sh [--dry-run]
 #
-# --dry-run n'écrit rien et n'ouvre aucune connexion : il imprime le plan, une
-# étape par ligne préfixée « plan: ». C'est ce que les tests exercent, et c'est
-# aussi la façon de vérifier une configuration avant de la laisser tourner sans
-# surveillance.
-#
-# Voir docs/adr/0020-sauvegardes-restic-chez-un-autre-fournisseur.md
+# --dry-run imprime le plan sans exécuter la sauvegarde.
 set -euo pipefail
 
 LOG_TAG=sauvegarde
@@ -22,7 +16,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY_RUN=1 ;;
     -h | --help)
-      sed -n '2,14p' "${BASH_SOURCE[0]}"
+      sed -n '2,6p' "${BASH_SOURCE[0]}"
       exit 0
       ;;
     *) die "argument inconnu : $1" ;;
@@ -35,15 +29,9 @@ plan() { printf 'plan: %s\n' "$*"; }
 load_config
 assert_password_file
 
-# Le dump part dans un répertoire de transit, à côté des fichiers de
-# configuration, pour que l'ensemble forme **un seul instantané**. Deux
-# instantanés séparés se restaureraient à des dates différentes, et plus rien ne
-# garantirait que la configuration corresponde aux données.
 STAGING=""
 cleanup() {
   local code=$?
-  # Le dump contient l'intégralité des données personnelles en clair. Il
-  # disparaît quoi qu'il arrive — succès, échec, ou interruption.
   [ -n "$STAGING" ] && rm -rf -- "$STAGING"
   return $code
 }
@@ -51,18 +39,11 @@ trap cleanup EXIT
 
 load_database_list
 
-# `-Z0` : pas de compression côté PostgreSQL. Un dump compressé change
-# intégralement à chaque octet modifié, ce qui annule la déduplication de Restic
-# et fait grossir le dépôt d'un dump complet par jour. Restic compresse
-# lui-même, après avoir dédupliqué.
 pg_dump_cmd() {
   printf '%s\n' docker exec -i "$POSTGRES_CONTAINER" \
     pg_dump -U "$POSTGRES_USER" -d "$1" --format=custom -Z0
 }
 
-# Chaque base a son dump, sous son propre nom. restore.sh retrouve celui de
-# l'application par ce chemin : le nommer d'après la base est ce qui permet
-# d'en ajouter d'autres sans rien changer au banc d'essai de migration.
 dump_relative() {
   printf 'postgres/%s.dump\n' "$1"
 }
@@ -87,8 +68,6 @@ if [ "$DRY_RUN" = 1 ]; then
 fi
 
 heartbeat start
-# À partir d'ici, toute sortie non nulle doit prévenir : sans ça, un échec
-# n'apparaît que dans un journal que personne ne lit.
 trap 'heartbeat fail; cleanup' EXIT
 
 STAGING=$(mktemp -d)
@@ -102,10 +81,6 @@ for base in "${POSTGRES_DATABASE_LIST[@]}"; do
   mapfile -t commande < <(pg_dump_cmd "$base")
   "${commande[@]}" >"$STAGING/$relative"
 
-  # Un pg_dump qui échoue à mi-parcours laisse un fichier tronqué et rend 0
-  # dans certaines configurations de tube. Le format custom se vérifie : si
-  # `pg_restore --list` ne sait pas le lire, il n'est pas restaurable, et le
-  # sauvegarder reviendrait à archiver une illusion.
   log "vérification de la lisibilité du dump de $base"
   docker exec -i "$POSTGRES_CONTAINER" pg_restore --list >/dev/null <"$STAGING/$relative" ||
     die "dump de $base illisible par pg_restore — sauvegarde interrompue"
@@ -119,9 +94,6 @@ log "application de la rétention"
 mapfile -t keep_args < <(retention_args)
 restic forget "${keep_args[@]}" --prune
 
-# Vérification structurelle seulement : elle ne relit pas les données, donc elle
-# ne coûte ni temps ni trafic sortant. La relecture complète (`--read-data`)
-# appartient à la restauration de vérification, pas au chemin quotidien.
 log "vérification du dépôt"
 restic check
 

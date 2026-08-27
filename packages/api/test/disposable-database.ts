@@ -4,12 +4,6 @@ import { Client } from 'pg';
 
 const WORKSPACE_ROOT = resolve(__dirname, '../../..');
 
-/**
- * Base jetable pour une campagne de tests d'intégration.
- *
- * Elle est créée puis migrée avant la campagne, et supprimée après. Aucun test
- * ne s'exécute donc sur une base partagée dont l'état viendrait d'ailleurs.
- */
 export function disposableDatabaseUrl(baseUrl: string, name: string): string {
   const url = new URL(baseUrl);
   url.pathname = `/${name}`;

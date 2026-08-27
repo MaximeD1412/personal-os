@@ -5,7 +5,6 @@ import { join, resolve } from 'node:path';
 
 export const BIN = resolve(__dirname, '..', 'bin');
 
-/** Jeton factice : sa présence dans une sortie est une fuite. */
 export const SECRET = 'jeton-ghcr-qui-ne-doit-jamais-fuiter';
 
 export interface Fixture {
@@ -19,20 +18,11 @@ export interface Fixture {
 }
 
 export interface FixtureOptions {
-  /** Lignes ajoutées au deploy.conf, après les valeurs par défaut. */
   extraConf?: string;
-  /** Contenu du script de restauration factice. Vide = script absent. */
   restoreScript?: string | null;
-  /** Contenu du fichier d'état. Absent = aucune version déployée. */
   state?: string;
 }
 
-/**
- * Pose une configuration jetable dans un répertoire temporaire.
- *
- * Les scripts lisent leurs chemins depuis DEPLOY_CONF et GHCR_ENV_FILE, ce qui
- * permet de les exercer sans jamais toucher /etc ni /opt.
- */
 export function makeFixture(options: FixtureOptions = {}): Fixture {
   const dir = mkdtempSync(join(tmpdir(), 'personal-os-deploy-'));
   const confPath = join(dir, 'deploy.conf');
@@ -96,18 +86,9 @@ export interface RunResult {
   status: number;
   stdout: string;
   stderr: string;
-  /** Sortie standard et erreur réunies : pratique pour chercher une fuite. */
   output: string;
 }
 
-/**
- * Exécute un script du répertoire bin/ contre une configuration jetable.
- *
- * `spawnSync` plutôt qu'`execFileSync` : l'agent dit sur l'erreur standard ce
- * qu'il a décidé de **ne pas** faire — « déjà en place », « déjà en échec » — et
- * il rend 0 en le disant. Un harnais qui ne relit l'erreur standard qu'en cas
- * d'échec ne verrait jamais ces refus.
- */
 export function run(
   script: string,
   args: string[],

@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
-#
 #   install.sh [--prefix /opt/personal-os/backup]
 #
 # Installe les scripts et les unités systemd sur la machine. Idempotent : se
 # relance après chaque déploiement sans rien perdre.
 #
-# N'écrit JAMAIS de secret et n'écrase JAMAIS une configuration existante — le
-# fichier de configuration et le fichier de secrets se posent à la main, une
-# fois, et survivent aux mises à jour.
 set -euo pipefail
 
 PREFIX=/opt/personal-os/backup
@@ -47,8 +43,6 @@ if [ ! -e "$CONF_DIR/backup.conf" ]; then
 fi
 
 if [ ! -e "$CONF_DIR/restic.env" ]; then
-  # Le modèle est posé sans ses valeurs, et en 600 dès le départ : un fichier
-  # créé en 644 puis corrigé a été lisible entre les deux.
   install -m 600 "$SOURCE_DIR/restic.env.example" "$CONF_DIR/restic.env"
   echo "MODÈLE de secrets posé : $CONF_DIR/restic.env — à renseigner sur cette machine" >&2
 fi

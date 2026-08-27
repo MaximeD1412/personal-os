@@ -1,8 +1,4 @@
 // Schéma de la base Personal OS.
-//
-// Les migrations restent toujours compatibles avec la version précédente
-// (ADR 0024) : on ajoute, on remplit, on lit ; on ne supprime qu'à une
-// livraison ultérieure.
 
 generator client {
   provider            = "prisma-client"
@@ -14,25 +10,17 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Sonde technique du squelette applicatif : elle prouve que le tableau de
-/// bord lit bien une valeur venue de la base en passant par l'API. Elle ne
-/// porte aucun concept du domaine.
+/// Sonde technique du squelette applicatif.
 model HealthProbe {
   id         String   @id @default(uuid())
   label      String
   recordedAt DateTime @default(now())
 }
 
-/// Un compte du foyer, apparié à son sujet Authentik.
-///
-/// Authentik répond « qui tu es », l'application répond « ce que tu peux
-/// voir » (ADR 0015) : le sujet vient de l'IdP, tout le reste est à nous. Une
-/// rangée n'apparaît que pour une adresse déjà admise par la configuration —
-/// il n'existe aucun parcours d'inscription.
+/// Compte local associé à un sujet Authentik.
 model User {
   id          String    @id @default(uuid())
-  /// Le `sub` du jeton d'identité. Stable, opaque, et jamais réattribué par
-  /// Authentik : c'est lui qui identifie, pas l'adresse.
+  /// Sujet OIDC stable et opaque.
   subject     String    @unique
   email       String    @unique
   displayName String?
@@ -41,12 +29,7 @@ model User {
   sessions    Session[]
 }
 
-/// Session applicative — celle que l'API émet, pas celle d'Authentik.
-///
-/// Elle vit en base et non dans un jeton signé, parce qu'une session en base
-/// se révoque : la déconnexion doit invalider côté serveur, pas seulement
-/// oublier un cookie. Seule l'empreinte du jeton est stockée — un dump de
-/// sauvegarde ne rend donc aucune session utilisable.
+/// Session applicative. Seule l'empreinte du jeton est stockée.
 model Session {
   id        String    @id @default(uuid())
   tokenHash String    @unique
@@ -59,11 +42,7 @@ model Session {
   @@index([userId])
 }
 
-/// Un aller-retour OIDC commencé et pas encore terminé.
-///
-/// Il porte l'état, le nonce et le vérificateur PKCE. Ces trois valeurs ne
-/// peuvent pas voyager par le navigateur : le vérificateur y perdrait tout son
-/// intérêt, et l'état ne prouverait plus rien.
+/// Transaction OIDC temporaire contenant l'état et les valeurs PKCE.
 model LoginTransaction {
   id           String   @id @default(uuid())
   state        String

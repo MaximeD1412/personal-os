@@ -1,10 +1,5 @@
 import { lireAuthConfig } from './auth.config';
 
-/**
- * La configuration est validée au démarrage, pas au premier clic sur « se
- * connecter ». Une pile qui se lève sans savoir authentifier passerait sa
- * vérification de santé, et l'agent de déploiement la garderait.
- */
 describe('lireAuthConfig', () => {
   const environnementInitial = process.env;
 
@@ -36,16 +31,12 @@ describe('lireAuthConfig', () => {
   });
 
   it("refuse une liste d'admission vide, qui n'ouvrirait à personne", () => {
-    // La panne serait longue à comprendre : elle ressemble trait pour trait à
-    // un problème d'Authentik, alors qu'elle est ici.
     process.env['AUTH_ALLOWED_EMAILS'] = '  ,  ';
 
     expect(() => lireAuthConfig()).toThrow('AUTH_ALLOWED_EMAILS');
   });
 
   it('compare les adresses admises sans tenir compte de la casse', () => {
-    // Authentik rend l'adresse telle qu'elle a été saisie ; la liste est
-    // recopiée à la main sur le serveur. Les deux finissent par diverger.
     expect(lireAuthConfig().allowedEmails).toEqual([
       'une.personne@exemple.test',
       'autre@exemple.test',
@@ -53,8 +44,6 @@ describe('lireAuthConfig', () => {
   });
 
   it("garde l'émetteur mot pour mot, barre finale comprise", () => {
-    // C'est la valeur que porte le `iss` des jetons, et la comparaison y est
-    // littérale : la raboter ferait échouer toutes les vérifications.
     expect(lireAuthConfig().issuer).toBe(
       'https://auth.exemple.test/application/o/personal-os/',
     );

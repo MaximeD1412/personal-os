@@ -22,9 +22,7 @@ import { LOGIN_COOKIE, SESSION_COOKIE, readCookie } from './cookies';
 import { CurrentUser } from './current-user.decorator';
 import { Public } from './public.decorator';
 
-/** Le cookie de session accompagne toute l'application, pas seulement /auth. */
 const CHEMIN_SESSION = '/';
-/** Le cookie d'aller-retour ne sert qu'au retour d'Authentik. */
 const CHEMIN_LOGIN = '/api/auth';
 
 @Controller('auth')
@@ -34,12 +32,6 @@ export class AuthController {
     private readonly auth: AuthService,
   ) {}
 
-  /**
-   * Départ du flux authorization code.
-   *
-   * Publique par nécessité : c'est la porte, on ne peut pas demander une
-   * session pour venir en chercher une.
-   */
   @Public()
   @Get('login')
   async login(@Res() response: Response): Promise<void> {
@@ -52,13 +44,6 @@ export class AuthController {
     response.redirect(302, depart.url);
   }
 
-  /**
-   * Retour d'Authentik.
-   *
-   * Publique elle aussi, et c'est sans danger : elle n'ouvre une session que
-   * pour un aller-retour dont ce navigateur détient le cookie, dont l'état
-   * correspond, et dont le code s'échange contre un jeton d'identité signé.
-   */
   @Public()
   @Get('callback')
   async callback(
@@ -68,8 +53,6 @@ export class AuthController {
     @Query('state') state?: string,
     @Query('error') erreur?: string,
   ): Promise<void> {
-    // Le cookie d'aller-retour a fait son office quoi qu'il arrive : le garder
-    // laisserait traîner de quoi retenter le retour.
     response.clearCookie(LOGIN_COOKIE, this.cookieDeBase(CHEMIN_LOGIN));
 
     if (erreur) {
@@ -97,10 +80,6 @@ export class AuthController {
     return { email: user.email, displayName: user.displayName };
   }
 
-  /**
-   * Déconnexion. Publique parce qu'elle doit aboutir même sur une session déjà
-   * morte : renvoyer 401 à qui veut partir n'aide personne.
-   */
   @Public()
   @Post('logout')
   @HttpCode(200)
@@ -116,11 +95,6 @@ export class AuthController {
     return { endSessionUrl: url };
   }
 
-  /**
-   * `SameSite=Lax` et non `Strict` : le retour d'Authentik est une navigation
-   * de premier niveau venue d'un autre site, et `Strict` retiendrait le cookie
-   * exactement au moment où il sert.
-   */
   private cookieDeBase(path: string): CookieOptions {
     return {
       httpOnly: true,

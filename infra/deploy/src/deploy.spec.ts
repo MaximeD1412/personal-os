@@ -3,16 +3,12 @@ import { makeFixture, run, SECRET } from './run-script';
 const REVISION = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678';
 const PRECEDENTE = '0f1e2d3c4b5a69788796a5b4c3d2e1f001234567';
 
-/** Position d'une étape dans le plan. -1 si elle n'y figure pas. */
 function etape(plan: string, aiguille: string): number {
   return plan.split('\n').findIndex((ligne) => ligne.includes(aiguille));
 }
 
 describe('deploy.sh --dry-run', () => {
   it('annonce la séquence de l’ADR 0023 dans l’ordre', () => {
-    // L'ordre n'est pas cosmétique : la répétition doit précéder la
-    // récupération des images, sinon « la production n'a pas bougé » cesse
-    // d'être vrai au moment où la répétition échoue.
     const plan = run('deploy.sh', ['--dry-run', '--revision', REVISION], makeFixture()).stdout;
 
     const repetition = etape(plan, 'plan: répétition ');
@@ -31,16 +27,12 @@ describe('deploy.sh --dry-run', () => {
   });
 
   it('répète la migration sur une restauration jetable, laissée en vie', () => {
-    // --keep est ce qui permet de brancher la migration sur la copie : sans
-    // lui, le conteneur disparaît avec la sortie de restore.sh.
     const plan = run('deploy.sh', ['--dry-run', '--revision', REVISION], makeFixture()).stdout;
 
     expect(plan).toContain('--into-postgres --keep');
   });
 
   it('reprend la pile et le routage du dépôt à la révision déployée', () => {
-    // Une livraison qui ajoute un service publierait sinon ses images sans la
-    // configuration qui les branche.
     const plan = run('deploy.sh', ['--dry-run', '--revision', REVISION], makeFixture()).stdout;
 
     expect(plan).toMatch(/plan: pile et routage repris de .* en a1b2c3d4/);
@@ -55,8 +47,6 @@ describe('deploy.sh --dry-run', () => {
   });
 
   it('reste lisible sans réseau quand aucune révision n’est donnée', () => {
-    // Le plan sert aussi à relire une configuration fraîchement posée, avant
-    // même que la machine ait le droit de lire le registre.
     const resultat = run('deploy.sh', ['--dry-run'], makeFixture());
 
     expect(resultat.status).toBe(0);
@@ -82,9 +72,6 @@ describe('deploy.sh --rollback --dry-run', () => {
   });
 
   it('ne contient aucune étape de migration', () => {
-    // C'est l'ADR 0024 rendue exécutable : revenir en arrière consiste
-    // uniquement à remettre les images précédentes. Toucher à la base perdrait
-    // tout ce qui a été saisi depuis le déploiement.
     const fixture = makeFixture({
       state: `DEPLOYED_REVISION=${REVISION}\nPREVIOUS_REVISION=${PRECEDENTE}\n`,
     });
@@ -93,9 +80,6 @@ describe('deploy.sh --rollback --dry-run', () => {
       .stdout.split('\n')
       .filter((ligne) => ligne.startsWith('plan: '));
 
-    // La seule ligne du plan qui parle de migration est celle qui dit qu'il
-    // n'y en a pas. Chercher l'absence du mot ne suffirait pas : cette
-    // affirmation-là doit rester, et elle doit rester seule.
     expect(etapes.filter((ligne) => /migration|répétition/.test(ligne))).toEqual([
       'plan: aucune migration — un retour arrière ne touche jamais la base',
     ]);
@@ -111,8 +95,6 @@ describe('deploy.sh --rollback --dry-run', () => {
 
 describe('deploy.sh — garde-fous', () => {
   it('refuse une révision mouvante', () => {
-    // `main` désigne autre chose demain : y revenir ne ramènerait pas la
-    // version d'avant, et le retour arrière perdrait sa cible.
     const resultat = run('deploy.sh', ['--dry-run', '--revision', 'main'], makeFixture());
 
     expect(resultat.status).not.toBe(0);
@@ -127,8 +109,6 @@ describe('deploy.sh — garde-fous', () => {
   });
 
   it('refuse de déployer si le banc d’essai de migration est absent', () => {
-    // La répétition n'est pas une option qu'on désactive quand elle gêne :
-    // sans elle, une migration fautive est découverte sur les données réelles.
     const resultat = run(
       'deploy.sh',
       ['--dry-run', '--revision', REVISION],
@@ -149,8 +129,6 @@ describe('deploy.sh — garde-fous', () => {
   });
 
   it('vérifie les garde-fous avant tout effet de bord, y compris en --dry-run', () => {
-    // Une configuration fautive doit se voir sans avoir à risquer un vrai
-    // déploiement pour la découvrir.
     const resultat = run(
       'deploy.sh',
       ['--dry-run', '--revision', REVISION],
@@ -183,9 +161,6 @@ describe('deploy.sh — mémoire des versions', () => {
   });
 
   it('ne rejoue pas une révision qui a déjà échoué', () => {
-    // Sans cette mémoire, le timer remettrait la production à l'épreuve toutes
-    // les deux minutes avec la même version cassée, et noierait le
-    // signalement sous ses propres alertes.
     const fixture = makeFixture({
       state: `DEPLOYED_REVISION=${PRECEDENTE}\nFAILED_REVISION=${REVISION}\n`,
     });

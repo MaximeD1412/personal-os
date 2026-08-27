@@ -7,13 +7,6 @@ import {
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 
-/**
- * Point d'accès unique à la base.
- *
- * C'est ici que viendra se brancher le filtrage par Espace (ADR 0016) : la
- * garantie de cloisonnement est portée par ce mécanisme central, jamais par la
- * vigilance de chaque module.
- */
 @Injectable()
 export class PrismaService
   extends PrismaClient

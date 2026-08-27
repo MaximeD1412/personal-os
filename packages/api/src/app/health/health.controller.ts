@@ -7,12 +7,6 @@ import { HealthService } from './health.service';
 export class HealthController {
   constructor(private readonly health: HealthService) {}
 
-  /**
-   * Publique, et elle doit le rester : l'agent de déploiement l'interroge pour
-   * décider s'il garde la nouvelle version ou revient à la précédente. La
-   * fermer arrêterait tous les déploiements. Elle ne dit rien de personnel —
-   * un libellé de sonde et une date.
-   */
   @Public()
   @Get()
   read(): Promise<HealthResponse> {

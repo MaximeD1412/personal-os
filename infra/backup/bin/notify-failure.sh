@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
-#
 #   notify-failure.sh <nom-d-unité>
 #
 # Appelé par la directive OnFailure= des unités systemd. Envoie un courriel
 # contenant les dernières lignes du journal, et marque le témoin d'inactivité en
 # échec pour que l'alerte parte même si le courriel n'arrive jamais.
 #
-# Deux canaux parce qu'ils tombent en panne différemment : le courriel dit
-# *pourquoi* mais dépend d'un relais SMTP, le témoin dit *que* mais ne sait rien
-# du contexte. Perdre les deux à la fois demande deux pannes simultanées.
 set -euo pipefail
 
 LOG_TAG=alerte
@@ -18,9 +14,6 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 UNIT="${1:-inconnue}"
 
-# Une alerte ne doit pas dépendre d'une configuration valide : c'est précisément
-# quand la configuration est cassée qu'il faut être prévenu. On charge ce qu'on
-# peut, et on continue quoi qu'il arrive.
 load_config || true
 
 JOURNAL=$(journalctl --unit "$UNIT" --lines 50 --no-pager 2>/dev/null ||

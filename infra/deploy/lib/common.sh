@@ -1,22 +1,9 @@
 #!/usr/bin/env bash
 # Fonctions partagées par les scripts de déploiement.
-#
-# Ce fichier est *sourcé*, jamais exécuté. Il ne doit donc rien faire au
-# chargement : pas de `set -e` (c'est à l'appelant de le poser), pas d'effet de
-# bord, uniquement des définitions.
-#
-# `log` et `die` sont volontairement recopiés depuis infra/backup plutôt que
-# partagés. Les deux composants s'installent séparément, et le déploiement doit
-# pouvoir signaler « la sauvegarde n'est pas installée » — ce qu'il ne pourrait
-# pas faire s'il avait besoin d'elle pour parler.
-
-# Emplacements par défaut, surchargeables pour les tests.
 : "${DEPLOY_CONF:=/etc/personal-os/deploy.conf}"
 : "${GHCR_ENV_FILE:=/etc/personal-os/ghcr.env}"
 
 log() {
-  # L'horodatage est en UTC : le journal est relu depuis une autre machine, et
-  # un décalage d'heure d'été dans une chronologie d'incident coûte cher.
   printf '%s [%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${LOG_TAG:-deploy}" "$*" >&2
 }
 
@@ -27,11 +14,6 @@ die() {
 
 plan() { printf 'plan: %s\n' "$*"; }
 
-# Charge la configuration puis les identifiants de registre.
-#
-# L'ordre compte, comme pour la sauvegarde : la configuration est versionnée et
-# lisible, les identifiants ne le sont pas. Charger les seconds en dernier
-# garantit qu'une variable oubliée dans la première ne peut pas les écraser.
 load_config() {
   [ -r "$DEPLOY_CONF" ] || die "configuration illisible : $DEPLOY_CONF"
   # shellcheck disable=SC1090
@@ -71,11 +53,6 @@ load_config() {
   : "${DEPLOY_HISTORY_FILE:=/var/log/personal-os/deploy.log}"
 }
 
-# Une révision est un commit, jamais un tag mouvant.
-#
-# C'est la condition du retour arrière : `main` désigne une image différente
-# demain, donc y revenir ne ramènerait pas la version d'avant. Refuser tôt vaut
-# mieux que découvrir le problème le jour de l'incident.
 assert_revision() {
   local revision="$1"
   [ -n "$revision" ] || die "révision vide"
@@ -85,12 +62,6 @@ assert_revision() {
   [ "${#revision}" -ge 7 ] || die "révision trop courte : $revision"
 }
 
-# Révision publiée sur le canal, lue dans le libellé OCI de l'image.
-#
-# On interroge le registre, pas GitHub : l'agent n'a aucun droit sur le dépôt,
-# et le sens « tiré » veut que la seule source de vérité accessible d'ici soit
-# ce qui a réellement été publié. `imagetools inspect` ne télécharge que le
-# manifeste et la configuration — quelques kilo-octets, pas l'image.
 channel_revision() {
   local reference="${REGISTRY}/${CHANNEL_IMAGE}:${CHANNEL_TAG}"
   local revision
@@ -115,20 +86,12 @@ previous_revision() {
   ( . "$DEPLOY_STATE_FILE"; printf '%s' "${PREVIOUS_REVISION:-}" )
 }
 
-# Dernière révision qui a échoué. Elle est mémorisée pour ne pas être rejouée à
-# chaque passage du timer : un déploiement cassé remettrait sinon la production
-# à l'épreuve toutes les deux minutes, et noierait son propre signalement.
 failed_revision() {
   [ -r "$DEPLOY_STATE_FILE" ] || return 0
   # shellcheck disable=SC1090
   ( . "$DEPLOY_STATE_FILE"; printf '%s' "${FAILED_REVISION:-}" )
 }
 
-# Enregistre la version en place, celle d'avant, et celle qui a échoué.
-#
-# Écriture atomique : un état à moitié écrit — parce que la machine s'éteint
-# pendant un déploiement — ferait croire à l'exécution suivante qu'aucune
-# version n'est en place, et lui ferait tout redéployer sans cible de retour.
 write_state() {
   local deployed="$1" previous="$2" failed="${3:-}"
   local dir
@@ -143,9 +106,6 @@ EOF
   mv "${DEPLOY_STATE_FILE}.tmp" "$DEPLOY_STATE_FILE"
 }
 
-# Trace lisible sur la machine (§16.1). Le journal systemd dit *comment* s'est
-# passé le dernier déploiement ; ce fichier dit *ce qui a été déployé et quand*,
-# et survit à la rotation du journal.
 history_append() {
   local event="$1" revision="$2" detail="${3:-}"
   local dir
@@ -156,15 +116,6 @@ history_append() {
     >>"$DEPLOY_HISTORY_FILE"
 }
 
-# Reprend la pile et le routage du dépôt, à la révision déployée.
-#
-# Sans ce geste, une livraison qui ajoute un service ou une route publierait
-# ses images sans jamais publier la configuration qui les branche : la machine
-# resterait sur le compose du jour de l'installation. L'ADR 0023 veut le
-# contraire — l'agent fait partie du produit, et ce qu'il déploie est versionné.
-#
-# Le dépôt est public : ce clone ne demande aucun identifiant, et il a un
-# second usage — relire sur la machine le code exactement tel qu'il tourne.
 sync_stack() {
   local revision="$1"
 
@@ -181,28 +132,17 @@ sync_stack() {
   install -m 644 "$source/docker-compose.prod.yml" "$COMPOSE_FILE"
   install -d -m 755 "$CADDY_DIR" "$CADDY_DIR/conf.d"
   install -m 644 "$source/caddy/Caddyfile" "$CADDY_DIR/Caddyfile"
-  # Copie, jamais synchronisation : un bloc activé à la main sur la machine
-  # (celui du tableau de bord, quand #5 l'ouvrira) ne doit pas disparaître
-  # parce qu'il n'existe pas sous ce nom dans le dépôt.
   for block in "$source"/caddy/conf.d/*; do
     [ -e "$block" ] || continue
     install -m 644 "$block" "$CADDY_DIR/conf.d/$(basename "$block")"
   done
 
-  # L'agent lui-même et ses unités systemd ne se mettent pas à jour tout seuls :
-  # un script qui se réécrit pendant qu'il s'exécute est une source de pannes
-  # difficiles à lire. La dérive est signalée, pas corrigée en silence.
   if ! diff --recursive --brief "$source/bin" "$DEPLOY_PREFIX/bin" >/dev/null 2>&1 ||
     ! diff --recursive --brief "$source/lib" "$DEPLOY_PREFIX/lib" >/dev/null 2>&1; then
     log "ATTENTION: l'agent installé diffère de la révision $revision — relancer $source/bin/install.sh"
   fi
 }
 
-# Enveloppe `docker compose` sur la pile de production, à une révision donnée.
-#
-# IMAGE_TAG est passé par l'environnement plutôt qu'écrit dans le fichier
-# d'environnement : la révision en cours d'essai ne doit pas devenir la
-# configuration persistante de la machine tant que la santé n'est pas vérifiée.
 compose_at() {
   local revision="$1"
   shift
@@ -214,7 +154,6 @@ compose_at() {
     "$@"
 }
 
-# Attend que l'API réponde. Une pile qui démarre n'est pas une pile qui marche.
 health_ok() {
   local attempt=0
   while [ "$attempt" -lt "$HEALTH_RETRIES" ]; do
@@ -227,11 +166,6 @@ health_ok() {
   return 1
 }
 
-# Signale l'état d'une exécution au témoin d'inactivité.
-#
-# Même raison que pour la sauvegarde : le déploiement n'apparaît pas dans
-# l'interface GitHub (ADR 0023), et un agent qui a cessé de tourner ne produit
-# aucun échec à signaler. Seule l'absence de ping le révèle.
 heartbeat() {
   local status="$1" # "start", "success" ou "fail"
   [ -n "${DEPLOY_HEARTBEAT_URL:-}" ] || return 0

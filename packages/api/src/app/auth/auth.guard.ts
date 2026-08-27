@@ -12,15 +12,6 @@ import { SESSION_COOKIE, readCookie } from './cookies';
 import { PORTEUR } from './current-user.decorator';
 import { IS_PUBLIC } from './public.decorator';
 
-/**
- * Garde globale : aucune requête n'atteint un contrôleur sans session valide,
- * sauf si la route porte `@Public()`.
- *
- * Elle est posée en `APP_GUARD` et non module par module. C'est le corollaire
- * des modules plats (ADR 0016) : plus les modules sont simples, plus la
- * garantie doit tenir à un mécanisme unique — un module qui oublierait de se
- * protéger n'existe pas, puisqu'il n'a rien à faire pour l'être.
- */
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
@@ -43,9 +34,6 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Aucune session.');
     }
 
-    // La session est relue en base à chaque requête, et c'est le prix à payer
-    // pour que la révocation soit immédiate : un jeton signé auto-porteur
-    // resterait valable jusqu'à son expiration, quoi qu'on décide entre-temps.
     const porteur = await this.auth.porteurDeSession(token);
     if (!porteur) {
       throw new UnauthorizedException('Session inconnue, expirée ou révoquée.');

@@ -11,9 +11,6 @@ describe('backup.sh --dry-run', () => {
   });
 
   it('applique la rétention configurée, sans jamais oublier --prune', () => {
-    // Sans --prune, `forget` retire les instantanés de l'index mais ne libère
-    // aucun octet : le dépôt grossit indéfiniment pendant que la rétention
-    // semble appliquée.
     const result = run('backup.sh', ['--dry-run'], makeFixture());
 
     expect(result.stdout).toContain(
@@ -28,9 +25,6 @@ describe('backup.sh --dry-run', () => {
   });
 
   it('dumpe chacune des bases du serveur, pas seulement celle de l\'application', () => {
-    // Authentik a la sienne (#5). N'en sauvegarder qu'une laisserait une
-    // restauration où l'application revient intacte mais où plus personne ne
-    // peut se connecter — c'est-à-dire une restauration inutilisable.
     const fixture = makeFixture({
       conf: [
         'POSTGRES_DB=personalos',
@@ -49,17 +43,12 @@ describe('backup.sh --dry-run', () => {
   });
 
   it("dumpe la base de l'application quand aucune liste n'est donnée", () => {
-    // Les configurations déjà posées sur la machine ne nomment que
-    // POSTGRES_DB : leur ajouter une variable ne doit pas être la condition
-    // pour que la sauvegarde continue de tourner.
     const result = run('backup.sh', ['--dry-run'], makeFixture());
 
     expect(result.stdout).toContain('postgres/personalos.dump');
   });
 
   it('refuse un nom de base qui ne ressemble pas à un nom de base', () => {
-    // La liste est découpée par le shell et interpolée dans une commande
-    // docker : un nom fantaisiste doit s'arrêter à la lecture, pas plus loin.
     const fixture = makeFixture({
       conf: [
         'POSTGRES_DB=personalos',
@@ -74,8 +63,6 @@ describe('backup.sh --dry-run', () => {
   });
 
   it("inclut les cibles du fichier de configuration, sans toucher au script", () => {
-    // C'est le mécanisme d'élargissement du périmètre : #5 ajoutera Authentik
-    // ici, et le stockage objet suivra le même chemin.
     const fixture = makeFixture({
       conf: [
         'POSTGRES_DB=personalos',
@@ -90,8 +77,6 @@ describe('backup.sh --dry-run', () => {
   });
 
   it('ne laisse jamais la clé apparaître dans sa sortie', () => {
-    // Le plan est destiné à être relu, collé dans un ticket, capturé par le
-    // journal. Une clé qui y transite a quitté la machine.
     const result = run('backup.sh', ['--dry-run'], makeFixture());
 
     expect(result.output).not.toContain(SECRET);
@@ -100,7 +85,6 @@ describe('backup.sh --dry-run', () => {
 
 describe('backup.sh — garde-fous sur les secrets', () => {
   it("refuse un mot de passe passé par l'environnement", () => {
-    // RESTIC_PASSWORD se lit dans /proc/<pid>/environ et dans `systemctl show`.
     const fixture = makeFixture({
       env: ['RESTIC_REPOSITORY=b2:test:/', `RESTIC_PASSWORD=${SECRET}`].join('\n'),
     });
@@ -131,7 +115,6 @@ describe('backup.sh — garde-fous sur les secrets', () => {
   });
 
   it('refuse un argument inconnu plutôt que de l\'ignorer', () => {
-    // Une faute de frappe sur --dry-run lancerait une vraie sauvegarde.
     const result = run('backup.sh', ['--dry-runn'], makeFixture());
 
     expect(result.status).not.toBe(0);

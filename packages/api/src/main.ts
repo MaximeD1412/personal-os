@@ -9,7 +9,6 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
 
-  // Le tableau de bord et le portfolio sont servis depuis d'autres hôtes.
   app.enableCors({
     origin: (process.env['CORS_ORIGINS'] ?? DEFAULT_CORS_ORIGINS)
       .split(',')
