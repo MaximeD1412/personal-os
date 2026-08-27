@@ -16,7 +16,6 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> = 
   Session: [],
   LoginTransaction: [],
   Household: [],
-  HouseholdMember: [],
   Scope: ['traces'],
 };
 
@@ -33,11 +32,10 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Record<string, readonly string[]>
 > = {
   HealthProbe: [],
-  User: ['household', 'memberships', 'personalScope', 'sessions'],
+  User: ['household', 'personalScope', 'sessions'],
   Session: ['user'],
   LoginTransaction: [],
-  Household: ['legacyUsers', 'members', 'scopes'],
-  HouseholdMember: ['household', 'user'],
+  Household: ['members', 'scopes'],
   Scope: ['household', 'holder', 'traces'],
 };
 

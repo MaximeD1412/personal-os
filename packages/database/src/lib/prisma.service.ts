@@ -50,10 +50,6 @@ export class PrismaService {
     return this.#client.household;
   }
 
-  get householdMember() {
-    return this.#client.householdMember;
-  }
-
   get scope() {
     return this.#client.scope;
   }

@@ -44,16 +44,6 @@ describe('Modèles hors Espace', () => {
     );
   });
 
-  it('représente l’appartenance à un foyer comme une relation extensible', () => {
-    expect(modeles.has('HouseholdMember')).toBe(true);
-    expect(modeles.get('HouseholdMember')).toEqual(
-      expect.arrayContaining([
-        { nom: 'householdId', type: 'String' },
-        { nom: 'userId', type: 'String' },
-      ]),
-    );
-  });
-
   it('relie chaque modèle cloisonné à Scope', () => {
     for (const [nom, champs] of modeles) {
       if (nom in MODELES_HORS_ESPACE) {

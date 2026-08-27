@@ -8,7 +8,7 @@ import { EspaceRepository } from './espace.repository';
 export class EspaceController {
   constructor(private readonly espaces: EspaceRepository) {}
 
-  /** Les Espaces que le Compte connecté atteint via ses appartenances. */
+  /** Les trois Espaces que le Compte connecté atteint. */
   @Get()
   mesEspaces(@CurrentUser() user: UserRecord): Promise<Scope[]> {
     return this.espaces.espacesDe(user.id);

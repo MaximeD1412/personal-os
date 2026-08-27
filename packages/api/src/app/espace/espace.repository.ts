@@ -11,12 +11,7 @@ export interface EspaceRecord {
 export class EspaceRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Les Espaces qu'un Compte atteint : son personnel, et les espaces foyer des
-   * foyers auxquels il appartient. Le modèle `Scope` ne porte pas lui-même
-   * d'Espace — c'est lui qui les définit — et cette requête traverse donc la
-   * garde sans être filtrée.
-   */
+  /** Les trois Espaces atteints par un Compte : son personnel et le Foyer. */
   espacesDe(userId: string): Promise<EspaceRecord[]> {
     return this.prisma.scope.findMany({
       where: {
@@ -24,7 +19,7 @@ export class EspaceRepository {
           { holderId: userId },
           {
             kind: 'HOUSEHOLD',
-            household: { members: { some: { userId } } },
+            household: { members: { some: { id: userId } } },
           },
         ],
       },

@@ -94,21 +94,9 @@ export class AuthRepository {
       create: {
         kind: 'PERSONAL',
         label: user.displayName ?? user.email,
-        householdId: null,
+        householdId: ID_FOYER,
         holderId: user.id,
       },
-      update: {},
-      select: { id: true },
-    });
-
-    // La colonne User.householdId reste le pont avec l'ancienne version de
-    // l'API ; la relation d'appartenance devient la source de vérité pour les
-    // nouveaux chemins de lecture et permet à terme plusieurs foyers.
-    await this.prisma.householdMember.upsert({
-      where: {
-        householdId_userId: { householdId: ID_FOYER, userId: user.id },
-      },
-      create: { householdId: ID_FOYER, userId: user.id, role: 'MEMBER' },
       update: {},
       select: { id: true },
     });

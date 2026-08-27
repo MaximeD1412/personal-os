@@ -23,49 +23,24 @@ enum ScopeKind {
   HOUSEHOLD
 }
 
-/// Rôle d'un Compte dans un Foyer. La relation est prête pour les invitations
-/// et les droits sans enfermer le domaine dans un seul foyer global.
-enum HouseholdRole {
-  MEMBER
-  ADMIN
-}
-
-/// Un Foyer : les personnes qui vivent ensemble. Le foyer historique est posé
-/// par migration ; les appartenances explicites permettent d'en ajouter.
+/// Le Foyer : les personnes qui vivent ensemble. Il n'en existe qu'un, posé
+/// par migration — l'application ne le crée jamais.
 model Household {
   id        String   @id @default(uuid())
   name      String
   createdAt DateTime @default(now())
-  /// Relation héritée, conservée pendant la fenêtre de compatibilité avec la
-  /// version qui portait directement User.householdId.
-  legacyUsers User[] @relation("LegacyHouseholdUsers")
-  members      HouseholdMember[]
+  members   User[]
   scopes       Scope[]
 }
 
-/// Appartenance explicite d'un Compte à un Foyer. Elle remplace
-/// progressivement la relation singulière User.householdId.
-model HouseholdMember {
-  id          String        @id @default(uuid())
-  householdId String
-  userId      String
-  role        HouseholdRole @default(MEMBER)
-  createdAt   DateTime      @default(now())
-  household   Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([householdId, userId])
-  @@index([userId])
-}
-
-/// L'Espace, seule chose qui détermine qui voit une donnée. Un Compte possède
-/// un Espace personnel et peut atteindre les Espaces de ses Foyers.
+/// L'Espace, seule chose qui détermine qui voit une donnée. Il en existe trois :
+/// un Espace personnel par Compte, et l'Espace du Foyer.
 model Scope {
   id          String    @id @default(uuid())
   kind        ScopeKind
   label       String
-  householdId String?
-  household   Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   /// Le Compte dont c'est l'Espace personnel ; vide pour l'Espace foyer.
   holderId    String?   @unique
   holder      User?     @relation(fields: [holderId], references: [id], onDelete: Cascade)
@@ -84,11 +59,10 @@ model User {
   createdAt     DateTime  @default(now())
   lastSeenAt    DateTime  @default(now())
   sessions      Session[]
-  /// Relation héritée : la valeur par défaut laisse la version précédente de
-  /// l'API créer des Comptes sans connaître HouseholdMember (ADR 0024).
+  /// Le Foyer est unique : la valeur par défaut laisse la version précédente
+  /// de l'API créer des Comptes sans la connaître (ADR 0024).
   householdId   String    @default("11111111-1111-4111-8111-111111111111")
-  household     Household @relation("LegacyHouseholdUsers", fields: [householdId], references: [id])
-  memberships   HouseholdMember[]
+  household     Household @relation(fields: [householdId], references: [id])
   personalScope Scope?
 }
 
