@@ -23,9 +23,6 @@ describe('restore.sh --dry-run', () => {
   });
 
   it('annonce le conteneur jetable et le DSN quand on remonte la base', () => {
-    // Le dry-run annonce, il ne promet pas : la ligne « dsn: » réellement
-    // consommée par le banc d'essai de migration (#4, ADR 0021) est verrouillée
-    // par le test d'intégration, où elle porte un vrai mot de passe.
     const result = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/tmp/restauration', '--into-postgres'],
@@ -37,8 +34,6 @@ describe('restore.sh --dry-run', () => {
   });
 
   it("remonte la base de l'application par défaut", () => {
-    // C'est le contrat du banc d'essai de migration (#4, ADR 0021) : il appelle
-    // restore.sh sans rien préciser et attend la base de l'application.
     const result = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/tmp/restauration', '--into-postgres'],
@@ -49,8 +44,6 @@ describe('restore.sh --dry-run', () => {
   });
 
   it('remonte une autre base du même instantané quand on la nomme', () => {
-    // Authentik a la sienne (#5). Sans ce chemin, son dump serait sauvegardé
-    // mais ne se restaurerait qu'à la main, hors de tout garde-fou.
     const result = run(
       'restore.sh',
       [
@@ -74,8 +67,6 @@ describe('restore.sh --dry-run', () => {
   });
 
   it("refuse de remonter une base qui n'est pas sauvegardée", () => {
-    // Sinon l'erreur n'apparaîtrait qu'après la restauration Restic, sous la
-    // forme d'un « aucun dump » incompréhensible.
     const result = run(
       'restore.sh',
       [
@@ -94,8 +85,6 @@ describe('restore.sh --dry-run', () => {
   });
 
   it('ne relit les paquets que si on le demande', () => {
-    // `--read-data` retélécharge tout le dépôt : utile pour la vérification
-    // trimestrielle, ruineux à chaque déploiement.
     const sans = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/tmp/restauration'],
@@ -124,7 +113,6 @@ describe('restore.sh --dry-run', () => {
 
 describe('restore.sh — garde-fous', () => {
   it('exige une cible explicite', () => {
-    // Une cible par défaut serait une invitation à écraser quelque chose.
     const result = run('restore.sh', ['--dry-run'], makeFixture());
 
     expect(result.status).not.toBe(0);
@@ -134,8 +122,6 @@ describe('restore.sh — garde-fous', () => {
   it.each(['/var/lib/postgresql', '/var/lib/postgresql/18/main', '/etc/personal-os'])(
     'refuse de restaurer vers %s',
     (target) => {
-      // C'est la faute qui coûte tout : un banc d'essai branché sur les données
-      // réelles écraserait ce qu'il est censé protéger.
       const result = run('restore.sh', ['--dry-run', '--target', target], makeFixture());
 
       expect(result.status).not.toBe(0);
@@ -144,8 +130,6 @@ describe('restore.sh — garde-fous', () => {
   );
 
   it('vérifie le garde-fou avant tout effet de bord, y compris en --dry-run', () => {
-    // Une configuration fautive doit se voir sans avoir à risquer une vraie
-    // restauration pour la découvrir.
     const result = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/lib/postgresql'],

@@ -5,7 +5,6 @@ import { join, resolve } from 'node:path';
 
 export const BIN = resolve(__dirname, '..', 'bin');
 
-/** Mot de passe factice : sa présence dans une sortie est une fuite. */
 export const SECRET = 'mot-de-passe-qui-ne-doit-jamais-fuiter';
 
 export interface Fixture {
@@ -16,20 +15,11 @@ export interface Fixture {
 }
 
 export interface FixtureOptions {
-  /** Contenu du backup.conf. Les valeurs par défaut suffisent à la plupart des tests. */
   conf?: string;
-  /** Contenu du restic.env. */
   env?: string;
-  /** Mode du fichier de clé. 0o600 est le seul accepté par les scripts. */
   passwordMode?: number;
 }
 
-/**
- * Pose une configuration jetable dans un répertoire temporaire.
- *
- * Les scripts lisent leurs chemins depuis BACKUP_CONF et RESTIC_ENV_FILE, ce
- * qui permet de les exercer sans jamais toucher /etc.
- */
 export function makeFixture(options: FixtureOptions = {}): Fixture {
   const dir = mkdtempSync(join(tmpdir(), 'personal-os-backup-'));
   const passwordPath = join(dir, 'restic-password');
@@ -73,11 +63,9 @@ export interface RunResult {
   status: number;
   stdout: string;
   stderr: string;
-  /** Sortie standard et erreur réunies : pratique pour chercher une fuite. */
   output: string;
 }
 
-/** Exécute un script du répertoire bin/ contre une configuration jetable. */
 export function run(
   script: string,
   args: string[],

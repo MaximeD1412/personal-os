@@ -37,7 +37,6 @@ describe('App', () => {
 
   afterEach(() => httpMock.verify());
 
-  /** Monte le composant et répond aux deux appels qu'il passe au démarrage. */
   async function monter(
     compte: { email: string; displayName: string | null } | null = {
       email: 'moi@exemple.test',
@@ -75,8 +74,6 @@ describe('App', () => {
   });
 
   it('nomme le compte que la session désigne', async () => {
-    // Deux personnes se partagent l'application et n'y voient pas la même
-    // chose : savoir laquelle est connectée n'est pas décoratif.
     expect(texte(await monter())).toContain('Personne Admise');
   });
 

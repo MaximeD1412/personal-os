@@ -8,7 +8,6 @@ import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { createHash, randomBytes } from 'node:crypto';
 import { AUTH_CONFIG, type AuthConfig } from './auth.config';
 
-/** Ce qu'Authentik dit de lui-même. Seul ce qu'on utilise est retenu. */
 interface Metadonnees {
   issuer: string;
   authorizationEndpoint: string;
@@ -17,7 +16,6 @@ interface Metadonnees {
   endSessionEndpoint: string | null;
 }
 
-/** Un aller-retour prêt à partir : l'URL, et ce qu'il faut garder au chaud. */
 export interface DemandeAutorisation {
   url: string;
   state: string;
@@ -25,7 +23,6 @@ export interface DemandeAutorisation {
   codeVerifier: string;
 }
 
-/** Ce que le fournisseur d'identité répond à « qui es-tu ». */
 export interface Identite {
   subject: string;
   email: string;
@@ -34,27 +31,12 @@ export interface Identite {
 
 const SCOPES = 'openid email profile';
 
-/**
- * Client OIDC de l'API.
- *
- * L'API est un client OIDC **ordinaire** (ADR 0015) : elle échange le code,
- * lit l'identité, et s'arrête là. Les jetons d'Authentik ne sortent jamais de
- * cet objet — ni vers le navigateur, ni vers la base. C'est ce qui rend
- * l'interface si étroite : on entre un code, on ressort une identité.
- */
 @Injectable()
 export class OidcClient {
   private metadonnees: Promise<Metadonnees> | null = null;
 
   constructor(@Inject(AUTH_CONFIG) private readonly config: AuthConfig) {}
 
-  /**
-   * Prépare le départ du flux authorization code, avec PKCE.
-   *
-   * `state` déjoue la CSRF de connexion, `nonce` interdit qu'un jeton
-   * d'identité obtenu ailleurs soit rejoué ici, et le vérificateur PKCE rend
-   * un code intercepté inutilisable sans lui.
-   */
   async construireDemande(): Promise<DemandeAutorisation> {
     const { authorizationEndpoint } = await this.decouvrir();
 
@@ -75,14 +57,6 @@ export class OidcClient {
     return { url: url.toString(), state, nonce, codeVerifier };
   }
 
-  /**
-   * Échange le code contre un jeton d'identité, et n'en rend que l'identité.
-   *
-   * La signature est vérifiée contre le jeu de clés publié par Authentik, pas
-   * seulement contre le fait que le jeton vient d'arriver par TLS : le jour où
-   * un intermédiaire terminera le TLS à notre place, la vérification tiendra
-   * toujours.
-   */
   async echangerCode(
     code: string,
     codeVerifier: string,
@@ -112,8 +86,6 @@ export class OidcClient {
       throw new UnauthorizedException("Jeton d'identité refusé.");
     }
 
-    // Le nonce relie ce jeton à *cette* demande. Sans lui, un jeton d'identité
-    // obtenu ailleurs pour le même client passerait pour une connexion.
     if (payload['nonce'] !== nonce) {
       throw new UnauthorizedException("Jeton d'identité hors de sa demande.");
     }
@@ -133,7 +105,6 @@ export class OidcClient {
     };
   }
 
-  /** Adresse de déconnexion chez Authentik, si l'IdP en publie une. */
   async urlDeDeconnexion(): Promise<string | null> {
     const { endSessionEndpoint } = await this.decouvrir();
     if (!endSessionEndpoint) {
@@ -151,9 +122,6 @@ export class OidcClient {
     code: string,
     codeVerifier: string,
   ): Promise<Record<string, unknown>> {
-    // Le secret voyage dans l'en-tête d'autorisation plutôt que dans le corps :
-    // c'est la méthode qu'Authentik configure par défaut pour un client
-    // confidentiel, et elle tient le secret hors des journaux de requête.
     const identifiants = Buffer.from(
       `${encodeURIComponent(this.config.clientId)}:${encodeURIComponent(
         this.config.clientSecret,
@@ -182,23 +150,12 @@ export class OidcClient {
     }
 
     if (!reponse.ok) {
-      // Le corps de l'erreur reste ici : il peut porter le code d'autorisation
-      // présenté, et il n'a rien à faire dans une réponse au navigateur.
       throw new UnauthorizedException("Le code d'autorisation a été refusé.");
     }
 
     return (await reponse.json()) as Record<string, unknown>;
   }
 
-  /**
-   * Interroge `.well-known`, une fois, et retient la réponse.
-   *
-   * La découverte est paresseuse pour que l'API démarre même si Authentik est
-   * momentanément absent : l'indisponibilité de l'IdP empêche de se connecter,
-   * elle ne doit pas empêcher la pile de se lever ni la sonde de santé de
-   * répondre. Un échec efface le cache — sinon la première tentative ratée
-   * condamnerait la connexion jusqu'au prochain redémarrage.
-   */
   private decouvrir(): Promise<Metadonnees> {
     this.metadonnees ??= this.lireMetadonnees().catch((erreur: unknown) => {
       this.metadonnees = null;
@@ -229,9 +186,6 @@ export class OidcClient {
     const document = (await reponse.json()) as Record<string, unknown>;
     const issuer = champ(document, 'issuer');
 
-    // L'émetteur publié fait foi pour la vérification des jetons, mais il doit
-    // désigner celui qu'on a configuré : un document de découverte qui
-    // annonce un autre émetteur signale une configuration branchée ailleurs.
     if (sansBarreFinale(issuer) !== sansBarreFinale(this.config.issuer)) {
       throw new ServiceUnavailableException(
         `Découverte OIDC incohérente : ${issuer} ne désigne pas ${this.config.issuer}.`,
@@ -265,7 +219,6 @@ function sansBarreFinale(url: string): string {
   return url.replace(/\/+$/, '');
 }
 
-/** 256 bits d'aléa, en base64url — la forme qu'attend PKCE. */
 function motAleatoire(): string {
   return randomBytes(32).toString('base64url');
 }

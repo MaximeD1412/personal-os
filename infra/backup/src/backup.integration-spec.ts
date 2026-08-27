@@ -5,24 +5,13 @@ import { join } from 'node:path';
 
 import { Fixture, makeFixture, run } from './run-script';
 
-/**
- * Va-et-vient complet : on sauvegarde une base réelle, puis on la restaure dans
- * un conteneur jetable et on interroge **la base restaurée**.
- *
- * Le dépôt Restic est local — le but n'est pas de tester Backblaze, mais de
- * prouver que le couple sauvegarde/restauration se referme. C'est exactement le
- * geste que l'ADR 0021 met sur le chemin de chaque déploiement.
- */
-
 const SOURCE_CONTAINER = 'personal-os-backup-it';
 const SOURCE_PASSWORD = 'mot-de-passe-jetable';
 const DB = 'personalos';
-/** Authentik a sa propre base sur le même serveur (#5, ADR 0015). */
 const AUTHENTIK_DB = 'authentik';
 const PROBE_PORT = '55433';
 const AUTHENTIK_PROBE_PORT = '55434';
 
-/** Lignes semées : la base restaurée doit en retrouver exactement autant. */
 const SEEDED_ROWS = 3;
 const SEEDED_AUTHENTIK_ROWS = 2;
 
@@ -41,8 +30,6 @@ function sh(
 
 function requireTool(tool: string): void {
   try {
-    // `which` plutôt que `command -v` : ce dernier est une primitive du shell,
-    // et execFileSync n'en démarre pas.
     sh('which', [tool]);
   } catch {
     throw new Error(
@@ -51,7 +38,6 @@ function requireTool(tool: string): void {
   }
 }
 
-/** Attend une condition, une seconde entre deux essais. */
 function waitFor(condition: () => boolean, echec: string): void {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     if (condition()) return;
@@ -61,15 +47,6 @@ function waitFor(condition: () => boolean, echec: string): void {
 }
 
 function waitForPostgres(container: string): void {
-  // Deux faux positifs se succèdent, et il faut les écarter tous les deux.
-  //
-  // `pg_isready` répond « prêt » avant que POSTGRES_DB existe. Mais interroger
-  // la base visée ne suffit pas non plus : l'initialisation crée cette base sur
-  // un serveur **temporaire**, qu'elle éteint ensuite pour lancer le vrai. Une
-  // requête peut donc aboutir juste avant l'extinction, et la commande suivante
-  // tombe sur « the database system is shutting down ».
-  //
-  // La marque de fin d'initialisation est le seul point de bascule fiable.
   waitFor(
     () =>
       sh('docker', ['logs', container]).includes(
@@ -98,7 +75,6 @@ function waitForPostgres(container: string): void {
   }, `${container} n'a pas démarré`);
 }
 
-/** Supprime les conteneurs jetables laissés par --keep, quel que soit leur suffixe. */
 function removeProbeContainers(): void {
   try {
     const ids = sh('docker', [
@@ -112,7 +88,7 @@ function removeProbeContainers(): void {
       sh('docker', ['rm', '--force', ...ids.split('\n')]);
     }
   } catch {
-    // Rien à nettoyer.
+    // Les conteneurs peuvent déjà avoir été supprimés.
   }
 }
 
@@ -157,7 +133,7 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     try {
       sh('docker', ['rm', '--force', SOURCE_CONTAINER]);
     } catch {
-      // Pas de conteneur résiduel : tant mieux.
+      // Le conteneur peut déjà être absent.
     }
 
     sh('docker', [
@@ -204,7 +180,7 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     try {
       sh('docker', ['rm', '--force', SOURCE_CONTAINER]);
     } catch {
-      // Déjà parti.
+      // Le conteneur peut déjà être absent.
     }
     for (const dir of [repoDir, restoreDir, restoreAuthentikDir].filter(
       Boolean,
@@ -217,31 +193,22 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     const backup = run('backup.sh', [], fixture);
     expect(backup.status).toBe(0);
 
-    // --keep laisse le conteneur en vie pour qu'on puisse l'interroger ; c'est
-    // aussi le mode qu'utilisera le banc d'essai de migration.
     const restore = run(
       'restore.sh',
       ['--target', restoreDir, '--into-postgres', '--read-data', '--keep'],
       fixture,
       { RESTORE_PROBE_PORT: PROBE_PORT },
     );
-    // Le code de sortie seul ne dit pas pourquoi. Sans la sortie du script,
-    // un échec ici oblige à rejouer la campagne à la main pour apprendre quoi
-    // que ce soit — et sur une machine de CI, on ne la rejoue pas.
     if (restore.status !== 0) {
       throw new Error(
         `restore.sh a rendu ${restore.status} :\n${restore.output}`,
       );
     }
 
-    // Contrat consommé par le déploiement (#4, ADR 0021) : une ligne « dsn: »
-    // seule sur la sortie standard, tout le reste sur l'erreur standard.
     const match = restore.stdout.match(/^dsn: (postgresql:\/\/\S+)$/m);
     expect(match).not.toBeNull();
     const dsn = (match as RegExpMatchArray)[1];
 
-    // La preuve : la requête part sur la base **restaurée**, jamais sur la
-    // source. Interroger la source ne prouverait que la santé de la source.
     const count = sh('docker', [
       'run',
       '--rm',
@@ -260,10 +227,6 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
   });
 
   it("emporte la base d'Authentik dans le même instantané, et la rend", () => {
-    // Le critère « Authentik est inclus dans les sauvegardes » (#5) ne se
-    // prouve pas en lisant la configuration : il se prouve en remontant sa base
-    // et en l'interrogeant. Une sauvegarde où l'application revient intacte
-    // mais où plus personne ne peut se connecter n'est pas une sauvegarde.
     sh('docker', [
       'exec',
       SOURCE_CONTAINER,
@@ -317,8 +280,6 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
         '--keep',
       ],
       fixture,
-      // Un port distinct de celui du va-et-vient précédent : son conteneur est
-      // resté en vie (--keep) et tient toujours le sien.
       { RESTORE_PROBE_PORT: AUTHENTIK_PROBE_PORT },
     );
     if (restore.status !== 0) {
@@ -348,9 +309,6 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
   });
 
   it('applique la rétention sans laisser le dépôt grossir indéfiniment', () => {
-    // Deux sauvegardes de plus, puis vérification que `forget --prune` a bien
-    // laissé le dépôt cohérent — un prune fautif casse l'index, et ça ne se
-    // voit qu'à la restauration suivante.
     expect(run('backup.sh', [], fixture).status).toBe(0);
 
     const check = sh('restic', ['check', '--read-data'], {
