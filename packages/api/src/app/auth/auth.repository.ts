@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '@personal-os/database';
+import { ID_FOYER, PrismaService } from '@personal-os/database';
 import type { Identite } from './oidc.client';
 
 export interface LoginTransactionRecord {
@@ -53,31 +53,52 @@ export class AuthRepository {
       select: { id: true },
     });
 
-    if (connu) {
-      return this.prisma.user.update({
-        where: { id: connu.id },
-        data: {
-          email: identite.email,
-          displayName: identite.displayName,
-          lastSeenAt: new Date(),
-        },
-        select: selection,
-      });
-    }
+    const user = connu
+      ? await this.prisma.user.update({
+          where: { id: connu.id },
+          data: {
+            email: identite.email,
+            displayName: identite.displayName,
+            lastSeenAt: new Date(),
+          },
+          select: selection,
+        })
+      : await this.prisma.user.upsert({
+          where: { email: identite.email },
+          create: {
+            subject: identite.subject,
+            email: identite.email,
+            displayName: identite.displayName,
+            householdId: ID_FOYER,
+          },
+          update: {
+            subject: identite.subject,
+            displayName: identite.displayName,
+            lastSeenAt: new Date(),
+          },
+          select: selection,
+        });
 
-    return this.prisma.user.upsert({
-      where: { email: identite.email },
+    await this.assurerEspacePersonnel(user);
+    return user;
+  }
+
+  /**
+   * Un Compte porte l'Espace personnel de sa personne. On le pose à chaque
+   * appariement plutôt qu'à la seule création : un Compte créé par la version
+   * précédente de l'API n'en a pas, et le reçoit ainsi à sa connexion suivante.
+   */
+  private async assurerEspacePersonnel(user: UserRecord): Promise<void> {
+    await this.prisma.scope.upsert({
+      where: { holderId: user.id },
       create: {
-        subject: identite.subject,
-        email: identite.email,
-        displayName: identite.displayName,
+        kind: 'PERSONAL',
+        label: user.displayName ?? user.email,
+        householdId: ID_FOYER,
+        holderId: user.id,
       },
-      update: {
-        subject: identite.subject,
-        displayName: identite.displayName,
-        lastSeenAt: new Date(),
-      },
-      select: selection,
+      update: {},
+      select: { id: true },
     });
   }
 

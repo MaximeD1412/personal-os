@@ -97,8 +97,11 @@ Le dépôt était vide avant cette tranche : ce qui suit fait jurisprudence.
   tant qu'il n'y a rien à y mettre
   ([ADR 0016](docs/adr/0016-modules-plats-et-filtrage-espace-centralise.md)).
 - **Filtrage par Espace centralisé.** Aucun service n'ajoute « à la main » un
-  filtre par **Espace** : la garantie de cloisonnement sera portée par une
-  extension Prisma, dans `packages/database` (ADR 0016).
+  filtre par **Espace** : la garantie est portée par une extension Prisma, dans
+  `packages/database`. Tout modèle est cloisonné par défaut, et un module
+  déclare les **Espaces** qu'il accepte avec `@Espaces(...)`
+  ([ADR 0016](docs/adr/0016-modules-plats-et-filtrage-espace-centralise.md),
+  [ADR 0028](docs/adr/0028-la-portee-d-espace-est-ouverte-par-requete.md)).
 - **Fermé par défaut.** La garde de session est globale : un endpoint est
   protégé parce qu'il existe. Il s'ouvre en portant `@Public()`, en toutes
   lettres ([ADR 0026](docs/adr/0026-session-en-base-et-api-fermee-par-defaut.md)).
