@@ -14,74 +14,99 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 | Issue | Titre | Type | État | Bloquée par |
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/MaximeD1412/personal-os/issues/1) | PRD — Personal OS V1 | agent | Épique — ne s'implémente pas directement | — |
-| [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | [PR #39](https://github.com/MaximeD1412/personal-os/pull/39) ouverte | — |
-| [#7](https://github.com/MaximeD1412/personal-os/issues/7) | Calendrier : l'Événement daté avec son Espace explicite | agent | À faire | #6 |
+| [#7](https://github.com/MaximeD1412/personal-os/issues/7) | Calendrier : l'Événement daté avec son Espace explicite | agent | [PR #40](https://github.com/MaximeD1412/personal-os/pull/40) ouverte | — |
 | [#8](https://github.com/MaximeD1412/personal-os/issues/8) | Agenda : port AgendaContributor et vue en lecture seule | agent | À faire | #7 |
 | [#9](https://github.com/MaximeD1412/personal-os/issues/9) | Récurrence : règle, exceptions et occurrences calculées | agent | À faire | #8 |
 | [#10](https://github.com/MaximeD1412/personal-os/issues/10) | Sport : la Séance porte le prévu et le réalisé, et l'Objectif | agent | À faire | #8 |
 | [#11](https://github.com/MaximeD1412/personal-os/issues/11) | Tableau de bord : À faire calculés et widgets de résumé | agent | À faire | #8 |
-| [#12](https://github.com/MaximeD1412/personal-os/issues/12) | Catalogue d'Ingrédients, Alias et conversion en Unité canonique | agent | À faire | #6 |
+| [#12](https://github.com/MaximeD1412/personal-os/issues/12) | Catalogue d'Ingrédients, Alias et conversion en Unité canonique | agent | À faire | — |
 | [#13](https://github.com/MaximeD1412/personal-os/issues/13) | Recettes | agent | À faire | #12 |
-| [#14](https://github.com/MaximeD1412/personal-os/issues/14) | Foyer, Participants et Préférences alimentaires | agent | À faire | #6 |
+| [#14](https://github.com/MaximeD1412/personal-os/issues/14) | Foyer, Participants et Préférences alimentaires | agent | À faire | — |
 | [#15](https://github.com/MaximeD1412/personal-os/issues/15) | Planning de repas saisi à la main | agent | À faire | #13 |
 | [#16](https://github.com/MaximeD1412/personal-os/issues/16) | Génération IA du planning par Tours de génération, Souhaits et traçabilité | hitl | À faire | #15 |
 | [#17](https://github.com/MaximeD1412/personal-os/issues/17) | Liste de courses figée à l'édition et consolidateur | agent | À faire | #15 |
 | [#18](https://github.com/MaximeD1412/personal-os/issues/18) | Produits : conditionnement, produit préféré et arrondi | agent | À faire | #17 |
 | [#19](https://github.com/MaximeD1412/personal-os/issues/19) | Stock domestique : clôture de liste, Repas cuisiné et péremptions | agent | À faire | #18 |
 | [#20](https://github.com/MaximeD1412/personal-os/issues/20) | Écart entre planning et liste figée, et liste de complément | agent | À faire | #17 |
-| [#21](https://github.com/MaximeD1412/personal-os/issues/21) | Projets, Présentation publique et État de publication | agent | À faire | #6 |
+| [#21](https://github.com/MaximeD1412/personal-os/issues/21) | Projets, Présentation publique et État de publication | agent | À faire | — |
 | [#22](https://github.com/MaximeD1412/personal-os/issues/22) | Portfolio public bilingue et Pages de contenu rédigées | hitl | À faire | #21 |
 | [#23](https://github.com/MaximeD1412/personal-os/issues/23) | CV PDF téléversé et stockage objet | agent | À faire | #22 |
 | [#24](https://github.com/MaximeD1412/personal-os/issues/24) | Barre de commande : catalogue généré, résolution d'intention et préremplissage | hitl | À faire | #11 |
 
 ## Chemin critique
 
-Tout part du squelette, et rien de fonctionnel ne démarre avant la garde
-d'**Espace** — c'est elle qui porte le cloisonnement, et
-l'[ADR 0016](docs/adr/0016-modules-plats-et-filtrage-espace-centralise.md)
-interdit de le rattraper module par module ensuite.
+La garde d'**Espace** est posée et #6 est fermée : **quatre chemins partent
+désormais en parallèle**, et trois d'entre eux n'attendent personne.
 
 ```
-#6 garde d'Espace
-                                                                            │
-                        ┌───────────────────────────────┬───────────────────┤
-                        ▼                               ▼                   ▼
-                  #7 Calendrier                  #12 Ingrédients      #14 Foyer
-                        │                               │             #21 Projets
-                        ▼                               ▼                   │
-                   #8 Agenda                      #13 Recettes              ▼
-                        │                               │            #22 Portfolio
-        ┌───────────┬───┴───────┐                       ▼                   │
-        ▼           ▼           ▼                 #15 Planning              ▼
-  #9 Récurrence #10 Sport  #11 Tableau            │        │           #23 CV PDF
-                                │            #16 IA   #17 Liste
-                                ▼                          │
-                        #24 Barre de commande      ┌───────┴───────┐
-                                                   ▼               ▼
-                                            #18 Produits      #20 Écart
-                                                   ▼
-                                            #19 Stock domestique
+#7 Calendrier      #12 Ingrédients      #14 Foyer      #21 Projets
+      │                    │                                │
+      ▼                    ▼                                ▼
+ #8 Agenda           #13 Recettes                     #22 Portfolio
+      │                    │                                │
+      ├────────┬───────────┼──────────┐                     ▼
+      ▼        ▼           ▼          │                #23 CV PDF
+#9 Récur.  #10 Sport  #11 Tableau     ▼
+                          │      #15 Planning
+                          ▼        │        │
+                #24 Barre de       ▼        ▼
+                   commande    #16 IA   #17 Liste
+                                            │
+                                    ┌───────┴───────┐
+                                    ▼               ▼
+                             #18 Produits      #20 Écart
+                                    ▼
+                             #19 Stock domestique
 ```
 
-#6 rouvre quatre chemins à elle seule : #7 le calendrier, #12 les ingrédients,
-#14 le foyer et #21 les projets. Sa
-[PR #39](https://github.com/MaximeD1412/personal-os/pull/39) est ouverte, et
-**la ligne reste jusqu'à la fermeture de l'issue** : la retirer maintenant
-débloquerait à tort ses quatre dépendantes.
-
-Elle arrivait sur un terrain préparé : `packages/database` était le point
-d'accès unique où brancher le filtrage, la table `User` portait déjà
-l'identité, et la garde de session avait montré que le mécanisme central tient
-— c'est le même raisonnement, appliqué une couche plus bas.
+**#7 est la seule des quatre à être engagée** ([PR #40](https://github.com/MaximeD1412/personal-os/pull/40)) ;
+#12, #14 et #21 sont libres et indépendantes l'une de l'autre. #7 est aussi la
+plus structurante des quatre : elle seule débloque #8, qui commande à son tour
+#9, #10, #11 et, par ricochet, #24.
 
 **Ce qu'il reste de #5 est sur la machine, pas dans le code.** L'issue est
 fermée et le code est dans `develop`, mais Authentik n'est configuré nulle
 part : DNS pour `app.` et `auth.`, fournisseur OIDC, deux comptes, report des
 valeurs dans `/opt/personal-os/.env`. Le runbook est dans
-`infra/deploy/README.md`. Rien de tout cela ne bloque #6, qui se développe et se
-teste en local.
+`infra/deploy/README.md`. Rien de tout cela ne bloque les tranches suivantes,
+qui se développent et se testent en local.
 
 ## Journal
+
+### 2026-08-27 — #6 Garde d'Espace centralisée
+
+**Fermée**, [PR #39](https://github.com/MaximeD1412/personal-os/pull/39)
+fusionnée dans `develop`. Deux ADR :
+[0028](docs/adr/0028-la-portee-d-espace-est-ouverte-par-requete.md) pour le
+chemin par lequel l'**Espace** atteint l'accès aux données, et
+[0014](docs/adr/0014-deux-utilisateurs-cloisonnes-par-espace.md) pour ce qu'il
+compartimente.
+
+Le filtrage vit dans une extension Prisma posée sur le seul client que
+`packages/database` exporte, et la portée voyage dans un `AsyncLocalStorage`
+plutôt que dans les signatures. Aucun service n'a de filtre à écrire.
+
+**#7 a servi de première épreuve, et le mécanisme a tenu sans qu'on l'aide.**
+Trois constats de la tranche suivante, qui valent pour toutes les autres :
+
+- **Un modèle nouveau est cloisonné sans rien déclarer.** Il a suffi de ne pas
+  inscrire `Event` dans `MODELES_HORS_ESPACE` ; le test structurel de
+  `modeles.spec.ts` l'a reconnu seul. Les deux seules lignes à toucher étaient
+  la relation `Scope.events`, que ce même test réclame explicitement.
+- **Le dépôt d'un module reste vide de tout `scopeId`.** `event.repository.ts`
+  appelle `prisma.event.findMany()` sans rien passer. En trouver un à la main
+  signalerait que la garde a été contournée.
+- **Le jeu d'Espaces de la campagne d'intégration se reprend tel quel.**
+  `poserLeJeuDEspaces` a donné les deux comptes et le Foyer sans une ligne
+  d'adaptation — les tests de non-exposition de #7 se sont écrits directement
+  contre lui.
+
+**Le fil traceur (entité `Trace`) est toujours là.** Le schéma et les contrats
+annoncent tous deux qu'il disparaîtra « le jour où un vrai module portera un
+Espace » : c'était #7. Le retirer demande de réécrire les tests de
+non-exposition et `module-restreint.ts` sur l'**Événement**, ce qui débordait de
+#7. À faire dans une tranche dédiée — et **sans jamais interrompre l'exercice de
+la garantie** : ce sont ces tests-là qui prouvent le cloisonnement.
 
 ### 2026-08-26 — #5 Session serveur OIDC
 
