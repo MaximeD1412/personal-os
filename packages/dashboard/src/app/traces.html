@@ -24,15 +24,15 @@
         />
       </label>
 
-      <label class="flex flex-col gap-1.5">
-        <span hlmLabel>Espace</span>
+      <div class="flex flex-col gap-1.5">
+        <label hlmLabel for="traces-espace">Espace</label>
         <hlm-select
           data-test="espace"
           [value]="espaceChoisi()"
           [itemToString]="nomDeLEspace"
           (valueChange)="choisirEspace($event)"
         >
-          <hlm-select-trigger class="w-56">
+          <hlm-select-trigger buttonId="traces-espace" class="w-56">
             <hlm-select-value placeholder="Choisir un Espace" />
           </hlm-select-trigger>
           <hlm-select-content *hlmSelectPortal>
@@ -43,7 +43,7 @@
             }
           </hlm-select-content>
         </hlm-select>
-      </label>
+      </div>
 
       <button hlmBtn type="submit" data-test="creer" [disabled]="!pretACreer()">
         Ajouter

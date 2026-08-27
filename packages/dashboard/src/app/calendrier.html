@@ -47,15 +47,15 @@
         />
       </label>
 
-      <label class="flex flex-col gap-1.5">
-        <span hlmLabel>Catégorie</span>
+      <div class="flex flex-col gap-1.5">
+        <label hlmLabel for="calendrier-categorie">Catégorie</label>
         <hlm-select
           data-test="categorie"
           [value]="saisie().categorie"
           [itemToString]="nomDeLaCategorie"
           (valueChange)="choisir('categorie', $event)"
         >
-          <hlm-select-trigger class="w-44">
+          <hlm-select-trigger buttonId="calendrier-categorie" class="w-44">
             <hlm-select-value />
           </hlm-select-trigger>
           <hlm-select-content *hlmSelectPortal>
@@ -66,17 +66,17 @@
             }
           </hlm-select-content>
         </hlm-select>
-      </label>
+      </div>
 
-      <label class="flex flex-col gap-1.5">
-        <span hlmLabel>Espace</span>
+      <div class="flex flex-col gap-1.5">
+        <label hlmLabel for="calendrier-espace">Espace</label>
         <hlm-select
           data-test="espace"
           [value]="saisie().espaceId"
           [itemToString]="nomDeLEspace"
           (valueChange)="choisir('espaceId', $event)"
         >
-          <hlm-select-trigger class="w-44">
+          <hlm-select-trigger buttonId="calendrier-espace" class="w-44">
             <hlm-select-value placeholder="Choisir un Espace" />
           </hlm-select-trigger>
           <hlm-select-content *hlmSelectPortal>
@@ -87,17 +87,17 @@
             }
           </hlm-select-content>
         </hlm-select>
-      </label>
+      </div>
 
-      <label class="flex flex-col gap-1.5">
-        <span hlmLabel>Rappel</span>
+      <div class="flex flex-col gap-1.5">
+        <label hlmLabel for="calendrier-rappel">Rappel</label>
         <hlm-select
           data-test="rappel"
           [value]="saisie().rappel"
           [itemToString]="nomDuRappel"
           (valueChange)="choisir('rappel', $event)"
         >
-          <hlm-select-trigger class="w-44">
+          <hlm-select-trigger buttonId="calendrier-rappel" class="w-44">
             <hlm-select-value placeholder="Sans rappel" />
           </hlm-select-trigger>
           <hlm-select-content *hlmSelectPortal>
@@ -109,7 +109,7 @@
             }
           </hlm-select-content>
         </hlm-select>
-      </label>
+      </div>
 
       <div class="flex gap-2">
         <button
