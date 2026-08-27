@@ -14,7 +14,7 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 | Issue | Titre | Type | État | Bloquée par |
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/MaximeD1412/personal-os/issues/1) | PRD — Personal OS V1 | agent | Épique — ne s'implémente pas directement | — |
-| [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | **Disponible** | — |
+| [#6](https://github.com/MaximeD1412/personal-os/issues/6) | Garde d'Espace centralisée et tests de non-exposition | agent | [PR #39](https://github.com/MaximeD1412/personal-os/pull/39) ouverte | — |
 | [#7](https://github.com/MaximeD1412/personal-os/issues/7) | Calendrier : l'Événement daté avec son Espace explicite | agent | À faire | #6 |
 | [#8](https://github.com/MaximeD1412/personal-os/issues/8) | Agenda : port AgendaContributor et vue en lecture seule | agent | À faire | #7 |
 | [#9](https://github.com/MaximeD1412/personal-os/issues/9) | Récurrence : règle, exceptions et occurrences calculées | agent | À faire | #8 |
@@ -63,14 +63,16 @@ interdit de le rattraper module par module ensuite.
                                             #19 Stock domestique
 ```
 
-#6 est la seule issue disponible, et elle rouvre quatre chemins à elle seule :
-#7 le calendrier, #12 les ingrédients, #14 le foyer et #21 les projets. C'est
-la dernière tranche qui ne produit rien de visible.
+#6 rouvre quatre chemins à elle seule : #7 le calendrier, #12 les ingrédients,
+#14 le foyer et #21 les projets. Sa
+[PR #39](https://github.com/MaximeD1412/personal-os/pull/39) est ouverte, et
+**la ligne reste jusqu'à la fermeture de l'issue** : la retirer maintenant
+débloquerait à tort ses quatre dépendantes.
 
-Elle arrive sur un terrain préparé : `packages/database` est le point d'accès
-unique où le filtrage se branche, la table `User` existe et porte l'identité, et
-la garde de session prouve déjà que le mécanisme central tient — c'est le même
-raisonnement, appliqué une couche plus bas.
+Elle arrivait sur un terrain préparé : `packages/database` était le point
+d'accès unique où brancher le filtrage, la table `User` portait déjà
+l'identité, et la garde de session avait montré que le mécanisme central tient
+— c'est le même raisonnement, appliqué une couche plus bas.
 
 **Ce qu'il reste de #5 est sur la machine, pas dans le code.** L'issue est
 fermée et le code est dans `develop`, mais Authentik n'est configuré nulle
