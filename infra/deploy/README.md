@@ -227,9 +227,21 @@ il n'y a **aucune** commande `psql` à passer.
      quoi admettre qui que ce soit et refuse tout le monde.
    - **Signing key** : le certificat auto-signé d'Authentik convient. L'API
      vérifie la signature contre le jeu de clés publié, pas contre une autorité.
-5. **L'application.** *Applications → Create*, rattachée au fournisseur. Le
-   **slug** devient `OIDC_CLIENT_ID` et se retrouve dans l'émetteur :
-   `https://<AUTHENTIK_HOST>/application/o/<slug>/`.
+
+   Une fois créé, sa page de vue affiche le **Client ID** dans la carte *Info* :
+   quarante caractères tirés au hasard par Authentik, à recopier dans
+   `OIDC_CLIENT_ID`. Le **Client Secret**, lui, n'est **pas** sur cette page —
+   il faut ouvrir *Edit*, où il apparaît masqué à côté du Client ID, et
+   seulement si le Client type est `Confidential`.
+5. **L'application.** *Applications → Create*, rattachée au fournisseur. Son
+   **slug** n'a rien à voir avec le Client ID : il ne sert qu'à bâtir
+   l'émetteur, `https://<AUTHENTIK_HOST>/application/o/<slug>/`.
+
+   > Les confondre est l'erreur qui coûte le plus de temps, parce que le slug
+   > **est** un identifiant plausible et qu'il apparaît, lui, dans une URL qu'on
+   > a sous les yeux. Authentik répond alors « The client identifier (client_id)
+   > is missing or invalid » sur sa propre page, avant que Personal OS ne voie
+   > quoi que ce soit — donc sans rien dans les journaux de l'API.
 6. **Les liaisons.** *Application → Policy/Group/User Bindings* : rattacher les
    deux comptes. Sans liaison, Authentik les refuse avant même que Personal OS
    n'ait son mot à dire.

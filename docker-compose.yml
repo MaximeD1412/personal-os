@@ -117,7 +117,11 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-personalos}:${POSTGRES_PASSWORD:-personalos}@db:5432/${POSTGRES_DB:-personalos}?schema=public
       PORT: 3000
       OIDC_ISSUER: ${OIDC_ISSUER:-http://authentik:9000/application/o/personal-os/}
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-personal-os}
+      # Le Client ID est tiré au hasard par Authentik à la création du
+      # fournisseur : ce n'est pas le slug de l'application, et il n'existe
+      # aucune valeur par défaut qui soit juste. Celle-ci est un repère, pas un
+      # défaut utilisable — la CI construit ces images et `:?` la ferait échouer.
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-a-remplacer}
       # Valeurs de repli plutôt que `:?` : la CI construit ces images avec
       # `docker compose build`, et une variable obligatoire ferait échouer
       # l'interpolation du fichier avant même la construction. Ces deux-là se
