@@ -1,5 +1,17 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import type { Scope, Trace } from '@personal-os/contracts';
+import { HlmBadge } from '@personal-os/ui/badge';
+import { HlmButton } from '@personal-os/ui/button';
+import {
+  HlmCard,
+  HlmCardContent,
+  HlmCardDescription,
+  HlmCardHeader,
+  HlmCardTitle,
+} from '@personal-os/ui/card';
+import { HlmInput } from '@personal-os/ui/input';
+import { HlmLabel } from '@personal-os/ui/label';
+import { HlmSelectImports } from '@personal-os/ui/select';
 import { EspaceService } from './espace.service';
 import { TraceService } from './trace.service';
 
@@ -11,7 +23,18 @@ import { TraceService } from './trace.service';
 @Component({
   selector: 'pos-traces',
   templateUrl: './traces.html',
-  styleUrl: './traces.css',
+  imports: [
+    HlmBadge,
+    HlmButton,
+    HlmCard,
+    HlmCardContent,
+    HlmCardDescription,
+    HlmCardHeader,
+    HlmCardTitle,
+    HlmInput,
+    HlmLabel,
+    ...HlmSelectImports,
+  ],
 })
 export class Traces {
   private readonly espacesApi = inject(EspaceService);
@@ -43,16 +66,20 @@ export class Traces {
     });
   }
 
-  protected nomDeLEspace(id: string): string {
-    return this.espaces().find((espace) => espace.id === id)?.label ?? id;
-  }
+  /**
+   * Une propriété-flèche et non une méthode : `hlm-select` la reçoit comme
+   * `itemToString` et l'appelle détachée de l'instance.
+   */
+  protected readonly nomDeLEspace = (id: string | null | undefined): string =>
+    this.espaces().find((espace) => espace.id === id)?.label ?? id ?? '';
 
   protected saisirLibelle(evenement: Event): void {
     this.libelle.set((evenement.target as HTMLInputElement).value);
   }
 
-  protected choisirEspace(evenement: Event): void {
-    this.espaceChoisi.set((evenement.target as HTMLSelectElement).value);
+  /** `hlm-select` rend `null` quand il ne porte plus de choix. */
+  protected choisirEspace(espaceId: string | null | undefined): void {
+    this.espaceChoisi.set(espaceId ?? '');
   }
 
   protected creer(): void {

@@ -87,9 +87,9 @@ describe('App', () => {
   });
 
   it('donne accès au Calendrier depuis la coque', async () => {
-    const lien = (
-      (await monter()).nativeElement as HTMLElement
-    ).querySelector('[data-test="vers-calendrier"]') as HTMLAnchorElement;
+    const lien = ((await monter()).nativeElement as HTMLElement).querySelector(
+      '[data-test="vers-calendrier"]',
+    ) as HTMLAnchorElement;
 
     expect(lien).not.toBeNull();
     expect(lien.getAttribute('href')).toBe('/calendrier');

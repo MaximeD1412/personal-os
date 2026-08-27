@@ -4,3 +4,8 @@
 /.nx/cache
 /.nx/workspace-data
 .angular
+
+# Les composants copiés depuis spartan/ui. Ils sont à nous et se modifient,
+# mais on les garde tels que le générateur les pose : les reformater ferait
+# diverger chaque `nx g @spartan-ng/cli:ui` suivant du reste du répertoire.
+/packages/ui

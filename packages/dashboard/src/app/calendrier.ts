@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import {
   estEcheance,
@@ -7,6 +8,18 @@ import {
   type EventUpdate,
   type Scope,
 } from '@personal-os/contracts';
+import { HlmBadge } from '@personal-os/ui/badge';
+import { HlmButton } from '@personal-os/ui/button';
+import {
+  HlmCard,
+  HlmCardContent,
+  HlmCardDescription,
+  HlmCardHeader,
+  HlmCardTitle,
+} from '@personal-os/ui/card';
+import { HlmInput } from '@personal-os/ui/input';
+import { HlmLabel } from '@personal-os/ui/label';
+import { HlmSelectImports } from '@personal-os/ui/select';
 import { EspaceService } from './espace.service';
 import { EventService } from './event.service';
 
@@ -58,7 +71,19 @@ const SAISIE_VIERGE: Saisie = {
 @Component({
   selector: 'pos-calendrier',
   templateUrl: './calendrier.html',
-  styleUrl: './calendrier.css',
+  imports: [
+    DatePipe,
+    HlmBadge,
+    HlmButton,
+    HlmCard,
+    HlmCardContent,
+    HlmCardDescription,
+    HlmCardHeader,
+    HlmCardTitle,
+    HlmInput,
+    HlmLabel,
+    ...HlmSelectImports,
+  ],
 })
 export class Calendrier {
   private readonly espacesApi = inject(EspaceService);
@@ -77,9 +102,7 @@ export class Calendrier {
 
   protected readonly pretAEnregistrer = computed(() => {
     const { titre, debut, espaceId } = this.saisie();
-    return (
-      titre.trim().length > 0 && debut.length > 0 && espaceId.length > 0
-    );
+    return titre.trim().length > 0 && debut.length > 0 && espaceId.length > 0;
   });
 
   constructor() {
@@ -94,16 +117,26 @@ export class Calendrier {
     });
   }
 
-  protected nomDeLEspace(id: string): string {
-    return this.espaces().find((espace) => espace.id === id)?.label ?? id;
-  }
+  /*
+   * Les trois suivantes sont des propriétés-flèches et non des méthodes :
+   * `hlm-select` les reçoit comme `itemToString` et les appelle détachées de
+   * l'instance, pour afficher dans le déclencheur ce qui a été choisi.
+   */
 
-  protected nomDeLaCategorie(categorie: EventCategory): string {
-    return (
-      CATEGORIES.find(({ valeur }) => valeur === categorie)?.libelle ??
-      categorie
-    );
-  }
+  protected readonly nomDeLEspace = (id: string | null | undefined): string =>
+    this.espaces().find((espace) => espace.id === id)?.label ?? id ?? '';
+
+  protected readonly nomDeLaCategorie = (
+    categorie: EventCategory | null | undefined,
+  ): string =>
+    CATEGORIES.find(({ valeur }) => valeur === categorie)?.libelle ??
+    categorie ??
+    '';
+
+  protected readonly nomDuRappel = (
+    rappel: string | null | undefined,
+  ): string =>
+    rappel ? `${this.libelleDuRappel(Number(rappel))} avant` : 'Sans rappel';
 
   /** Une Échéance est un Événement portant la catégorie dédiée, rien de plus. */
   protected estUneEcheance(evenement: Event): boolean {
@@ -135,12 +168,22 @@ export class Calendrier {
     ];
   });
 
+  /** Les champs de saisie libre, qui portent leur valeur dans l'événement. */
   protected saisir(champ: keyof Saisie, evenement: globalThis.Event): void {
-    const valeur = (
-      evenement.target as HTMLInputElement | HTMLSelectElement
-    ).value;
+    const valeur = (evenement.target as HTMLInputElement).value;
 
     this.saisie.update((saisie) => ({ ...saisie, [champ]: valeur }));
+  }
+
+  /**
+   * Les `hlm-select`, qui émettent directement la valeur choisie — et `null`
+   * quand ils ne portent plus de choix.
+   */
+  protected choisir(
+    champ: keyof Saisie,
+    valeur: string | null | undefined,
+  ): void {
+    this.saisie.update((saisie) => ({ ...saisie, [champ]: valeur ?? '' }));
   }
 
   protected reprendre(evenement: Event): void {

@@ -10,7 +10,7 @@ describe('App', () => {
     }).compileComponents();
   });
 
-  it("se présente comme le portfolio, distinct du tableau de bord", async () => {
+  it('se présente comme le portfolio, distinct du tableau de bord', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     fixture.detectChanges();
