@@ -1,0 +1,103 @@
+// Schéma de la base Personal OS.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  importFileExtension = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Sonde technique du squelette applicatif.
+model HealthProbe {
+  id         String   @id @default(uuid())
+  label      String
+  recordedAt DateTime @default(now())
+}
+
+/// Le compartiment auquel appartient une donnée. Personnel, ou celui du Foyer.
+enum ScopeKind {
+  PERSONAL
+  HOUSEHOLD
+}
+
+/// Le Foyer : les personnes qui vivent ensemble. Il n'en existe qu'un, posé
+/// par migration — l'application ne le crée jamais.
+model Household {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  members   User[]
+  scopes    Scope[]
+}
+
+/// L'Espace, seule chose qui détermine qui voit une donnée. Il en existe trois :
+/// un Espace personnel par Compte, et l'Espace du Foyer.
+model Scope {
+  id          String    @id @default(uuid())
+  kind        ScopeKind
+  label       String
+  householdId String
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  /// Le Compte dont c'est l'Espace personnel ; vide pour l'Espace foyer.
+  holderId    String?   @unique
+  holder      User?     @relation(fields: [holderId], references: [id], onDelete: Cascade)
+  traces      Trace[]
+
+  @@index([householdId])
+}
+
+/// Compte local associé à un sujet Authentik.
+model User {
+  id            String    @id @default(uuid())
+  /// Sujet OIDC stable et opaque.
+  subject       String    @unique
+  email         String    @unique
+  displayName   String?
+  createdAt     DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  sessions      Session[]
+  /// Le Foyer est unique : la valeur par défaut laisse la version précédente
+  /// de l'API créer des Comptes sans la connaître (ADR 0024).
+  householdId   String    @default("11111111-1111-4111-8111-111111111111")
+  household     Household @relation(fields: [householdId], references: [id])
+  personalScope Scope?
+}
+
+/// Entité jouet du fil traceur de l'issue #6 : elle porte un Espace et ne sert
+/// qu'à démontrer le cloisonnement de bout en bout, jusque dans l'interface.
+/// Elle disparaîtra le jour où un vrai module portera un Espace.
+model Trace {
+  id        String   @id @default(uuid())
+  label     String
+  scopeId   String
+  scope     Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([scopeId])
+}
+
+/// Session applicative. Seule l'empreinte du jeton est stockée.
+model Session {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  @@index([userId])
+}
+
+/// Transaction OIDC temporaire contenant l'état et les valeurs PKCE.
+model LoginTransaction {
+  id           String   @id @default(uuid())
+  state        String
+  nonce        String
+  codeVerifier String
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+}

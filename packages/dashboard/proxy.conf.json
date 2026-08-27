@@ -1,0 +1,7 @@
+{
+  "//": "Le tableau de bord doit joindre l'API sous SA propre origine. Le cookie de session est SameSite=Lax : servi depuis :4200 et appelé sur :3000, il ne partirait tout simplement pas. C'est l'équivalent, pour `nx serve`, de ce que fait le nginx de l'image en production.",
+  "/api": {
+    "target": "http://localhost:3000",
+    "secure": false
+  }
+}

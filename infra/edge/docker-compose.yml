@@ -1,0 +1,46 @@
+# Proxy de tête de la machine. S'installe en /opt/edge/.
+#
+# C'est le seul service de la machine qui écoute sur une interface publique
+# (ADR 0025). Tous les autres sont sur loopback ou sur le réseau `edge`.
+#
+# Il n'est **pas** déployé par l'agent de Personal OS : le faire redonnerait à
+# un projet la propriété de l'entrée. Il se met à jour à la main, ce qui est
+# tenable parce que le routage par domaine le rend immuable.
+
+services:
+  edge:
+    image: ${EDGE_IMAGE:-ghcr.io/maximed1412/personal-os/edge}:${EDGE_TAG:-main}
+    container_name: caddy-edge
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL manquant}
+      PERSONAL_OS_DOMAIN: ${PERSONAL_OS_DOMAIN:?PERSONAL_OS_DOMAIN manquant}
+      PERSONAL_OS_UPSTREAM: ${PERSONAL_OS_UPSTREAM:-personal-os-caddy:80}
+      OVH_ENDPOINT: ${OVH_ENDPOINT:-ovh-eu}
+      OVH_APPLICATION_KEY: ${OVH_APPLICATION_KEY:?OVH_APPLICATION_KEY manquant}
+      OVH_APPLICATION_SECRET: ${OVH_APPLICATION_SECRET:?OVH_APPLICATION_SECRET manquant}
+      OVH_CONSUMER_KEY: ${OVH_CONSUMER_KEY:?OVH_CONSUMER_KEY manquant}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./conf.d:/etc/caddy/conf.d:ro
+      # Les certificats. Les perdre n'est pas grave en soi — ils se réémettent —
+      # mais les quotas de l'autorité de certification transforment alors une
+      # bêtise en indisponibilité de plusieurs heures.
+      - edge-data:/data
+      - edge-config:/config
+    networks:
+      - edge
+
+networks:
+  # Créé par ce projet, rejoint par les locataires en réseau **externe**. C'est
+  # l'ordre de démarrage : l'edge d'abord, les locataires ensuite.
+  edge:
+    name: ${EDGE_NETWORK:-edge}
+
+volumes:
+  edge-data:
+  edge-config:

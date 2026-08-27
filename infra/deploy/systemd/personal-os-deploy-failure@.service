@@ -1,0 +1,6 @@
+[Unit]
+Description=Personal OS — signale l'échec de %i
+
+[Service]
+Type=oneshot
+ExecStart=/opt/personal-os/deploy/bin/notify-failure.sh %i

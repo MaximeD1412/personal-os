@@ -1,0 +1,43 @@
+# Proxy de tête de la machine.
+#
+# Il ne connaît que deux choses : les certificats, et vers quel locataire router
+# un nom d'hôte. Aucune application, aucun chemin, aucune règle métier —
+# c'est ce qui lui permet de ne jamais changer (ADR 0025).
+
+{
+	admin off
+	email {$ACME_EMAIL}
+}
+
+# --- Personal OS ---------------------------------------------------------
+#
+# Le domaine entier part vers le proxy interne de Personal OS, qui décide
+# ensuite quoi en faire. C'est là toute la propriété recherchée : ajouter
+# `app.dccm.fr` se fait dans le Caddyfile de Personal OS, versionné et déployé
+# par l'agent, sans que ce fichier-ci bouge.
+#
+# L'apex est listé à côté du joker : `*.exemple.fr` ne couvre pas `exemple.fr`,
+# et ne couvre qu'un seul niveau de sous-domaine.
+*.{$PERSONAL_OS_DOMAIN}, {$PERSONAL_OS_DOMAIN} {
+	tls {
+		dns ovh {
+			endpoint {$OVH_ENDPOINT}
+			application_key {$OVH_APPLICATION_KEY}
+			application_secret {$OVH_APPLICATION_SECRET}
+			consumer_key {$OVH_CONSUMER_KEY}
+		}
+	}
+
+	# L'en-tête Host est transmis tel quel — le proxy interne route dessus, et
+	# sans lui aucun de ses blocs ne correspondrait.
+	reverse_proxy {$PERSONAL_OS_UPSTREAM}
+}
+
+# --- Autres locataires ---------------------------------------------------
+#
+# Un fichier par projet, posé sur la machine et non versionné ici : la
+# configuration de `mairie` n'a pas à vivre dans le dépôt de Personal OS — ce
+# serait reproduire à l'envers exactement ce que l'ADR 0025 corrige.
+#
+# Modèle fourni dans conf.d/mairie.caddy.exemple.
+import /etc/caddy/conf.d/*.caddy

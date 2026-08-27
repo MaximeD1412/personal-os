@@ -1,0 +1,15 @@
+# Modèle pour un locataire autre que Personal OS.
+#
+# À recopier en `mairie.caddy` sur la machine — sans l'extension `.exemple`,
+# que le glob du Caddyfile ne ramasse pas — puis à adapter.
+#
+# Ce fichier reste **hors du dépôt de Personal OS** : y versionner la
+# configuration d'un autre projet reproduirait à l'envers ce que l'ADR 0025
+# corrige.
+#
+# Le certificat est obtenu par challenge HTTP-01, sans module DNS : l'edge tient
+# le port 80, donc la validation aboutit sans rien de plus. Seul le joker de
+# Personal OS demandait DNS-01.
+mairie.exemple.fr {
+	reverse_proxy mairie-caddy-1:80
+}

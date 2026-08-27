@@ -1,0 +1,38 @@
+name: Préparer l'atelier
+description: >-
+  Le préambule commun à tous les jobs de la campagne : pnpm, Node, dépendances,
+  et la base de comparaison de `nx affected`. Il est identique partout, donc il
+  vit à un seul endroit — trois copies dériveraient, et la première à dériver
+  ferait passer un job qui aurait dû échouer.
+
+inputs:
+  affectee:
+    description: >-
+      « true » fait résoudre NX_BASE / NX_HEAD, ce dont `nx affected` a besoin
+      pour savoir depuis où comparer. La livraison, qui rejoue la campagne
+      complète, n'en a pas l'usage — et le jeton qu'elle porte n'ouvre pas
+      l'API Actions que cette résolution interroge.
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+
+    - uses: actions/setup-node@v5
+      with:
+        node-version: 24
+        cache: pnpm
+
+    - name: Installer les dépendances
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    # Sur une proposition de fusion, la base est évidente. Sur un push, elle ne
+    # l'est pas : comparer au commit précédent laisserait passer ce qu'une
+    # exécution en échec n'a jamais vérifié. Cette action remonte à la dernière
+    # exécution *réussie*, ce qui est la seule base honnête.
+    - name: Déterminer la base de comparaison
+      if: inputs.affectee == 'true'
+      uses: nrwl/nx-set-shas@v5

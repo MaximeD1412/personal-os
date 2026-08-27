@@ -1,0 +1,49 @@
+<section class="traces">
+  <h2>Fil traceur</h2>
+
+  <form class="saisie" (submit)="$event.preventDefault(); creer()">
+    <input
+      type="text"
+      data-test="libelle"
+      placeholder="Ce qu'on trace"
+      [value]="libelle()"
+      (input)="saisirLibelle($event)"
+    />
+
+    <select
+      data-test="espace"
+      [value]="espaceChoisi()"
+      (change)="choisirEspace($event)"
+    >
+      @for (espace of espaces(); track espace.id) {
+      <option [value]="espace.id">{{ espace.label }}</option>
+      }
+    </select>
+
+    <button type="submit" data-test="creer" [disabled]="!pretACreer()">
+      Ajouter
+    </button>
+  </form>
+
+  @if (erreur(); as message) {
+  <p class="erreur">{{ message }}</p>
+  }
+
+  <ul class="liste">
+    @for (trace of traces(); track trace.id) {
+    <li>
+      <span class="libelle">{{ trace.label }}</span>
+      <span class="espace">{{ nomDeLEspace(trace.scopeId) }}</span>
+      <button
+        type="button"
+        data-test="supprimer"
+        (click)="supprimer(trace.id)"
+      >
+        Supprimer
+      </button>
+    </li>
+    } @empty {
+    <li class="vide">Aucune Trace dans vos Espaces.</li>
+    }
+  </ul>
+</section>

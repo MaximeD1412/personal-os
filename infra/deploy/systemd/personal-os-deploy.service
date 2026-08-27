@@ -1,0 +1,27 @@
+[Unit]
+Description=Personal OS — applique la version publiée sur le canal
+Documentation=https://github.com/MaximeD1412/personal-os/blob/main/infra/deploy/README.md
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+# L'agent restaure une sauvegarde et rejoue une migration : deux exécutions
+# simultanées se disputeraient le conteneur jetable et le port loopback.
+# systemd refuse déjà de relancer une unité en cours ; ceci le dit à qui relit.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=/opt/personal-os/deploy/bin/deploy.sh
+
+# Le résultat n'apparaît pas chez GitHub (ADR 0023) : un échec doit se signaler
+# ici, sinon la production reste en arrière sans que personne le sache.
+OnFailure=personal-os-deploy-failure@%n.service
+
+# La répétition télécharge la sauvegarde, la restaure et rejoue la migration.
+# Le RTO mesuré est de l'ordre de la dizaine de secondes, mais il grandira avec
+# la base : mieux vaut une borne large qu'un déploiement tué au milieu.
+TimeoutStartSec=45min
+
+[Install]
+WantedBy=multi-user.target

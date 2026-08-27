@@ -1,0 +1,68 @@
+name: CI
+
+# Branches de travail et propositions de fusion. La branche principale, elle,
+# est une branche de livraison : elle est traitée par livraison.yml
+# (ADR 0023).
+on:
+  push:
+    branches: [develop]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  # nx-set-shas remonte à la dernière exécution réussie pour savoir depuis où
+  # comparer : sur un push, c'est la seule base qui ne laisse pas filer ce
+  # qu'une exécution en échec n'a jamais vérifié.
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+    # Une proposition ne rejoue que ce que son diff atteint. Ce qu'elle saute
+    # sera de toute façon rejoué par la livraison, avant toute publication.
+    with:
+      portee: affectee
+
+  images:
+    name: Construit les images Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Construire les images
+        run: docker compose build
+
+  edge:
+    name: Construit le proxy de tête et valide son routage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Construire l'image
+        run: docker build --file infra/edge/Dockerfile --tag personal-os-edge:ci infra/edge
+
+      # `caddy validate` contre l'image **construite**, pas contre le Caddy
+      # standard : la directive `dns ovh` n'existe que dans celle-ci. Valider
+      # ailleurs ne prouverait rien, et la faute ne se verrait que sur la
+      # machine — c'est-à-dire au moment où le proxy de tête refuse de démarrer
+      # et où plus rien n'est joignable.
+      #
+      # Les identifiants sont factices : la validation lit la configuration,
+      # elle ne contacte personne.
+      - name: Valider le Caddyfile
+        run: |
+          docker run --rm \
+            --env ACME_EMAIL=ci@exemple.test \
+            --env PERSONAL_OS_DOMAIN=exemple.test \
+            --env PERSONAL_OS_UPSTREAM=personal-os-caddy:80 \
+            --env OVH_ENDPOINT=ovh-eu \
+            --env OVH_APPLICATION_KEY=cle \
+            --env OVH_APPLICATION_SECRET=secret \
+            --env OVH_CONSUMER_KEY=consommateur \
+            --volume "$PWD/infra/edge/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            personal-os-edge:ci \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile

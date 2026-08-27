@@ -1,0 +1,161 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: personal-os-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-personalos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-personalos}
+      POSTGRES_DB: ${POSTGRES_DB:-personalos}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      # Postgres 18+ attend le montage sur le répertoire parent : les données
+      # vivent dans un sous-répertoire nommé d'après la version majeure.
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-personalos} -d ${POSTGRES_DB:-personalos}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Un seul serveur PostgreSQL, deux bases : celle de l'application et celle
+  # d'Authentik. Le VPS est partagé et contraint, et une seule instance se
+  # sauvegarde d'un seul geste (POSTGRES_DATABASES dans backup.conf).
+  #
+  # Ce service n'est pas dans /docker-entrypoint-initdb.d : celui-ci ne tourne
+  # que sur un volume vierge, or le volume existe déjà partout où ça compte.
+  # Une étape qui ne s'exécute que sur une installation neuve est une étape
+  # qu'on oublie le jour d'une restauration. Ici elle est idempotente et rejouée
+  # à chaque démarrage.
+  db-init:
+    image: postgres:18-alpine
+    container_name: personal-os-db-init
+    restart: 'no'
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-personalos}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-personalos}
+      AUTHENTIK_DB: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      AUTHENTIK_PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD:-authentik}
+    entrypoint: ['/bin/sh', '-c']
+    # `%I` cite comme identifiant, `%L` comme littéral : un mot de passe portant
+    # une apostrophe ne sort pas de sa chaîne.
+    command:
+      - |
+        set -e
+        psql -v ON_ERROR_STOP=1 -d postgres \
+          -v u="$$AUTHENTIK_USER" -v p="$$AUTHENTIK_PASSWORD" -v d="$$AUTHENTIK_DB" <<'SQL'
+        SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'u', :'p')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'u') \gexec
+        ALTER ROLE :"u" WITH LOGIN PASSWORD :'p';
+        SELECT format('CREATE DATABASE %I OWNER %I', :'d', :'u')
+        WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'d') \gexec
+        SQL
+
+  # Authentik n'a plus besoin de Redis depuis 2025 : il tient ses files et son
+  # cache dans PostgreSQL. Le socket Docker de la composition officielle n'est
+  # pas monté non plus — il ne sert qu'aux outposts, et Personal OS est un
+  # client OIDC ordinaire (ADR 0015). Le monter donnerait à l'IdP la main sur
+  # toute la machine.
+  authentik:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG:-2026.5.6}
+    container_name: personal-os-authentik
+    command: server
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment: &authentik-env
+      AUTHENTIK_POSTGRESQL__HOST: db
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD:-authentik}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-cle-de-developpement-a-ne-jamais-utiliser-ailleurs}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: 'false'
+      AUTHENTIK_DISABLE_UPDATE_CHECK: 'true'
+      AUTHENTIK_DISABLE_STARTUP_ANALYTICS: 'true'
+    # Publié sous le nom `authentik` et non `localhost` : l'émetteur OIDC doit
+    # être **la même chaîne** vue du navigateur et vue de l'API, puisque c'est
+    # elle que porte le `iss` des jetons. Ajouter « 127.0.0.1 authentik » à
+    # /etc/hosts suffit (voir README).
+    ports:
+      - '${AUTHENTIK_PORT:-9000}:9000'
+    volumes:
+      - authentik-data:/data
+      - authentik-templates:/templates
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG:-2026.5.6}
+    container_name: personal-os-authentik-worker
+    command: worker
+    restart: unless-stopped
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment: *authentik-env
+    volumes:
+      - authentik-data:/data
+      - authentik-certs:/certs
+      - authentik-templates:/templates
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    container_name: personal-os-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-personalos}:${POSTGRES_PASSWORD:-personalos}@db:5432/${POSTGRES_DB:-personalos}?schema=public
+      PORT: 3000
+      OIDC_ISSUER: ${OIDC_ISSUER:-http://authentik:9000/application/o/personal-os/}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-personal-os}
+      # Valeurs de repli plutôt que `:?` : la CI construit ces images avec
+      # `docker compose build`, et une variable obligatoire ferait échouer
+      # l'interpolation du fichier avant même la construction. Ces deux-là se
+      # posent dans .env, et l'API refuse de démarrer si elles sont vides.
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-secret-a-remplacer}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-http://localhost:4200/api/auth/callback}
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:4200/}
+      AUTH_ALLOWED_EMAILS: ${AUTH_ALLOWED_EMAILS:-vous@exemple.test}
+      # En local le tableau de bord est servi en clair : un cookie `Secure` ne
+      # serait tout simplement pas posé. En production il l'est toujours.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+    ports:
+      - '${API_PORT:-3000}:3000'
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: packages/dashboard/Dockerfile
+    container_name: personal-os-dashboard
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '${DASHBOARD_PORT:-4200}:80'
+
+  portfolio:
+    build:
+      context: .
+      dockerfile: packages/portfolio/Dockerfile
+    container_name: personal-os-portfolio
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '${PORTFOLIO_PORT:-4201}:80'
+
+volumes:
+  db-data:
+  authentik-data:
+  authentik-certs:
+  authentik-templates:
