@@ -30,7 +30,7 @@ model Household {
   name      String
   createdAt DateTime @default(now())
   members   User[]
-  scopes       Scope[]
+  scopes    Scope[]
 }
 
 /// L'Espace, seule chose qui détermine qui voit une donnée. Il en existe trois :

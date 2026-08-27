@@ -89,7 +89,6 @@ describe("Cloisonnement par Espace", () => {
         (sien.body as Scope[]).find(({ kind }) => kind === 'HOUSEHOLD')?.id,
       ).toBe(jeu.espaceFoyer);
     });
-
   });
 
   describe("Ce qu'un Compte ne voit pas", () => {

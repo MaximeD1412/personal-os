@@ -1,8 +1,8 @@
 /**
- * Le foyer historique et son identifiant de compatibilité sont posés par
- * migration. C'est aussi la valeur par défaut de `User.householdId`, ce qui
- * laisse la version précédente de l'API créer des Comptes pendant une fenêtre
- * de déploiement (ADR 0024).
+ * Le Foyer est unique et son identifiant est fixe : il est posé par migration,
+ * jamais créé par l'application. C'est aussi la valeur par défaut de
+ * `User.householdId`, ce qui laisse la version précédente de l'API créer des
+ * Comptes pendant une fenêtre de déploiement (ADR 0024).
  */
 export const ID_FOYER = '11111111-1111-4111-8111-111111111111';
 
