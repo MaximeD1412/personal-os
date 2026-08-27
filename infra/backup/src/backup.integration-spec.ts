@@ -88,6 +88,7 @@ function removeProbeContainers(): void {
       sh('docker', ['rm', '--force', ...ids.split('\n')]);
     }
   } catch {
+    // Les conteneurs peuvent déjà avoir été supprimés.
   }
 }
 
@@ -132,6 +133,7 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     try {
       sh('docker', ['rm', '--force', SOURCE_CONTAINER]);
     } catch {
+      // Le conteneur peut déjà être absent.
     }
 
     sh('docker', [
@@ -178,6 +180,7 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
     try {
       sh('docker', ['rm', '--force', SOURCE_CONTAINER]);
     } catch {
+      // Le conteneur peut déjà être absent.
     }
     for (const dir of [repoDir, restoreDir, restoreAuthentikDir].filter(
       Boolean,
