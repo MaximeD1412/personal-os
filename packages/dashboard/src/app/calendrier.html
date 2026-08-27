@@ -1,0 +1,128 @@
+<section class="calendrier">
+  <h2>Calendrier</h2>
+
+  <form class="saisie" (submit)="$event.preventDefault(); enregistrer()">
+    <input
+      type="text"
+      data-test="titre"
+      placeholder="Intitulé"
+      [value]="saisie().titre"
+      (input)="saisir('titre', $event)"
+    />
+
+    <label>
+      Début
+      <input
+        type="datetime-local"
+        data-test="debut"
+        [value]="saisie().debut"
+        (input)="saisir('debut', $event)"
+      />
+    </label>
+
+    <label>
+      Fin
+      <input
+        type="datetime-local"
+        data-test="fin"
+        [value]="saisie().fin"
+        (input)="saisir('fin', $event)"
+      />
+    </label>
+
+    <select
+      data-test="categorie"
+      [value]="saisie().categorie"
+      (change)="saisir('categorie', $event)"
+    >
+      <option value="APPOINTMENT">Rendez-vous</option>
+      <option value="BIRTHDAY">Anniversaire</option>
+      <option value="DEADLINE">Échéance</option>
+      <option value="OTHER">Autre</option>
+    </select>
+
+    <select
+      data-test="espace"
+      [value]="saisie().espaceId"
+      (change)="saisir('espaceId', $event)"
+    >
+      <option value="">Choisir un Espace</option>
+      @for (espace of espaces(); track espace.id) {
+      <option [value]="espace.id">{{ espace.label }}</option>
+      }
+    </select>
+
+    <select
+      data-test="rappel"
+      [value]="saisie().rappel"
+      (change)="saisir('rappel', $event)"
+    >
+      <option value="">Sans rappel</option>
+      @for (palier of paliersOfferts(); track palier.minutes) {
+      <option [value]="palier.minutes">{{ palier.libelle }} avant</option>
+      }
+    </select>
+
+    <button
+      type="submit"
+      data-test="enregistrer"
+      [disabled]="!pretAEnregistrer()"
+    >
+      {{ enEdition() ? 'Enregistrer' : 'Ajouter' }}
+    </button>
+
+    @if (enEdition()) {
+    <button type="button" data-test="annuler" (click)="annuler()">
+      Annuler
+    </button>
+    }
+  </form>
+
+  @if (erreur(); as message) {
+  <p class="erreur">{{ message }}</p>
+  }
+
+  <ul class="liste">
+    @for (evenement of evenements(); track evenement.id) {
+    <li data-test="evenement">
+      <span class="intitule">{{ evenement.title }}</span>
+
+      <span class="periode">
+        {{ evenement.startsAt }}
+        @if (evenement.endsAt) { → {{ evenement.endsAt }} }
+      </span>
+
+      @if (estUneEcheance(evenement)) {
+      <span class="echeance" data-test="echeance">Échéance</span>
+      } @else {
+      <span class="categorie">{{ nomDeLaCategorie(evenement.category) }}</span>
+      }
+
+      @if (evenement.reminderLeadMinutes !== null) {
+      <span class="rappel" data-test="rappel">
+        Rappel {{ libelleDuRappel(evenement.reminderLeadMinutes) }} avant
+      </span>
+      }
+
+      <span class="espace">{{ nomDeLEspace(evenement.scopeId) }}</span>
+
+      <button
+        type="button"
+        data-test="modifier"
+        (click)="reprendre(evenement)"
+      >
+        Modifier
+      </button>
+      <button
+        type="button"
+        data-test="supprimer"
+        (click)="supprimer(evenement.id)"
+      >
+        Supprimer
+      </button>
+    </li>
+    } @empty {
+    <li class="vide">Aucun Événement dans vos Espaces.</li>
+    }
+  </ul>
+</section>
