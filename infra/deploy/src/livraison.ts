@@ -32,6 +32,7 @@ export function silence(action: () => void): void {
   try {
     action();
   } catch {
+    // Le nettoyage est best-effort : l'élément peut déjà être absent.
   }
 }
 
