@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { MODELES_HORS_ESPACE } from './modeles';
+import {
+  MODELES_HORS_ESPACE,
+  RELATIONS_VERS_ESPACE,
+} from './modeles';
 
 /**
  * La garde ne vaut que si la liste des modèles hors Espace décrit vraiment le
@@ -25,13 +28,44 @@ describe('Modèles hors Espace', () => {
     expect(sansEspace.sort()).toEqual(Object.keys(MODELES_HORS_ESPACE).sort());
   });
 
-  it('recense leurs relations vers un modèle cloisonné', () => {
-    for (const [nom, declarees] of Object.entries(MODELES_HORS_ESPACE)) {
+  it('recense toutes leurs relations vers un modèle cloisonné, même indirectes', () => {
+    for (const [nom, declarees] of Object.entries(RELATIONS_VERS_ESPACE)) {
       const reelles = (modeles.get(nom) ?? [])
-        .filter(({ type }) => cloisonne(type, modeles))
+        .filter(({ type }) => atteintUnEspace(type, modeles, new Set()))
         .map(({ nom: champ }) => champ);
 
       expect(reelles.sort()).toEqual([...declarees].sort());
+    }
+  });
+
+  it('déclare les mêmes modèles hors Espace dans les deux listes', () => {
+    expect(Object.keys(RELATIONS_VERS_ESPACE).sort()).toEqual(
+      Object.keys(MODELES_HORS_ESPACE).sort(),
+    );
+  });
+
+  it('représente l’appartenance à un foyer comme une relation extensible', () => {
+    expect(modeles.has('HouseholdMember')).toBe(true);
+    expect(modeles.get('HouseholdMember')).toEqual(
+      expect.arrayContaining([
+        { nom: 'householdId', type: 'String' },
+        { nom: 'userId', type: 'String' },
+      ]),
+    );
+  });
+
+  it('relie chaque modèle cloisonné à Scope', () => {
+    for (const [nom, champs] of modeles) {
+      if (nom in MODELES_HORS_ESPACE) {
+        continue;
+      }
+
+      expect(champs).toEqual(
+        expect.arrayContaining([{ nom: 'scopeId', type: 'String' }]),
+      );
+      expect(champs).toEqual(
+        expect.arrayContaining([{ nom: 'scope', type: 'Scope' }]),
+      );
     }
   });
 
@@ -59,6 +93,26 @@ interface ChampPrisma {
 
 function cloisonne(type: string, modeles: Map<string, ChampPrisma[]>): boolean {
   return modeles.has(type) && !(type in MODELES_HORS_ESPACE);
+}
+
+function atteintUnEspace(
+  type: string,
+  modeles: Map<string, ChampPrisma[]>,
+  visites: Set<string>,
+): boolean {
+  const champs = modeles.get(type);
+  if (!champs) {
+    return false;
+  }
+  if (champs.some((champ) => champ.nom === 'scopeId')) {
+    return true;
+  }
+  if (visites.has(type)) {
+    return false;
+  }
+
+  const suivantes = new Set(visites).add(type);
+  return champs.some((champ) => atteintUnEspace(champ.type, modeles, suivantes));
 }
 
 function lireLesModeles(): Map<string, ChampPrisma[]> {

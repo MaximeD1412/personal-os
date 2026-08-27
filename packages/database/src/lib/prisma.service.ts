@@ -10,18 +10,22 @@ import { PrismaClient } from '../generated/prisma/client';
  * paquet n'en exporte aucun, et il n'y a donc rien à contourner.
  */
 @Injectable()
-export class PrismaService extends PrismaClient {
+export class PrismaService {
+  #client: PrismaClient;
+
   constructor() {
     const connectionString = process.env['DATABASE_URL'];
     if (!connectionString) {
       throw new Error("DATABASE_URL est requis pour ouvrir l'accès aux données.");
     }
-    super({ adapter: new PrismaPg({ connectionString }) });
+    const client = new PrismaClient({
+      adapter: new PrismaPg({ connectionString }),
+    });
 
     // `$extends` rend un nouveau client plutôt que de modifier celui-ci : c'est
-    // lui qu'on livre, en le renvoyant du constructeur. L'extension ne change
-    // aucun type de modèle, seulement les arguments qui les atteignent.
-    return this.$extends({
+    // lui que l'on conserve derrière la façade. L'extension ne change aucun
+    // type de modèle, seulement les arguments qui les atteignent.
+    this.#client = client.$extends({
       query: {
         $allModels: {
           $allOperations({ model, operation, args, query }) {
@@ -34,6 +38,47 @@ export class PrismaService extends PrismaClient {
           },
         },
       },
-    }) as unknown as PrismaService;
+    }) as unknown as PrismaClient;
+  }
+
+  /** Les seuls délégués exposés aux dépôts applicatifs. */
+  get healthProbe() {
+    return this.#client.healthProbe;
+  }
+
+  get household() {
+    return this.#client.household;
+  }
+
+  get householdMember() {
+    return this.#client.householdMember;
+  }
+
+  get scope() {
+    return this.#client.scope;
+  }
+
+  get user() {
+    return this.#client.user;
+  }
+
+  get trace() {
+    return this.#client.trace;
+  }
+
+  get session() {
+    return this.#client.session;
+  }
+
+  get loginTransaction() {
+    return this.#client.loginTransaction;
+  }
+
+  async $connect(): Promise<void> {
+    await this.#client.$connect();
+  }
+
+  async $disconnect(): Promise<void> {
+    await this.#client.$disconnect();
   }
 }

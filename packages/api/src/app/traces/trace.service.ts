@@ -44,13 +44,26 @@ export class TraceService {
       return await operation;
     } catch (erreur) {
       // Un refus de la garde est un défaut ou une intrusion : il doit remonter
-      // tel quel. Seule l'absence de rangée devient un « introuvable ».
+      // tel quel. Seule l'absence de rangée devient un « introuvable » ; une
+      // panne de base ne doit jamais être déguisée en erreur métier.
       if (erreur instanceof ErreurDEspace) {
         throw erreur;
       }
-      throw new NotFoundException('Aucune Trace de cet identifiant.');
+      if (estAbsencePrisma(erreur)) {
+        throw new NotFoundException('Aucune Trace de cet identifiant.');
+      }
+      throw erreur;
     }
   }
+}
+
+function estAbsencePrisma(erreur: unknown): boolean {
+  return (
+    typeof erreur === 'object' &&
+    erreur !== null &&
+    'code' in erreur &&
+    erreur.code === 'P2025'
+  );
 }
 
 function exposer(trace: TraceRecord): Trace {

@@ -192,6 +192,28 @@ describe('Cloisonnement par Espace', () => {
     ).toThrow(/imbriqu/);
   });
 
+  it("refuse aussi un chemin imbriqué qui traverse plusieurs modèles hors Espace", () => {
+    expect(() =>
+      cloisonner(
+        {
+          model: 'User',
+          operation: 'update',
+          args: {
+            where: { id: 'compte-a' },
+            data: {
+              personalScope: {
+                update: {
+                  traces: { create: { label: 'contournement' } },
+                },
+              },
+            },
+          },
+        },
+        PORTEE_COMPLETE,
+      ),
+    ).toThrow(/imbriqu/);
+  });
+
   it('refuse une requête cloisonnée qui ne traverse aucune portée', () => {
     expect(() =>
       cloisonner({ model: 'Trace', operation: 'findMany', args: {} }, null),

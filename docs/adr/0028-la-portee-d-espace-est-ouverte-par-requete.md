@@ -42,14 +42,16 @@ pas confirmer l'existence de la rangée.
 
 ## Ce que la garde ne couvre pas
 
-- **Les requêtes SQL brutes.** `$queryRaw` ne passe pas par l'extension. Aucun
-  module n'en utilise ; le jour où l'un en aura besoin, il portera son filtre
-  lui-même, et ce sera une décision, pas un oubli.
+- **Les requêtes SQL brutes.** Elles ne sont plus exposées par la façade
+  `PrismaService` aux modules métier. Un accès technique dédié devra être
+  introduit explicitement si une migration ou une opération d'administration
+  en a besoin.
 - **Les écritures imbriquées entre modèles cloisonnés.** La garde vérifie
   l'**Espace** de la charge écrite, pas celui des charges qu'elle contiendrait.
-  Aucune relation de ce genre n'existe aujourd'hui, et un test l'interdit : le
-  jour où une **Recette** portera ses **Ingrédients**, il échouera, et le
-  mécanisme sera étendu délibérément.
+  Les chemins qui passent par un ou plusieurs modèles hors Espace sont refusés
+  par liste de relations transitive. Le jour où une **Recette** portera ses
+  **Ingrédients**, il faudra étendre l'inspection des charges d'un modèle
+  cloisonné ; un test doit alors échouer avant la mise en production.
 
 ## Options écartées
 

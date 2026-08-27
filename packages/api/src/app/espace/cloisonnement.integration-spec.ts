@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { Scope, Trace } from '@personal-os/contracts';
+import { PrismaService } from '@personal-os/database';
 import request from 'supertest';
 import {
   demarrerFauxAuthentik,
@@ -28,6 +29,7 @@ const ADRESSE_B = 'b@exemple.test';
 describe("Cloisonnement par Espace", () => {
   let authentik: FauxAuthentik;
   let app: INestApplication;
+  let prisma: PrismaService;
   let jeu: JeuDEspaces;
 
   beforeAll(async () => {
@@ -48,6 +50,7 @@ describe("Cloisonnement par Espace", () => {
     app.setGlobalPrefix('api');
     await app.init();
 
+    prisma = app.get(PrismaService);
     jeu = await poserLeJeuDEspaces(app, authentik, [ADRESSE_A, ADRESSE_B]);
   });
 
@@ -69,6 +72,15 @@ describe("Cloisonnement par Espace", () => {
       ]);
     });
 
+    it("ne rattache pas l'Espace personnel à un Foyer particulier", async () => {
+      const personnel = await prisma.scope.findUniqueOrThrow({
+        where: { id: jeu.a.espacePersonnel },
+        select: { householdId: true },
+      });
+
+      expect(personnel.householdId).toBeNull();
+    });
+
     it('ne fait exister que trois Espaces pour deux Comptes', () => {
       const tous = new Set([
         jeu.a.espacePersonnel,
@@ -88,6 +100,39 @@ describe("Cloisonnement par Espace", () => {
       expect(
         (sien.body as Scope[]).find(({ kind }) => kind === 'HOUSEHOLD')?.id,
       ).toBe(jeu.espaceFoyer);
+    });
+
+    it('permet à un Compte membre de plusieurs Foyers de voir leurs espaces', async () => {
+      const compte = await prisma.user.findUniqueOrThrow({
+        where: { email: ADRESSE_A },
+        select: { id: true },
+      });
+      const autreFoyer = await prisma.household.create({
+        data: { name: 'Autre foyer' },
+      });
+      await prisma.householdMember.create({
+        data: {
+          householdId: autreFoyer.id,
+          userId: compte.id,
+          role: 'MEMBER',
+        },
+      });
+      const autreEspace = await prisma.scope.create({
+        data: {
+          kind: 'HOUSEHOLD',
+          label: 'Autre foyer',
+          householdId: autreFoyer.id,
+        },
+      });
+
+      const reponse = await request(app.getHttpServer())
+        .get('/api/espaces')
+        .set('Cookie', jeu.a.session)
+        .expect(200);
+
+      expect((reponse.body as Scope[]).map(({ id }) => id)).toContain(
+        autreEspace.id,
+      );
     });
   });
 

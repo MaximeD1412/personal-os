@@ -1,5 +1,5 @@
 import { ErreurDEspace } from './erreur-d-espace';
-import { porteUnEspace, relationsCloisonnees } from './modeles';
+import { porteUnEspace, relationsVersEspace } from './modeles';
 import type { PorteeEspace } from './portee';
 
 /** Une opération Prisma, telle que l'extension la présente. */
@@ -71,7 +71,7 @@ export function cloisonner(
 function refuserLesCheminsImbriques(
   operation: OperationPrisma,
 ): Record<string, unknown> {
-  const interdites = relationsCloisonnees(operation.model ?? '');
+  const interdites = relationsVersEspace(operation.model ?? '');
 
   for (const cle of CHARGES_ECRITES) {
     const charge = operation.args[cle];
