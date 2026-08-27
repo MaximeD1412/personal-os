@@ -8,6 +8,11 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import type { Event, Scope } from '@personal-os/contracts';
+import {
+  choisirDansLeSelect,
+  optionsOffertes,
+  valeurAffichee,
+} from '../testing/hlm-select';
 import { API_BASE_URL } from './api-base-url';
 import { Calendrier } from './calendrier';
 
@@ -76,12 +81,11 @@ describe('Calendrier', () => {
   const champ = <T extends HTMLElement>(racine: HTMLElement, nom: string) =>
     racine.querySelector(`[data-test="${nom}"]`) as T;
 
+  /** Les champs de saisie libre. Les selects passent par `hlm-select`. */
   function saisir(racine: HTMLElement, nom: string, valeur: string): void {
-    const cible = champ<HTMLInputElement | HTMLSelectElement>(racine, nom);
+    const cible = champ<HTMLInputElement>(racine, nom);
     cible.value = valeur;
-    cible.dispatchEvent(
-      new Event(cible.tagName === 'SELECT' ? 'change' : 'input'),
-    );
+    cible.dispatchEvent(new Event('input'));
   }
 
   describe("L'écran de liste", () => {
@@ -93,19 +97,17 @@ describe('Calendrier', () => {
       expect(texte).toContain('Foyer');
     });
 
-    it("marque comme Échéance le seul Événement qui porte la catégorie dédiée", async () => {
+    it('marque comme Échéance le seul Événement qui porte la catégorie dédiée', async () => {
       const lignes = element(await monter()).querySelectorAll(
         '[data-test="evenement"]',
       );
 
       expect(lignes.length).toBe(2);
       expect(lignes[0].querySelector('[data-test="echeance"]')).toBeNull();
-      expect(
-        lignes[1].querySelector('[data-test="echeance"]'),
-      ).not.toBeNull();
+      expect(lignes[1].querySelector('[data-test="echeance"]')).not.toBeNull();
     });
 
-    it("affiche le délai de rappel quand il y en a un, et rien sinon", async () => {
+    it('affiche le délai de rappel quand il y en a un, et rien sinon', async () => {
       const lignes = element(await monter()).querySelectorAll(
         '[data-test="evenement"]',
       );
@@ -125,18 +127,15 @@ describe('Calendrier', () => {
 
   describe("L'écran de création", () => {
     it("offre le choix de l'Espace, et n'en devine aucun", async () => {
-      const options = element(await monter()).querySelectorAll(
-        '[data-test="espace"] option',
-      );
+      const fixture = await monter();
 
-      expect([...options].map((option) => option.textContent?.trim())).toEqual([
-        'Choisir un Espace',
+      // Aucune valeur par défaut : le déclencheur montre l'invite, pas un
+      // Espace qu'on n'aurait pas choisi (ADR 0014).
+      expect(valeurAffichee(fixture, 'espace')).toBe('Choisir un Espace');
+      expect(await optionsOffertes(fixture, 'espace')).toEqual([
         'Foyer',
         'Personne A',
       ]);
-      expect(
-        champ<HTMLSelectElement>(element(await monter()), 'espace').value,
-      ).toBe('');
     });
 
     it("laisse le bouton inerte tant que l'Espace n'est pas choisi", async () => {
@@ -151,8 +150,7 @@ describe('Calendrier', () => {
         true,
       );
 
-      saisir(racine, 'espace', 'espace-a');
-      fixture.detectChanges();
+      await choisirDansLeSelect(fixture, 'espace', 'Personne A');
 
       expect(champ<HTMLButtonElement>(racine, 'enregistrer').disabled).toBe(
         false,
@@ -165,10 +163,11 @@ describe('Calendrier', () => {
 
       saisir(racine, 'titre', 'Réunion');
       saisir(racine, 'debut', '2026-10-01T14:00');
-      saisir(racine, 'categorie', 'OTHER');
-      saisir(racine, 'espace', 'espace-a');
-      saisir(racine, 'rappel', '60');
       fixture.detectChanges();
+
+      await choisirDansLeSelect(fixture, 'categorie', 'Autre');
+      await choisirDansLeSelect(fixture, 'espace', 'Personne A');
+      await choisirDansLeSelect(fixture, 'rappel', '1 heure avant');
 
       champ<HTMLButtonElement>(racine, 'enregistrer').click();
 
@@ -215,13 +214,11 @@ describe('Calendrier', () => {
       expect(champ<HTMLInputElement>(racine, 'titre').value).toBe(
         'Déclaration de revenus',
       );
-      expect(champ<HTMLSelectElement>(racine, 'categorie').value).toBe(
-        'DEADLINE',
-      );
-      expect(champ<HTMLSelectElement>(racine, 'espace').value).toBe(
-        'espace-foyer',
-      );
-      expect(champ<HTMLSelectElement>(racine, 'rappel').value).toBe('10080');
+      // Les selects n'ont plus de `.value` à lire : ce qui compte est ce que
+      // le déclencheur montre, puisque c'est ce que la personne voit.
+      expect(valeurAffichee(fixture, 'categorie')).toBe('Échéance');
+      expect(valeurAffichee(fixture, 'espace')).toBe('Foyer');
+      expect(valeurAffichee(fixture, 'rappel')).toBe('1 semaine avant');
     });
 
     it("n'envoie que les champs modifiés", async () => {
@@ -250,7 +247,7 @@ describe('Calendrier', () => {
       expect(element(fixture).textContent).toContain('Dentiste (reporté)');
     });
 
-    it("rend le formulaire à la création quand on annule", async () => {
+    it('rend le formulaire à la création quand on annule', async () => {
       const fixture = await monter();
       const racine = element(fixture);
 
