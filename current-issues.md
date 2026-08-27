@@ -14,8 +14,7 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 | Issue | Titre | Type | État | Bloquée par |
 | --- | --- | --- | --- | --- |
 | [#1](https://github.com/MaximeD1412/personal-os/issues/1) | PRD — Personal OS V1 | agent | Épique — ne s'implémente pas directement | — |
-| [#7](https://github.com/MaximeD1412/personal-os/issues/7) | Calendrier : l'Événement daté avec son Espace explicite | agent | [PR #40](https://github.com/MaximeD1412/personal-os/pull/40) ouverte | — |
-| [#8](https://github.com/MaximeD1412/personal-os/issues/8) | Agenda : port AgendaContributor et vue en lecture seule | agent | À faire | #7 |
+| [#8](https://github.com/MaximeD1412/personal-os/issues/8) | Agenda : port AgendaContributor et vue en lecture seule | agent | [PR #44](https://github.com/MaximeD1412/personal-os/pull/44) ouverte | — |
 | [#9](https://github.com/MaximeD1412/personal-os/issues/9) | Récurrence : règle, exceptions et occurrences calculées | agent | À faire | #8 |
 | [#10](https://github.com/MaximeD1412/personal-os/issues/10) | Sport : la Séance porte le prévu et le réalisé, et l'Objectif | agent | À faire | #8 |
 | [#11](https://github.com/MaximeD1412/personal-os/issues/11) | Tableau de bord : À faire calculés et widgets de résumé | agent | À faire | #8 |
@@ -35,34 +34,36 @@ PR est ouverte. Retirer une ligne trop tôt débloquerait à tort ses dépendant
 
 ## Chemin critique
 
-La garde d'**Espace** est posée et #6 est fermée : **quatre chemins partent
-désormais en parallèle**, et trois d'entre eux n'attendent personne.
+#7 est fermée : le **Calendrier** existe, et #8 — l'**Agenda** qu'il alimente —
+est la tranche engagée. Trois autres chemins n'attendent toujours personne.
 
 ```
-#7 Calendrier      #12 Ingrédients      #14 Foyer      #21 Projets
-      │                    │                                │
-      ▼                    ▼                                ▼
- #8 Agenda           #13 Recettes                     #22 Portfolio
-      │                    │                                │
-      ├────────┬───────────┼──────────┐                     ▼
-      ▼        ▼           ▼          │                #23 CV PDF
-#9 Récur.  #10 Sport  #11 Tableau     ▼
-                          │      #15 Planning
-                          ▼        │        │
-                #24 Barre de       ▼        ▼
-                   commande    #16 IA   #17 Liste
-                                            │
-                                    ┌───────┴───────┐
-                                    ▼               ▼
-                             #18 Produits      #20 Écart
-                                    ▼
-                             #19 Stock domestique
+#8 Agenda
+ ├── #9 Récurrence
+ ├── #10 Sport
+ └── #11 Tableau de bord
+      └── #24 Barre de commande
+
+#12 Ingrédients
+ └── #13 Recettes
+      └── #15 Planning de repas
+           ├── #16 Génération IA
+           └── #17 Liste de courses
+                ├── #18 Produits
+                │    └── #19 Stock domestique
+                └── #20 Écart
+
+#14 Foyer
+
+#21 Projets
+ └── #22 Portfolio
+      └── #23 CV PDF
 ```
 
-**#7 est la seule des quatre à être engagée** ([PR #40](https://github.com/MaximeD1412/personal-os/pull/40)) ;
-#12, #14 et #21 sont libres et indépendantes l'une de l'autre. #7 est aussi la
-plus structurante des quatre : elle seule débloque #8, qui commande à son tour
-#9, #10, #11 et, par ricochet, #24.
+**#8 est la seule des quatre racines à être engagée**
+([PR #44](https://github.com/MaximeD1412/personal-os/pull/44)) ; #12, #14 et
+#21 sont libres et indépendantes l'une de l'autre. #8 est aussi la plus
+structurante : elle seule débloque #9, #10 et #11, et par ricochet #24.
 
 **Ce qu'il reste de #5 est sur la machine, pas dans le code.** L'issue est
 fermée et le code est dans `develop`, mais Authentik n'est configuré nulle
@@ -72,6 +73,38 @@ valeurs dans `/opt/personal-os/.env`. Le runbook est dans
 qui se développent et se testent en local.
 
 ## Journal
+
+### 2026-08-27 — #7 Calendrier
+
+**Fermée**, [PR #40](https://github.com/MaximeD1412/personal-os/pull/40)
+fusionnée dans `develop`. L'entrée est posée depuis la tranche suivante (#8),
+qui a repris le module tel quel : ce qui suit est ce qu'on constate dans le
+code, pas une rétrospective de la tranche.
+
+Le module est **plat**, comme le veut l'ADR 0016 : contrôleur, service, dépôt,
+et la validation dans le service. Trois choses valent d'être connues avant de
+le reprendre :
+
+- **`event.repository.ts` ne porte aucun `scopeId`.** La garde de #6 ajoute le
+  sien à toutes ses requêtes. En trouver un à la main signalerait qu'elle a été
+  contournée.
+- **Une modification qui ne touche qu'une borne relit l'Événement** avant de
+  juger la période : l'autre borne est en base. Sans cela une fin antérieure au
+  début passerait, et l'Agenda l'afficherait à l'envers.
+- **Une rangée hors de portée répond « introuvable », jamais « interdit »** —
+  et une panne de base n'est pas déguisée en 404. Seul `P2025` le devient.
+
+**L'Échéance et le rappel ne sont pas des objets.** Une **Échéance** est un
+**Événement** portant `DEADLINE`, et `estEcheance` vit dans les contrats
+partagés pour que l'API et le tableau de bord ne réécrivent pas la règle
+chacun de leur côté. Un rappel est un nombre de minutes avant le début : rien
+n'est planifié, rien n'est stocké en plus (ADR 0017).
+
+**Le fil traceur (entité `Trace`) est toujours là.** Il devait partir « le jour
+où un vrai module portera un Espace » : c'était #7, et #8 n'y a pas touché non
+plus. Le retirer demande de réécrire les tests de non-exposition et
+`module-restreint.ts` sur l'**Événement**. À faire dans une tranche dédiée —
+et **sans jamais interrompre l'exercice de la garantie**.
 
 ### 2026-08-27 — #6 Garde d'Espace centralisée
 
