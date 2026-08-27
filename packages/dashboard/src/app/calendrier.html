@@ -1,128 +1,202 @@
-<section class="calendrier">
-  <h2>Calendrier</h2>
+<section hlmCard class="mt-6">
+  <div hlmCardHeader>
+    <h2 hlmCardTitle>Calendrier</h2>
+    <p hlmCardDescription>
+      Les Événements de vos Espaces. L'Espace est choisi à la création, jamais
+      deviné.
+    </p>
+  </div>
 
-  <form class="saisie" (submit)="$event.preventDefault(); enregistrer()">
-    <input
-      type="text"
-      data-test="titre"
-      placeholder="Intitulé"
-      [value]="saisie().titre"
-      (input)="saisir('titre', $event)"
-    />
-
-    <label>
-      Début
-      <input
-        type="datetime-local"
-        data-test="debut"
-        [value]="saisie().debut"
-        (input)="saisir('debut', $event)"
-      />
-    </label>
-
-    <label>
-      Fin
-      <input
-        type="datetime-local"
-        data-test="fin"
-        [value]="saisie().fin"
-        (input)="saisir('fin', $event)"
-      />
-    </label>
-
-    <select
-      data-test="categorie"
-      [value]="saisie().categorie"
-      (change)="saisir('categorie', $event)"
+  <div hlmCardContent>
+    <form
+      class="flex flex-wrap items-end gap-3"
+      (submit)="$event.preventDefault(); enregistrer()"
     >
-      <option value="APPOINTMENT">Rendez-vous</option>
-      <option value="BIRTHDAY">Anniversaire</option>
-      <option value="DEADLINE">Échéance</option>
-      <option value="OTHER">Autre</option>
-    </select>
+      <label class="flex flex-col gap-1.5">
+        <span hlmLabel>Intitulé</span>
+        <input
+          hlmInput
+          class="w-56"
+          type="text"
+          data-test="titre"
+          placeholder="Intitulé"
+          [value]="saisie().titre"
+          (input)="saisir('titre', $event)"
+        />
+      </label>
 
-    <select
-      data-test="espace"
-      [value]="saisie().espaceId"
-      (change)="saisir('espaceId', $event)"
-    >
-      <option value="">Choisir un Espace</option>
-      @for (espace of espaces(); track espace.id) {
-      <option [value]="espace.id">{{ espace.label }}</option>
-      }
-    </select>
+      <label class="flex flex-col gap-1.5">
+        <span hlmLabel>Début</span>
+        <input
+          hlmInput
+          type="datetime-local"
+          data-test="debut"
+          [value]="saisie().debut"
+          (input)="saisir('debut', $event)"
+        />
+      </label>
 
-    <select
-      data-test="rappel"
-      [value]="saisie().rappel"
-      (change)="saisir('rappel', $event)"
-    >
-      <option value="">Sans rappel</option>
-      @for (palier of paliersOfferts(); track palier.minutes) {
-      <option [value]="palier.minutes">{{ palier.libelle }} avant</option>
-      }
-    </select>
+      <label class="flex flex-col gap-1.5">
+        <span hlmLabel>Fin</span>
+        <input
+          hlmInput
+          type="datetime-local"
+          data-test="fin"
+          [value]="saisie().fin"
+          (input)="saisir('fin', $event)"
+        />
+      </label>
 
-    <button
-      type="submit"
-      data-test="enregistrer"
-      [disabled]="!pretAEnregistrer()"
-    >
-      {{ enEdition() ? 'Enregistrer' : 'Ajouter' }}
-    </button>
+      <label class="flex flex-col gap-1.5">
+        <span hlmLabel>Catégorie</span>
+        <hlm-select
+          data-test="categorie"
+          [value]="saisie().categorie"
+          [itemToString]="nomDeLaCategorie"
+          (valueChange)="choisir('categorie', $event)"
+        >
+          <hlm-select-trigger class="w-44">
+            <hlm-select-value />
+          </hlm-select-trigger>
+          <hlm-select-content *hlmSelectPortal>
+            @for (categorie of categories; track categorie.valeur) {
+            <hlm-select-item [value]="categorie.valeur"
+              >{{ categorie.libelle }}</hlm-select-item
+            >
+            }
+          </hlm-select-content>
+        </hlm-select>
+      </label>
 
-    @if (enEdition()) {
-    <button type="button" data-test="annuler" (click)="annuler()">
-      Annuler
-    </button>
+      <label class="flex flex-col gap-1.5">
+        <span hlmLabel>Espace</span>
+        <hlm-select
+          data-test="espace"
+          [value]="saisie().espaceId"
+          [itemToString]="nomDeLEspace"
+          (valueChange)="choisir('espaceId', $event)"
+        >
+          <hlm-select-trigger class="w-44">
+            <hlm-select-value placeholder="Choisir un Espace" />
+          </hlm-select-trigger>
+          <hlm-select-content *hlmSelectPortal>
+            @for (espace of espaces(); track espace.id) {
+            <hlm-select-item [value]="espace.id"
+              >{{ espace.label }}</hlm-select-item
+            >
+            }
+          </hlm-select-content>
+        </hlm-select>
+      </label>
+
+      <label class="flex flex-col gap-1.5">
+        <span hlmLabel>Rappel</span>
+        <hlm-select
+          data-test="rappel"
+          [value]="saisie().rappel"
+          [itemToString]="nomDuRappel"
+          (valueChange)="choisir('rappel', $event)"
+        >
+          <hlm-select-trigger class="w-44">
+            <hlm-select-value placeholder="Sans rappel" />
+          </hlm-select-trigger>
+          <hlm-select-content *hlmSelectPortal>
+            <hlm-select-item value="">Sans rappel</hlm-select-item>
+            @for (palier of paliersOfferts(); track palier.minutes) {
+            <hlm-select-item [value]="palier.minutes.toString()"
+              >{{ palier.libelle }} avant</hlm-select-item
+            >
+            }
+          </hlm-select-content>
+        </hlm-select>
+      </label>
+
+      <div class="flex gap-2">
+        <button
+          hlmBtn
+          type="submit"
+          data-test="enregistrer"
+          [disabled]="!pretAEnregistrer()"
+        >
+          {{ enEdition() ? 'Enregistrer' : 'Ajouter' }}
+        </button>
+
+        @if (enEdition()) {
+        <button
+          hlmBtn
+          variant="outline"
+          type="button"
+          data-test="annuler"
+          (click)="annuler()"
+        >
+          Annuler
+        </button>
+        }
+      </div>
+    </form>
+
+    @if (erreur(); as message) {
+    <p class="text-destructive mt-3 text-sm">{{ message }}</p>
     }
-  </form>
 
-  @if (erreur(); as message) {
-  <p class="erreur">{{ message }}</p>
-  }
-
-  <ul class="liste">
-    @for (evenement of evenements(); track evenement.id) {
-    <li data-test="evenement">
-      <span class="intitule">{{ evenement.title }}</span>
-
-      <span class="periode">
-        {{ evenement.startsAt }}
-        @if (evenement.endsAt) { → {{ evenement.endsAt }} }
-      </span>
-
-      @if (estUneEcheance(evenement)) {
-      <span class="echeance" data-test="echeance">Échéance</span>
-      } @else {
-      <span class="categorie">{{ nomDeLaCategorie(evenement.category) }}</span>
-      }
-
-      @if (evenement.reminderLeadMinutes !== null) {
-      <span class="rappel" data-test="rappel">
-        Rappel {{ libelleDuRappel(evenement.reminderLeadMinutes) }} avant
-      </span>
-      }
-
-      <span class="espace">{{ nomDeLEspace(evenement.scopeId) }}</span>
-
-      <button
-        type="button"
-        data-test="modifier"
-        (click)="reprendre(evenement)"
+    <ul class="mt-4 divide-y">
+      @for (evenement of evenements(); track evenement.id) {
+      <li
+        data-test="evenement"
+        class="flex flex-wrap items-baseline gap-3 py-2.5"
       >
-        Modifier
-      </button>
-      <button
-        type="button"
-        data-test="supprimer"
-        (click)="supprimer(evenement.id)"
-      >
-        Supprimer
-      </button>
-    </li>
-    } @empty {
-    <li class="vide">Aucun Événement dans vos Espaces.</li>
-    }
-  </ul>
+        <span class="flex-1 text-sm font-medium">{{ evenement.title }}</span>
+
+        <span class="text-muted-foreground text-xs tabular-nums">
+          {{ evenement.startsAt | date: 'dd/MM/yyyy HH:mm' }} @if
+          (evenement.endsAt) { → {{ evenement.endsAt | date: 'dd/MM/yyyy HH:mm'
+          }} }
+        </span>
+
+        @if (estUneEcheance(evenement)) {
+        <span hlmBadge variant="destructive" data-test="echeance"
+          >Échéance</span
+        >
+        } @else {
+        <span hlmBadge variant="outline"
+          >{{ nomDeLaCategorie(evenement.category) }}</span
+        >
+        } @if (evenement.reminderLeadMinutes !== null) {
+        <span hlmBadge variant="secondary" data-test="rappel">
+          Rappel {{ libelleDuRappel(evenement.reminderLeadMinutes) }} avant
+        </span>
+        }
+
+        <span hlmBadge variant="secondary"
+          >{{ nomDeLEspace(evenement.scopeId) }}</span
+        >
+
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          type="button"
+          data-test="modifier"
+          (click)="reprendre(evenement)"
+        >
+          Modifier
+        </button>
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          type="button"
+          data-test="supprimer"
+          (click)="supprimer(evenement.id)"
+        >
+          Supprimer
+        </button>
+      </li>
+      } @empty {
+      <li class="text-muted-foreground py-2 text-sm">
+        Aucun Événement dans vos Espaces.
+      </li>
+      }
+    </ul>
+  </div>
 </section>
