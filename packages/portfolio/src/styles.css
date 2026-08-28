@@ -1,0 +1,22 @@
+/* La feuille globale du portfolio. Tailwind est le préprocesseur : il bundle
+   les `@import` lui-même, aplatit le nesting et pose les préfixes. */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
+
+/* `source(none)` coupe la détection automatique, qui partirait du répertoire
+   courant — la racine du dépôt, puisque Nx lance les cibles de là. Elle
+   ratisserait alors l'API et la base de données pour y chercher des classes.
+   Les sources sont donc nommées, et seulement elles. */
+@import 'tailwindcss/utilities.css' source(none);
+@source '.';
+@source '../../ui';
+
+/* Le preset de spartan/ui : les surcouches CDK, tw-animate-css, et les blocs
+   `@theme inline` qui exposent nos jetons aux utilitaires Tailwind. */
+@import '@spartan-ng/brain/hlm-tailwind-preset.css';
+
+/* Les jetons, partagés avec le tableau de bord — un seul fichier pour les
+   deux. Le portfolio s'en écarterait en redéfinissant des jetons ici, après
+   l'import, plutôt qu'en tenant une seconde copie. */
+@import '../../theme/tokens.css';

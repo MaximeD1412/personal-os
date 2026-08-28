@@ -1,15 +1,15 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import type { CurrentUser, HealthProbeSnapshot } from '@personal-os/contracts';
+import { HlmButton } from '@personal-os/ui/button';
 import { AuthService } from './auth.service';
 import { HealthService } from './health.service';
 import { Redirection } from './redirection';
 
 @Component({
-  imports: [RouterModule],
+  imports: [RouterModule, HlmButton],
   selector: 'pos-root',
   templateUrl: './app.html',
-  styleUrl: './app.css',
 })
 export class App {
   private readonly auth = inject(AuthService);

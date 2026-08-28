@@ -19,7 +19,14 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@personal-os/contracts": ["./packages/contracts/src/index.ts"],
-      "@personal-os/database": ["./packages/database/src/index.ts"]
+      "@personal-os/database": ["./packages/database/src/index.ts"],
+      "@personal-os/ui/button": ["./packages/ui/button/src/index.ts"],
+      "@personal-os/ui/utils": ["./packages/ui/utils/src/index.ts"],
+      "@personal-os/ui/input": ["./packages/ui/input/src/index.ts"],
+      "@personal-os/ui/label": ["./packages/ui/label/src/index.ts"],
+      "@personal-os/ui/card": ["./packages/ui/card/src/index.ts"],
+      "@personal-os/ui/badge": ["./packages/ui/badge/src/index.ts"],
+      "@personal-os/ui/select": ["./packages/ui/select/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

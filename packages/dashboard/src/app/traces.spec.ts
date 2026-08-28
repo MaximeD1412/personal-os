@@ -8,6 +8,7 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import type { Scope, Trace } from '@personal-os/contracts';
+import { choisirDansLeSelect, optionsOffertes } from '../testing/hlm-select';
 import { API_BASE_URL } from './api-base-url';
 import { Traces } from './traces';
 
@@ -68,11 +69,7 @@ describe('Traces', () => {
   });
 
   it("offre le choix de l'Espace à la création", async () => {
-    const options = element(await monter()).querySelectorAll(
-      '[data-test="espace"] option',
-    );
-
-    expect([...options].map((option) => option.textContent?.trim())).toEqual([
+    expect(await optionsOffertes(await monter(), 'espace')).toEqual([
       'Foyer',
       'Personne A',
     ]);
@@ -88,12 +85,7 @@ describe('Traces', () => {
     libelle.value = 'courses';
     libelle.dispatchEvent(new Event('input'));
 
-    const espace = racine.querySelector(
-      '[data-test="espace"]',
-    ) as HTMLSelectElement;
-    espace.value = 'espace-a';
-    espace.dispatchEvent(new Event('change'));
-    fixture.detectChanges();
+    await choisirDansLeSelect(fixture, 'espace', 'Personne A');
 
     (racine.querySelector('[data-test="creer"]') as HTMLButtonElement).click();
 

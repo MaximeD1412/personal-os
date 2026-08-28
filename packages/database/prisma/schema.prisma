@@ -45,6 +45,7 @@ model Scope {
   holderId    String?   @unique
   holder      User?     @relation(fields: [holderId], references: [id], onDelete: Cascade)
   traces      Trace[]
+  events      Event[]
 
   @@index([householdId])
 }
@@ -77,6 +78,38 @@ model Trace {
   createdAt DateTime @default(now())
 
   @@index([scopeId])
+}
+
+/// La catégorie d'un Événement. `DEADLINE` est la catégorie dédiée : un
+/// Événement qui la porte est une Échéance. Il n'existe aucune entité
+/// « échéance », et aucune table ne la matérialise (ADR 0017).
+enum EventCategory {
+  APPOINTMENT
+  BIRTHDAY
+  DEADLINE
+  OTHER
+}
+
+/// L'Événement : l'entrée du Calendrier, et le seul objet daté qui
+/// n'appartienne à aucun autre module (ADR 0011). Le Calendrier accepte les
+/// deux Espaces — un rendez-vous médical et des vacances communes ne relèvent
+/// pas de la même règle —, c'est donc à la création qu'on choisit.
+model Event {
+  id                  String        @id @default(uuid())
+  title               String
+  startsAt            DateTime
+  /// Vide quand l'Événement n'a pas de fin distincte de son début.
+  endsAt              DateTime?
+  category            EventCategory
+  /// Le délai de rappel, en minutes avant le début. Un « rappel » est un
+  /// délai, pas un objet : rien n'est planifié, rien n'est stocké en plus.
+  reminderLeadMinutes Int?
+  scopeId             String
+  scope               Scope         @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime      @default(now())
+
+  @@index([scopeId])
+  @@index([startsAt])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.

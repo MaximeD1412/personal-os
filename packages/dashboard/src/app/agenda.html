@@ -1,0 +1,95 @@
+<section hlmCard class="mt-6">
+  <div hlmCardHeader>
+    <h2 hlmCardTitle>Agenda</h2>
+    <p hlmCardDescription>
+      Ce qui a une date, sur la période choisie. Rien ne s'écrit ici : une
+      entrée renvoie au module qui la possède.
+    </p>
+  </div>
+
+  <div hlmCardContent>
+    <div class="flex flex-wrap items-end gap-3">
+      <label class="flex flex-col gap-1.5">
+        <span hlmLabel>Du</span>
+        <input
+          hlmInput
+          type="date"
+          data-test="du"
+          [value]="du()"
+          (input)="borner('du', $event)"
+        />
+      </label>
+
+      <label class="flex flex-col gap-1.5">
+        <span hlmLabel>Au</span>
+        <input
+          hlmInput
+          type="date"
+          data-test="au"
+          [value]="au()"
+          (input)="borner('au', $event)"
+        />
+      </label>
+    </div>
+
+    @if (erreur(); as message) {
+    <p class="text-destructive mt-3 text-sm">{{ message }}</p>
+    }
+
+    <div class="mt-4 flex flex-col gap-5">
+      @for (journee of journees(); track journee.jour) {
+      <div data-test="journee">
+        <h3 class="text-muted-foreground text-xs font-semibold uppercase">
+          {{ journee.jour | date: 'EEEE d MMMM yyyy' }}
+        </h3>
+
+        <ul class="mt-1 divide-y">
+          @for (entree of journee.entrees; track entree.source +
+          entree.sourceId) {
+          <li
+            data-test="entree"
+            class="flex flex-wrap items-baseline gap-3 py-2.5"
+          >
+            <span class="text-muted-foreground w-14 text-xs tabular-nums">
+              {{ entree.startsAt | date: 'HH:mm' }}
+            </span>
+
+            <span class="flex-1 text-sm font-medium">
+              @if (origine(entree); as module) {
+              <a
+                class="hover:underline"
+                [routerLink]="module.chemin"
+                [queryParams]="retour(entree)"
+                >{{ entree.title }}</a
+              >
+              } @else { {{ entree.title }} }
+            </span>
+
+            @if (entree.endsAt) {
+            <span
+              data-test="fin"
+              class="text-muted-foreground text-xs tabular-nums"
+            >
+              jusqu'au {{ entree.endsAt | date: 'dd/MM/yyyy HH:mm' }}
+            </span>
+            } @if (entree.status !== 'PLANNED') {
+            <span hlmBadge variant="secondary" data-test="statut"
+              >{{ nomDuStatut(entree.status) }}</span
+            >
+            } @if (origine(entree); as module) {
+            <span hlmBadge variant="outline">{{ module.libelle }}</span>
+            } @else {
+            <span hlmBadge variant="outline">{{ entree.source }}</span>
+            }
+          </li>
+          }
+        </ul>
+      </div>
+      } @empty {
+      <p class="text-muted-foreground text-sm">
+        Rien de daté sur cette période.
+      </p>
+      }
+    </div>
+  </div>
+</section>

@@ -1,8 +1,45 @@
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 
 export const SOURCE_ROOT = resolve(__dirname, '..');
+
+/** Un port dont une campagne a besoin, et ce qu'il sert à tenir. */
+export interface PortAttendu {
+  port: number;
+  role: string;
+}
+
+/**
+ * Ceux de ces ports que quelqu'un écoute déjà, dans l'ordre donné.
+ *
+ * On tente de les prendre plutôt que d'interroger un outil du système : c'est
+ * exactement ce que Docker fera dans un instant, et c'est donc la seule
+ * question qui compte. La prise est relâchée aussitôt.
+ */
+export async function portsPris(
+  attendus: readonly PortAttendu[]
+): Promise<PortAttendu[]> {
+  const verdicts = await Promise.all(
+    attendus.map(async (attendu) => ({
+      attendu,
+      pris: await portOccupe(attendu.port),
+    }))
+  );
+
+  return verdicts.filter(({ pris }) => pris).map(({ attendu }) => attendu);
+}
+
+function portOccupe(port: number): Promise<boolean> {
+  return new Promise((resoudre) => {
+    const sonde = createServer();
+
+    sonde.once('error', () => resoudre(true));
+    sonde.once('listening', () => sonde.close(() => resoudre(false)));
+    sonde.listen(port, '127.0.0.1');
+  });
+}
 
 export function sh(
   command: string,

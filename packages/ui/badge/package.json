@@ -1,0 +1,10 @@
+{
+  "name": "@personal-os/ui/badge",
+  "version": "0.0.1",
+  "peerDependencies": {
+    "@angular/core": "^22.0.0",
+    "@personal-os/ui/utils": "0.0.1",
+    "class-variance-authority": "^0.7.1"
+  },
+  "sideEffects": false
+}
