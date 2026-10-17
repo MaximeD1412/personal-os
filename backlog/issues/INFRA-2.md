@@ -28,6 +28,7 @@ hors_boucle: true
 - SKILL.md : `current-issues.md` devient facultatif (lu seulement s'il existe) ; l'étape 6 ne s'applique que s'il existe.
 - Nouvelle étape « Pilotage », avant d'ouvrir la PR, si le dépôt a `docs/pilotage/` : renvoyer à la section « Les fichiers de pilotage » du fichier de conventions du projet (`AGENTS.md`) — MEP, risques cités dans le frontmatter, architecture.
 - Revue visuelle : si le ticket porte `revue-visuelle`, produire les captures avec l'outil du projet (`scripts/captures.sh`, INFRA-10, s'il existe) et les joindre à la description de la PR.
+- Fin de ticket : si le dépôt a `.pilotage.json`, lancer `pilotage publish` après le merge (ou après l'ouverture de la PR en session interactive), sans bloquer en cas d'échec.
 - Lire le ticket complet, frontmatter compris (`adr`, `risques`, `revue_visuelle`), et lire les ADR cités avant d'implémenter.
 
 ## Décisions déjà prises

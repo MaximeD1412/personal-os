@@ -1,0 +1,41 @@
+{
+  "phases": [
+    {
+      "id": "acc",
+      "titre": "Comptes et fournisseurs",
+      "description": "À ouvrir en premier : certains demandent une validation."
+    },
+    {
+      "id": "env",
+      "titre": "Variables et secrets",
+      "description": "stack.env et staging.env sur le VPS, secrets et environnements GitHub. Une variable changée ne s'applique qu'au déploiement suivant."
+    },
+    {
+      "id": "vps",
+      "titre": "Machine et services",
+      "description": "Gestes sur le VPS : installation, réseau, clés, unités systemd."
+    },
+    {
+      "id": "db",
+      "titre": "Base de données",
+      "description": "Migrations et opérations de données, toujours compatibles avec la version précédente (ADR 0024)."
+    },
+    {
+      "id": "dep",
+      "titre": "Livraison",
+      "description": "La PR develop → main, faite à la main."
+    },
+    {
+      "id": "chk",
+      "titre": "Vérifications en production",
+      "description": "Sur le vrai site, avec son propre compte."
+    },
+    {
+      "id": "doc",
+      "titre": "Suivi",
+      "description": "Ce qui doit être noté ou décidé ailleurs."
+    }
+  ],
+  "elements": [],
+  "format": "élément = { id (stable), phase, source (#n), titre, pourquoi, etapes: [], commande (facultative), ajouteLe (YYYY-MM-DD) }"
+}

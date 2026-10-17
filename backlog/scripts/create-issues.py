@@ -66,7 +66,7 @@ LABELS = {
     "revue-visuelle": ("fbca04", "Le merge attend l'approbation humaine des captures"),
 }
 OBSOLETE_LABELS = ["hitl"]
-TRANSIENT = ("unexpected EOF", "timeout", "connection reset", "HTTP 502", "HTTP 503", "HTTP 504", "secondary rate limit")
+TRANSIENT = ("unexpected EOF", "timeout", "connection reset", "HTTP 502", "HTTP 503", "HTTP 504", "secondary rate limit", "Something went wrong")
 
 
 def parse(path):
@@ -251,7 +251,7 @@ def main():
             gh("api", "-X", "POST", f"repos/{REPO}/issues/{parent}/sub_issues",
                "-F", f"sub_issue_id={db_id(child)}", "-F", "replace_parent=true")
         except RuntimeError as e:
-            if "already" not in str(e).lower():
+            if not any(w in str(e).lower() for w in ("already", "duplicate")):
                 print(f"  warn: {e}")
 
     for meta in epics.values():
@@ -273,7 +273,7 @@ def main():
                 gh("api", "-X", "POST", f"repos/{REPO}/issues/{numbers[i]}/dependencies/blocked_by",
                    "-F", f"issue_id={db_id(numbers[d])}")
             except RuntimeError as e:
-                if "already" not in str(e).lower():
+                if not any(w in str(e).lower() for w in ("already", "duplicate")):
                     print(f"  warn: {e}")
 
     # 4. obsolete labels
