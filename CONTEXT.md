@@ -29,8 +29,12 @@ L'affectation d'une **Recette** (ou d'un simple intitulé) à une date, à un mo
 _Éviter_ : « repas » tout court quand on désigne l'entrée du planning.
 
 **Participant** :
-Une personne attendue à un **Repas planifié**. Par défaut, tout le **Foyer** participe. Les **Préférences alimentaires** appliquées à la génération sont celles des participants de ce repas-là — l'aversion d'un absent ne s'applique pas, l'allergie d'un participant ne se contourne jamais.
-_Éviter_ : « convive », « invité », « personne » employés comme synonymes flous.
+Un **Compte** attendu à un **Repas planifié**. Par défaut, les deux participent. Les **Préférences alimentaires** appliquées à la génération sont celles des participants de ce repas-là : l'aversion d'un absent ne s'applique pas, l'allergie d'un participant ne se contourne jamais.
+_Éviter_ : « convive », « personne » employés comme synonymes flous.
+
+**Invités** :
+Le nombre de personnes attendues à un **Repas planifié** en plus des **Participants**. Ils ne comptent que pour les portions : un invité n'a ni identité ni **Préférences alimentaires**.
+_Éviter_ : traiter un invité comme un **Participant**.
 
 **Agenda** (`AgendaView`) :
 La vue en lecture seule qui fusionne, pour une période donnée, les **Événements**, les **Séances** et les **Repas planifiés**. Ce n'est pas une entité stockée : rien ne s'y écrit, rien n'y a d'identité propre.
@@ -67,7 +71,7 @@ Le fait qu'un contenu publiable soit sorti sur Internet ou non : non publié, pr
 _Éviter_ : « visibilité », `PRIVATE`, `INTERNAL` — cette échelle est abandonnée, elle empiétait sur l'**Espace**.
 
 **Préférence alimentaire** (`FoodPreference`) :
-Une contrainte ou un goût rattaché à **une personne** : allergie, aliment exclu, aliment peu apprécié. Les préférences de toutes les personnes concernées par un repas s'appliquent à sa génération. Une allergie n'est pas une aversion : elle ne se contourne jamais.
+Une contrainte ou un goût rattaché à **un Compte** : allergie, aliment exclu, aliment peu apprécié. Elle vise soit un **Allergène**, soit un **Ingrédient** précis. Les préférences de toutes les personnes concernées par un repas s'appliquent à sa génération. Une allergie n'est pas une aversion : elle ne se contourne jamais.
 _Éviter_ : « régime », « restriction » employés indifféremment pour l'allergie et le goût.
 
 ### Repas et courses
@@ -75,6 +79,10 @@ _Éviter_ : « régime », « restriction » employés indifféremment pour l'al
 **Ingrédient** (`Ingredient`) :
 Une entrée canonique du catalogue alimentaire, désignée par un identifiant stable et une **Unité canonique**. Deux libellés qui ne se cuisinent ni ne s'achètent de la même façon sont deux **Ingrédients** distincts (l'oignon jaune et l'oignon rouge ; la tomate fraîche et la tomate en conserve).
 _Éviter_ : « aliment », « denrée ».
+
+**Allergène** (`Allergen`) :
+L'une des quatorze familles d'allergènes de la réglementation européenne (fruits à coque, gluten, lait…). Chaque **Ingrédient** déclare les allergènes qu'il contient. Une allergie se déclare le plus souvent sur un allergène plutôt que sur chaque ingrédient qui le contient.
+_Éviter_ : « intolérance » comme synonyme, et toute famille hors de la liste réglementaire.
 
 **Alias d'ingrédient** (`IngredientAlias`) :
 Un libellé reconnu comme désignant un **Ingrédient** donné (« belles tomates », « tomates concassées »). Les alias sont la mémoire du système : une fois un libellé rattaché, il ne redemande plus.
@@ -113,7 +121,7 @@ Une façon concrète d'acheter un **Ingrédient** : marque, conditionnement, for
 _Éviter_ : « référence », « article » (voir **Article de courses**), et l'emploi de « produit » pour désigner l'ingrédient.
 
 **Article de courses** (`ShoppingListItem`) :
-Une ligne de la liste de courses : un **Ingrédient** (obligatoire), la quantité consolidée en **Unité canonique**, et éventuellement un **Produit** préféré. Un article sans **Produit** reste parfaitement valide.
+Une ligne de la liste de courses. Issu du **Planning de repas**, il porte toujours un **Ingrédient**, la quantité consolidée en **Unité canonique**, et éventuellement un **Produit** préféré ; un article sans **Produit** reste parfaitement valide. Ajouté à la main, il peut aussi n'être qu'un libellé (« liquide vaisselle ») : il ne fait alors jamais monter le **Stock domestique**.
 _Éviter_ : « item », « ligne », « course ».
 
 ### Projets et portfolio

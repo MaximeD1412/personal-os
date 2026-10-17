@@ -1,6 +1,6 @@
 # Déploiement automatique, tiré par le VPS
 
-> **Statut :** accepté — 3 août 2026
+> **Statut :** remplacé par l'[ADR 0032](0032-deploiement-pousse-par-une-cle-ssh-bridee.md) pour le déclenchement — 17 octobre 2026 (accepté le 3 août 2026). La séquence sur le VPS est conservée.
 > Remplace le §13.5 de la note produit initiale, qui prévoyait un déclenchement manuel par SSH.
 
 Un commit atteignant la **branche principale** part en production. La branche principale est donc une branche de **livraison** : le travail se fait sur des branches, et fusionner signifie livrer.
