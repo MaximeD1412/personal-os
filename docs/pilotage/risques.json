@@ -1,0 +1,677 @@
+{
+  "categories": [
+    {
+      "id": "sec",
+      "titre": "Sécurité et cloisonnement"
+    },
+    {
+      "id": "ia",
+      "titre": "IA"
+    },
+    {
+      "id": "ops",
+      "titre": "Données et exploitation"
+    },
+    {
+      "id": "cui",
+      "titre": "Métier Cuisine"
+    },
+    {
+      "id": "ag",
+      "titre": "Agents et projet"
+    }
+  ],
+  "statuts": [
+    "ouvert",
+    "solution choisie",
+    "implémenté",
+    "accepté"
+  ],
+  "risques": [
+    {
+      "id": "SEC-1",
+      "categorie": "sec",
+      "gravite": "critique",
+      "titre": "Fuite entre les Espaces personnels des deux comptes",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Garde d'Espace centralisée dans l'extension Prisma",
+          "ref": "ADR 0016, ADR 0028",
+          "fait": true
+        },
+        {
+          "texte": "Test de cloisonnement sur chaque route",
+          "ref": "ADR 0030",
+          "fait": false
+        },
+        {
+          "texte": "Étendre l'inspection des écritures imbriquées avant que les Recettes portent leurs Ingrédients",
+          "ref": "ADR 0028",
+          "fait": false
+        },
+        {
+          "texte": "Règle de lint qui interdit $queryRaw et $executeRaw dans les modules métier",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "CUISINE-5",
+        "SOCLE-5",
+        "SOCLE-6"
+      ]
+    },
+    {
+      "id": "SEC-2",
+      "categorie": "sec",
+      "gravite": "critique",
+      "titre": "Le portfolio public expose une note privée ou un brouillon",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Schémas de sortie sur chaque route publique",
+          "ref": "ADR 0030",
+          "fait": false
+        },
+        {
+          "texte": "Tests du chemin public : seuls les contenus « publiés » sont servis, sans repli de langue",
+          "ref": "PRD #1",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "PORTFOLIO-1",
+        "PORTFOLIO-2",
+        "PORTFOLIO-3",
+        "PORTFOLIO-5"
+      ]
+    },
+    {
+      "id": "SEC-3",
+      "categorie": "sec",
+      "gravite": "elevee",
+      "titre": "Clé SSH de déploiement détenue par GitHub",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Utilisateur dédié sans shell, commande forcée (command=) dans authorized_keys",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "Environnement GitHub protégé, rotation de la clé documentée",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "INFRA-8",
+        "INFRA-9"
+      ]
+    },
+    {
+      "id": "SEC-4",
+      "categorie": "sec",
+      "gravite": "elevee",
+      "titre": "Staging exposé, ou contenant des données réelles",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Staging derrière le proxy de tête et Authentik",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "Données de démo uniquement ; démarrage refusé si l'URL de base est celle de la prod",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "INFRA-6",
+        "INFRA-7",
+        "INFRA-9"
+      ]
+    },
+    {
+      "id": "SEC-5",
+      "categorie": "sec",
+      "gravite": "elevee",
+      "titre": "Un agent autonome introduit une faille ou commite un secret",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Revue Codex de chaque PR",
+          "ref": "agent-loop",
+          "fait": false
+        },
+        {
+          "texte": "Scan de secrets en CI",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "Aucun secret de production accessible aux agents",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "INFRA-1",
+        "INFRA-5"
+      ]
+    },
+    {
+      "id": "SEC-6",
+      "categorie": "sec",
+      "gravite": "moyenne",
+      "titre": "Injection de prompt par du contenu saisi (recette, souhait, commande)",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "La barre de commande prépare, n'exécute jamais",
+          "ref": "ADR 0018",
+          "fait": true
+        },
+        {
+          "texte": "Sorties IA validées par schéma ; l'IA n'a aucun outil d'écriture",
+          "ref": "ADR 0030",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "CMD-1",
+        "CMD-2",
+        "CMD-3",
+        "CUISINE-14",
+        "CUISINE-16"
+      ]
+    },
+    {
+      "id": "IA-1",
+      "categorie": "ia",
+      "gravite": "critique",
+      "titre": "La génération propose un plat contenant un allergène",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Contrôle déterministe après génération : chaque ingrédient passe par le résolveur et est confronté aux allergies des Participants ; repas rejeté hors modèle",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "Le prompt mentionne les allergies, mais n'est jamais la garantie",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "CUISINE-1",
+        "CUISINE-16",
+        "CUISINE-17",
+        "FOYER-2"
+      ]
+    },
+    {
+      "id": "IA-2",
+      "categorie": "ia",
+      "gravite": "moyenne",
+      "titre": "Coût IA incontrôlé (Tours de génération répétés)",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Plafond par génération et par mois, compteur visible",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "CMD-2",
+        "CUISINE-14",
+        "CUISINE-16"
+      ]
+    },
+    {
+      "id": "IA-3",
+      "categorie": "ia",
+      "gravite": "moyenne",
+      "titre": "Sortie IA mal formée ou ingrédients inconnus",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Sortie structurée validée par zod",
+          "ref": "ADR 0030",
+          "fait": false
+        },
+        {
+          "texte": "Ingrédient inconnu : résolveur, puis demande à l'utilisateur",
+          "ref": "PRD #1",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "CUISINE-14",
+        "CUISINE-16",
+        "CUISINE-3"
+      ]
+    },
+    {
+      "id": "IA-4",
+      "categorie": "ia",
+      "gravite": "faible",
+      "titre": "Dépendance à un fournisseur d'IA",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Interface applicative unique, fournisseur remplaçable",
+          "ref": "PRD #1",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "CUISINE-14"
+      ]
+    },
+    {
+      "id": "OPS-1",
+      "categorie": "ops",
+      "gravite": "critique",
+      "titre": "Perte de données",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Sauvegardes Restic chiffrées chez un autre fournisseur qu'OVH",
+          "ref": "ADR 0020",
+          "fait": true
+        },
+        {
+          "texte": "Migration répétée sur une restauration à chaque déploiement",
+          "ref": "ADR 0023",
+          "fait": true
+        },
+        {
+          "texte": "Alerte quand une sauvegarde attendue manque",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "DASH-3",
+        "INFRA-13",
+        "PORTFOLIO-4"
+      ]
+    },
+    {
+      "id": "OPS-2",
+      "categorie": "ops",
+      "gravite": "elevee",
+      "titre": "Migration cassante en production",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Migrations expand/contract",
+          "ref": "ADR 0024",
+          "fait": true
+        },
+        {
+          "texte": "Répétition sur restauration avant application",
+          "ref": "ADR 0023",
+          "fait": true
+        },
+        {
+          "texte": "Retour aux images précédentes si la vérification de santé échoue",
+          "ref": "ADR 0023",
+          "fait": true
+        }
+      ],
+      "tickets": [
+        "INFRA-8"
+      ]
+    },
+    {
+      "id": "OPS-3",
+      "categorie": "ops",
+      "gravite": "moyenne",
+      "titre": "Le staging affame la production sur le même VPS",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Plafonds CPU et mémoire du projet Compose de staging, arrêtable à tout moment",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "INFRA-7"
+      ]
+    },
+    {
+      "id": "OPS-4",
+      "categorie": "ops",
+      "gravite": "moyenne",
+      "titre": "Migration vers le homelab",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Pièges recensés dans docs/migration-homelab.md",
+          "ref": "",
+          "fait": true
+        },
+        {
+          "texte": "Provisionnement idempotent (provision.sh)",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "Secrets ajoutés puis révoqués, jamais recopiés",
+          "ref": "docs/migration-homelab.md",
+          "fait": true
+        }
+      ],
+      "tickets": [
+        "INFRA-11"
+      ]
+    },
+    {
+      "id": "OPS-5",
+      "categorie": "ops",
+      "gravite": "moyenne",
+      "titre": "Authentik en panne : l'application devient inaccessible",
+      "statut": "implémenté",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Sessions serveur en base, qui survivent à une panne d'Authentik",
+          "ref": "ADR 0026",
+          "fait": true
+        },
+        {
+          "texte": "Base et configuration Authentik incluses dans les sauvegardes",
+          "ref": "ADR 0020",
+          "fait": true
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "id": "CUI-1",
+      "categorie": "cui",
+      "gravite": "moyenne",
+      "titre": "Le stock dérive de la réalité et la génération s'appuie sur un stock faux",
+      "statut": "accepté",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Stock déclaratif, un stock faux est un incident normal",
+          "ref": "ADR 0013",
+          "fait": true
+        },
+        {
+          "texte": "Écran de stock éditable en quelques secondes",
+          "ref": "PRD #1",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "CUISINE-10",
+        "CUISINE-11",
+        "CUISINE-8"
+      ]
+    },
+    {
+      "id": "CUI-2",
+      "categorie": "cui",
+      "gravite": "moyenne",
+      "titre": "Une conversion approximative fausse la liste de courses",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Le convertisseur échoue explicitement plutôt que d'approximer",
+          "ref": "PRD #1",
+          "fait": false
+        },
+        {
+          "texte": "Facteur pièce/poids validé une fois par Ingrédient",
+          "ref": "PRD #1",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "CUISINE-2",
+        "CUISINE-9"
+      ]
+    },
+    {
+      "id": "CUI-3",
+      "categorie": "cui",
+      "gravite": "moyenne",
+      "titre": "Le catalogue d'Ingrédients se remplit de doublons",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Résolveur d'ingrédients et Alias",
+          "ref": "PRD #1",
+          "fait": false
+        },
+        {
+          "texte": "Écran de fusion de deux Ingrédients",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "CUISINE-1",
+        "CUISINE-3",
+        "CUISINE-4",
+        "CUISINE-6"
+      ]
+    },
+    {
+      "id": "AG-1",
+      "categorie": "ag",
+      "gravite": "elevee",
+      "titre": "Un merge automatique laisse passer une régression",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Socle de tests par route",
+          "ref": "ADR 0030",
+          "fait": false
+        },
+        {
+          "texte": "Revue Codex",
+          "ref": "agent-loop",
+          "fait": false
+        },
+        {
+          "texte": "Suite complète chaque nuit et sur la PR de livraison",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "Staging déployé à chaque merge sur develop",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "Revue visuelle humaine des écrans (label revue-visuelle)",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "INFRA-1",
+        "INFRA-4",
+        "INFRA-6",
+        "INFRA-7",
+        "INFRA-8"
+      ]
+    },
+    {
+      "id": "AG-2",
+      "categorie": "ag",
+      "gravite": "elevee",
+      "titre": "Les conventions dérivent d'un agent à l'autre",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Conventions écrites : ADR 0030 et AGENTS.md",
+          "ref": "ADR 0030",
+          "fait": false
+        },
+        {
+          "texte": "Ticket exemple en M0 : events et agenda migrés aux conventions",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "Codex vérifie le respect des conventions",
+          "ref": "agent-loop",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "INFRA-1",
+        "SOCLE-1",
+        "SOCLE-2",
+        "SOCLE-3",
+        "SOCLE-4",
+        "UI-1",
+        "UI-3"
+      ]
+    },
+    {
+      "id": "AG-3",
+      "categorie": "ag",
+      "gravite": "elevee",
+      "titre": "Ticket ambigu : l'agent invente",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Gabarit d'issue complet : aucune question à se poser",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "L'agent s'arrête par blocked.md plutôt que de trancher seul",
+          "ref": "agent-loop",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "INFRA-1",
+        "INFRA-2"
+      ]
+    },
+    {
+      "id": "AG-4",
+      "categorie": "ag",
+      "gravite": "moyenne",
+      "titre": "La revue visuelle devient un goulot",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Captures mobile et desktop jointes à la PR",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "Écrans regroupés par ticket",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "INFRA-10",
+        "UI-1",
+        "UI-2",
+        "UI-3",
+        "UI-4"
+      ]
+    },
+    {
+      "id": "AG-5",
+      "categorie": "ag",
+      "gravite": "moyenne",
+      "titre": "Conflits entre boucles d'agents en parallèle",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "Verrou par ticket",
+          "ref": "agent-loop",
+          "fait": true
+        },
+        {
+          "texte": "Tickets découpés pour toucher peu de fichiers communs",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": [
+        "INFRA-1",
+        "INFRA-3"
+      ]
+    },
+    {
+      "id": "AG-6",
+      "categorie": "ag",
+      "gravite": "moyenne",
+      "titre": "Limites d'usage de Claude ou Codex",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "La boucle attend l'heure de reprise et continue",
+          "ref": "agent-loop",
+          "fait": true
+        }
+      ],
+      "tickets": [
+        "INFRA-1"
+      ]
+    },
+    {
+      "id": "PROJ-1",
+      "categorie": "ag",
+      "gravite": "moyenne",
+      "titre": "Périmètre de V1 large pour une seule personne",
+      "statut": "solution choisie",
+      "statutDepuis": "2026-10-17",
+      "solutions": [
+        {
+          "texte": "La Cuisine en premier, pour avoir de la valeur vite",
+          "ref": "",
+          "fait": false
+        },
+        {
+          "texte": "Jalons utilisables un par un",
+          "ref": "",
+          "fait": false
+        }
+      ],
+      "tickets": []
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # Pas de staging : la restauration sert de banc d'essai aux migrations
 
-> **Statut :** accepté — 3 août 2026
+> **Statut :** remplacé par l'[ADR 0031](0031-un-staging-de-demonstration-sur-le-meme-vps.md) — 17 octobre 2026 (accepté le 3 août 2026). La répétition sur restauration est conservée.
 > Répond à la question laissée ouverte au §30 (« définition des environnements local, staging et production »).
 
 Il n'existe que **deux environnements** : le poste local, avec la pile Compose complète et un jeu de données de démonstration généré, et la production sur le VPS OVH.
