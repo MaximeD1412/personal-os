@@ -143,6 +143,9 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
 ### Les fichiers de pilotage
 
 Ils se mettent à jour **dans la PR du ticket**. Codex les relit avec le reste.
+Ils alimentent l'artifact [Pilotage Personal OS](https://claude.ai/artifact/HQqnhrKxc7crEEKayomxP9),
+republié après chaque merge par `pilotage publish` (`.pilotage.json`, outil
+partagé `~/.agents/tools/pilotage`). Les formats sont décrits dans son README.
 
 - `docs/pilotage/mep.json` : ce que la mise en production exige (variable,
   secret, geste manuel, vérification). Un élément par geste, avec un `id`

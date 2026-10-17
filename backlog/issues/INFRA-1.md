@@ -31,7 +31,7 @@ La boucle d'agents de TGR (`scripts/agent-loop.sh` : Claude implémente, Codex r
 - Revue visuelle : un ticket portant le label `revue-visuelle` suit tout le circuit (implémentation, revue Codex, CI), puis la boucle s'arrête **avant le merge**, commente « en attente de revue visuelle » sur la PR et passe au ticket suivant. Au passage suivant (`--wait` ou relance), une PR approuvée (`gh pr view --json reviewDecision` = `APPROVED`) est mergée ; une PR avec des changements demandés reprend en correction comme une revue Codex.
 - Pilotage : après la réservation d'un ticket et après chaque merge, lancer `PILOTAGE_PUBLISH_CMD` sous le verrou global de la boucle ; un échec de publication est journalisé, jamais bloquant.
 - TGR : ajouter son `.agent-loop.conf` avec un `EXTRA_IMPLEMENT_PROMPT` qui garde l'étape actuelle de mise à jour de l'artifact MEP TGR, puis remplacer `scripts/agent-loop.sh` par un appel à l'outil partagé (TGR garde ses artifacts actuels).
-- Personal OS : ajouter `.agent-loop.conf` (`PROJECT_NAME="Personal OS"`, `SETUP_CMD="scripts/worktree.sh setup"`, `DROP_CMD="scripts/worktree.sh drop"`, `PILOTAGE_PUBLISH_CMD` vide tant que le pilotage n'est pas branché) et `.agent-loop/` dans `.gitignore`.
+- Personal OS : ajouter `.agent-loop.conf` (`PROJECT_NAME="Personal OS"`, `SETUP_CMD="scripts/worktree.sh setup"`, `DROP_CMD="scripts/worktree.sh drop"`, `PILOTAGE_PUBLISH_CMD="pilotage publish"` : le pilotage est déjà branché, voir `~/.agents/tools/pilotage/README.md`) et `.agent-loop/` dans `.gitignore`.
 - README court dans `~/dotfiles/agents/tools/agent-loop/README.md` : options, config, label `revue-visuelle`, arrêt propre (`touch .agent-loop/stop`).
 
 ## Décisions déjà prises
@@ -59,7 +59,7 @@ Rien.
 
 ## Hors périmètre
 
-- Le pilotage lui-même (script `pilotage`) : livré avec la conception, branché par `PILOTAGE_PUBLISH_CMD`.
+- Le pilotage lui-même (`~/.agents/tools/pilotage`, déjà livré) : la boucle ne fait que lancer `PILOTAGE_PUBLISH_CMD`.
 - `pick-issue` : INFRA-2.
 
 ## Dépendances

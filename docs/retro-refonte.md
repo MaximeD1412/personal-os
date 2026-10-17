@@ -179,3 +179,22 @@ Modèle : TGR (`~/projects/TGR/TGR MON REPO`), backlog en fichiers
 - `current-issues.md` ne vivait pas sur `develop` mais sur
   `chore/issue-tracking`, que `pick-issue` réécrivait. Le retirer revient à
   supprimer cette branche.
+- **Création sur GitHub (17 octobre)** : une erreur GraphQL passagère
+  (« Something went wrong ») a interrompu l'ajout des items au projet. La
+  relance idempotente, appuyée sur `issues-map.json`, a suffi. Le message
+  d'un sous-ticket déjà lié dit « duplicate », pas « already ». Ces deux cas
+  sont maintenant gérés par le script. Le champ Status intégré du projet se
+  complète par l'API (`updateProjectV2Field`) : plus besoin de le faire à la
+  main.
+- **Le pilotage a été réalisé le 17 octobre.** Un seul artifact par projet, et
+  un gabarit commun dans `~/.agents/tools/pilotage`. Les données ne sont jamais
+  écrites dans le HTML : un `claude -p` les pousse en un seul batch
+  ArtifactData, à partir de fichiers produits par un script déterministe
+  (26 secondes, aucun contenu généré par le LLM). La page ne se republie que
+  si le gabarit change. Cela règle les trois défauts de TGR : une page de
+  380 Ko republiée à chaque ticket, des conflits entre boucles, et des
+  données qui dérivent du code. Il n'y a pas d'aperçu du rendu dans la
+  session : la première revue visuelle revient à l'utilisateur.
+- `~/.agents/tools/` est un nouveau dossier (lien vers
+  `~/dotfiles/agents/tools/`), créé à la main : `install.sh` de dotfiles ne
+  le pose pas encore.
