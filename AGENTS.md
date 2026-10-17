@@ -155,4 +155,7 @@ partagé `~/.agents/tools/pilotage`). Les formats sont décrits dans son README.
   `implémenté` quand elles le sont toutes, et date le changement
   (`statutDepuis`).
 - `docs/pilotage/architecture.json` : seulement si le ticket ajoute ou retire
-  un bloc de l'architecture.
+  un bloc de l'architecture. Les plans sont dessinés à la main : un nouveau
+  bloc prend une place libre dans sa zone sans chevaucher les autres, et ses
+  liens sont des segments horizontaux et verticaux. L'état des blocs existants
+  se calcule seul à partir de leurs tickets : n'y touche pas.

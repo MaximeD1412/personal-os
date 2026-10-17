@@ -198,3 +198,20 @@ Modèle : TGR (`~/projects/TGR/TGR MON REPO`), backlog en fichiers
 - `~/.agents/tools/` est un nouveau dossier (lien vers
   `~/dotfiles/agents/tools/`), créé à la main : `install.sh` de dotfiles ne
   le pose pas encore.
+- **Revue du pilotage (17 octobre)** : l'utilisateur a trouvé l'architecture
+  confuse (des colonnes auto-placées, des courbes qui se croisent) et voulait
+  un seul planning au lieu d'un par jalon.
+  - Le planning unique a imposé de changer le calcul : avec les seules
+    dépendances, presque tout démarrait au même moment. Il simule maintenant
+    la file de pick-issue avec deux agents.
+  - Pour l'architecture, une mise en page automatique (Mermaid) a été
+    essayée, puis abandonnée : l'utilisateur voulait simplement le rendu
+    d'Architecture TGR, un plan placé à la main avec des zones colorées et
+    un sélecteur aujourd'hui / cible. Les zooms par composant sont dessinés
+    de la même façon.
+
+  **À généraliser** : quand l'utilisateur a déjà un artifact qu'il aime,
+  repartir de son rendu au lieu d'en inventer un. Demander lequel avant de
+  dessiner. Et vérifier le rendu soi-même : un Chromium headless (Playwright
+  dans le scratchpad, page servie avec une fausse base `window.claude`) suffit
+  pour capturer chaque onglet en clair, en sombre et à 390 px.

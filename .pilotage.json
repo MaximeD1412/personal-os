@@ -6,6 +6,11 @@
   "dataDir": "docs/pilotage",
   "out": "dist/pilotage",
   "boardUrl": "https://github.com/users/MaximeD1412/projects/3",
-  "theme": { "file": "packages/theme/tokens.css", "light": ":root", "dark": ":root.dark" },
-  "artifactUrl": "https://claude.ai/artifact/HQqnhrKxc7crEEKayomxP9"
+  "theme": {
+    "file": "packages/theme/tokens.css",
+    "light": ":root",
+    "dark": ":root.dark"
+  },
+  "artifactUrl": "https://claude.ai/artifact/HQqnhrKxc7crEEKayomxP9",
+  "parallelism": 2
 }

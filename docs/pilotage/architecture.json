@@ -1,1210 +1,2146 @@
 {
+  "titre": "Aujourd'hui et cible, sur un seul plan",
+  "intro": "Trait plein : déjà en place. Pointillés : pas encore en place. Rouge : présent aujourd'hui, retiré dans la cible. Cliquez sur un bloc pour voir ce qu'il fait, les tickets qui le construisent et les décisions qui le justifient.",
   "vues": [
     {
       "id": "global",
       "titre": "Global",
-      "description": "La machine, ce qu'elle sert et ce qui la livre. Les blocs en pointillé sont à construire.",
+      "largeur": 1560,
+      "hauteur": 820,
+      "selection": "api",
       "zones": [
         {
           "id": "usagers",
-          "titre": "Usagers",
-          "noeuds": [
-            {
-              "id": "compte",
-              "titre": "Deux Comptes",
-              "sous": "tableau de bord privé",
-              "desc": "Les deux membres du Foyer, admis à la main dans Authentik. Chacun voit son Espace personnel et l'Espace foyer.",
-              "tickets": [],
-              "adr": [
-                "0014",
-                "0015"
-              ]
-            },
-            {
-              "id": "visiteur",
-              "titre": "Visiteur",
-              "sous": "portfolio public",
-              "desc": "Lit le portfolio bilingue, sans compte.",
-              "tickets": [
-                "PORTFOLIO-5"
-              ],
-              "adr": [
-                "0019"
-              ]
-            }
-          ]
+          "x": 20,
+          "y": 20,
+          "w": 1100,
+          "h": 100,
+          "couleur": "info",
+          "titre": "Usagers"
         },
         {
           "id": "vps",
+          "x": 20,
+          "y": 140,
+          "w": 1100,
+          "h": 500,
+          "couleur": "c1",
           "titre": "VPS OVH",
-          "noeuds": [
-            {
-              "id": "edge",
-              "titre": "Proxy de tête",
-              "sous": "Caddy, TLS par DNS OVH",
-              "desc": "Neutre : ne connaît que les certificats et le routage par nom d'hôte vers chaque locataire.",
-              "tickets": [],
-              "adr": [
-                "0025"
-              ]
-            },
-            {
-              "id": "caddy",
-              "titre": "Proxy interne",
-              "sous": "carte de routage de Personal OS",
-              "desc": "Route tableau de bord, portfolio, Authentik et, bientôt, le staging.",
-              "tickets": [
-                "INFRA-7"
-              ],
-              "adr": []
-            },
-            {
-              "id": "dashboard",
-              "titre": "Tableau de bord",
-              "sous": "Angular",
-              "desc": "Coque DCCM, écrans des modules, barre de commande.",
-              "tickets": [
-                "UI-2",
-                "DASH-2",
-                "CMD-3"
-              ],
-              "adr": [
-                "0029"
-              ]
-            },
-            {
-              "id": "portfolio",
-              "titre": "Portfolio",
-              "sous": "Angular, FR et EN",
-              "desc": "Site public rédigé, servi sans session.",
-              "tickets": [
-                "PORTFOLIO-5",
-                "PORTFOLIO-6"
-              ],
-              "adr": [
-                "0019"
-              ]
-            },
-            {
-              "id": "api",
-              "titre": "API",
-              "sous": "NestJS sous /api",
-              "desc": "Fermée par défaut, session serveur, garde d'Espace centralisée, conventions de l'ADR 0030.",
-              "tickets": [
-                "SOCLE-3"
-              ],
-              "adr": [
-                "0026",
-                "0028",
-                "0030"
-              ]
-            },
-            {
-              "id": "pg",
-              "titre": "PostgreSQL",
-              "sous": "application et Authentik",
-              "desc": "Un seul PostgreSQL pour l'application et Authentik.",
-              "tickets": [],
-              "adr": [
-                "0027"
-              ]
-            },
-            {
-              "id": "authentik",
-              "titre": "Authentik",
-              "sous": "fournisseur d'identité",
-              "desc": "Répond à « qui es-tu » ; l'application décide ce que le Compte voit.",
-              "tickets": [],
-              "adr": [
-                "0015"
-              ]
-            },
-            {
-              "id": "staging",
-              "titre": "Staging",
-              "sous": "projet Compose séparé",
-              "desc": "Démo réinitialisée à chaque déploiement, plafonné, derrière Authentik.",
-              "tickets": [
-                "INFRA-7",
-                "INFRA-9"
-              ],
-              "adr": [
-                "0031"
-              ]
-            },
-            {
-              "id": "deploy",
-              "titre": "Agent de déploiement",
-              "sous": "répétition, migration, santé, retour arrière",
-              "desc": "Lancé par la commande forcée d'une clé SSH bridée.",
-              "tickets": [
-                "INFRA-8"
-              ],
-              "adr": [
-                "0023",
-                "0032"
-              ]
-            },
-            {
-              "id": "timer",
-              "titre": "Minuteur de déploiement",
-              "sous": "tiré toutes les 2 minutes",
-              "desc": "Remplacé par le déploiement poussé.",
-              "tickets": [
-                "INFRA-8"
-              ],
-              "adr": [
-                "0023"
-              ],
-              "etat": "retire"
-            }
-          ]
+          "sous": "prod + staging"
         },
         {
           "id": "externes",
-          "titre": "Services extérieurs",
-          "noeuds": [
-            {
-              "id": "restic",
-              "titre": "Sauvegardes Restic",
-              "sous": "autre fournisseur qu'OVH",
-              "desc": "Base, objets et Authentik, chiffrés ; alerte si une sauvegarde manque.",
-              "tickets": [
-                "INFRA-13"
-              ],
-              "adr": [
-                "0020"
-              ]
-            },
-            {
-              "id": "claude",
-              "titre": "API Claude",
-              "sous": "génération et barre de commande",
-              "desc": "Derrière une interface unique, plafond de coût mensuel.",
-              "tickets": [
-                "CUISINE-14"
-              ],
-              "adr": []
-            },
-            {
-              "id": "s3",
-              "titre": "OVH Object Storage",
-              "sous": "CV et fichiers",
-              "desc": "Stockage objet compatible S3.",
-              "tickets": [
-                "PORTFOLIO-4"
-              ],
-              "adr": []
-            },
-            {
-              "id": "ghcr",
-              "titre": "GHCR",
-              "sous": "images Docker",
-              "desc": "Images taguées par commit.",
-              "tickets": [],
-              "adr": []
-            }
-          ]
+          "x": 1150,
+          "y": 140,
+          "w": 390,
+          "h": 500,
+          "couleur": "c4",
+          "titre": "Services extérieurs"
         },
         {
           "id": "livraison",
-          "titre": "Livraison",
-          "noeuds": [
+          "x": 20,
+          "y": 660,
+          "w": 1520,
+          "h": 140,
+          "couleur": "c2",
+          "titre": "Livraison et code"
+        }
+      ],
+      "noeuds": [
+        {
+          "id": "compte",
+          "zone": "usagers",
+          "x": 60,
+          "y": 52,
+          "w": 300,
+          "h": 56,
+          "etat": "en-place",
+          "titre": "Deux Comptes",
+          "sous": "tableau de bord privé",
+          "desc": "Les deux membres du Foyer, admis à la main dans Authentik. Chacun voit son Espace personnel et l'Espace foyer.",
+          "tickets": [],
+          "adr": [
+            "0014",
+            "0015"
+          ]
+        },
+        {
+          "id": "visiteur",
+          "zone": "usagers",
+          "x": 700,
+          "y": 52,
+          "w": 260,
+          "h": 56,
+          "titre": "Visiteur",
+          "sous": "portfolio public, sans compte",
+          "desc": "Lit le portfolio bilingue sans se connecter.",
+          "tickets": [
+            "PORTFOLIO-5"
+          ],
+          "adr": [
+            "0019"
+          ]
+        },
+        {
+          "id": "edge",
+          "zone": "vps",
+          "x": 290,
+          "y": 172,
+          "w": 470,
+          "h": 50,
+          "etat": "en-place",
+          "titre": "Proxy de tête",
+          "sous": "Caddy · TLS par DNS OVH · un nom d'hôte par locataire",
+          "desc": "Neutre : il ne connaît que les certificats et le routage par nom d'hôte vers chaque locataire de la machine.",
+          "tickets": [],
+          "adr": [
+            "0025"
+          ],
+          "zoom": "infra"
+        },
+        {
+          "id": "caddy",
+          "zone": "vps",
+          "x": 290,
+          "y": 250,
+          "w": 470,
+          "h": 50,
+          "etat": "en-place",
+          "titre": "Proxy interne",
+          "sous": "/ → tableau de bord · /api → API · auth → Authentik",
+          "desc": "La carte de routage de Personal OS. Elle route le tableau de bord, l'API et Authentik ; le portfolio et le staging y entrent avec leurs tickets.",
+          "tickets": [
+            "INFRA-7",
+            "PORTFOLIO-5"
+          ],
+          "adr": [
+            "0025"
+          ]
+        },
+        {
+          "id": "dashboard",
+          "zone": "vps",
+          "x": 40,
+          "y": 330,
+          "w": 230,
+          "h": 140,
+          "etat": "en-place",
+          "titre": "Tableau de bord",
+          "sous": "Angular, URLs en français",
+          "items": [
             {
-              "id": "ci",
-              "titre": "CI GitHub Actions",
-              "sous": "affectée sur les PR, complète la nuit",
-              "desc": "Lint, build, tests, intégration ; scan de secrets.",
-              "tickets": [
-                "INFRA-4",
-                "INFRA-5"
-              ],
-              "adr": []
+              "texte": "Agenda et Calendrier",
+              "etat": "en-place"
             },
             {
-              "id": "boucle",
-              "titre": "agent-loop",
-              "sous": "Claude implémente, Codex relit",
-              "desc": "Merge automatique sur develop, sauf revue visuelle.",
-              "tickets": [
-                "INFRA-1",
-                "INFRA-2"
-              ],
-              "adr": []
+              "texte": "Design system DCCM",
+              "ticket": "UI-1"
+            },
+            {
+              "texte": "Coque et motifs d'écran",
+              "ticket": "UI-2"
+            },
+            {
+              "texte": "Barre de commande",
+              "ticket": "CMD-3"
             }
+          ],
+          "desc": "L'application privée. Aujourd'hui : Agenda, Calendrier et le fil traceur. À venir : le design system DCCM, la coque, les écrans de chaque module, la barre de commande. Chaque formulaire se préremplit depuis l'URL.",
+          "tickets": [
+            "SOCLE-4",
+            "UI-1",
+            "UI-2",
+            "UI-3",
+            "UI-4",
+            "DASH-2",
+            "CMD-3"
+          ],
+          "adr": [
+            "0029",
+            "0030"
+          ],
+          "zoom": "dashboard"
+        },
+        {
+          "id": "portfolio",
+          "zone": "vps",
+          "x": 40,
+          "y": 490,
+          "w": 230,
+          "h": 104,
+          "titre": "Portfolio",
+          "sous": "Angular, FR et EN",
+          "items": [
+            {
+              "texte": "Pages FR / EN",
+              "ticket": "PORTFOLIO-5"
+            },
+            {
+              "texte": "CV par langue",
+              "ticket": "PORTFOLIO-4"
+            }
+          ],
+          "desc": "Le site public rédigé, servi sans session. Il ne lit que le publié, par des routes et des schémas de sortie dédiés.",
+          "tickets": [
+            "PORTFOLIO-3",
+            "PORTFOLIO-4",
+            "PORTFOLIO-5",
+            "PORTFOLIO-6"
+          ],
+          "adr": [
+            "0019"
+          ],
+          "zoom": "portfolio"
+        },
+        {
+          "id": "api",
+          "zone": "vps",
+          "x": 300,
+          "y": 330,
+          "w": 460,
+          "h": 164,
+          "etat": "en-place",
+          "colonnes": 2,
+          "titre": "API NestJS",
+          "sous": "monolithe modulaire sous /api, fermé par défaut",
+          "items": [
+            {
+              "texte": "garde d'Espace",
+              "ticket": "SOCLE-6"
+            },
+            {
+              "texte": "contrats zod, OpenAPI",
+              "ticket": "SOCLE-1"
+            },
+            {
+              "texte": "calendar, agenda",
+              "etat": "en-place"
+            },
+            {
+              "texte": "récurrence",
+              "ticket": "AGENDA-1"
+            },
+            {
+              "texte": "traces, entité jouet",
+              "etat": "retire"
+            },
+            {
+              "texte": "food : la Cuisine",
+              "ticket": "CUISINE-1"
+            },
+            {
+              "texte": "household, training",
+              "ticket": "FOYER-1"
+            },
+            {
+              "texte": "projects, portfolio",
+              "ticket": "PORTFOLIO-1"
+            },
+            {
+              "texte": "dashboard",
+              "ticket": "DASH-1"
+            },
+            {
+              "texte": "command-bar",
+              "ticket": "CMD-2"
+            }
+          ],
+          "desc": "Session serveur, garde d'Espace centralisée dans Prisma, conventions de l'ADR 0030. Un module par domaine ; les modules profonds (résolveur d'ingrédients, convertisseur, consolidateur, recaleur de stock, machine à Tours, contrôle des allergies) vivent dans food. Les ports AgendaContributor, ResumeurDeModule et GenerateurIA évitent qu'un module en connaisse un autre.",
+          "tickets": [
+            "SOCLE-1",
+            "SOCLE-2",
+            "SOCLE-3",
+            "SOCLE-5",
+            "SOCLE-6",
+            "SOCLE-7",
+            "AGENDA-1",
+            "CUISINE-1",
+            "FOYER-1",
+            "SPORT-1",
+            "PORTFOLIO-1",
+            "DASH-1",
+            "CMD-1",
+            "CMD-2"
+          ],
+          "adr": [
+            "0011",
+            "0016",
+            "0026",
+            "0028",
+            "0030"
+          ],
+          "zoom": "api"
+        },
+        {
+          "id": "authentik",
+          "zone": "vps",
+          "x": 300,
+          "y": 540,
+          "w": 210,
+          "h": 56,
+          "etat": "en-place",
+          "titre": "Authentik",
+          "sous": "fournisseur d'identité",
+          "desc": "Répond à « qui es-tu » ; l'application décide ce que le Compte voit.",
+          "tickets": [],
+          "adr": [
+            "0015"
           ]
+        },
+        {
+          "id": "pg",
+          "zone": "vps",
+          "x": 550,
+          "y": 540,
+          "w": 210,
+          "h": 56,
+          "etat": "en-place",
+          "titre": "PostgreSQL",
+          "sous": "application et Authentik",
+          "desc": "Un seul PostgreSQL pour l'application et Authentik. Chaque table porte un Espace, sauf les catalogues globaux.",
+          "tickets": [],
+          "adr": [
+            "0027",
+            "0016"
+          ],
+          "zoom": "donnees"
+        },
+        {
+          "id": "staging",
+          "zone": "vps",
+          "x": 800,
+          "y": 330,
+          "w": 280,
+          "h": 104,
+          "titre": "Staging",
+          "sous": "projet Compose séparé, derrière Authentik",
+          "items": [
+            {
+              "texte": "suit develop",
+              "ticket": "INFRA-7"
+            },
+            {
+              "texte": "démo réinitialisée, trois Espaces",
+              "ticket": "INFRA-6"
+            }
+          ],
+          "desc": "Une démonstration sur le même VPS, plafonnée en ressources, réinitialisée à chaque déploiement avec le jeu de démo.",
+          "tickets": [
+            "INFRA-6",
+            "INFRA-7",
+            "INFRA-9"
+          ],
+          "adr": [
+            "0031"
+          ],
+          "zoom": "infra"
+        },
+        {
+          "id": "deploy",
+          "zone": "vps",
+          "x": 800,
+          "y": 454,
+          "w": 280,
+          "h": 84,
+          "etat": "en-place",
+          "titre": "Agent de déploiement",
+          "sous": "répétition, migration, santé, retour arrière",
+          "items": [
+            {
+              "texte": "lancé par une clé SSH bridée",
+              "ticket": "INFRA-8"
+            }
+          ],
+          "desc": "deploy.sh rejoue la séquence de la production : répétition, migration, contrôle de santé, retour arrière. Il sera lancé par la commande forcée d'une clé SSH bridée au lieu d'un minuteur.",
+          "tickets": [
+            "INFRA-8"
+          ],
+          "adr": [
+            "0023",
+            "0032"
+          ],
+          "zoom": "infra"
+        },
+        {
+          "id": "timer",
+          "zone": "vps",
+          "x": 800,
+          "y": 558,
+          "w": 280,
+          "h": 56,
+          "etat": "retire",
+          "titre": "Minuteur de déploiement",
+          "sous": "systemd, tire toutes les 2 minutes",
+          "desc": "Remplacé par le déploiement poussé : il disparaît avec INFRA-8.",
+          "tickets": [
+            "INFRA-8"
+          ],
+          "adr": [
+            "0023"
+          ],
+          "zoom": "infra"
+        },
+        {
+          "id": "claude",
+          "zone": "externes",
+          "x": 1165,
+          "y": 175,
+          "w": 360,
+          "h": 56,
+          "titre": "API Claude",
+          "sous": "génération des repas, barre de commande",
+          "desc": "Derrière une interface unique (GenerateurIA) avec un double de test, et un plafond de coût mensuel.",
+          "tickets": [
+            "CUISINE-14",
+            "CMD-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "s3",
+          "zone": "externes",
+          "x": 1165,
+          "y": 235,
+          "w": 360,
+          "h": 56,
+          "titre": "OVH Object Storage",
+          "sous": "CV et fichiers, compatible S3",
+          "desc": "Stockage objet derrière le port StockageObjet (S3 ou disque).",
+          "tickets": [
+            "PORTFOLIO-4"
+          ],
+          "adr": []
+        },
+        {
+          "id": "restic",
+          "zone": "externes",
+          "x": 1165,
+          "y": 305,
+          "w": 360,
+          "h": 96,
+          "etat": "en-place",
+          "titre": "Sauvegardes Restic",
+          "sous": "chez un autre fournisseur qu'OVH",
+          "items": [
+            {
+              "texte": "base, objets et Authentik, chiffrés",
+              "etat": "en-place"
+            },
+            {
+              "texte": "alerte si une sauvegarde manque",
+              "ticket": "INFRA-13"
+            }
+          ],
+          "desc": "Sauvegardes chiffrées hors d'OVH. Il manque l'alerte quand une sauvegarde attendue n'arrive pas.",
+          "tickets": [
+            "INFRA-13"
+          ],
+          "adr": [
+            "0020"
+          ],
+          "zoom": "infra"
+        },
+        {
+          "id": "ghcr",
+          "zone": "externes",
+          "x": 1165,
+          "y": 425,
+          "w": 360,
+          "h": 56,
+          "etat": "en-place",
+          "titre": "GHCR",
+          "sous": "images Docker taguées par commit",
+          "desc": "Registre des images de l'API, du tableau de bord et du portfolio.",
+          "tickets": [],
+          "adr": []
+        },
+        {
+          "id": "boucle",
+          "zone": "livraison",
+          "x": 40,
+          "y": 700,
+          "w": 270,
+          "h": 70,
+          "titre": "agent-loop",
+          "sous": "Claude code, Codex relit",
+          "desc": "Prend les tickets dans l'ordre de pick-issue, fait relire par Codex et fusionne sur develop sans relecture humaine, sauf revue visuelle.",
+          "tickets": [
+            "INFRA-1",
+            "INFRA-2",
+            "INFRA-3",
+            "INFRA-10"
+          ],
+          "adr": [],
+          "zoom": "livraison"
+        },
+        {
+          "id": "repo",
+          "zone": "livraison",
+          "x": 340,
+          "y": 700,
+          "w": 300,
+          "h": 70,
+          "etat": "en-place",
+          "titre": "Monorepo Nx",
+          "sous": "api, dashboard, portfolio, packages",
+          "desc": "pnpm et Nx. packages/contracts porte les contrats partagés, packages/theme les tokens, packages/ui les composants.",
+          "tickets": [],
+          "adr": []
+        },
+        {
+          "id": "ci",
+          "zone": "livraison",
+          "x": 670,
+          "y": 700,
+          "w": 230,
+          "h": 70,
+          "etat": "en-place",
+          "titre": "CI GitHub Actions",
+          "sous": "lint, tests, intégration",
+          "desc": "Sur develop et les PR. À venir : vérification limitée aux projets touchés, suite complète la nuit, suivi des minutes, scan de secrets.",
+          "tickets": [
+            "INFRA-4",
+            "INFRA-5"
+          ],
+          "adr": [],
+          "zoom": "livraison"
+        },
+        {
+          "id": "cd",
+          "zone": "livraison",
+          "x": 930,
+          "y": 700,
+          "w": 240,
+          "h": 70,
+          "etat": "en-place",
+          "titre": "Livraison",
+          "sous": "images GHCR, puis déploiement",
+          "desc": "Sur main : vérification complète, construction et publication des images. À venir : develop déploie le staging, et chaque livraison pousse le déploiement par SSH.",
+          "tickets": [
+            "INFRA-8"
+          ],
+          "adr": [
+            "0024",
+            "0032"
+          ],
+          "zoom": "livraison"
+        },
+        {
+          "id": "prov",
+          "zone": "livraison",
+          "x": 1200,
+          "y": 700,
+          "w": 160,
+          "h": 70,
+          "titre": "provision.sh",
+          "sous": "la machine en code",
+          "desc": "Provisionnement idempotent et testé : SSH, pare-feu, mises à jour, Docker. Changer de machine revient à relancer le script.",
+          "tickets": [
+            "INFRA-11"
+          ],
+          "adr": []
+        },
+        {
+          "id": "pilotage",
+          "zone": "livraison",
+          "x": 1390,
+          "y": 700,
+          "w": 130,
+          "h": 70,
+          "etat": "en-place",
+          "titre": "Pilotage",
+          "sous": "cet artifact",
+          "desc": "Planning, mise en production, architecture et risques, republiés après chaque merge.",
+          "tickets": [
+            "INFRA-1"
+          ],
+          "adr": [],
+          "zoom": "livraison"
         }
       ],
       "liens": [
         {
           "de": "compte",
           "vers": "edge",
+          "points": [
+            [
+              325,
+              108
+            ],
+            [
+              325,
+              172
+            ]
+          ],
           "label": "HTTPS"
         },
         {
           "de": "visiteur",
           "vers": "edge",
+          "points": [
+            [
+              730,
+              108
+            ],
+            [
+              730,
+              172
+            ]
+          ],
           "label": "HTTPS"
         },
         {
           "de": "edge",
           "vers": "caddy",
-          "label": ""
+          "points": [
+            [
+              525,
+              222
+            ],
+            [
+              525,
+              250
+            ]
+          ]
         },
         {
           "de": "caddy",
           "vers": "dashboard",
-          "label": ""
+          "points": [
+            [
+              290,
+              275
+            ],
+            [
+              155,
+              275
+            ],
+            [
+              155,
+              330
+            ]
+          ],
+          "label": "pages"
         },
         {
           "de": "caddy",
           "vers": "portfolio",
-          "label": ""
+          "points": [
+            [
+              290,
+              292
+            ],
+            [
+              284,
+              292
+            ],
+            [
+              284,
+              548
+            ],
+            [
+              270,
+              548
+            ]
+          ]
         },
         {
           "de": "caddy",
           "vers": "api",
+          "points": [
+            [
+              525,
+              300
+            ],
+            [
+              525,
+              330
+            ]
+          ],
           "label": "/api"
         },
         {
           "de": "caddy",
           "vers": "staging",
-          "label": "staging."
+          "points": [
+            [
+              760,
+              290
+            ],
+            [
+              940,
+              290
+            ],
+            [
+              940,
+              330
+            ]
+          ],
+          "label": "staging"
+        },
+        {
+          "de": "api",
+          "vers": "authentik",
+          "points": [
+            [
+              405,
+              494
+            ],
+            [
+              405,
+              540
+            ]
+          ],
+          "label": "OIDC"
         },
         {
           "de": "api",
           "vers": "pg",
+          "points": [
+            [
+              655,
+              494
+            ],
+            [
+              655,
+              540
+            ]
+          ],
           "label": "Prisma"
         },
         {
           "de": "authentik",
           "vers": "pg",
-          "label": ""
-        },
-        {
-          "de": "api",
-          "vers": "authentik",
-          "label": "OIDC"
+          "points": [
+            [
+              510,
+              568
+            ],
+            [
+              550,
+              568
+            ]
+          ]
         },
         {
           "de": "api",
           "vers": "claude",
+          "points": [
+            [
+              760,
+              345
+            ],
+            [
+              772,
+              345
+            ],
+            [
+              772,
+              203
+            ],
+            [
+              1165,
+              203
+            ]
+          ],
           "label": "IA"
         },
         {
           "de": "api",
           "vers": "s3",
-          "label": "CV"
+          "points": [
+            [
+              760,
+              365
+            ],
+            [
+              782,
+              365
+            ],
+            [
+              782,
+              263
+            ],
+            [
+              1165,
+              263
+            ]
+          ],
+          "label": "fichiers"
         },
         {
           "de": "pg",
           "vers": "restic",
+          "points": [
+            [
+              760,
+              580
+            ],
+            [
+              790,
+              580
+            ],
+            [
+              790,
+              444
+            ],
+            [
+              1140,
+              444
+            ],
+            [
+              1140,
+              380
+            ],
+            [
+              1165,
+              380
+            ]
+          ],
           "label": "chiffré"
         },
         {
+          "de": "ghcr",
+          "vers": "deploy",
+          "points": [
+            [
+              1165,
+              460
+            ],
+            [
+              1110,
+              460
+            ],
+            [
+              1110,
+              490
+            ],
+            [
+              1080,
+              490
+            ]
+          ]
+        },
+        {
+          "de": "timer",
+          "vers": "deploy",
+          "points": [
+            [
+              940,
+              558
+            ],
+            [
+              940,
+              538
+            ]
+          ]
+        },
+        {
           "de": "boucle",
+          "vers": "repo",
+          "points": [
+            [
+              310,
+              735
+            ],
+            [
+              340,
+              735
+            ]
+          ]
+        },
+        {
+          "de": "repo",
           "vers": "ci",
-          "label": "PR"
+          "points": [
+            [
+              640,
+              735
+            ],
+            [
+              670,
+              735
+            ]
+          ]
         },
         {
           "de": "ci",
+          "vers": "cd",
+          "points": [
+            [
+              900,
+              735
+            ],
+            [
+              930,
+              735
+            ]
+          ]
+        },
+        {
+          "de": "cd",
           "vers": "ghcr",
+          "points": [
+            [
+              1160,
+              700
+            ],
+            [
+              1160,
+              520
+            ],
+            [
+              1250,
+              520
+            ],
+            [
+              1250,
+              481
+            ]
+          ],
           "label": "images"
         },
         {
-          "de": "ci",
+          "de": "cd",
           "vers": "deploy",
-          "label": "SSH, commande forcée"
-        },
-        {
-          "de": "deploy",
-          "vers": "ghcr",
-          "label": "tire"
+          "points": [
+            [
+              1100,
+              700
+            ],
+            [
+              1100,
+              520
+            ],
+            [
+              1080,
+              520
+            ]
+          ],
+          "label": "SSH, commande forcée",
+          "tickets": [
+            "INFRA-8"
+          ]
         }
       ]
     },
     {
       "id": "api",
       "titre": "API",
-      "description": "Modules plats, modules profonds purs, et les ports qui inversent les dépendances.",
+      "largeur": 1240,
+      "hauteur": 580,
+      "selection": "food",
+      "description": "Le socle traverse chaque requête ; un module par domaine porte ses modules profonds ; les ports évitent qu'un module en connaisse un autre.",
       "zones": [
         {
           "id": "socle",
+          "x": 20,
+          "y": 20,
+          "w": 1200,
+          "h": 110,
+          "couleur": "c1",
           "titre": "Socle",
-          "noeuds": [
-            {
-              "id": "garde",
-              "titre": "Garde d'Espace",
-              "sous": "extension Prisma",
-              "desc": "Filtrage centralisé ; écritures imbriquées couvertes.",
-              "tickets": [
-                "SOCLE-6"
-              ],
-              "adr": [
-                "0016",
-                "0028"
-              ]
-            },
-            {
-              "id": "session",
-              "titre": "Session et auth",
-              "sous": "cookie HttpOnly, OIDC",
-              "desc": "API fermée par défaut.",
-              "tickets": [],
-              "adr": [
-                "0026"
-              ]
-            },
-            {
-              "id": "contrats",
-              "titre": "Contrats zod",
-              "sous": "pipe global, enveloppe d'erreur, OpenAPI",
-              "desc": "Une seule définition par contrat.",
-              "tickets": [
-                "SOCLE-1",
-                "SOCLE-2",
-                "SOCLE-3"
-              ],
-              "adr": [
-                "0030"
-              ]
-            },
-            {
-              "id": "lint",
-              "titre": "Lint anti SQL brut",
-              "sous": "",
-              "desc": "Le SQL brut ne passe pas la garde.",
-              "tickets": [
-                "SOCLE-5"
-              ],
-              "adr": [
-                "0028"
-              ]
-            }
-          ]
+          "sous": "chaque requête"
         },
         {
           "id": "modules",
+          "x": 20,
+          "y": 150,
+          "w": 1200,
+          "h": 266,
+          "couleur": "c3",
           "titre": "Modules",
-          "noeuds": [
-            {
-              "id": "calendar",
-              "titre": "calendar",
-              "sous": "Événements, récurrence",
-              "desc": "",
-              "tickets": [
-                "SOCLE-3",
-                "AGENDA-1",
-                "AGENDA-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "agenda",
-              "titre": "agenda",
-              "sous": "vue en lecture seule",
-              "desc": "Ne connaît aucun module.",
-              "tickets": [
-                "SOCLE-3"
-              ],
-              "adr": [
-                "0011"
-              ]
-            },
-            {
-              "id": "household",
-              "titre": "household",
-              "sous": "Foyer, Préférences",
-              "desc": "",
-              "tickets": [
-                "FOYER-1",
-                "FOYER-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "food",
-              "titre": "food",
-              "sous": "ingrédients, recettes, planning, courses, stock",
-              "desc": "Module unique, Espace foyer.",
-              "tickets": [
-                "CUISINE-1",
-                "CUISINE-5",
-                "CUISINE-7",
-                "CUISINE-8",
-                "CUISINE-9",
-                "CUISINE-16"
-              ],
-              "adr": []
-            },
-            {
-              "id": "training",
-              "titre": "training",
-              "sous": "Séances, Objectifs",
-              "desc": "Espace personnel.",
-              "tickets": [
-                "SPORT-1",
-                "SPORT-2"
-              ],
-              "adr": [
-                "0022"
-              ]
-            },
-            {
-              "id": "projects",
-              "titre": "projects",
-              "sous": "Projets, Présentations",
-              "desc": "Espace personnel.",
-              "tickets": [
-                "PORTFOLIO-1",
-                "PORTFOLIO-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "public",
-              "titre": "portfolio public",
-              "sous": "routes @Public()",
-              "desc": "Seulement le publié.",
-              "tickets": [
-                "PORTFOLIO-5"
-              ],
-              "adr": [
-                "0019"
-              ]
-            },
-            {
-              "id": "dashboardapi",
-              "titre": "dashboard",
-              "sous": "résumés, À faire",
-              "desc": "",
-              "tickets": [
-                "DASH-1"
-              ],
-              "adr": [
-                "0017"
-              ]
-            },
-            {
-              "id": "cmd",
-              "titre": "command-bar",
-              "sous": "catalogue, résolution",
-              "desc": "Prépare, n'exécute jamais.",
-              "tickets": [
-                "CMD-1",
-                "CMD-2"
-              ],
-              "adr": [
-                "0018"
-              ]
-            },
-            {
-              "id": "trace",
-              "titre": "traces",
-              "sous": "entité jouet du cloisonnement",
-              "desc": "Retirée quand Event couvre les tests.",
-              "tickets": [
-                "SOCLE-7"
-              ],
-              "adr": [],
-              "etat": "retire"
-            }
-          ]
-        },
-        {
-          "id": "profonds",
-          "titre": "Modules profonds",
-          "noeuds": [
-            {
-              "id": "recurrence",
-              "titre": "Moteur de récurrence",
-              "sous": "règle, exceptions → occurrences",
-              "desc": "",
-              "tickets": [
-                "AGENDA-1"
-              ],
-              "adr": []
-            },
-            {
-              "id": "resolveur",
-              "titre": "Résolveur d'ingrédients",
-              "sous": "libellé → Ingrédient | inconnu",
-              "desc": "",
-              "tickets": [
-                "CUISINE-3"
-              ],
-              "adr": []
-            },
-            {
-              "id": "convertisseur",
-              "titre": "Convertisseur",
-              "sous": "→ Unité canonique",
-              "desc": "Échoue plutôt que d'approximer.",
-              "tickets": [
-                "CUISINE-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "consolidateur",
-              "titre": "Consolidateur",
-              "sous": "repas → articles",
-              "desc": "",
-              "tickets": [
-                "CUISINE-9",
-                "CUISINE-12"
-              ],
-              "adr": []
-            },
-            {
-              "id": "recaleur",
-              "titre": "Recaleur de stock",
-              "sous": "achat, consommation, correction",
-              "desc": "",
-              "tickets": [
-                "CUISINE-8"
-              ],
-              "adr": []
-            },
-            {
-              "id": "tours",
-              "titre": "Machine à Tours",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "CUISINE-15"
-              ],
-              "adr": []
-            },
-            {
-              "id": "controle",
-              "titre": "Contrôle des allergies",
-              "sous": "hors du modèle",
-              "desc": "Le seul risque de santé du produit.",
-              "tickets": [
-                "CUISINE-16"
-              ],
-              "adr": []
-            },
-            {
-              "id": "afaire",
-              "titre": "Calculateur d'À faire",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "DASH-1"
-              ],
-              "adr": []
-            },
-            {
-              "id": "catalogue",
-              "titre": "Générateur du catalogue",
-              "sous": "OpenAPI + @Command",
-              "desc": "",
-              "tickets": [
-                "CMD-1"
-              ],
-              "adr": []
-            },
-            {
-              "id": "intention",
-              "titre": "Résolveur d'intention",
-              "sous": "phrase → URL préremplie",
-              "desc": "",
-              "tickets": [
-                "CMD-2"
-              ],
-              "adr": []
-            }
-          ]
+          "sous": "un par domaine"
         },
         {
           "id": "ports",
+          "x": 20,
+          "y": 436,
+          "w": 1200,
+          "h": 120,
+          "couleur": "c4",
           "titre": "Ports",
-          "noeuds": [
+          "sous": "interfaces entre modules"
+        }
+      ],
+      "noeuds": [
+        {
+          "id": "session",
+          "zone": "socle",
+          "x": 40,
+          "y": 52,
+          "w": 220,
+          "h": 56,
+          "titre": "Session et auth",
+          "sous": "cookie HttpOnly, OIDC",
+          "tickets": [],
+          "adr": [
+            "0026"
+          ],
+          "etat": "en-place",
+          "desc": "API fermée par défaut : une route publique se déclare avec @Public()."
+        },
+        {
+          "id": "contrats",
+          "zone": "socle",
+          "x": 290,
+          "y": 52,
+          "w": 260,
+          "h": 56,
+          "titre": "Contrats zod",
+          "sous": "pipe global, erreurs, OpenAPI",
+          "tickets": [
+            "SOCLE-1",
+            "SOCLE-2",
+            "SOCLE-3"
+          ],
+          "adr": [
+            "0030"
+          ],
+          "desc": "Une seule définition par contrat dans @personal-os/contracts : validation d'entrée, sérialisation de sortie, enveloppe d'erreur et OpenAPI en découlent."
+        },
+        {
+          "id": "garde",
+          "zone": "socle",
+          "x": 580,
+          "y": 52,
+          "w": 220,
+          "h": 56,
+          "titre": "Garde d'Espace",
+          "sous": "extension Prisma",
+          "tickets": [
+            "SOCLE-6"
+          ],
+          "adr": [
+            "0016",
+            "0028"
+          ],
+          "etat": "en-place",
+          "desc": "Filtre chaque requête Prisma par Espace ; les écritures imbriquées restent à couvrir."
+        },
+        {
+          "id": "lint",
+          "zone": "socle",
+          "x": 830,
+          "y": 52,
+          "w": 170,
+          "h": 56,
+          "titre": "Lint anti SQL brut",
+          "tickets": [
+            "SOCLE-5"
+          ],
+          "adr": [
+            "0028"
+          ],
+          "desc": "Le SQL brut contournerait la garde : le lint le refuse dans les modules métier."
+        },
+        {
+          "id": "trace",
+          "zone": "socle",
+          "x": 1030,
+          "y": 52,
+          "w": 170,
+          "h": 56,
+          "titre": "traces",
+          "sous": "entité jouet",
+          "tickets": [
+            "SOCLE-7"
+          ],
+          "adr": [],
+          "etat": "retire",
+          "desc": "Module jouet qui a servi à tester le cloisonnement. Retiré quand Event porte ces tests."
+        },
+        {
+          "id": "calendar",
+          "zone": "modules",
+          "x": 40,
+          "y": 190,
+          "w": 260,
+          "h": 108,
+          "titre": "calendar",
+          "sous": "Événements",
+          "tickets": [
+            "AGENDA-1",
+            "AGENDA-2"
+          ],
+          "adr": [],
+          "etat": "en-place",
+          "items": [
             {
-              "id": "agendaport",
-              "titre": "AgendaContributor",
-              "sous": "",
-              "desc": "",
-              "tickets": [],
-              "adr": [
-                "0011"
-              ]
+              "texte": "Événements datés",
+              "etat": "en-place"
             },
             {
-              "id": "resumeur",
-              "titre": "ResumeurDeModule",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "DASH-1"
-              ],
-              "adr": []
+              "texte": "récurrence, exceptions",
+              "ticket": "AGENDA-1"
             },
             {
-              "id": "ia",
-              "titre": "GenerateurIA",
-              "sous": "adaptateur Claude, double de test",
-              "desc": "",
-              "tickets": [
-                "CUISINE-14"
-              ],
-              "adr": []
+              "texte": "agir sur une occurrence",
+              "ticket": "AGENDA-2"
+            }
+          ],
+          "desc": "Les Événements des deux Espaces et leur moteur de récurrence."
+        },
+        {
+          "id": "agenda",
+          "zone": "modules",
+          "x": 40,
+          "y": 330,
+          "w": 260,
+          "h": 56,
+          "titre": "agenda",
+          "sous": "vue en lecture seule",
+          "tickets": [],
+          "adr": [
+            "0011"
+          ],
+          "etat": "en-place",
+          "desc": "Fusionne les objets datés de tous les modules sans en connaître aucun, par le port AgendaContributor."
+        },
+        {
+          "id": "food",
+          "zone": "modules",
+          "x": 320,
+          "y": 190,
+          "w": 450,
+          "h": 128,
+          "titre": "food",
+          "sous": "ingrédients, recettes, planning, courses, stock",
+          "tickets": [
+            "CUISINE-1",
+            "CUISINE-5",
+            "CUISINE-7",
+            "CUISINE-8",
+            "CUISINE-9",
+            "CUISINE-16"
+          ],
+          "adr": [],
+          "colonnes": 2,
+          "items": [
+            {
+              "texte": "résolveur d'ingrédients",
+              "ticket": "CUISINE-3"
             },
             {
-              "id": "stockage",
-              "titre": "StockageObjet",
-              "sous": "S3 ou disque",
-              "desc": "",
-              "tickets": [
-                "PORTFOLIO-4"
-              ],
-              "adr": []
+              "texte": "convertisseur d'unités",
+              "ticket": "CUISINE-2"
+            },
+            {
+              "texte": "consolidateur",
+              "ticket": "CUISINE-9"
+            },
+            {
+              "texte": "recaleur de stock",
+              "ticket": "CUISINE-8"
+            },
+            {
+              "texte": "machine à Tours",
+              "ticket": "CUISINE-15"
+            },
+            {
+              "texte": "contrôle des allergies",
+              "ticket": "CUISINE-16"
+            }
+          ],
+          "desc": "Module unique de la Cuisine, dans l'Espace foyer. Ses modules profonds sont purs et testés seuls ; le contrôle des allergies, hors du modèle, est le seul risque de santé du produit."
+        },
+        {
+          "id": "household",
+          "zone": "modules",
+          "x": 320,
+          "y": 330,
+          "w": 215,
+          "h": 56,
+          "titre": "household",
+          "sous": "Foyer, Préférences",
+          "tickets": [
+            "FOYER-1",
+            "FOYER-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "training",
+          "zone": "modules",
+          "x": 555,
+          "y": 330,
+          "w": 215,
+          "h": 56,
+          "titre": "training",
+          "sous": "Séances, Objectifs",
+          "tickets": [
+            "SPORT-1",
+            "SPORT-2"
+          ],
+          "adr": [
+            "0022"
+          ],
+          "desc": "Espace personnel."
+        },
+        {
+          "id": "dashboardapi",
+          "zone": "modules",
+          "x": 790,
+          "y": 190,
+          "w": 200,
+          "h": 88,
+          "titre": "dashboard",
+          "sous": "résumés",
+          "tickets": [
+            "DASH-1"
+          ],
+          "adr": [
+            "0017"
+          ],
+          "items": [
+            {
+              "texte": "calculateur d'À faire",
+              "ticket": "DASH-1"
             }
           ]
+        },
+        {
+          "id": "cmd",
+          "zone": "modules",
+          "x": 1000,
+          "y": 190,
+          "w": 200,
+          "h": 108,
+          "titre": "command-bar",
+          "sous": "prépare, n'exécute pas",
+          "tickets": [
+            "CMD-1",
+            "CMD-2"
+          ],
+          "adr": [
+            "0018"
+          ],
+          "items": [
+            {
+              "texte": "catalogue des actions",
+              "ticket": "CMD-1"
+            },
+            {
+              "texte": "résolveur d'intention",
+              "ticket": "CMD-2"
+            }
+          ],
+          "desc": "Transforme une phrase en URL préremplie ; l'utilisateur valide toujours l'action."
+        },
+        {
+          "id": "projects",
+          "zone": "modules",
+          "x": 790,
+          "y": 330,
+          "w": 200,
+          "h": 56,
+          "titre": "projects",
+          "sous": "Projets, Présentations",
+          "tickets": [
+            "PORTFOLIO-1",
+            "PORTFOLIO-2"
+          ],
+          "adr": [],
+          "desc": "Espace personnel."
+        },
+        {
+          "id": "public",
+          "zone": "modules",
+          "x": 1000,
+          "y": 330,
+          "w": 200,
+          "h": 56,
+          "titre": "portfolio public",
+          "sous": "routes @Public()",
+          "tickets": [
+            "PORTFOLIO-5"
+          ],
+          "adr": [
+            "0019"
+          ],
+          "desc": "Ne lit que le publié."
+        },
+        {
+          "id": "agendaport",
+          "zone": "ports",
+          "x": 40,
+          "y": 470,
+          "w": 270,
+          "h": 56,
+          "titre": "AgendaContributor",
+          "sous": "calendar, food, training → agenda",
+          "tickets": [],
+          "adr": [
+            "0011"
+          ],
+          "etat": "en-place"
+        },
+        {
+          "id": "resumeur",
+          "zone": "ports",
+          "x": 330,
+          "y": 470,
+          "w": 270,
+          "h": 56,
+          "titre": "ResumeurDeModule",
+          "sous": "chaque module → dashboard",
+          "tickets": [
+            "DASH-1"
+          ],
+          "adr": []
+        },
+        {
+          "id": "ia",
+          "zone": "ports",
+          "x": 620,
+          "y": 470,
+          "w": 270,
+          "h": 56,
+          "titre": "GenerateurIA",
+          "sous": "food, command-bar → API Claude",
+          "tickets": [
+            "CUISINE-14"
+          ],
+          "adr": [],
+          "desc": "Adaptateur Claude en production, double de test ailleurs ; plafond de coût mensuel."
+        },
+        {
+          "id": "stockage",
+          "zone": "ports",
+          "x": 910,
+          "y": 470,
+          "w": 290,
+          "h": 56,
+          "titre": "StockageObjet",
+          "sous": "projects → S3 ou disque",
+          "tickets": [
+            "PORTFOLIO-4"
+          ],
+          "adr": []
         }
       ],
       "liens": [
         {
-          "de": "calendar",
-          "vers": "agendaport",
-          "label": "contribue"
+          "de": "session",
+          "vers": "contrats",
+          "points": [
+            [
+              260,
+              80
+            ],
+            [
+              290,
+              80
+            ]
+          ]
         },
         {
-          "de": "food",
-          "vers": "agendaport",
-          "label": "contribue"
-        },
-        {
-          "de": "training",
-          "vers": "agendaport",
-          "label": "contribue"
+          "de": "contrats",
+          "vers": "garde",
+          "points": [
+            [
+              550,
+              80
+            ],
+            [
+              580,
+              80
+            ]
+          ]
         },
         {
           "de": "agenda",
           "vers": "agendaport",
+          "points": [
+            [
+              170,
+              386
+            ],
+            [
+              170,
+              470
+            ]
+          ],
           "label": "lit"
-        },
-        {
-          "de": "dashboardapi",
-          "vers": "resumeur",
-          "label": "lit"
-        },
-        {
-          "de": "food",
-          "vers": "ia",
-          "label": ""
-        },
-        {
-          "de": "cmd",
-          "vers": "ia",
-          "label": ""
-        },
-        {
-          "de": "food",
-          "vers": "consolidateur",
-          "label": ""
-        },
-        {
-          "de": "food",
-          "vers": "controle",
-          "label": ""
-        },
-        {
-          "de": "cmd",
-          "vers": "catalogue",
-          "label": ""
         }
       ]
     },
     {
       "id": "dashboard",
       "titre": "Tableau de bord",
-      "description": "Coque, design system et écrans, tous préremplissables par URL.",
+      "largeur": 1240,
+      "hauteur": 500,
+      "selection": "e-agenda",
+      "description": "Le design system DCCM, les écrans des modules, préremplissables par URL, et le transport vers l'API.",
       "zones": [
         {
           "id": "ds",
+          "x": 20,
+          "y": 20,
+          "w": 1200,
+          "h": 110,
+          "couleur": "c5",
           "titre": "Design system",
-          "noeuds": [
-            {
-              "id": "primitives",
-              "titre": "Primitives DCCM",
-              "sous": "Surface, StatusBadge, MetricCard…",
-              "desc": "",
-              "tickets": [
-                "UI-1"
-              ],
-              "adr": [
-                "0029"
-              ]
-            },
-            {
-              "id": "coque",
-              "titre": "Coque",
-              "sous": "navigation, Espaces",
-              "desc": "",
-              "tickets": [
-                "UI-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "motifs",
-              "titre": "Motifs d'écran",
-              "sous": "formulaire, confirmation, états",
-              "desc": "",
-              "tickets": [
-                "UI-3"
-              ],
-              "adr": []
-            },
-            {
-              "id": "barre",
-              "titre": "Barre de commande",
-              "sous": "Ctrl+K",
-              "desc": "",
-              "tickets": [
-                "CMD-3"
-              ],
-              "adr": [
-                "0018"
-              ]
-            }
-          ]
+          "sous": "DCCM"
         },
         {
           "id": "ecrans",
+          "x": 20,
+          "y": 150,
+          "w": 1200,
+          "h": 200,
+          "couleur": "c3",
           "titre": "Écrans",
-          "noeuds": [
-            {
-              "id": "accueil",
-              "titre": "Accueil",
-              "sous": "/",
-              "desc": "",
-              "tickets": [
-                "DASH-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "e-agenda",
-              "titre": "Agenda et Calendrier",
-              "sous": "/agenda, /calendrier",
-              "desc": "",
-              "tickets": [
-                "SOCLE-4",
-                "UI-4",
-                "AGENDA-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "e-repas",
-              "titre": "Repas",
-              "sous": "/repas/…",
-              "desc": "Ingrédients, recettes, planning, génération, stock.",
-              "tickets": [
-                "CUISINE-1",
-                "CUISINE-6",
-                "CUISINE-7",
-                "CUISINE-8",
-                "CUISINE-17"
-              ],
-              "adr": []
-            },
-            {
-              "id": "e-courses",
-              "titre": "Courses",
-              "sous": "/courses",
-              "desc": "",
-              "tickets": [
-                "CUISINE-9",
-                "CUISINE-10",
-                "CUISINE-13"
-              ],
-              "adr": []
-            },
-            {
-              "id": "e-foyer",
-              "titre": "Préférences",
-              "sous": "/foyer/preferences",
-              "desc": "",
-              "tickets": [
-                "FOYER-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "e-sport",
-              "titre": "Sport",
-              "sous": "/sport",
-              "desc": "",
-              "tickets": [
-                "SPORT-1",
-                "SPORT-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "e-projets",
-              "titre": "Projets et portfolio",
-              "sous": "/projets, /portfolio/…",
-              "desc": "",
-              "tickets": [
-                "PORTFOLIO-1",
-                "PORTFOLIO-2",
-                "PORTFOLIO-3",
-                "PORTFOLIO-4"
-              ],
-              "adr": []
-            },
-            {
-              "id": "e-trace",
-              "titre": "Fil traceur",
-              "sous": "/fil-traceur",
-              "desc": "",
-              "tickets": [
-                "SOCLE-7"
-              ],
-              "adr": [],
-              "etat": "retire"
-            }
-          ]
+          "sous": "URLs en français"
         },
         {
           "id": "transport",
-          "titre": "Transport",
-          "noeuds": [
-            {
-              "id": "services",
-              "titre": "Services par ressource",
-              "sous": "httpResource",
-              "desc": "",
-              "tickets": [
-                "SOCLE-4"
-              ],
-              "adr": [
-                "0030"
-              ]
-            },
-            {
-              "id": "intercepteurs",
-              "titre": "Intercepteurs",
-              "sous": "session, erreurs de l'API",
-              "desc": "",
-              "tickets": [
-                "SOCLE-4"
-              ],
-              "adr": []
-            }
+          "x": 20,
+          "y": 370,
+          "w": 1200,
+          "h": 110,
+          "couleur": "c1",
+          "titre": "Transport"
+        }
+      ],
+      "noeuds": [
+        {
+          "id": "primitives",
+          "zone": "ds",
+          "x": 40,
+          "y": 52,
+          "w": 300,
+          "h": 56,
+          "titre": "Primitives DCCM",
+          "sous": "Surface, StatusBadge, MetricCard…",
+          "tickets": [
+            "UI-1"
+          ],
+          "adr": [
+            "0029"
+          ],
+          "desc": "Extraites de la maquette DCCM, avec Storybook."
+        },
+        {
+          "id": "motifs",
+          "zone": "ds",
+          "x": 370,
+          "y": 52,
+          "w": 300,
+          "h": 56,
+          "titre": "Motifs d'écran",
+          "sous": "formulaire, confirmation, états",
+          "tickets": [
+            "UI-3"
+          ],
+          "adr": []
+        },
+        {
+          "id": "coque",
+          "zone": "ds",
+          "x": 700,
+          "y": 52,
+          "w": 230,
+          "h": 56,
+          "titre": "Coque",
+          "sous": "navigation, Espaces",
+          "tickets": [
+            "UI-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "barre",
+          "zone": "ds",
+          "x": 970,
+          "y": 52,
+          "w": 230,
+          "h": 56,
+          "titre": "Barre de commande",
+          "sous": "Ctrl+K",
+          "tickets": [
+            "CMD-3"
+          ],
+          "adr": [
+            "0018"
           ]
+        },
+        {
+          "id": "accueil",
+          "zone": "ecrans",
+          "x": 40,
+          "y": 190,
+          "w": 270,
+          "h": 56,
+          "titre": "Accueil",
+          "sous": "/",
+          "tickets": [
+            "DASH-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "e-agenda",
+          "zone": "ecrans",
+          "x": 330,
+          "y": 190,
+          "w": 270,
+          "h": 56,
+          "titre": "Agenda et Calendrier",
+          "sous": "/agenda, /calendrier",
+          "tickets": [
+            "UI-4",
+            "AGENDA-2"
+          ],
+          "adr": [],
+          "etat": "en-place"
+        },
+        {
+          "id": "e-repas",
+          "zone": "ecrans",
+          "x": 620,
+          "y": 190,
+          "w": 270,
+          "h": 56,
+          "titre": "Repas",
+          "sous": "/repas/…",
+          "tickets": [
+            "CUISINE-1",
+            "CUISINE-6",
+            "CUISINE-7",
+            "CUISINE-8",
+            "CUISINE-17"
+          ],
+          "adr": [],
+          "desc": "Ingrédients, recettes, planning, génération, stock."
+        },
+        {
+          "id": "e-courses",
+          "zone": "ecrans",
+          "x": 910,
+          "y": 190,
+          "w": 290,
+          "h": 56,
+          "titre": "Courses",
+          "sous": "/courses",
+          "tickets": [
+            "CUISINE-9",
+            "CUISINE-10",
+            "CUISINE-13"
+          ],
+          "adr": []
+        },
+        {
+          "id": "e-foyer",
+          "zone": "ecrans",
+          "x": 40,
+          "y": 270,
+          "w": 270,
+          "h": 56,
+          "titre": "Préférences",
+          "sous": "/foyer/preferences",
+          "tickets": [
+            "FOYER-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "e-sport",
+          "zone": "ecrans",
+          "x": 330,
+          "y": 270,
+          "w": 270,
+          "h": 56,
+          "titre": "Sport",
+          "sous": "/sport",
+          "tickets": [
+            "SPORT-1",
+            "SPORT-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "e-projets",
+          "zone": "ecrans",
+          "x": 620,
+          "y": 270,
+          "w": 270,
+          "h": 56,
+          "titre": "Projets et portfolio",
+          "sous": "/projets, /portfolio/…",
+          "tickets": [
+            "PORTFOLIO-1",
+            "PORTFOLIO-2",
+            "PORTFOLIO-3",
+            "PORTFOLIO-4"
+          ],
+          "adr": []
+        },
+        {
+          "id": "e-trace",
+          "zone": "ecrans",
+          "x": 910,
+          "y": 270,
+          "w": 290,
+          "h": 56,
+          "titre": "Fil traceur",
+          "sous": "/fil-traceur",
+          "tickets": [
+            "SOCLE-7"
+          ],
+          "adr": [],
+          "etat": "retire"
+        },
+        {
+          "id": "services",
+          "zone": "transport",
+          "x": 40,
+          "y": 402,
+          "w": 340,
+          "h": 56,
+          "titre": "Services par ressource",
+          "sous": "httpResource, contrats partagés",
+          "tickets": [
+            "SOCLE-4"
+          ],
+          "adr": [
+            "0030"
+          ],
+          "etat": "en-place"
+        },
+        {
+          "id": "intercepteurs",
+          "zone": "transport",
+          "x": 420,
+          "y": 402,
+          "w": 340,
+          "h": 56,
+          "titre": "Intercepteurs",
+          "sous": "session, erreurs typées de l'API",
+          "tickets": [
+            "SOCLE-4"
+          ],
+          "adr": [],
+          "etat": "en-place"
+        },
+        {
+          "id": "versapi",
+          "zone": "transport",
+          "x": 800,
+          "y": 402,
+          "w": 400,
+          "h": 56,
+          "titre": "API NestJS",
+          "sous": "/api, même origine",
+          "tickets": [],
+          "adr": [],
+          "etat": "en-place"
         }
       ],
       "liens": [
         {
           "de": "coque",
           "vers": "barre",
-          "label": ""
-        },
-        {
-          "de": "accueil",
-          "vers": "services",
-          "label": ""
-        },
-        {
-          "de": "e-repas",
-          "vers": "motifs",
-          "label": ""
+          "points": [
+            [
+              930,
+              80
+            ],
+            [
+              970,
+              80
+            ]
+          ]
         },
         {
           "de": "services",
           "vers": "intercepteurs",
-          "label": ""
+          "points": [
+            [
+              380,
+              430
+            ],
+            [
+              420,
+              430
+            ]
+          ]
+        },
+        {
+          "de": "intercepteurs",
+          "vers": "versapi",
+          "points": [
+            [
+              760,
+              430
+            ],
+            [
+              800,
+              430
+            ]
+          ],
+          "label": "HTTP"
         }
       ]
     },
     {
       "id": "portfolio",
       "titre": "Portfolio",
-      "description": "Rédigé, pas généré ; ne lit que le publié.",
+      "largeur": 1240,
+      "hauteur": 300,
+      "selection": "routes",
+      "description": "Le contenu rédigé dans le tableau de bord, publié par des routes publiques dédiées.",
       "zones": [
         {
           "id": "contenus",
+          "x": 20,
+          "y": 20,
+          "w": 560,
+          "h": 260,
+          "couleur": "c3",
           "titre": "Contenus",
-          "noeuds": [
-            {
-              "id": "pages",
-              "titre": "Pages de contenu",
-              "sous": "about, experience, skills",
-              "desc": "",
-              "tickets": [
-                "PORTFOLIO-3"
-              ],
-              "adr": [
-                "0019"
-              ]
-            },
-            {
-              "id": "presentations",
-              "titre": "Présentations publiques",
-              "sous": "par langue, état de publication",
-              "desc": "",
-              "tickets": [
-                "PORTFOLIO-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "cv",
-              "titre": "CV",
-              "sous": "PDF par langue",
-              "desc": "",
-              "tickets": [
-                "PORTFOLIO-4"
-              ],
-              "adr": []
-            }
-          ]
+          "sous": "rédigés dans le tableau de bord"
         },
         {
           "id": "service",
+          "x": 620,
+          "y": 20,
+          "w": 600,
+          "h": 260,
+          "couleur": "c2",
           "titre": "Service public",
-          "noeuds": [
-            {
-              "id": "routes",
-              "titre": "Routes /public",
-              "sous": "schémas de sortie dédiés",
-              "desc": "",
-              "tickets": [
-                "PORTFOLIO-5"
-              ],
-              "adr": []
-            },
-            {
-              "id": "site",
-              "titre": "Site FR / EN",
-              "sous": "Accept-Language, sélecteur",
-              "desc": "",
-              "tickets": [
-                "PORTFOLIO-5",
-                "PORTFOLIO-6"
-              ],
-              "adr": []
-            }
+          "sous": "sans session"
+        }
+      ],
+      "noeuds": [
+        {
+          "id": "pages",
+          "zone": "contenus",
+          "x": 40,
+          "y": 56,
+          "w": 300,
+          "h": 56,
+          "titre": "Pages de contenu",
+          "sous": "about, experience, skills",
+          "tickets": [
+            "PORTFOLIO-3"
+          ],
+          "adr": [
+            "0019"
           ]
+        },
+        {
+          "id": "presentations",
+          "zone": "contenus",
+          "x": 40,
+          "y": 128,
+          "w": 300,
+          "h": 56,
+          "titre": "Présentations publiques",
+          "sous": "par langue, état de publication",
+          "tickets": [
+            "PORTFOLIO-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "cv",
+          "zone": "contenus",
+          "x": 40,
+          "y": 200,
+          "w": 300,
+          "h": 56,
+          "titre": "CV",
+          "sous": "PDF par langue",
+          "tickets": [
+            "PORTFOLIO-4"
+          ],
+          "adr": []
+        },
+        {
+          "id": "routes",
+          "zone": "service",
+          "x": 660,
+          "y": 128,
+          "w": 250,
+          "h": 56,
+          "titre": "Routes /public",
+          "sous": "schémas de sortie dédiés",
+          "tickets": [
+            "PORTFOLIO-5"
+          ],
+          "adr": []
+        },
+        {
+          "id": "site",
+          "zone": "service",
+          "x": 950,
+          "y": 128,
+          "w": 250,
+          "h": 56,
+          "titre": "Site FR / EN",
+          "sous": "Accept-Language, sélecteur",
+          "tickets": [
+            "PORTFOLIO-5",
+            "PORTFOLIO-6"
+          ],
+          "adr": []
+        },
+        {
+          "id": "pf-s3",
+          "zone": "service",
+          "x": 660,
+          "y": 200,
+          "w": 250,
+          "h": 56,
+          "titre": "OVH Object Storage",
+          "sous": "fichiers des CV",
+          "tickets": [
+            "PORTFOLIO-4"
+          ],
+          "adr": []
         }
       ],
       "liens": [
         {
           "de": "pages",
           "vers": "routes",
-          "label": ""
+          "points": [
+            [
+              340,
+              84
+            ],
+            [
+              610,
+              84
+            ],
+            [
+              610,
+              146
+            ],
+            [
+              660,
+              146
+            ]
+          ]
         },
         {
           "de": "presentations",
           "vers": "routes",
-          "label": "publié"
+          "points": [
+            [
+              340,
+              156
+            ],
+            [
+              660,
+              156
+            ]
+          ],
+          "label": "publiées"
         },
         {
           "de": "cv",
-          "vers": "routes",
-          "label": ""
+          "vers": "pf-s3",
+          "points": [
+            [
+              340,
+              228
+            ],
+            [
+              660,
+              228
+            ]
+          ]
         },
         {
           "de": "routes",
           "vers": "site",
-          "label": ""
+          "points": [
+            [
+              910,
+              156
+            ],
+            [
+              950,
+              156
+            ]
+          ]
         }
       ]
     },
     {
       "id": "donnees",
       "titre": "Données",
-      "description": "Chaque table porte un Espace, sauf les catalogues globaux.",
+      "largeur": 1240,
+      "hauteur": 500,
+      "selection": "t-planning",
+      "description": "Chaque table porte un Espace (scopeId), sauf les catalogues globaux. La garde filtre tout le reste.",
       "zones": [
         {
           "id": "hors",
+          "x": 20,
+          "y": 20,
+          "w": 590,
+          "h": 252,
+          "couleur": "c4",
           "titre": "Hors Espace",
-          "noeuds": [
-            {
-              "id": "t-comptes",
-              "titre": "User, Household, Scope, Session",
-              "sous": "",
-              "desc": "",
-              "tickets": [],
-              "adr": [
-                "0014",
-                "0026"
-              ]
-            },
-            {
-              "id": "t-catalogue",
-              "titre": "Ingredient, IngredientAlias, Product",
-              "sous": "catalogue global",
-              "desc": "",
-              "tickets": [
-                "CUISINE-1",
-                "CUISINE-3",
-                "CUISINE-12"
-              ],
-              "adr": []
-            },
-            {
-              "id": "t-pages",
-              "titre": "PageContent",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "PORTFOLIO-3"
-              ],
-              "adr": []
-            },
-            {
-              "id": "t-backup",
-              "titre": "BackupStatus",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "DASH-3"
-              ],
-              "adr": []
-            }
-          ]
+          "sous": "global"
         },
         {
           "id": "foyer",
+          "x": 630,
+          "y": 20,
+          "w": 590,
+          "h": 252,
+          "couleur": "c3",
           "titre": "Espace foyer",
-          "noeuds": [
-            {
-              "id": "t-recettes",
-              "titre": "Recipe, RecipeLine",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "CUISINE-5"
-              ],
-              "adr": []
-            },
-            {
-              "id": "t-planning",
-              "titre": "MealPlan, MealPlanEntry, GenerationRound, MealWish",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "CUISINE-7",
-                "CUISINE-15",
-                "CUISINE-18"
-              ],
-              "adr": []
-            },
-            {
-              "id": "t-stock",
-              "titre": "PantryItem, CookedMeal",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "CUISINE-8",
-                "CUISINE-11"
-              ],
-              "adr": []
-            },
-            {
-              "id": "t-courses",
-              "titre": "ShoppingList, ShoppingListItem",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "CUISINE-9"
-              ],
-              "adr": []
-            },
-            {
-              "id": "t-prefs",
-              "titre": "FoodPreference",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "FOYER-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "t-ia",
-              "titre": "AiTrace",
-              "sous": "journal",
-              "desc": "",
-              "tickets": [
-                "CUISINE-14"
-              ],
-              "adr": []
-            }
-          ]
+          "sous": "scopeId du Foyer"
         },
         {
           "id": "perso",
+          "x": 20,
+          "y": 292,
+          "w": 590,
+          "h": 188,
+          "couleur": "c5",
           "titre": "Espace personnel",
-          "noeuds": [
-            {
-              "id": "t-sport",
-              "titre": "TrainingSession, TrainingGoal",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "SPORT-1",
-                "SPORT-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "t-projets",
-              "titre": "Project, ProjectExpense, PublicPresentation",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "PORTFOLIO-1",
-                "PORTFOLIO-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "t-cmd",
-              "titre": "UnresolvedCommand",
-              "sous": "journal",
-              "desc": "",
-              "tickets": [
-                "CMD-2"
-              ],
-              "adr": []
-            }
-          ]
+          "sous": "scopeId du Compte"
         },
         {
           "id": "deux",
+          "x": 630,
+          "y": 292,
+          "w": 590,
+          "h": 188,
+          "couleur": "c1",
           "titre": "Les deux Espaces",
-          "noeuds": [
-            {
-              "id": "t-event",
-              "titre": "Event, EventException",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "AGENDA-1"
-              ],
-              "adr": []
-            },
-            {
-              "id": "t-trace",
-              "titre": "Trace",
-              "sous": "entité jouet",
-              "desc": "",
-              "tickets": [
-                "SOCLE-7"
-              ],
-              "adr": [],
-              "etat": "retire"
-            }
-          ]
+          "sous": "selon l'Espace choisi"
+        }
+      ],
+      "noeuds": [
+        {
+          "id": "t-comptes",
+          "zone": "hors",
+          "x": 40,
+          "y": 56,
+          "w": 270,
+          "h": 56,
+          "titre": "Comptes et Espaces",
+          "sous": "User, Household, Scope, Session",
+          "tickets": [],
+          "adr": [
+            "0014",
+            "0026"
+          ],
+          "etat": "en-place"
+        },
+        {
+          "id": "t-catalogue",
+          "zone": "hors",
+          "x": 330,
+          "y": 56,
+          "w": 260,
+          "h": 56,
+          "titre": "Catalogue d'ingrédients",
+          "sous": "Ingredient, IngredientAlias, Product",
+          "tickets": [
+            "CUISINE-1",
+            "CUISINE-3",
+            "CUISINE-12"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-pages",
+          "zone": "hors",
+          "x": 40,
+          "y": 128,
+          "w": 270,
+          "h": 56,
+          "titre": "Pages du portfolio",
+          "sous": "PageContent",
+          "tickets": [
+            "PORTFOLIO-3"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-backup",
+          "zone": "hors",
+          "x": 330,
+          "y": 128,
+          "w": 260,
+          "h": 56,
+          "titre": "État des sauvegardes",
+          "sous": "BackupStatus",
+          "tickets": [
+            "DASH-3"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-recettes",
+          "zone": "foyer",
+          "x": 650,
+          "y": 56,
+          "w": 270,
+          "h": 56,
+          "titre": "Recettes",
+          "sous": "Recipe, RecipeLine",
+          "tickets": [
+            "CUISINE-5"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-planning",
+          "zone": "foyer",
+          "x": 940,
+          "y": 56,
+          "w": 260,
+          "h": 56,
+          "titre": "Planning des repas",
+          "sous": "MealPlan(Entry), Round, MealWish",
+          "tickets": [
+            "CUISINE-7",
+            "CUISINE-15",
+            "CUISINE-18"
+          ],
+          "adr": [],
+          "desc": "MealPlan, MealPlanEntry, GenerationRound, MealWish."
+        },
+        {
+          "id": "t-stock",
+          "zone": "foyer",
+          "x": 650,
+          "y": 128,
+          "w": 270,
+          "h": 56,
+          "titre": "Stock",
+          "sous": "PantryItem, CookedMeal",
+          "tickets": [
+            "CUISINE-8",
+            "CUISINE-11"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-courses",
+          "zone": "foyer",
+          "x": 940,
+          "y": 128,
+          "w": 260,
+          "h": 56,
+          "titre": "Courses",
+          "sous": "ShoppingList, ShoppingListItem",
+          "tickets": [
+            "CUISINE-9"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-prefs",
+          "zone": "foyer",
+          "x": 650,
+          "y": 200,
+          "w": 270,
+          "h": 56,
+          "titre": "Préférences",
+          "sous": "FoodPreference",
+          "tickets": [
+            "FOYER-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-ia",
+          "zone": "foyer",
+          "x": 940,
+          "y": 200,
+          "w": 260,
+          "h": 56,
+          "titre": "Journal IA",
+          "sous": "AiTrace",
+          "tickets": [
+            "CUISINE-14"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-sport",
+          "zone": "perso",
+          "x": 40,
+          "y": 328,
+          "w": 270,
+          "h": 56,
+          "titre": "Sport",
+          "sous": "TrainingSession, TrainingGoal",
+          "tickets": [
+            "SPORT-1",
+            "SPORT-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-cmd",
+          "zone": "perso",
+          "x": 330,
+          "y": 328,
+          "w": 260,
+          "h": 56,
+          "titre": "Commandes non résolues",
+          "sous": "UnresolvedCommand",
+          "tickets": [
+            "CMD-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-projets",
+          "zone": "perso",
+          "x": 40,
+          "y": 400,
+          "w": 550,
+          "h": 56,
+          "titre": "Projets",
+          "sous": "Project, ProjectExpense, PublicPresentation",
+          "tickets": [
+            "PORTFOLIO-1",
+            "PORTFOLIO-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "t-event",
+          "zone": "deux",
+          "x": 650,
+          "y": 328,
+          "w": 270,
+          "h": 56,
+          "titre": "Événements",
+          "sous": "Event, EventException",
+          "tickets": [
+            "AGENDA-1"
+          ],
+          "adr": [],
+          "etat": "en-place"
+        },
+        {
+          "id": "t-trace",
+          "zone": "deux",
+          "x": 940,
+          "y": 328,
+          "w": 260,
+          "h": 56,
+          "titre": "Trace",
+          "sous": "entité jouet",
+          "tickets": [
+            "SOCLE-7"
+          ],
+          "adr": [],
+          "etat": "retire"
         }
       ],
       "liens": []
@@ -1212,299 +2148,627 @@
     {
       "id": "infra",
       "titre": "Infra",
-      "description": "Une machine, deux environnements, des sauvegardes ailleurs.",
+      "largeur": 1240,
+      "hauteur": 360,
+      "selection": "deploy",
+      "description": "Une machine décrite en code, deux environnements sur le même VPS, des sauvegardes ailleurs.",
       "zones": [
         {
           "id": "machine",
-          "titre": "Machine",
-          "noeuds": [
-            {
-              "id": "provision",
-              "titre": "Provisionnement",
-              "sous": "idempotent, testé",
-              "desc": "",
-              "tickets": [
-                "INFRA-11"
-              ],
-              "adr": []
-            },
-            {
-              "id": "i-edge",
-              "titre": "Proxy de tête",
-              "sous": "",
-              "desc": "",
-              "tickets": [],
-              "adr": [
-                "0025"
-              ]
-            }
-          ]
+          "x": 20,
+          "y": 20,
+          "w": 380,
+          "h": 320,
+          "couleur": "c1",
+          "titre": "Machine"
         },
         {
           "id": "envs",
-          "titre": "Environnements",
-          "noeuds": [
+          "x": 420,
+          "y": 20,
+          "w": 420,
+          "h": 320,
+          "couleur": "c3",
+          "titre": "Environnements"
+        },
+        {
+          "id": "exploitation",
+          "x": 860,
+          "y": 20,
+          "w": 360,
+          "h": 320,
+          "couleur": "c4",
+          "titre": "Exploitation"
+        }
+      ],
+      "noeuds": [
+        {
+          "id": "provision",
+          "zone": "machine",
+          "x": 40,
+          "y": 56,
+          "w": 340,
+          "h": 56,
+          "titre": "provision.sh",
+          "sous": "SSH, pare-feu, mises à jour, Docker",
+          "tickets": [
+            "INFRA-11"
+          ],
+          "adr": [],
+          "desc": "Idempotent et testé : changer de machine revient à relancer le script, redéployer et basculer le DNS."
+        },
+        {
+          "id": "i-edge",
+          "zone": "machine",
+          "x": 40,
+          "y": 128,
+          "w": 340,
+          "h": 56,
+          "titre": "Proxy de tête",
+          "sous": "Caddy, TLS par DNS OVH",
+          "tickets": [],
+          "adr": [
+            "0025"
+          ],
+          "etat": "en-place"
+        },
+        {
+          "id": "prod",
+          "zone": "envs",
+          "x": 440,
+          "y": 56,
+          "w": 380,
+          "h": 56,
+          "titre": "Production",
+          "sous": "suit main",
+          "tickets": [],
+          "adr": [
+            "0024"
+          ],
+          "etat": "en-place"
+        },
+        {
+          "id": "i-staging",
+          "zone": "envs",
+          "x": 440,
+          "y": 128,
+          "w": 380,
+          "h": 56,
+          "titre": "Staging",
+          "sous": "suit develop, plafonné, derrière Authentik",
+          "tickets": [
+            "INFRA-7",
+            "INFRA-9"
+          ],
+          "adr": [
+            "0031"
+          ]
+        },
+        {
+          "id": "demo",
+          "zone": "envs",
+          "x": 440,
+          "y": 214,
+          "w": 380,
+          "h": 56,
+          "titre": "Jeu de démo",
+          "sous": "trois Espaces, réinitialisé à chaque déploiement",
+          "tickets": [
+            "INFRA-6"
+          ],
+          "adr": []
+        },
+        {
+          "id": "deploy",
+          "zone": "exploitation",
+          "x": 880,
+          "y": 56,
+          "w": 320,
+          "h": 88,
+          "titre": "Agent de déploiement",
+          "sous": "répétition, migration, santé, retour",
+          "tickets": [],
+          "adr": [
+            "0023",
+            "0032"
+          ],
+          "etat": "en-place",
+          "items": [
             {
-              "id": "prod",
-              "titre": "Production",
-              "sous": "main",
-              "desc": "",
-              "tickets": [],
-              "adr": [
-                "0024"
-              ]
-            },
-            {
-              "id": "i-staging",
-              "titre": "Staging",
-              "sous": "develop, démo",
-              "desc": "",
-              "tickets": [
-                "INFRA-7",
-                "INFRA-9"
-              ],
-              "adr": [
-                "0031"
-              ]
-            },
-            {
-              "id": "demo",
-              "titre": "Jeu de démo",
-              "sous": "trois Espaces",
-              "desc": "",
-              "tickets": [
-                "INFRA-6"
-              ],
-              "adr": []
+              "texte": "lancé par une clé SSH bridée",
+              "ticket": "INFRA-8"
             }
           ]
         },
         {
-          "id": "exploitation",
-          "titre": "Exploitation",
-          "noeuds": [
+          "id": "restic",
+          "zone": "exploitation",
+          "x": 880,
+          "y": 160,
+          "w": 320,
+          "h": 56,
+          "titre": "Sauvegardes Restic",
+          "sous": "chiffrées, hors d'OVH",
+          "tickets": [],
+          "adr": [
+            "0020"
+          ],
+          "etat": "en-place"
+        },
+        {
+          "id": "alertes",
+          "zone": "exploitation",
+          "x": 880,
+          "y": 232,
+          "w": 320,
+          "h": 88,
+          "titre": "Alertes",
+          "sous": "par courriel",
+          "tickets": [],
+          "adr": [],
+          "etat": "en-place",
+          "items": [
             {
-              "id": "i-deploy",
-              "titre": "Déploiement poussé",
-              "sous": "clé bridée, flock",
-              "desc": "",
-              "tickets": [
-                "INFRA-8"
-              ],
-              "adr": [
-                "0032"
-              ]
+              "texte": "échec de déploiement",
+              "etat": "en-place"
             },
             {
-              "id": "i-restic",
-              "titre": "Sauvegardes",
-              "sous": "Restic",
-              "desc": "",
-              "tickets": [
-                "INFRA-13"
-              ],
-              "adr": [
-                "0020"
-              ]
-            },
-            {
-              "id": "i-alerte",
-              "titre": "Alertes",
-              "sous": "courriel d'échec",
-              "desc": "",
-              "tickets": [
-                "INFRA-13"
-              ],
-              "adr": []
+              "texte": "sauvegarde manquante",
+              "ticket": "INFRA-13"
             }
           ]
         }
       ],
       "liens": [
         {
+          "de": "i-edge",
+          "vers": "prod",
+          "points": [
+            [
+              380,
+              156
+            ],
+            [
+              410,
+              156
+            ],
+            [
+              410,
+              84
+            ],
+            [
+              440,
+              84
+            ]
+          ]
+        },
+        {
+          "de": "i-edge",
+          "vers": "i-staging",
+          "points": [
+            [
+              380,
+              162
+            ],
+            [
+              440,
+              162
+            ]
+          ],
+          "label": "staging"
+        },
+        {
           "de": "demo",
           "vers": "i-staging",
-          "label": "réinitialise"
+          "points": [
+            [
+              630,
+              214
+            ],
+            [
+              630,
+              184
+            ]
+          ],
+          "label": "réinitialise",
+          "labelPos": [700, 199]
         },
         {
-          "de": "i-deploy",
+          "de": "deploy",
           "vers": "prod",
-          "label": ""
+          "points": [
+            [
+              880,
+              84
+            ],
+            [
+              820,
+              84
+            ]
+          ]
         },
         {
-          "de": "i-deploy",
+          "de": "deploy",
           "vers": "i-staging",
-          "label": ""
-        },
-        {
-          "de": "prod",
-          "vers": "i-restic",
-          "label": ""
+          "points": [
+            [
+              880,
+              120
+            ],
+            [
+              850,
+              120
+            ],
+            [
+              850,
+              156
+            ],
+            [
+              820,
+              156
+            ]
+          ],
+          "tickets": [
+            "INFRA-8"
+          ]
         }
       ]
     },
     {
       "id": "livraison",
       "titre": "Livraison",
-      "description": "Du ticket au déploiement, sans geste humain sauf la livraison sur main et la revue visuelle.",
+      "largeur": 1240,
+      "hauteur": 360,
+      "selection": "l-boucle",
+      "description": "Un ticket part de GitHub, passe par un agent et sa revue, puis develop déploie le staging et main la production.",
       "zones": [
         {
           "id": "agents",
-          "titre": "Agents",
-          "noeuds": [
-            {
-              "id": "l-boucle",
-              "titre": "agent-loop",
-              "sous": "outil partagé",
-              "desc": "",
-              "tickets": [
-                "INFRA-1"
-              ],
-              "adr": []
-            },
-            {
-              "id": "l-pick",
-              "titre": "pick-issue",
-              "sous": "skill partagé",
-              "desc": "",
-              "tickets": [
-                "INFRA-2"
-              ],
-              "adr": []
-            },
-            {
-              "id": "l-wt",
-              "titre": "worktree.sh",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "INFRA-3"
-              ],
-              "adr": []
-            },
-            {
-              "id": "l-captures",
-              "titre": "Captures",
-              "sous": "revue visuelle",
-              "desc": "",
-              "tickets": [
-                "INFRA-10"
-              ],
-              "adr": []
-            }
-          ]
+          "x": 20,
+          "y": 20,
+          "w": 380,
+          "h": 320,
+          "couleur": "c2",
+          "titre": "Agents"
         },
         {
           "id": "verif",
-          "titre": "Vérification",
-          "noeuds": [
+          "x": 420,
+          "y": 20,
+          "w": 380,
+          "h": 320,
+          "couleur": "c3",
+          "titre": "Vérification"
+        },
+        {
+          "id": "cdz",
+          "x": 820,
+          "y": 20,
+          "w": 400,
+          "h": 320,
+          "couleur": "c1",
+          "titre": "Déploiement"
+        }
+      ],
+      "noeuds": [
+        {
+          "id": "l-pick",
+          "zone": "agents",
+          "x": 40,
+          "y": 56,
+          "w": 340,
+          "h": 56,
+          "titre": "pick-issue",
+          "sous": "skill partagé : le prochain ticket",
+          "tickets": [
+            "INFRA-2"
+          ],
+          "adr": []
+        },
+        {
+          "id": "l-boucle",
+          "zone": "agents",
+          "x": 40,
+          "y": 128,
+          "w": 340,
+          "h": 56,
+          "titre": "agent-loop",
+          "sous": "Claude code, Codex relit",
+          "tickets": [
+            "INFRA-1"
+          ],
+          "adr": []
+        },
+        {
+          "id": "l-wt",
+          "zone": "agents",
+          "x": 40,
+          "y": 200,
+          "w": 340,
+          "h": 56,
+          "titre": "worktree.sh",
+          "sous": "un worktree par ticket",
+          "tickets": [
+            "INFRA-3"
+          ],
+          "adr": []
+        },
+        {
+          "id": "l-captures",
+          "zone": "agents",
+          "x": 40,
+          "y": 272,
+          "w": 340,
+          "h": 56,
+          "titre": "Captures",
+          "sous": "revue visuelle à 390 et 1280 px",
+          "tickets": [
+            "INFRA-10"
+          ],
+          "adr": []
+        },
+        {
+          "id": "l-ci",
+          "zone": "verif",
+          "x": 440,
+          "y": 56,
+          "w": 340,
+          "h": 88,
+          "titre": "CI GitHub Actions",
+          "sous": "lint, tests, intégration",
+          "tickets": [],
+          "adr": [],
+          "etat": "en-place",
+          "items": [
             {
-              "id": "l-ci",
-              "titre": "CI",
-              "sous": "affectée, nightly, minutes",
-              "desc": "",
-              "tickets": [
-                "INFRA-4"
-              ],
-              "adr": []
-            },
-            {
-              "id": "l-secrets",
-              "titre": "Scan de secrets",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "INFRA-5"
-              ],
-              "adr": []
-            },
-            {
-              "id": "l-codex",
-              "titre": "Revue Codex",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "INFRA-1"
-              ],
-              "adr": []
+              "texte": "affectée, nuit complète, minutes",
+              "ticket": "INFRA-4"
             }
           ]
         },
         {
-          "id": "cd",
-          "titre": "Déploiement",
-          "noeuds": [
+          "id": "l-secrets",
+          "zone": "verif",
+          "x": 440,
+          "y": 160,
+          "w": 340,
+          "h": 56,
+          "titre": "Scan de secrets",
+          "tickets": [
+            "INFRA-5"
+          ],
+          "adr": []
+        },
+        {
+          "id": "l-codex",
+          "zone": "verif",
+          "x": 440,
+          "y": 232,
+          "w": 340,
+          "h": 56,
+          "titre": "Revue Codex",
+          "sous": "relit chaque PR avant le merge",
+          "tickets": [
+            "INFRA-1"
+          ],
+          "adr": []
+        },
+        {
+          "id": "l-staging",
+          "zone": "cdz",
+          "x": 840,
+          "y": 56,
+          "w": 360,
+          "h": 56,
+          "titre": "develop → staging",
+          "sous": "à chaque merge",
+          "tickets": [
+            "INFRA-7",
+            "INFRA-8"
+          ],
+          "adr": []
+        },
+        {
+          "id": "l-prod",
+          "zone": "cdz",
+          "x": 840,
+          "y": 128,
+          "w": 360,
+          "h": 88,
+          "titre": "main → production",
+          "sous": "PR faite à la main",
+          "tickets": [],
+          "adr": [],
+          "etat": "en-place",
+          "items": [
             {
-              "id": "l-staging",
-              "titre": "develop → staging",
-              "sous": "",
-              "desc": "",
-              "tickets": [
-                "INFRA-8"
-              ],
-              "adr": []
-            },
-            {
-              "id": "l-prod",
-              "titre": "main → production",
-              "sous": "PR faite à la main",
-              "desc": "",
-              "tickets": [
-                "INFRA-8"
-              ],
-              "adr": []
-            },
-            {
-              "id": "l-pilotage",
-              "titre": "Pilotage",
-              "sous": "publié à chaque merge",
-              "desc": "",
-              "tickets": [
-                "INFRA-1"
-              ],
-              "adr": []
+              "texte": "poussé par SSH",
+              "ticket": "INFRA-8"
             }
           ]
+        },
+        {
+          "id": "l-pilotage",
+          "zone": "cdz",
+          "x": 840,
+          "y": 232,
+          "w": 360,
+          "h": 56,
+          "titre": "Pilotage",
+          "sous": "republié après chaque merge",
+          "tickets": [
+            "INFRA-1"
+          ],
+          "adr": [],
+          "etat": "en-place"
         }
       ],
       "liens": [
         {
           "de": "l-pick",
           "vers": "l-boucle",
-          "label": ""
+          "points": [
+            [
+              210,
+              112
+            ],
+            [
+              210,
+              128
+            ]
+          ]
         },
         {
           "de": "l-boucle",
-          "vers": "l-codex",
-          "label": ""
+          "vers": "l-wt",
+          "points": [
+            [
+              210,
+              184
+            ],
+            [
+              210,
+              200
+            ]
+          ]
         },
         {
           "de": "l-boucle",
           "vers": "l-ci",
-          "label": ""
+          "points": [
+            [
+              380,
+              146
+            ],
+            [
+              405,
+              146
+            ],
+            [
+              405,
+              100
+            ],
+            [
+              440,
+              100
+            ]
+          ],
+          "label": "PR"
+        },
+        {
+          "de": "l-boucle",
+          "vers": "l-codex",
+          "points": [
+            [
+              380,
+              166
+            ],
+            [
+              415,
+              166
+            ],
+            [
+              415,
+              260
+            ],
+            [
+              440,
+              260
+            ]
+          ]
         },
         {
           "de": "l-ci",
           "vers": "l-staging",
+          "points": [
+            [
+              780,
+              84
+            ],
+            [
+              840,
+              84
+            ]
+          ],
           "label": "merge"
         },
         {
           "de": "l-staging",
           "vers": "l-prod",
-          "label": "livraison"
-        },
-        {
-          "de": "l-boucle",
-          "vers": "l-pilotage",
-          "label": ""
+          "points": [
+            [
+              1020,
+              112
+            ],
+            [
+              1020,
+              128
+            ]
+          ]
         }
       ]
     }
   ],
-  "statuts": {
-    "en-place": "En place",
-    "partiel": "En partie",
-    "a-construire": "À construire",
-    "retire": "À retirer"
-  }
+  "bascules": [
+    {
+      "titre": "Contrats d'API",
+      "de": "Interfaces TypeScript, validation écrite à la main",
+      "vers": "Contrats zod partagés, OpenAPI généré",
+      "tickets": [
+        "SOCLE-1",
+        "SOCLE-2",
+        "SOCLE-3",
+        "SOCLE-4"
+      ]
+    },
+    {
+      "titre": "Cloisonnement",
+      "de": "Entité jouet Trace et fil traceur",
+      "vers": "Event porte les tests de la garde d'Espace",
+      "tickets": [
+        "SOCLE-6",
+        "SOCLE-7"
+      ]
+    },
+    {
+      "titre": "Interface",
+      "de": "Composants spartan/ui épars",
+      "vers": "Design system DCCM : primitives, coque, motifs",
+      "tickets": [
+        "UI-1",
+        "UI-2",
+        "UI-3",
+        "UI-4"
+      ]
+    },
+    {
+      "titre": "Déploiement",
+      "de": "Minuteur systemd qui tire toutes les 2 minutes",
+      "vers": "Déploiement poussé par une clé SSH bridée",
+      "tickets": [
+        "INFRA-8"
+      ]
+    },
+    {
+      "titre": "Staging",
+      "de": "Production seule",
+      "vers": "Staging de démonstration sur le même VPS",
+      "tickets": [
+        "INFRA-6",
+        "INFRA-7",
+        "INFRA-9"
+      ]
+    },
+    {
+      "titre": "Développement",
+      "de": "Tickets codés et relus à la main",
+      "vers": "agent-loop : Claude code, Codex relit, merge automatique",
+      "tickets": [
+        "INFRA-1",
+        "INFRA-2",
+        "INFRA-3",
+        "INFRA-10"
+      ]
+    }
+  ]
 }
