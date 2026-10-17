@@ -1,0 +1,18 @@
+{
+  "repo": "MaximeD1412/personal-os",
+  "prd": 1,
+  "project": "Personal OS",
+  "milestones": {
+    "M0 Outillage agents et staging": "Boucle d'agents partagée, worktrees, jeu de démo, captures, staging, CD poussé, conventions d'API appliquées",
+    "M1 UI": "Design system DCCM, coque, motifs d'écran",
+    "M2 Cuisine socle": "Ingrédients, recettes, planning manuel, stock, liste de courses figée et clôture, repas cuisiné",
+    "M3 Cuisine boucle": "Port IA, Tours de génération, Souhaits, génération contrôlée, produits, écart et complément",
+    "M4 Agenda et sport": "Récurrence, Séances, Objectifs",
+    "M5 Tableau de bord et barre de commande": "À faire calculés, accueil, catalogue d'actions, barre de commande",
+    "M6 Projets et portfolio": "Projets, Présentations publiques, pages de contenu, CV, portfolio public",
+    "M7 Infra de fond": "Provisionnement idempotent, homelab"
+  },
+  "obsoleteLabels": [
+    "hitl"
+  ]
+}
