@@ -16,6 +16,7 @@ import {
 } from '../testing/hlm-select';
 import { API_BASE_URL } from './api-base-url';
 import { Calendrier } from './calendrier';
+import { EspaceCourant } from './espace-courant';
 
 const BASE = 'http://api.test/api';
 
@@ -145,7 +146,7 @@ describe('Calendrier', () => {
   });
 
   describe("L'écran de création", () => {
-    it("offre le choix de l'Espace, et n'en devine aucun", async () => {
+    it("offre le choix de l'Espace, et n'en devine aucun sans pré-choix", async () => {
       const fixture = await monter();
 
       // Aucune valeur par défaut : le déclencheur montre l'invite, pas un
@@ -215,6 +216,73 @@ describe('Calendrier', () => {
       fixture.detectChanges();
 
       expect(element(fixture).textContent).toContain('Réunion');
+    });
+  });
+
+  describe("L'Espace pré-choisi dans la TopBar", () => {
+    /** Le parcours : « Foyer » choisi dans la TopBar, puis le Calendrier. */
+    function preChoisir(id: string): void {
+      const courant = TestBed.inject(EspaceCourant);
+      courant.espaces.set(ESPACES);
+      courant.choisir(id);
+    }
+
+    it("préremplit l'Espace d'une nouvelle saisie, sans le figer", async () => {
+      preChoisir('espace-foyer');
+      const fixture = await monter();
+
+      expect(valeurAffichee(fixture, 'espace')).toBe('Foyer');
+
+      await choisirDansLeSelect(fixture, 'espace', 'Personne A');
+      expect(valeurAffichee(fixture, 'espace')).toBe('Personne A');
+    });
+
+    it("suit le sélecteur tant que l'Espace n'a pas été choisi à la main", async () => {
+      preChoisir('espace-foyer');
+      const fixture = await monter();
+
+      preChoisir('espace-a');
+      await fixture.whenStable();
+      expect(valeurAffichee(fixture, 'espace')).toBe('Personne A');
+
+      await choisirDansLeSelect(fixture, 'espace', 'Foyer');
+      preChoisir('espace-a');
+      await fixture.whenStable();
+      expect(valeurAffichee(fixture, 'espace')).toBe('Foyer');
+    });
+
+    it("n'écrase pas l'Espace d'un Événement en modification", async () => {
+      preChoisir('espace-foyer');
+      const fixture = await monter();
+      const racine = element(fixture);
+
+      // Le Dentiste est dans l'Espace de Personne A.
+      (
+        racine.querySelectorAll(
+          '[data-test="modifier"]',
+        )[0] as HTMLButtonElement
+      ).click();
+      await fixture.whenStable();
+      expect(valeurAffichee(fixture, 'espace')).toBe('Personne A');
+
+      champ<HTMLButtonElement>(racine, 'annuler').click();
+      await fixture.whenStable();
+      expect(valeurAffichee(fixture, 'espace')).toBe('Foyer');
+    });
+
+    it("crée l'Événement dans l'Espace pré-choisi", async () => {
+      preChoisir('espace-foyer');
+      const fixture = await monter();
+      const racine = element(fixture);
+
+      saisir(racine, 'titre', 'Réunion de copropriété');
+      saisir(racine, 'debut', '2026-11-03T18:30');
+      await fixture.whenStable();
+      champ<HTMLButtonElement>(racine, 'enregistrer').click();
+
+      const creation = httpMock.expectOne(`${BASE}/events`);
+      expect(creation.request.body).toMatchObject({ scopeId: 'espace-foyer' });
+      creation.flush({ ...DECLARATION, id: 'event-3' });
     });
   });
 

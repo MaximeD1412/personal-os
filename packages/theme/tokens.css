@@ -100,6 +100,9 @@
      `error-30` désigne déjà `error-container`. */
   --error-40: #93000a66; /* error-container : bouton destructif pressé */
   --error-stroke-30: #ffb4ab4d; /* error : bordure du bouton destructif */
+  --surface-container-lowest-90: #0a0e14e6; /* fond de la TopBar, qui recouvre le contenu défilé */
+  --surface-90: #10141ae6; /* fond du MobileHeader et de la barre d'onglets */
+  --surface-container-lowest-80: #0a0e14cc; /* voile sous un panneau (barre de commande, « Plus ») */
 
   /* Espacements, incrément de 4 px. */
   --space-xs: 4px;
@@ -135,9 +138,11 @@
   --icon-lg: 24px;
   --icon-xl: 32px;
 
-  /* Élévation : empilement tonal et bordure 1 px. Une seule ombre, celle des
-     modales et des popovers. */
+  /* Élévation : empilement tonal et bordure 1 px. Deux ombres : celle des
+     modales et des popovers, et celle du master `TopBar`, qui recouvre le
+     contenu défilé (audit de docs/design-system.md). */
   --shadow-popover: 0 12px 32px 0 #000000a6;
+  --shadow-top-bar: 0 1px 8px 0 #00000080;
 
   /* Les alias de spartan/ui, redirigés vers les jetons pen. Quand un nom
      shadcn a un autre sens, c'est le sens pen qui gagne : `--secondary` est
@@ -232,6 +237,9 @@
   --color-error-30: var(--error-30);
   --color-error-40: var(--error-40);
   --color-error-stroke-30: var(--error-stroke-30);
+  --color-surface-container-lowest-90: var(--surface-container-lowest-90);
+  --color-surface-90: var(--surface-90);
+  --color-surface-container-lowest-80: var(--surface-container-lowest-80);
 
   --spacing-space-xs: var(--space-xs);
   --spacing-space-sm: var(--space-sm);
@@ -254,6 +262,7 @@
   --font-mono: var(--font-mono);
 
   --shadow-popover: var(--shadow-popover);
+  --shadow-top-bar: var(--shadow-top-bar);
 }
 
 /*
