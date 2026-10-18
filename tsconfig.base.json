@@ -32,7 +32,13 @@
       "@personal-os/ui/progress": ["./packages/ui/progress/src/index.ts"],
       "@personal-os/ui/separator": ["./packages/ui/separator/src/index.ts"],
       "@personal-os/ui/table": ["./packages/ui/table/src/index.ts"],
-      "@personal-os/ui/checkbox": ["./packages/ui/checkbox/src/index.ts"]
+      "@personal-os/ui/checkbox": ["./packages/ui/checkbox/src/index.ts"],
+      "@personal-os/ui/switch": ["./packages/ui/switch/src/index.ts"],
+      "@personal-os/ui/toggle-group": [
+        "./packages/ui/toggle-group/src/index.ts"
+      ],
+      "@personal-os/ui/field": ["./packages/ui/field/src/index.ts"],
+      "@personal-os/ui/kbd": ["./packages/ui/kbd/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

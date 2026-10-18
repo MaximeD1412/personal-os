@@ -26,6 +26,7 @@ export const HLM_CHECKBOX_VALUE_ACCESSOR = {
 	multi: true,
 };
 
+/** Le master `Checkbox` : 18 px, rayon 4, cochée en `primary`. */
 @Component({
 	selector: 'hlm-checkbox',
 	imports: [BrnCheckbox, NgIcon],
@@ -57,7 +58,7 @@ export const HLM_CHECKBOX_VALUE_ACCESSOR = {
 			(touched)="_onTouched?.()"
 		>
 			@if (checked() || indeterminate()) {
-				<span class="[&>ng-icon]:icon-xs flex items-center justify-center text-current transition-none">
+				<span class="[&>ng-icon]:icon-2xs flex items-center justify-center text-current transition-none">
 					<ng-icon name="matCheckOutline" />
 				</span>
 			}
@@ -69,10 +70,13 @@ export class HlmCheckbox implements ControlValueAccessor {
 
 	protected readonly _computedClass = computed(() =>
 		hlm(
-			// Le master `Checkbox` (02 Forms) : case de 18 px au rayon 4, bordure
-			// 1,5 px `outline-variant` sur `surface-container-lowest` ; cochée, fond
-			// `primary` et coche `on-primary`.
-			'peer flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-sm border-[1.5px] border-outline-variant bg-surface-container-lowest text-on-primary outline-none transition-colors hover:border-outline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary-20 data-checked:border-primary data-checked:bg-primary data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[matches-spartan-invalid=true]:border-error disabled:cursor-not-allowed disabled:opacity-40 group-has-disabled/field:opacity-40',
+			'peer border-outline-variant bg-surface-container-lowest text-on-primary relative flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-sm border-[1.5px] outline-none transition-[border-color,background-color,box-shadow,opacity,scale]',
+			// La case reste à 18 px, sa cible tactile fait 36 × 36 (DESIGN.md).
+			'after:absolute after:top-1/2 after:left-1/2 after:size-9 after:-translate-1/2',
+			'active:not-disabled:scale-98',
+			'hover:not-disabled:data-unchecked:border-outline data-checked:border-primary data-checked:bg-primary',
+			'focus-visible:border-primary focus-visible:ring-primary-20 focus-visible:border-2 focus-visible:ring-2',
+			'data-[matches-spartan-invalid=true]:border-error disabled:cursor-not-allowed disabled:opacity-40',
 			this.userClass(),
 			this._errorStateClass(),
 		),
@@ -122,7 +126,7 @@ export class HlmCheckbox implements ControlValueAccessor {
 	private readonly _spartanInvalid = computed(() => this.forceInvalid() || this._brnCheckbox().spartanInvalid?.());
 	protected readonly _errorStateClass = computed(() =>
 		this._spartanInvalid()
-			? 'border-error focus-visible:border-error focus-visible:ring-error-20'
+			? 'border-error focus-visible:border-error'
 			: '',
 	);
 

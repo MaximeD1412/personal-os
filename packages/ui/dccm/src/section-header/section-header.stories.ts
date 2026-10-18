@@ -1,3 +1,4 @@
+import { HlmButton } from '@personal-os/ui/button';
 import { moduleMetadata, type Meta, type StoryObj } from '@storybook/angular';
 import { DccmSectionHeader } from './section-header';
 
@@ -6,7 +7,7 @@ import { DccmSectionHeader } from './section-header';
 const meta: Meta<DccmSectionHeader> = {
   title: 'Data Display/SectionHeader',
   component: DccmSectionHeader,
-  decorators: [moduleMetadata({ imports: [DccmSectionHeader] })],
+  decorators: [moduleMetadata({ imports: [DccmSectionHeader, HlmButton] })],
   args: {
     heading: 'Les 7 prochains jours',
     description: 'Vue consolidée du foyer',
@@ -15,7 +16,7 @@ const meta: Meta<DccmSectionHeader> = {
     props: args,
     template: `
       <dccm-section-header class="w-120" [heading]="heading" [description]="description">
-        <a href="#" class="text-label-regular font-semibold text-primary hover:underline">Voir tout</a>
+        <a hlmBtn variant="link" href="#">Voir tout</a>
       </dccm-section-header>
     `,
   }),

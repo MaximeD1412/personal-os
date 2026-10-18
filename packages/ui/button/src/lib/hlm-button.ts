@@ -1,62 +1,167 @@
-import { Directive, input, signal } from '@angular/core';
-import { BrnButton } from '@spartan-ng/brain/button';
+import type { BooleanInput } from '@angular/cdk/coercion';
+import {
+	booleanAttribute,
+	ChangeDetectionStrategy,
+	Component,
+	computed,
+	DestroyRef,
+	ElementRef,
+	HOST_TAG_NAME,
+	inject,
+	input,
+	signal,
+} from '@angular/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { matProgressActivityOutline } from '@ng-icons/material-symbols/outline';
 import { classes } from '@personal-os/ui/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 import type { ClassValue } from 'clsx';
 import { injectBrnButtonConfig } from './hlm-button.token';
 
+/**
+ * Les masters `Button/*` de la planche `01 Actions` : une variante par master,
+ * la taille est un preset (hauteur, padding, typographie, icône). Survol et
+ * pression suivent les galeries d'états, sauf le pressé du primaire : pas de
+ * `primary-container` sous un texte (UI-5), seulement l'échelle 0,98.
+ */
 export const buttonVariants = cva(
-	"focus-visible:border-ring focus-visible:ring-ring/50 data-[matches-spartan-invalid=true]:ring-destructive/20 dark:data-[matches-spartan-invalid=true]:ring-destructive/40 data-[matches-spartan-invalid=true]:border-destructive dark:data-[matches-spartan-invalid=true]:border-destructive/50 rounded-md border border-transparent bg-clip-padding text-sm font-medium focus-visible:ring-3 active:not-aria-[haspopup]:translate-y-px data-[matches-spartan-invalid=true]:ring-3 [&_ng-icon:not([class*='text-'])]:text-[length:--spacing(4)] group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-all outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_ng-icon]:pointer-events-none [&_ng-icon]:shrink-0",
+	[
+		'group/button inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded border font-semibold outline-none select-none',
+		'transition-[color,background-color,border-color,box-shadow,scale,opacity]',
+		'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary-20',
+		'active:not-data-[disabled]:scale-98',
+		'data-[disabled]:cursor-not-allowed data-[disabled]:not-data-[loading]:opacity-40 data-[loading]:opacity-70',
+		'[&_ng-icon]:pointer-events-none [&_ng-icon]:shrink-0 data-[loading]:[&>[data-slot=spinner]+ng-icon]:hidden',
+	],
 	{
 		variants: {
 			variant: {
-				default: 'bg-primary text-primary-foreground hover:bg-primary/80',
-				outline: 'border-border bg-background hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 aria-expanded:bg-muted aria-expanded:text-foreground shadow-xs',
-				secondary: 'bg-secondary text-secondary-foreground aria-expanded:bg-secondary aria-expanded:text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)]',
-				ghost: 'hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground',
-				destructive: 'bg-destructive/10 hover:bg-destructive/20 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/20 text-destructive focus-visible:border-destructive/40 dark:hover:bg-destructive/30',
-				link: 'text-primary underline-offset-4 hover:underline',
+				primary: 'bg-primary border-transparent text-on-primary hover:not-data-[disabled]:bg-primary-fixed',
+				secondary:
+					'bg-surface-container-high border-surface-container-highest text-on-surface hover:not-data-[disabled]:border-primary hover:not-data-[disabled]:text-primary active:not-data-[disabled]:bg-surface-container-highest',
+				ghost: 'border-transparent text-on-surface-variant hover:not-data-[disabled]:bg-surface-container active:not-data-[disabled]:bg-surface-container-high',
+				destructive:
+					'bg-error-20 border-error-stroke-30 text-error hover:not-data-[disabled]:bg-error-container hover:not-data-[disabled]:text-on-error-container active:not-data-[disabled]:bg-error-40',
+				link: 'border-transparent text-primary underline-offset-4 hover:not-data-[disabled]:underline',
 			},
 			size: {
-				default: 'h-9 gap-1.5 px-2.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
-				xs: "h-6 gap-1 rounded-[min(var(--radius-md),8px)] px-2 text-xs in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_ng-icon:not([class*='text-'])]:text-[length:--spacing(3)]",
-				sm: 'h-8 gap-1 rounded-[min(var(--radius-md),10px)] px-2.5 in-data-[slot=button-group]:rounded-md has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5',
-				lg: 'h-10 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
-				icon: 'size-9',
-				'icon-xs': "size-6 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-md [&_ng-icon:not([class*='text-'])]:text-[length:--spacing(3)]",
-				'icon-sm': 'size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md',
-				'icon-lg': 'size-10',
+				sm: 'h-7 gap-2 px-3 text-label-regular [&_ng-icon]:icon-xs',
+				md: 'h-9 gap-2 px-4 text-body-dense [&_ng-icon]:icon-sm',
+				lg: 'h-10 gap-2 px-5 text-title-sm [&_ng-icon]:icon-sm',
+				icon: 'size-9 [&_ng-icon]:icon-sm',
+				'icon-lg': 'size-11 [&_ng-icon]:icon-md',
+			},
+			fullWidth: {
+				true: 'w-full',
+				false: '',
 			},
 		},
+		// Une classe ne se répète pas d'une partie à l'autre : `classes()` les
+		// dédoublonne en gardant la première, et tailwind-merge garderait alors
+		// celle qu'une variante devait remplacer.
+		compoundVariants: [
+			// `Button/Icon` rempli (`filled`) : le fond du secondaire, sans sa bordure.
+			{
+				variant: 'secondary',
+				size: ['icon', 'icon-lg'],
+				class: 'border-transparent text-on-surface-variant hover:not-data-[disabled]:border-transparent hover:not-data-[disabled]:bg-surface-container-highest hover:not-data-[disabled]:text-on-surface',
+			},
+			// `Button/Link` : un texte, sans boîte ; la taille ne s'y applique pas.
+			{
+				variant: 'link',
+				class: 'h-auto gap-1 p-0 text-label-regular [&_ng-icon]:icon-2xs',
+			},
+		],
 		defaultVariants: {
-			variant: 'default',
-			size: 'default',
+			variant: 'primary',
+			size: 'md',
+			fullWidth: false,
 		},
 	},
 );
 
 export type ButtonVariants = VariantProps<typeof buttonVariants>;
 
-@Directive({
+/**
+ * Le bouton du design system, sur `<button>` ou `<a>`. Les icônes de tête et
+ * de fin sont des `ng-icon` placés avant ou après le libellé ; un bouton
+ * d'icône seule (`size="icon"`) porte un `aria-label`.
+ *
+ * `loading` remplace l'icône de tête par un indicateur et désactive le bouton.
+ */
+@Component({
+	// Un composant posé sur `<button>` et `<a>`, comme la directive de spartan
+	// qu'il remplace : il porte l'indicateur de chargement.
+	// eslint-disable-next-line @angular-eslint/component-selector
 	selector: 'button[hlmBtn], a[hlmBtn]',
 	exportAs: 'hlmBtn',
-	hostDirectives: [{ directive: BrnButton, inputs: ['disabled'] }],
-	host: { 'data-slot': 'button' },
+	imports: [NgIcon],
+	providers: [provideIcons({ matProgressActivityOutline })],
+	changeDetection: ChangeDetectionStrategy.OnPush,
+	host: {
+		'data-slot': 'button',
+		'[attr.disabled]': '!_isAnchor && _disabled() ? true : null',
+		'[attr.data-disabled]': '_disabled() ? true : null',
+		'[attr.aria-disabled]': '_isAnchor && _disabled() ? true : null',
+		'[attr.tabindex]': '_isAnchor && _disabled() ? -1 : null',
+		'[attr.data-loading]': 'loading() ? true : null',
+		'[attr.aria-busy]': 'loading() ? true : null',
+	},
+	template: `
+		@if (loading()) {
+			<ng-icon data-slot="spinner" name="matProgressActivityOutline" class="animate-spin" aria-hidden="true" />
+		}
+		<ng-content />
+	`,
 })
 export class HlmButton {
 	private readonly _config = injectBrnButtonConfig();
 
 	private readonly _additionalClasses = signal<ClassValue>('');
 
+	protected readonly _isAnchor = inject(HOST_TAG_NAME) === 'a';
+
 	public readonly variant = input<ButtonVariants['variant']>(this._config.variant);
 
 	public readonly size = input<ButtonVariants['size']>(this._config.size);
 
+	/** Occupe toute la largeur de son conteneur. */
+	public readonly fullWidth = input<boolean, BooleanInput>(false, { transform: booleanAttribute });
+
+	public readonly disabled = input<boolean, BooleanInput>(false, { transform: booleanAttribute });
+
+	/** Une action en cours : l'indicateur remplace l'icône de tête, le bouton est désactivé. */
+	public readonly loading = input<boolean, BooleanInput>(false, { transform: booleanAttribute });
+
+	protected readonly _disabled = computed(() => this.disabled() || this.loading());
+
 	constructor() {
-		classes(() => [buttonVariants({ variant: this.variant(), size: this.size() }), this._additionalClasses()]);
+		// En capture sur l'hôte : l'écouteur passe avant ceux qu'Angular pose
+		// pour les `(click)` du template parent, qu'un `stopImmediatePropagation`
+		// en phase de bouillonnement n'arrêterait pas.
+		const hote: HTMLElement = inject(ElementRef).nativeElement;
+		const bloquer = (event: Event) => this._bloquerSiDesactive(event);
+		hote.addEventListener('click', bloquer, { capture: true });
+		inject(DestroyRef).onDestroy(() => hote.removeEventListener('click', bloquer, { capture: true }));
+
+		classes(() => [
+			buttonVariants({ variant: this.variant(), size: this.size(), fullWidth: this.fullWidth() }),
+			this._additionalClasses(),
+		]);
 	}
 
 	setClass(classes: string): void {
 		this._additionalClasses.set(classes);
+	}
+
+	/**
+	 * Un lien n'a pas d'attribut `disabled`, et un clic synthétique atteint
+	 * même un bouton désactivé : désactivé ou en chargement, le clic est annulé
+	 * avant tout gestionnaire.
+	 */
+	private _bloquerSiDesactive(event: Event): void {
+		if (!this._disabled()) return;
+		event.preventDefault();
+		event.stopImmediatePropagation();
 	}
 }

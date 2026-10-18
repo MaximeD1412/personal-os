@@ -47,13 +47,14 @@ export const Controles: Story = { name: 'Contrôles' };
 /** Les états de la galerie : repos, survol (forcé ici), cochée, sélectionnée, sans case. */
 export const Etats: Story = {
   name: 'États',
+  parameters: { pseudo: { hover: '[data-etat=hover]' } },
   render: () => ({
     template: `
       <div class="flex w-90 flex-col gap-space-md">
         <dccm-list-row label="Œufs bio plein air" meta="Réfrigérateur • 6 unités" checkable chevron>
           <span hlmBadge tone="success">DLC J+8</span>
         </dccm-list-row>
-        <dccm-list-row class="bg-surface-container-high" label="Survol" meta="Réfrigérateur • 6 unités" checkable chevron>
+        <dccm-list-row data-etat="hover" label="Survol" meta="Réfrigérateur • 6 unités" checkable chevron>
           <span hlmBadge tone="success">DLC J+8</span>
         </dccm-list-row>
         <dccm-list-row label="Cochée" meta="Réfrigérateur • 6 unités" checkable [checked]="true" chevron>

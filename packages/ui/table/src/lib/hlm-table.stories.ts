@@ -53,6 +53,7 @@ export const Stock: Story = {
 /** Une ligne sélectionnée (`data-state="selected"`) et une ligne survolée (forcée ici). */
 export const Etats: Story = {
   name: 'États',
+  parameters: { pseudo: { hover: '[data-etat=hover]' } },
   render: () => ({
     template: `
       <div hlmTableContainer class="w-150">
@@ -62,7 +63,7 @@ export const Etats: Story = {
           </thead>
           <tbody hlmTableBody>
             <tr hlmTableRow><td hlmTableCell class="font-semibold text-on-surface">Repos</td><td hlmTableCell>600 g</td></tr>
-            <tr hlmTableRow class="bg-surface-container-high"><td hlmTableCell class="font-semibold text-on-surface">Survol</td><td hlmTableCell>180 g</td></tr>
+            <tr hlmTableRow data-etat="hover"><td hlmTableCell class="font-semibold text-on-surface">Survol</td><td hlmTableCell>180 g</td></tr>
             <tr hlmTableRow data-state="selected"><td hlmTableCell class="font-semibold text-on-surface">Sélectionnée</td><td hlmTableCell>4</td></tr>
           </tbody>
         </table>

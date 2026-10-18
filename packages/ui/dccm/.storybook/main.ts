@@ -5,7 +5,13 @@ import type { StorybookConfig } from '@storybook/angular';
 // bibliothèque pen.dev (Foundations, Actions, Forms…).
 const config: StorybookConfig = {
   stories: ['../../**/*.stories.ts'],
-  addons: ['@storybook/addon-docs', '@storybook/addon-a11y'],
+  // `pseudo-states` force survol, focus et pression : les stories d'états
+  // les montrent côte à côte, comme les galeries pen.dev.
+  addons: [
+    '@storybook/addon-docs',
+    '@storybook/addon-a11y',
+    'storybook-addon-pseudo-states',
+  ],
   framework: {
     name: '@storybook/angular',
     options: {},

@@ -97,6 +97,36 @@ describe('tokens.css', () => {
     }
   });
 
+  it('porte les pistes que les masters emploient hors de la Foundations, exposées à Tailwind', () => {
+    // Une couleur de la bibliothèque et l'opacité que lui donne le master.
+    const pistes: Record<string, [couleur: string, alpha: string]> = {
+      'error-40': ['error-container', '66'], // Button/Destructive pressé
+      'error-stroke-30': ['error', '4d'], // bordure de Button/Destructive
+    };
+    const theme = declarations(bloc(tokens, '@theme inline'));
+    for (const [nom, [couleur, alpha]] of Object.entries(pistes)) {
+      const base = bibliotheque.variables[couleur].value;
+      expect([nom, racineCss.get(`--${nom}`)]).toEqual([
+        nom,
+        `${base}${alpha}`,
+      ]);
+      expect([nom, theme.get(`--color-${nom}`)]).toEqual([
+        nom,
+        `var(--${nom})`,
+      ]);
+    }
+  });
+
+  it("porte les tailles d'icône des masters, chacune avec son utilitaire", () => {
+    const tailles = { '2xs': 14, xs: 16, sm: 18, md: 20, lg: 24, xl: 32 };
+    for (const [nom, px] of Object.entries(tailles)) {
+      expect([nom, racineCss.get(`--icon-${nom}`)]).toEqual([nom, `${px}px`]);
+      expect(tokens).toContain(
+        `@utility icon-${nom} {\n  --ng-icon__size: var(--icon-${nom});\n}`,
+      );
+    }
+  });
+
   it('porte les espacements et les rayons de la bibliothèque, en pixels', () => {
     const nombres = variablesDeType('number');
     expect(nombres.map(([nom]) => nom)).toEqual(

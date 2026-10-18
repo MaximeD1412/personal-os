@@ -3,3 +3,4 @@
 export * from './kpi-tile/kpi-tile';
 export * from './list-row/list-row';
 export * from './section-header/section-header';
+export * from './stepper/stepper';
