@@ -149,7 +149,7 @@
         {
           "texte": "Revue Codex de chaque PR",
           "ref": "agent-loop",
-          "fait": false
+          "fait": true
         },
         {
           "texte": "Scan de secrets en CI",
@@ -499,7 +499,7 @@
         {
           "texte": "Revue Codex",
           "ref": "agent-loop",
-          "fait": false
+          "fait": true
         },
         {
           "texte": "Suite complète chaque nuit et sur la PR de livraison",
@@ -513,8 +513,8 @@
         },
         {
           "texte": "Revue visuelle humaine des écrans (label revue-visuelle)",
-          "ref": "",
-          "fait": false
+          "ref": "agent-loop",
+          "fait": true
         }
       ],
       "tickets": [
@@ -546,7 +546,7 @@
         {
           "texte": "Codex vérifie le respect des conventions",
           "ref": "agent-loop",
-          "fait": false
+          "fait": true
         }
       ],
       "tickets": [
@@ -577,7 +577,7 @@
         {
           "texte": "L'agent s'arrête par blocked.md plutôt que de trancher seul",
           "ref": "agent-loop",
-          "fait": false
+          "fait": true
         }
       ],
       "tickets": [
@@ -643,8 +643,8 @@
       "categorie": "ag",
       "gravite": "moyenne",
       "titre": "Limites d'usage de Claude ou Codex",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-10-18",
       "solutions": [
         {
           "texte": "La boucle attend l'heure de reprise et continue",

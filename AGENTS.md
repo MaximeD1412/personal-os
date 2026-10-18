@@ -138,7 +138,9 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
 - **Revue visuelle** (`revue_visuelle: true` dans le ticket, label
   `revue-visuelle`) : joins à la PR des captures mobile (390 px) et desktop
   (1280 px) de chaque écran touché, ouvert par son URL préremplie. Le merge
-  attend l'approbation humaine.
+  attend l'approbation humaine : `agent-loop` met la PR en attente, puis la
+  merge sur le label `revue-visuelle-ok` (ou une review « Approve »), ou la
+  reprend en correction sur `revue-visuelle-ko`.
 
 ### Les fichiers de pilotage
 

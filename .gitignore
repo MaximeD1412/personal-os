@@ -60,3 +60,6 @@ ghcr.env
 
 # client Prisma généré
 packages/database/src/generated
+
+# boucle d'agents (agent-loop) : état, prompts rendus et journaux
+.agent-loop/
