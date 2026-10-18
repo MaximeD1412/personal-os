@@ -70,6 +70,11 @@ tourne.
   aussi un conteneur publié sur 8080. Elle n'est pas retirée en silence (un
   autre projet en dépend peut-être) : le script la cite, à retirer à la main
   (`ufw status numbered`, puis `ufw delete <n>`), puis à relancer.
+- **Refusée aussi, à chaque passage, avant toute modification** : une
+  directive sshd contraire au durcissement lue avant `00-personal-os.conf`
+  (dans `sshd_config` avant l'`Include`, ou dans un fichier de
+  `sshd_config.d` trié avant), puisque sshd garde la première valeur lue. La
+  configuration effective (`sshd -T`) est en plus vérifiée à chaque passage.
 - **Refusés aussi, avant toute modification** : un Docker installé hors du
   dépôt officiel sans Compose (`docker.io`), et un `daemon.json` avec
   `"firewall-backend": "nftables"` ou `"iptables": false` (Docker ne

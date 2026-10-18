@@ -44,6 +44,34 @@ describe('provision.sh : SSH', () => {
     expect(commands(root)).toEqual([]);
   });
 
+  // sshd garde la première valeur lue : une directive contraire, lue avant
+  // 00-personal-os.conf, annulerait le durcissement même une fois le fichier
+  // en place. Refusé à chaque passage, pas seulement au premier.
+  it.each([
+    ['dans sshd_config, avant l’Include', 'etc/ssh/sshd_config', 'PermitRootLogin yes\nInclude /etc/ssh/sshd_config.d/*.conf\n'],
+    ['dans un fichier de sshd_config.d trié avant le nôtre', 'etc/ssh/sshd_config.d/00-aaa.conf', 'PasswordAuthentication yes\n'],
+  ])('refuse une directive contraire lue %s, à chaque passage', (_, file, content) => {
+    const root = machine({ provisioned: true });
+    put(root, file, content);
+    put(root, 'etc/ssh/sshd_config.d/00-personal-os.conf', 'déjà posé par un passage précédent\n');
+
+    for (let passage = 1; passage <= 2; passage++) {
+      const result = provision(root);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(`/${file}: ${content.split('\n')[0]}`);
+      expect(commands(root)).toEqual([]);
+    }
+  });
+
+  it('ignore une directive contraire lue après le nôtre', () => {
+    const root = machine({ provisioned: true });
+    put(root, 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\nPermitRootLogin yes\n');
+    put(root, 'etc/ssh/sshd_config.d/50-cloud-init.conf', 'PasswordAuthentication yes\n');
+
+    expect(provision(root).status).toBe(0);
+  });
+
   it("sans aucune clé SSH, s'arrête avant de couper l'accès par mot de passe", () => {
     const root = machine({ rootKeys: null });
 

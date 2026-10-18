@@ -195,6 +195,32 @@ check_sshd_include() {
     die "/etc/ssh/sshd_config n'inclut pas /etc/ssh/sshd_config.d/*.conf : le durcissement serait sans effet"
 }
 
+# sshd garde la première valeur lue. Une directive de durcissement contraire,
+# lue avant 00-personal-os.conf (dans sshd_config avant l'Include, ou dans un
+# fichier de sshd_config.d trié avant le nôtre), l'emporterait : la machine
+# est refusée, à chaque passage, avant toute modification.
+check_sshd_precedence() {
+  local lus=() file conflicts LC_ALL=C
+  lus+=("$ROOT/etc/ssh/sshd_config")
+  while IFS= read -r file; do
+    [[ -n "$file" && "$(basename "$file")" < 00-personal-os.conf ]] && lus+=("$file")
+  done < <(compgen -G "$ROOT/etc/ssh/sshd_config.d/*.conf" | LC_ALL=C sort)
+  conflicts=$(awk '
+    BEGIN {
+      want["permitrootlogin"] = "no"; want["passwordauthentication"] = "no"
+      want["kbdinteractiveauthentication"] = "no"; want["challengeresponseauthentication"] = "no"
+      want["pubkeyauthentication"] = "yes"; want["authenticationmethods"] = "publickey"
+    }
+    # Dans sshd_config, seul ce qui précède l Include compte.
+    FNR == 1 { main = (FILENAME ~ /\/sshd_config$/); stop = 0 }
+    main && tolower($1) == "include" { stop = 1 }
+    stop || /^[[:space:]]*(#|$)/ { next }
+    { key = tolower($1); if (key in want && tolower($2) != want[key]) print FILENAME ": " $0 }
+  ' "${lus[@]}")
+  [[ -z "$conflicts" ]] ||
+    die "$(printf 'directives sshd lues avant 00-personal-os.conf, qui annuleraient le durcissement :\n%s\nLes retirer, puis relancer' "${conflicts//"$ROOT"\//\/}")"
+}
+
 # Clés de l'administrateur : les siennes, gardées telles quelles, puis celles du
 # compte qui lance sudo, de root et de --ssh-key. Une clé à options (bridée par
 # command=, from=…) n'est jamais recopiée : sans ses options, elle donnerait
@@ -305,7 +331,7 @@ configure_admin() {
 # Préfixe 00 : sshd garde la première valeur lue, avant celles de l'hébergeur
 # (50-cloud-init.conf réactive parfois les mots de passe).
 configure_ssh() {
-  write_file etc/ssh/sshd_config.d/00-personal-os.conf 644 <<'EOF' || return 0
+  if write_file etc/ssh/sshd_config.d/00-personal-os.conf 644 <<'EOF'; then
 # Géré par infra/provision/provision.sh (INFRA-11) : ne pas modifier à la main.
 PermitRootLogin no
 PasswordAuthentication no
@@ -316,9 +342,12 @@ MaxAuthTries 3
 LoginGraceTime 20
 X11Forwarding no
 EOF
-  run mkdir -p /run/sshd
-  run sshd -t
-  run systemctl try-reload-or-restart ssh
+    run mkdir -p /run/sshd
+    run sshd -t
+    run systemctl try-reload-or-restart ssh
+  fi
+  # À chaque passage réel, même sans changement : le fichier peut être en
+  # place sans avoir d'effet.
   if [[ "$ROOT" == / ]] && ! $DRY_RUN; then
     # Lue en entier : `sshd -T | grep -q` échoue sous pipefail quand grep
     # ferme le tube avant la fin (SIGPIPE).
@@ -529,6 +558,7 @@ main() {
   check_os
   check_arch
   check_sshd_include
+  check_sshd_precedence
   check_foreign_rules
   check_compose
   check_docker_firewall
