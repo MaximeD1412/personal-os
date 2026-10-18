@@ -8,12 +8,15 @@ import {
 } from '@nestjs/common';
 import type { ApiError, ApiFieldError } from '@personal-os/contracts';
 import { ErreurDEspace, type RaisonDuRefus } from '@personal-os/database';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
+import { STATUS_CODES } from 'node:http';
 import { ZodValidationException } from 'nestjs-zod';
 import type { z } from 'zod';
 import { ErreurMetier } from './erreur-metier';
 
 const journal = new Logger('ErreursFilter');
+
+const MESSAGE_INDISPONIBLE = 'Le service est momentanément indisponible.';
 
 const MESSAGE_DE_DEFAUT =
   'Une erreur inattendue est survenue. Réessaie dans un instant.';
@@ -26,21 +29,23 @@ const MESSAGE_DE_DEFAUT =
 @Catch()
 export class ErreursFilter implements ExceptionFilter {
   catch(erreur: unknown, hote: ArgumentsHost): void {
-    const enveloppe = envelopper(erreur);
+    const http = hote.switchToHttp();
+    // Express ne pose `req.route` qu'une fois une route atteinte : sans elle,
+    // l'erreur vient du framework (parseur de body, route inconnue).
+    const horsDeRoute = !http.getRequest<Request>().route;
+    let enveloppe = envelopper(erreur, horsDeRoute);
 
+    // Quelle qu'en soit la source, une 500 ne dit rien de sa cause.
     if (enveloppe.status === HttpStatus.INTERNAL_SERVER_ERROR) {
       journaliser(erreur);
+      enveloppe = { ...enveloppe, message: MESSAGE_DE_DEFAUT };
     }
 
-    hote
-      .switchToHttp()
-      .getResponse<Response>()
-      .status(enveloppe.status)
-      .json(enveloppe);
+    http.getResponse<Response>().status(enveloppe.status).json(enveloppe);
   }
 }
 
-function envelopper(erreur: unknown): ApiError {
+function envelopper(erreur: unknown, horsDeRoute: boolean): ApiError {
   if (erreur instanceof ErreurMetier) {
     return {
       status: erreur.status,
@@ -63,10 +68,22 @@ function envelopper(erreur: unknown): ApiError {
     erreur instanceof HttpException &&
     erreur.getStatus() !== HttpStatus.INTERNAL_SERVER_ERROR
   ) {
+    const status = erreur.getStatus();
     return {
-      status: erreur.getStatus(),
-      code: `http.${erreur.getStatus()}`,
-      message: erreur.message,
+      status,
+      code: `http.${status}`,
+      message:
+        horsDeRoute || erreur.message === STATUS_CODES[status]
+          ? messageDuFramework(status)
+          : erreur.message,
+    };
+  }
+  const refusDExpress = statutDeRefusDExpress(erreur);
+  if (refusDExpress) {
+    return {
+      status: refusDExpress,
+      code: `http.${refusDExpress}`,
+      message: messageDuFramework(refusDExpress),
     };
   }
   return {
@@ -107,6 +124,54 @@ function refusDEspace(raison: RaisonDuRefus, message: string): ApiError {
         message: MESSAGE_DE_DEFAUT,
       };
   }
+}
+
+/**
+ * Les messages que Nest et Express écrivent d'eux-mêmes sont en anglais : le
+ * libellé du statut (`new NotFoundException()`), « Cannot GET /x » pour une
+ * route inconnue, le diagnostic du parseur JSON. Ceux de l'API, explicites et
+ * levés depuis une route, sont en français et passent tels quels.
+ */
+const MESSAGES_DU_FRAMEWORK: Partial<Record<number, string>> = {
+  [HttpStatus.BAD_REQUEST]: 'La requête est mal formée.',
+  [HttpStatus.UNAUTHORIZED]: 'Une session est requise.',
+  [HttpStatus.FORBIDDEN]: 'Cette action est refusée.',
+  [HttpStatus.NOT_FOUND]: 'Aucune ressource à cette adresse.',
+  [HttpStatus.METHOD_NOT_ALLOWED]: "Cette méthode n'est pas acceptée ici.",
+  [HttpStatus.REQUEST_TIMEOUT]: 'La requête a pris trop de temps.',
+  [HttpStatus.PAYLOAD_TOO_LARGE]: 'La requête est trop volumineuse.',
+  [HttpStatus.UNSUPPORTED_MEDIA_TYPE]:
+    "Ce format de contenu n'est pas accepté.",
+  [HttpStatus.TOO_MANY_REQUESTS]:
+    'Trop de requêtes : réessaie dans un instant.',
+  [HttpStatus.SERVICE_UNAVAILABLE]: MESSAGE_INDISPONIBLE,
+};
+
+function messageDuFramework(status: number): string {
+  return (
+    MESSAGES_DU_FRAMEWORK[status] ??
+    (status < HttpStatus.INTERNAL_SERVER_ERROR
+      ? 'La requête a été refusée.'
+      : MESSAGE_INDISPONIBLE)
+  );
+}
+
+/**
+ * Un refus du parseur de body (body trop gros, encodage refusé) n'est pas une
+ * HttpException : c'est une erreur `http-errors` qui porte son statut. Un 4xx
+ * reste un refus de la requête ; le reste est un défaut. Un JSON illisible,
+ * lui, arrive déjà traduit par Nest en `BadRequestException`.
+ */
+function statutDeRefusDExpress(erreur: unknown): number | null {
+  if (!(erreur instanceof Error)) {
+    return null;
+  }
+  const { statusCode } = erreur as Error & { statusCode?: unknown };
+  return typeof statusCode === 'number' &&
+    statusCode >= HttpStatus.BAD_REQUEST &&
+    statusCode < HttpStatus.INTERNAL_SERVER_ERROR
+    ? statusCode
+    : null;
 }
 
 function champsRefuses(erreurZod: unknown): ApiFieldError[] {

@@ -5,6 +5,7 @@ import {
   type INestApplication,
   Logger,
   Module,
+  NotFoundException,
   Post,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -37,6 +38,11 @@ class ControleurDErreurs {
   @Get('regle')
   regle(): never {
     throw new ErreurMetier('test.rule_broken', 'La règle est violée.');
+  }
+
+  @Get('absent')
+  absent(): never {
+    throw new NotFoundException('Aucun objet de test.');
   }
 
   @Get('panne')
@@ -104,12 +110,56 @@ describe("L'enveloppe d'erreur unique (ADR 0030)", () => {
     journal.mockRestore();
   });
 
-  it('rend une route inconnue dans la même enveloppe', async () => {
+  it('garde le message explicite d’une exception levée par une route', async () => {
+    const reponse = await request(app.getHttpServer())
+      .get('/api/erreurs-de-test/absent')
+      .expect(404);
+
+    expect(enveloppe(reponse.body).message).toBe('Aucun objet de test.');
+  });
+
+  it('rend une route inconnue dans la même enveloppe, en français', async () => {
     const reponse = await request(app.getHttpServer())
       .get('/api/erreurs-de-test/inconnue')
       .expect(404);
 
-    expect(enveloppe(reponse.body).code).toBe('http.404');
+    expect(enveloppe(reponse.body)).toEqual({
+      status: 404,
+      code: 'http.404',
+      message: 'Aucune ressource à cette adresse.',
+    });
+  });
+
+  it('garde le 413 du parseur pour un body trop volumineux', async () => {
+    const journal = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+
+    const reponse = await request(app.getHttpServer())
+      .post('/api/erreurs-de-test/saisie')
+      .set('Content-Type', 'application/json')
+      .send(JSON.stringify({ a: { b: [] }, remplissage: 'x'.repeat(200_000) }))
+      .expect(413);
+
+    expect(enveloppe(reponse.body)).toEqual({
+      status: 413,
+      code: 'http.413',
+      message: 'La requête est trop volumineuse.',
+    });
+    expect(journal).not.toHaveBeenCalled();
+    journal.mockRestore();
+  });
+
+  it('refuse en 400 un JSON illisible, avec un message français', async () => {
+    const reponse = await request(app.getHttpServer())
+      .post('/api/erreurs-de-test/saisie')
+      .set('Content-Type', 'application/json')
+      .send('{"a": ')
+      .expect(400);
+
+    expect(enveloppe(reponse.body)).toEqual({
+      status: 400,
+      code: 'http.400',
+      message: 'La requête est mal formée.',
+    });
   });
 });
 

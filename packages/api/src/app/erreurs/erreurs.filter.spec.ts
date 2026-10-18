@@ -1,5 +1,6 @@
 import {
   type ArgumentsHost,
+  BadRequestException,
   HttpException,
   InternalServerErrorException,
   Logger,
@@ -48,6 +49,16 @@ describe("ErreursFilter : l'enveloppe unique (ADR 0030)", () => {
         code: 'auth.required',
         message: 'Aucune session.',
       });
+    });
+
+    it('ne laisse pas filer son message quand elle se déclare en 500', () => {
+      const enveloppe = envelopper(
+        new ErreurMetier('test.failure', MESSAGE_INTERNE, 500),
+      );
+
+      expect(enveloppe).toMatchObject({ status: 500, code: 'test.failure' });
+      expect(JSON.stringify(enveloppe)).not.toContain(MESSAGE_INTERNE);
+      expect(journal).toHaveBeenCalled();
     });
 
     it('donne un 404 quand elle est un « introuvable »', () => {
@@ -132,6 +143,31 @@ describe("ErreursFilter : l'enveloppe unique (ADR 0030)", () => {
       });
     });
 
+    it('remplace le libellé anglais d’une exception levée sans message', () => {
+      expect(envelopper(new NotFoundException())).toEqual({
+        status: 404,
+        code: 'http.404',
+        message: 'Aucune ressource à cette adresse.',
+      });
+    });
+
+    it.each([
+      ['une route inconnue', new NotFoundException('Cannot GET /api/inconnue')],
+      [
+        'un JSON illisible',
+        new BadRequestException('Unexpected end of JSON input'),
+      ],
+    ])(
+      'remplace le message anglais du framework hors de toute route : %s',
+      (_cas, erreur: HttpException) => {
+        expect(envelopper(erreur, { horsDeRoute: true })).toEqual({
+          status: erreur.getStatus(),
+          code: `http.${erreur.getStatus()}`,
+          message: expect.not.stringContaining(erreur.message),
+        });
+      },
+    );
+
     it.each([
       ['une 500 explicite', new InternalServerErrorException(MESSAGE_INTERNE)],
       ['une réponse hors de son schéma', new ZodSerializationException(null)],
@@ -141,6 +177,44 @@ describe("ErreursFilter : l'enveloppe unique (ADR 0030)", () => {
       expect(enveloppe.status).toBe(500);
       expect(enveloppe.code).toBe('internal');
       expect(JSON.stringify(enveloppe)).not.toContain(MESSAGE_INTERNE);
+    });
+  });
+
+  describe('un refus du parseur de body (Express)', () => {
+    it.each([
+      [413, 'entity.too.large', 'La requête est trop volumineuse.'],
+      [400, 'entity.parse.failed', 'La requête est mal formée.'],
+      [415, 'charset.unsupported', "Ce format de contenu n'est pas accepté."],
+    ])(
+      'garde son statut %i, avec un message français',
+      (status, type, message) => {
+        const erreur = Object.assign(new Error('request entity too large'), {
+          status,
+          statusCode: status,
+          expose: true,
+          type,
+        });
+
+        expect(envelopper(erreur)).toEqual({
+          status,
+          code: `http.${status}`,
+          message,
+        });
+        expect(journal).not.toHaveBeenCalled();
+      },
+    );
+
+    it("traite une erreur d'Express en 5xx comme un défaut", () => {
+      const erreur = Object.assign(new Error(MESSAGE_INTERNE), {
+        status: 500,
+        statusCode: 500,
+        expose: false,
+      });
+
+      expect(envelopper(erreur)).toMatchObject({
+        status: 500,
+        code: 'internal',
+      });
     });
   });
 
@@ -169,14 +243,20 @@ describe("ErreursFilter : l'enveloppe unique (ADR 0030)", () => {
   });
 });
 
-/** Passe l'erreur au filtre et rend ce qu'il a écrit, vérifié par le contrat. */
-function envelopper(erreur: unknown): ApiError {
+/**
+ * Passe l'erreur au filtre et rend ce qu'il a écrit, vérifié par le contrat.
+ * Par défaut, l'erreur est levée depuis une route.
+ */
+function envelopper(erreur: unknown, { horsDeRoute = false } = {}): ApiError {
   const reponse = {
     status: jest.fn().mockReturnThis(),
     json: jest.fn().mockReturnThis(),
   };
   const hote = {
-    switchToHttp: () => ({ getResponse: () => reponse }),
+    switchToHttp: () => ({
+      getRequest: () => (horsDeRoute ? {} : { route: {} }),
+      getResponse: () => reponse,
+    }),
   } as unknown as ArgumentsHost;
 
   new ErreursFilter().catch(erreur, hote);
