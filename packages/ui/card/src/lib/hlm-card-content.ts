@@ -7,6 +7,6 @@ import { classes } from '@personal-os/ui/utils';
 })
 export class HlmCardContent {
 	constructor() {
-		classes(() => 'px-(--card-spacing)');
+		classes(() => 'flex flex-col gap-space-sm text-body-dense text-on-surface-variant');
 	}
 }

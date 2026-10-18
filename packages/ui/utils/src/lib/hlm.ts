@@ -10,7 +10,45 @@ import {
 	runInInjectionContext,
 } from '@angular/core';
 import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { extendTailwindMerge } from 'tailwind-merge';
+
+// tailwind-merge ne connaît que l'échelle par défaut de Tailwind : sans ces
+// noms, il lirait `text-label-micro` comme une couleur et l'effacerait devant
+// `text-primary`. Les listes recopient `packages/theme/tokens.css`.
+const twMerge = extendTailwindMerge<'icon-size'>({
+	extend: {
+		theme: {
+			text: [
+				'display-hero',
+				'headline-lg',
+				'headline-lg-mobile',
+				'headline-md',
+				'title-sm',
+				'body-default',
+				'body-dense',
+				'label-regular',
+				'label-micro',
+				'telemetry-metric',
+				'code-mono',
+			],
+			spacing: [
+				'space-xs',
+				'space-sm',
+				'space-md',
+				'space-lg',
+				'space-xl',
+				'space-2xl',
+				'gutter',
+				'gutter-compact',
+				'margin',
+				'margin-mobile',
+			],
+		},
+		classGroups: {
+			'icon-size': ['icon-xs', 'icon-sm', 'icon-md', 'icon-lg', 'icon-xl'],
+		},
+	},
+});
 
 export function hlm(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));

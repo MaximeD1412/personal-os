@@ -146,6 +146,22 @@ describe('tokens.css', () => {
     }
   });
 
+  it('porte les pistes que les masters emploient hors de la Foundations', () => {
+    // docs/design-system.md, « Valeurs alpha hors des pistes teintées » : une
+    // piste s'ajoute dans la PR du composant qui la consomme.
+    const theme = declarations(bloc(tokens, '@theme inline'));
+    const ajoutees = {
+      'primary-40': '#adc6ff66', // bordure de ligne sélectionnée (UI-6)
+    };
+    for (const [nom, valeur] of Object.entries(ajoutees)) {
+      expect([nom, racineCss.get(`--${nom}`)]).toEqual([nom, valeur]);
+      expect([nom, theme.get(`--color-${nom}`)]).toEqual([
+        nom,
+        `var(--${nom})`,
+      ]);
+    }
+  });
+
   it('expose chaque couleur, piste et espacement à Tailwind', () => {
     const theme = declarations(bloc(tokens, '@theme inline'));
     const couleurs = [
