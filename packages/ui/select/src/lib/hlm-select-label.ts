@@ -9,6 +9,6 @@ import { classes } from '@personal-os/ui/utils';
 })
 export class HlmSelectLabel {
 	constructor() {
-		classes(() => 'text-muted-foreground px-2 py-1.5 text-xs flex');
+		classes(() => 'text-outline text-label-micro flex px-2 py-1.5 uppercase');
 	}
 }

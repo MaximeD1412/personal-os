@@ -10,7 +10,38 @@ import {
 	runInInjectionContext,
 } from '@angular/core';
 import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { extendTailwindMerge } from 'tailwind-merge';
+
+/**
+ * tailwind-merge ne lit pas `packages/theme/tokens.css` : sans ces groupes, il
+ * prend `text-body-dense` pour une couleur et l'efface devant `text-on-primary`.
+ * Les niveaux de l'échelle typographique et les tailles d'icône y sont donc
+ * déclarés, sous les noms des jetons.
+ */
+const twMerge = extendTailwindMerge<'icon-size'>({
+	extend: {
+		classGroups: {
+			'font-size': [
+				{
+					text: [
+						'display-hero',
+						'headline-lg',
+						'headline-lg-mobile',
+						'headline-md',
+						'title-sm',
+						'body-default',
+						'body-dense',
+						'label-regular',
+						'label-micro',
+						'telemetry-metric',
+						'code-mono',
+					],
+				},
+			],
+			'icon-size': [{ icon: ['2xs', 'xs', 'sm', 'md', 'lg', 'xl'] }],
+		},
+	},
+});
 
 export function hlm(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
