@@ -77,7 +77,10 @@ tourne.
   dans un bloc `Match` où qu'il soit (il remplacerait la valeur globale pour
   les connexions qu'il désigne). Tout `Include` autre que celui de
   `sshd_config.d/*.conf` est aussi refusé : le fichier inclus ne serait pas
-  contrôlé. La configuration effective est en plus
+  contrôlé. Les lignes sont découpées comme OpenSSH les découpe
+  (`strdelim` pour le mot-clé : guillemets, `=`, blancs, `\r`), si bien
+  que `"Include"` ou `PermitRootLogin=yes` sont reconnus. La configuration
+  effective est en plus
   vérifiée à chaque passage, pour root et pour l'administrateur
   (`sshd -T -C user=…`).
 - **Refusés aussi, avant toute modification** : un Docker installé hors du

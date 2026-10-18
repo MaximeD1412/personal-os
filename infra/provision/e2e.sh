@@ -206,20 +206,21 @@ ok "une exception Match qui autorise root fait refuser le passage, sans modifica
 # l'Include lui-même fait refuser le passage, sans modification.
 #   $1 : fichier inclus, qui autorise root depuis 203.0.113.0/24
 #   $2 : motif de l'Include ajouté à la fin de sshd_config
+#   $3 : le mot-clé tel qu'écrit (Include par défaut)
 check_include_refused() {
-  local inclus="$1" motif="$2"
+  local inclus="$1" ligne="${3:-Include} $2"
   sudo mkdir -p "$(dirname "$inclus")"
   printf 'Match Address 203.0.113.0/24\nPermitRootLogin=yes\n' | sudo tee "$inclus" >/dev/null
   sudo cp /etc/ssh/sshd_config "$work/sshd_config.orig"
-  echo "Include $motif" | sudo tee -a /etc/ssh/sshd_config >/dev/null
+  echo "$ligne" | sudo tee -a /etc/ssh/sshd_config >/dev/null
   effectif=$(sudo sshd -T -C user=root,host=exterieur,addr=203.0.113.5)
   grep -qx 'permitrootlogin yes' <<<"$effectif" || ko "témoin : sshd n'applique pas l'exception de $inclus"
   state >"$work/avant-refus-include"
   # shellcheck disable=SC2024 # journal écrit par l'utilisateur du test, voulu
   if sudo "$here/provision.sh" >"$work/refus-include.log" 2>&1; then
-    ko "le script passe malgré Include $motif"
+    ko "le script passe malgré $ligne"
   fi
-  grep -qF "Include $motif (Include non pris en charge)" "$work/refus-include.log" ||
+  grep -qF "$ligne (Include non pris en charge)" "$work/refus-include.log" ||
     ko "le refus ne cite pas l'Include : $(cat "$work/refus-include.log")"
   state >"$work/apres-refus-include"
   diff -u "$work/avant-refus-include" "$work/apres-refus-include" || ko "le passage refusé a modifié la machine"
@@ -227,9 +228,11 @@ check_include_refused() {
   sudo rm "$inclus"
   sudo "$here/provision.sh" | tee "$work/apres-retrait-include.log"
   grep -q '^Aucun changement' "$work/apres-retrait-include.log" || ko "le passage après retrait de l'Include annonce des changements"
-  ok "Include $motif fait refuser le passage, sans modification"
+  ok "$ligne fait refuser le passage, sans modification"
 }
 check_include_refused /etc/ssh/root-exception.conf /etc/ssh/root-exception.conf
 # OpenSSH passe le chemin tel quel à glob : un dossier dont seule la casse
 # diffère de sshd_config.d est un autre dossier.
 check_include_refused /etc/ssh/SSHD_CONFIG.D/exception.CONF '/etc/ssh/SSHD_CONFIG.D/*.CONF'
+# OpenSSH retire les guillemets du mot-clé (strdelim).
+check_include_refused /etc/ssh/root-exception.conf /etc/ssh/root-exception.conf '"Include"'

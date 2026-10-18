@@ -210,6 +210,25 @@ check_sshd_precedence() {
     [[ -n "$file" && "$(basename "$file")" != 00-personal-os.conf ]] && lus+=("$file")
   done < <(compgen -G "$ROOT/etc/ssh/sshd_config.d/*.conf" | sort)
   conflicts=$(awk '
+    # Le prochain mot de rest, découpé comme le fait strdelim (misc.c,
+    # OpenSSH) pour le mot-clé : il finit au premier blanc, guillemet ou
+    # « = ». Un passage entre guillemets se recolle au mot (Inc"lude") ; un
+    # « = » est sauté, seul ou après les blancs. nul : guillemet non refermé,
+    # sshd ignore alors la ligne.
+    function strdelim(   i, c, tok) {
+      if (!match(rest, /[ \t\r\n"=]/)) { tok = rest; rest = ""; return tok }
+      i = RSTART; c = substr(rest, i, 1); tok = substr(rest, 1, i - 1)
+      rest = substr(rest, i + 1)
+      if (c == "\"") {
+        if (!(i = index(rest, "\""))) { nul = 1; return "" }
+        tok = tok substr(rest, 1, i - 1); rest = substr(rest, i + 1)
+        sub(/^[ \t\r\n]+/, "", rest)
+        return tok
+      }
+      sub(/^[ \t\r\n]+/, "", rest)
+      if (c != "=" && substr(rest, 1, 1) == "=") { rest = substr(rest, 2); sub(/^[ \t\r\n]+/, "", rest) }
+      return tok
+    }
     BEGIN {
       want["permitrootlogin"] = "no"; want["passwordauthentication"] = "no"
       want["kbdinteractiveauthentication"] = "no"; want["challengeresponseauthentication"] = "no"
@@ -222,15 +241,17 @@ check_sshd_precedence() {
       # triés avant 00-personal-os.conf.
       before = main || name < "00-personal-os.conf"
     }
-    /^[[:space:]]*(#|$)/ { next }
-    # Comme OpenSSH : le mot-clé se sépare de sa valeur par des blancs ou par
-    # un « = » (PermitRootLogin=yes) ; la valeur peut être entre guillemets.
+    # Comme process_server_config_line (servconf.c) : blancs de fin retirés,
+    # mot-clé lu par strdelim, relu une fois s il est vide (blancs ou « = »
+    # en tête, ""Include""). Vide ou commençant par #, la ligne est ignorée.
+    # La valeur peut être entre guillemets et suivie d un commentaire.
     {
-      line = $0; sub(/^[ \t]+/, "", line)
-      key = line; sub(/[ \t=].*/, "", key)
-      val = substr(line, length(key) + 1); key = tolower(key)
-      sub(/^[ \t]*=?[ \t]*/, "", val); sub(/[ \t]+#.*$/, "", val); sub(/[ \t]+$/, "", val)
-      gsub(/"/, "", val); gsub(/[ \t]+/, " ", val)
+      rest = $0; sub(/[ \t\r\n\f]+$/, "", rest); nul = 0
+      key = strdelim()
+      if (!nul && key == "") key = strdelim()
+      if (nul || key == "" || substr(key, 1, 1) == "#") next
+      key = tolower(key); val = rest
+      sub(/[ \t]+#.*$/, "", val); gsub(/"/, "", val); gsub(/[ \t]+/, " ", val)
       # Les chemins gardent leur casse (OpenSSH les passe tels quels à glob) ;
       # seules les valeurs des directives se comparent sans casse.
       path = val; val = tolower(val)

@@ -99,6 +99,9 @@ describe('provision.sh : SSH', () => {
     ['Match Address 203.0.113.0/24\n  PermitRootLogin = yes\n', '  PermitRootLogin = yes'],
     ['Match=User root\n\tPermitRootLogin "prohibit-password"\n', '\tPermitRootLogin "prohibit-password"'],
     ['Match User ops\n  AuthenticationMethods publickey password\n', '  AuthenticationMethods publickey password'],
+    // Le mot-clé lui-même peut être entre guillemets (strdelim d'OpenSSH).
+    ['"Match" Address 203.0.113.0/24\nPermitRootLogin=yes\n', 'PermitRootLogin=yes'],
+    ['Match Address 203.0.113.0/24\n"PermitRootLogin" yes\n', '"PermitRootLogin" yes'],
   ])('refuse l’exception %j, à chaque passage', (content, line) => {
     const root = machine({ provisioned: true });
     put(root, 'etc/ssh/sshd_config.d/60-exceptions.conf', content);
@@ -121,6 +124,12 @@ describe('provision.sh : SSH', () => {
     // dossier, qui ne serait pas contrôlé.
     ['dont seule la casse diffère du standard', 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\nInclude /etc/ssh/SSHD_CONFIG.D/*.CONF\n', 'Include /etc/ssh/SSHD_CONFIG.D/*.CONF'],
     ['depuis un fichier de sshd_config.d', 'etc/ssh/sshd_config.d/60-renvoi.conf', 'Include /etc/ssh/autres/*.conf\n', 'Include /etc/ssh/autres/*.conf'],
+    // OpenSSH découpe le mot-clé avec strdelim : un passage entre guillemets
+    // s'y recolle, et un « = » en tête de ligne est sauté.
+    ['au mot-clé entre guillemets', 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\n"Include" /etc/ssh/root-exception.conf\n', '"Include" /etc/ssh/root-exception.conf'],
+    ['au mot-clé en partie entre guillemets', 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\nInc"lude" /etc/ssh/root-exception.conf\n', 'Inc"lude" /etc/ssh/root-exception.conf'],
+    ['au mot-clé précédé d’un passage vide entre guillemets', 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\n""Include"" /etc/ssh/root-exception.conf\n', '""Include"" /etc/ssh/root-exception.conf'],
+    ['précédé d’un « = »', 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\n= Include /etc/ssh/root-exception.conf\n', '= Include /etc/ssh/root-exception.conf'],
   ])('refuse un Include %s, à chaque passage', (_, file, content, line) => {
     const root = machine({ provisioned: true });
     put(root, file, content);
@@ -143,6 +152,25 @@ describe('provision.sh : SSH', () => {
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('/etc/ssh/sshd_config: PasswordAuthentication=yes');
+  });
+
+  it('reconnaît un mot-clé entre guillemets avant l’Include', () => {
+    const root = machine({ provisioned: true });
+    put(root, 'etc/ssh/sshd_config', '"PermitRootLogin" yes\nInclude /etc/ssh/sshd_config.d/*.conf\n');
+
+    const result = provision(root);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('/etc/ssh/sshd_config: "PermitRootLogin" yes');
+  });
+
+  // sshd compte \r parmi les blancs : un fichier aux fins de ligne Windows
+  // garde l'Include standard.
+  it('accepte un sshd_config aux fins de ligne CRLF', () => {
+    const root = machine({ provisioned: true });
+    put(root, 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\r\nPermitRootLogin no\r\n');
+
+    expect(provision(root).status).toBe(0);
   });
 
   it('accepte un bloc Match qui ne touche pas au durcissement', () => {
