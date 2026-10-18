@@ -49,7 +49,13 @@ describe('provision.sh : pare-feu', () => {
       '-A DOCKER-USER -p tcp -m conntrack --ctorigdstport 443 --ctdir ORIGINAL -j RETURN',
       '-A DOCKER-USER -p udp -m conntrack --ctorigdstport 443 --ctdir ORIGINAL -j RETURN',
     ]);
-    expect(chain).toMatch(/-A DOCKER-USER -j DROP\nCOMMIT\n# END PERSONAL-OS DOCKER-USER\n$/);
+    // Un port publié hors 80/443 est fermé quel que soit le pont, et l'accès
+    // direct aux conteneurs des ponts par défaut aussi. Le reste (une
+    // connexion sortante d'un pont nommé autrement) retourne à Docker et ufw.
+    expect(chain).toMatch(
+      /-A DOCKER-USER -m conntrack --ctstate DNAT -j DROP\n-A DOCKER-USER -o docker0 -j DROP\n-A DOCKER-USER -o br-\+ -j DROP\nCOMMIT\n# END PERSONAL-OS DOCKER-USER\n$/,
+    );
+    expect(chain).not.toContain('-A DOCKER-USER -j DROP');
   });
 
   it('applique les mêmes règles en IPv6', () => {

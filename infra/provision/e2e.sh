@@ -236,3 +236,31 @@ check_include_refused /etc/ssh/root-exception.conf /etc/ssh/root-exception.conf
 check_include_refused /etc/ssh/SSHD_CONFIG.D/exception.CONF '/etc/ssh/SSHD_CONFIG.D/*.CONF'
 # OpenSSH retire les guillemets du mot-clé (strdelim).
 check_include_refused /etc/ssh/root-exception.conf /etc/ssh/root-exception.conf '"Include"'
+
+# sshd qui écoute ailleurs que sur 22 : ufw n'ouvrant que 22, la machine
+# deviendrait injoignable. Le script refuse, sans rien modifier.
+echo 'Port 2222' | sudo tee /etc/ssh/sshd_config.d/10-port.conf >/dev/null
+state >"$work/avant-refus-port"
+# shellcheck disable=SC2024 # journal écrit par l'utilisateur du test, voulu
+if sudo "$here/provision.sh" >"$work/refus-port.log" 2>&1; then
+  ko "le script passe alors que sshd n'écoute que sur 2222"
+fi
+grep -q 'listenaddress 0.0.0.0:2222' "$work/refus-port.log" || ko "le refus ne cite pas l'écoute de sshd : $(cat "$work/refus-port.log")"
+state >"$work/apres-refus-port"
+diff -u "$work/avant-refus-port" "$work/apres-refus-port" || ko "le passage refusé a modifié la machine"
+sudo rm /etc/ssh/sshd_config.d/10-port.conf
+sudo "$here/provision.sh" | tee "$work/apres-retrait-port.log"
+grep -q '^Aucun changement' "$work/apres-retrait-port.log" || ko "le passage après retrait du port annonce des changements"
+ok "sshd hors du port 22 fait refuser le passage, sans modification"
+
+# Un pont Docker au nom choisi (com.docker.network.bridge.name) : ses
+# connexions sortantes, hors 80/443, passent ; un port qu'il publie reste
+# fermé de dehors.
+outside python3 -m http.server 5432 --bind "$OUT" >/dev/null 2>&1 &
+sudo docker network create -o com.docker.network.bridge.name=app0 app >/dev/null
+sudo docker run -d --rm --name app-test --network app -p 8082:8080 "$BUSYBOX" httpd -f -p 8080 -h / >/dev/null
+sleep 2
+sudo docker run --rm --network app "$BUSYBOX" wget -q -T 5 -O /dev/null "http://$OUT:5432/" ||
+  ko "une connexion sortante du pont app0 vers $OUT:5432 est bloquée"
+reachable "$HOST" 8082 && ko "port 8082 publié depuis le pont app0 joignable de dehors"
+ok "pont app0 : connexion sortante vers 5432 permise, port publié 8082 fermé de dehors"

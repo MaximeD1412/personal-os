@@ -202,6 +202,27 @@ describe('provision.sh : SSH', () => {
     expect(exists(root, 'etc/ssh/sshd_config.d/00-personal-os.conf')).toBe(false);
     expect(commands(root)).toEqual([]);
   });
+
+  // sshd ignore les commentaires d'authorized_keys : un fichier qui n'a plus
+  // que des commentaires ne donne aucun accès.
+  it("s'arrête aussi quand les clés de l'administrateur ne sont que des commentaires", () => {
+    const root = machine({ rootKeys: null });
+    put(root, 'home/ops/.ssh/authorized_keys', '# clé retirée\n  # ssh-ed25519 AAAAancienne ancien@poste\n');
+
+    const result = provision(root);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/clé SSH/);
+    expect(exists(root, 'etc/ssh/sshd_config.d/00-personal-os.conf')).toBe(false);
+    expect(commands(root)).toEqual([]);
+  });
+
+  it("garde une clé à options de l'administrateur comme clé utilisable", () => {
+    const root = machine({ rootKeys: null });
+    put(root, 'home/ops/.ssh/authorized_keys', `# poste principal\nfrom="192.0.2.0/24" ${ADMIN_KEY}\n`);
+
+    expect(provision(root).status).toBe(0);
+  });
 });
 
 describe("provision.sh : l'utilisateur d'administration", () => {

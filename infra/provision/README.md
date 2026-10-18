@@ -36,6 +36,12 @@ publié ne passe que si elle visait 80 ou 443 côté hôte. Les réseaux Docker
 entre eux, et les réponses, passent. Un service publié sur `127.0.0.1` (toute
 la pile de Personal OS) n'est pas concerné.
 
+Seuls les ports publiés (connexions traduites par DNAT), quel que soit le nom
+du pont, et l'accès direct aux conteneurs des ponts par défaut (`docker0`,
+`br-*`) sont refusés. Une connexion sortante d'un conteneur, même depuis un
+pont au nom choisi (`com.docker.network.bridge.name`), passe vers n'importe
+quel port.
+
 ## Lancer
 
 ```bash
@@ -49,7 +55,8 @@ Le compte d'administration reçoit les clés de root et du compte qui lance
 `sudo`, plus celles passées par `--ssh-key` (répétable). Une clé à options
 (`command=`, `from=`…) n'est jamais recopiée : sans ses options, elle donnerait
 plus qu'on ne lui avait donné. Sans aucune clé, le script s'arrête **avant** de
-couper les mots de passe.
+couper les mots de passe. Un fichier qui ne contient plus que des commentaires
+compte comme sans clé : sshd les ignore.
 
 **Ouvrir une nouvelle session (`ssh ops@<machine>`) avant de fermer
 celle-ci.**
@@ -82,7 +89,9 @@ tourne.
   que `"Include"` ou `PermitRootLogin=yes` sont reconnus. La configuration
   effective est en plus
   vérifiée à chaque passage, pour root et pour l'administrateur
-  (`sshd -T -C user=…`).
+  (`sshd -T -C user=…`). Refusé de même : un sshd qui n'écoute pas sur le
+  port 22 (`Port 2222`, `ListenAddress …:2222`), que ufw rendrait
+  injoignable.
 - **Refusés aussi, avant toute modification** : un Docker installé hors du
   dépôt officiel sans Compose (`docker.io`), et un `daemon.json` avec
   `"firewall-backend": "nftables"` ou `"iptables": false` (Docker ne

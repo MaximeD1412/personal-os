@@ -269,6 +269,20 @@ check_sshd_precedence() {
     die "$(printf 'directives sshd qui annuleraient le durcissement (lues avant 00-personal-os.conf, dans un bloc Match, ou dans un fichier inclus non contrôlé) :\n%s\nLes retirer, puis relancer' "${conflicts//"$ROOT"\//\/}")"
 }
 
+# Le pare-feu n'ouvre que 22 : un sshd qui écouterait ailleurs (Port 2222,
+# ListenAddress …:2222) deviendrait injoignable une fois ufw activé. Lu dans
+# la configuration effective (sshd -T), sur la machine réelle seulement ; une
+# adresse de bouclage ne compte pas.
+check_sshd_port() {
+  [[ "$ROOT" == / ]] && command -v sshd >/dev/null || return 0
+  local effective
+  # sshd -T l'exige ; dossier d'exécution que sshd crée lui-même.
+  mkdir -p /run/sshd
+  effective=$(sshd -T) || die "sshd -T a échoué : la configuration sshd est invalide"
+  awk '$1 == "listenaddress" && $2 ~ /:22$/ && $2 !~ /^(127\.|\[::1\])/ { found = 1 } END { exit !found }' <<<"$effective" ||
+    refuse "$(printf 'sshd n'"'"'écoute pas sur le port 22 (Port, ListenAddress), seul port SSH ouvert par le pare-feu : on se couperait l'"'"'accès.\n%s\nRemettre le port 22, puis relancer' "$(grep -E '^(port|listenaddress) ' <<<"$effective" | sed 's/^/  /')")"
+}
+
 # Clés de l'administrateur : les siennes, gardées telles quelles, puis celles du
 # compte qui lance sudo, de root et de --ssh-key. Une clé à options (bridée par
 # command=, from=…) n'est jamais recopiée : sans ses options, elle donnerait
@@ -286,7 +300,10 @@ collect_keys() {
       ((${#EXTRA_KEYS[@]} == 0)) || printf '%s\n' "${EXTRA_KEYS[@]}"
     } | awk '!seen[$0]++'
   )
-  [[ -n "$ADMIN_KEYS" ]] ||
+  # sshd ignore les commentaires : il faut au moins une vraie clé, à options
+  # ou non (from="…" ssh-ed25519 AAAA…).
+  awk '!/^[ \t]*#/ && /(^|[ \t])(ssh-|ecdsa-|sk-)[A-Za-z0-9@.-]+ [A-Za-z0-9+\/]+=*([ \t]|$)/ { found = 1 }
+    END { exit !found }' <<<"$ADMIN_KEYS" ||
     die "aucune clé SSH trouvée (ni pour root, ni pour ${SUDO_USER:-le compte sudo}, ni par --ssh-key) : on se couperait l'accès"
 }
 
@@ -487,7 +504,11 @@ replace_block() {
 # bloc, un `ports: "5432:5432"` serait ouvert sur Internet. Une connexion venue
 # de dehors vers un port publié ne passe que si elle visait 80 ou 443 côté hôte
 # (--ctorigdstport : le port d'origine, avant la traduction vers le conteneur).
-# Les réseaux Docker entre eux, et les réponses, passent.
+# Les réseaux Docker entre eux, et les réponses, passent. Ne sont refusés
+# ensuite que les ports publiés (DNAT), quel que soit le nom du pont, et
+# l'accès direct aux conteneurs des ponts par défaut (Docker < 28 le laisse
+# passer). Le reste, comme une connexion sortante d'un pont nommé autrement
+# (com.docker.network.bridge.name), retourne à Docker et ufw.
 docker_user_rules() {
   local spec
   echo '*filter'
@@ -498,7 +519,9 @@ docker_user_rules() {
   for spec in "${DOCKER_OPEN_PORTS[@]}"; do
     echo "-A DOCKER-USER -p ${spec#*/} -m conntrack --ctorigdstport ${spec%/*} --ctdir ORIGINAL -j RETURN"
   done
-  echo '-A DOCKER-USER -j DROP'
+  echo '-A DOCKER-USER -m conntrack --ctstate DNAT -j DROP'
+  echo '-A DOCKER-USER -o docker0 -j DROP'
+  echo '-A DOCKER-USER -o br-+ -j DROP'
   echo 'COMMIT'
 }
 
@@ -610,6 +633,7 @@ main() {
   check_arch
   check_sshd_include
   check_sshd_precedence
+  check_sshd_port
   check_foreign_rules
   check_compose
   check_docker_firewall
