@@ -26,11 +26,12 @@ Le **Stock domestique** est quantitatif et **déclaratif** (ADR 0013) : une lign
 - Prisma : `PantryItem { id, scopeId, ingredientId (unique par scopeId), quantity Decimal (≥ 0), expiresOn Date?, updatedAt }`.
 - Module profond `stock/recaler.ts` (pur) : `recaler(ligne | null, mouvement) → { ligne, manque? }` avec `mouvement` = `ACHAT { quantite, expireLe? }` (ajoute ; péremption = la plus proche des deux), `CONSOMMATION { quantite }` (retire ; jamais sous zéro : rend `manque` = la part non couverte), `CORRECTION { quantite, expireLe? }` (remplace). Une ligne à zéro perd sa péremption.
 - Routes : `GET /pantry-items` (tout le stock, avec l'Ingrédient), `PUT /pantry-items/:ingredientId` (correction manuelle, crée la ligne au besoin), `DELETE /pantry-items/:ingredientId`.
-- Écran `/repas/stock` : tableau éditable en place (quantité, péremption), recherche, ajout d'un Ingrédient ; ligne qui périme dans les trois jours mise en avant (`DccmStatusBadge` warning). Une modification s'enregistre à la sortie du champ, sans bouton.
+- Écran `/repas/stock` : tableau éditable en place (quantité, péremption), recherche, ajout d'un Ingrédient ; ligne qui périme dans les trois jours mise en avant (`HlmBadge` `tone="warning"`). Une modification s'enregistre à la sortie du champ, sans bouton.
 - Semeur de démo : une dizaine de lignes, dont deux qui périment bientôt.
 
 ## Décisions déjà prises
 
+- Maquette : `stock-domestique-1424.png`, `stock-domestique-390.png` dans `design/captures/ecrans/` (frames `WF67A`, `H0tip` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - « Périme bientôt » = dans les trois jours (jour civil de Paris, `aujourdhui()`).
 - L'édition en place sans bouton est la seule exception à `DccmFormPage` : c'est l'exigence « en quelques secondes » du PRD.
 

@@ -6,7 +6,7 @@ type: feature
 priority: P1
 size: M
 milestone: M6 Projets et portfolio
-blocked_by: [SOCLE-3]
+blocked_by: [SOCLE-3, UI-3]
 adr: [0019, 0020]
 risques: [OPS-1]
 revue_visuelle: true
@@ -30,6 +30,7 @@ Le **CV** est un PDF rédigé hors de l'application et téléversé ; l'applicat
 
 ## Décisions déjà prises
 
+- Maquette : `portfolio-cockpit-1424.png`, `portfolio-cockpit-390.png` dans `design/captures/ecrans/` (frames `qgq9I`, `flenV` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Un CV par langue (FR, EN) ; pas d'historique des versions.
 
 ## Critères d'acceptation
@@ -53,3 +54,4 @@ Ajouter à `docs/pilotage/mep.json` : créer le bucket OVH Object Storage et un 
 ## Dépendances
 
 - SOCLE-3.
+- UI-3.

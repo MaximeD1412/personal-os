@@ -33,6 +33,7 @@ Un **Ingrédient** est une entrée canonique du catalogue, désignée par un ide
 
 ## Décisions déjà prises
 
+- Maquette : `recettes-ingredients-1424.png`, `recettes-ingredients-390.png` dans `design/captures/ecrans/` (frames `G2E7s`, `WgPSA` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - `gramsPerPiece` n'a de sens que si l'unité canonique est `GRAM` ou `PIECE` ; sa validation par l'utilisateur est CUISINE-2.
 - Le catalogue n'a pas d'Espace : les deux Comptes le partagent.
 

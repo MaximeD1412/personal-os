@@ -10,6 +10,7 @@ blocked_by: [CUISINE-7, CUISINE-8]
 adr: [0013, 0030]
 risques: [CUI-1]
 revue_visuelle: true
+reprend: 74
 ---
 
 ## Contexte
@@ -28,6 +29,7 @@ Un **Repas cuisiné** est un Repas planifié déclaré réalisé, avec les quant
 
 ## Décisions déjà prises
 
+- Maquette : `stock-domestique-1424.png`, `stock-domestique-390.png` dans `design/captures/ecrans/` (frames `WF67A`, `H0tip` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Un Repas cuisiné ne se modifie pas ; une erreur se corrige dans l'écran de stock.
 
 ## Critères d'acceptation

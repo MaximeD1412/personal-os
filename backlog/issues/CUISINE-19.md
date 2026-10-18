@@ -10,6 +10,7 @@ blocked_by: [CUISINE-17]
 adr: [0030]
 risques: []
 revue_visuelle: true
+reprend: 79
 ---
 
 ## Contexte
@@ -28,6 +29,7 @@ Une recette générée appréciée doit pouvoir revenir. Les recettes générée
 
 ## Décisions déjà prises
 
+- Maquette : `recettes-ingredients-1424.png`, `recettes-ingredients-390.png` dans `design/captures/ecrans/` (frames `G2E7s`, `WgPSA` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Une recette générée non gardée n'apparaît pas dans « Mes recettes » mais reste consultable depuis le planning.
 
 ## Critères d'acceptation

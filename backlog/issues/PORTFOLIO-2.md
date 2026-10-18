@@ -10,6 +10,7 @@ blocked_by: [PORTFOLIO-1]
 adr: [0019, 0030]
 risques: [SEC-2]
 revue_visuelle: true
+reprend: 95
 ---
 
 ## Contexte
@@ -28,6 +29,7 @@ Une **Présentation publique** est le texte d'un Projet destiné au portfolio, d
 
 ## Décisions déjà prises
 
+- Maquette : `projets-1424.png`, `projets-390.png` dans `design/captures/ecrans/` (frames `EZy1P`, `XiIf0` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Modifier une présentation publiée la repasse en `READY` : rien ne part en ligne sans un geste « Publier ».
 
 ## Critères d'acceptation

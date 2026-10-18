@@ -31,6 +31,7 @@ Un **Produit** est une façon concrète d'acheter un Ingrédient (marque, condit
 
 ## Décisions déjà prises
 
+- Maquette : `liste-de-courses-1424.png`, `liste-de-courses-390.png`, `recettes-ingredients-1424.png`, `recettes-ingredients-390.png` dans `design/captures/ecrans/` (frames `Bb4hE`, `I5yWov`, `G2E7s`, `WgPSA` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - L'arrondi est toujours au conditionnement supérieur.
 
 ## Critères d'acceptation

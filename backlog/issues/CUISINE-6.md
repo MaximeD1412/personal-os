@@ -10,6 +10,7 @@ blocked_by: [CUISINE-5]
 adr: [0030]
 risques: [CUI-3]
 revue_visuelle: true
+reprend: 81
 ---
 
 ## Contexte
@@ -18,7 +19,7 @@ L'utilisateur saisit ses ingrédients en texte libre (« 2 belles tomates », «
 
 ## État actuel du code
 
-- `POST /ingredients/resolve`, `POST /ingredient-aliases` (CUISINE-3) ; `POST /recipes` (CUISINE-5) ; motifs `DccmFormPage`, `DccmField` (UI-3).
+- `POST /ingredients/resolve`, `POST /ingredient-aliases` (CUISINE-3) ; `POST /recipes` (CUISINE-5) ; motifs `DccmFormPage` (UI-3) et `form-field` (UI-5).
 
 ## À faire
 
@@ -28,6 +29,7 @@ L'utilisateur saisit ses ingrédients en texte libre (« 2 belles tomates », «
 
 ## Décisions déjà prises
 
+- Maquette : `recettes-ingredients-1424.png`, `recettes-ingredients-390.png` dans `design/captures/ecrans/` (frames `G2E7s`, `WgPSA` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Pas d'analyse de phrase (« 2 belles tomates » → quantité 2) : quantité, unité et libellé sont trois champs.
 
 ## Critères d'acceptation

@@ -34,6 +34,7 @@ Un **Planning de repas** regroupe les **Repas planifiés** d'une semaine. Un Rep
 
 ## Décisions déjà prises
 
+- Maquette : `planning-de-repas-1424.png`, `planning-de-repas-390.png` dans `design/captures/ecrans/` (frames `DjOyh`, `P0DQS` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Heures d'affichage dans l'Agenda : 12 h 00 et 19 h 30.
 - Rouvrir un planning arrêté est permis ; cela ne touche jamais une liste déjà produite (ADR 0012).
 

@@ -31,6 +31,7 @@ Produire une liste de courses à partir d'un Planning de repas arrêté la **fig
 
 ## Décisions déjà prises
 
+- Maquette : `liste-de-courses-1424.png`, `liste-de-courses-390.png` dans `design/captures/ecrans/` (frames `Bb4hE`, `I5yWov` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - **Un ajout manuel peut être un Ingrédient du catalogue ou un simple libellé** (« liquide vaisselle ») ; un libellé seul n'alimente jamais le Stock domestique. Les articles issus du planning portent toujours un Ingrédient.
 - La liste ne se recalcule jamais : produire de nouveau depuis le même planning crée une **autre** liste (le complément est CUISINE-13).
 

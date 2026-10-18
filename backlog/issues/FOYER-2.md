@@ -10,6 +10,7 @@ blocked_by: [FOYER-1, CUISINE-1]
 adr: [0014, 0030]
 risques: [IA-1]
 revue_visuelle: true
+reprend: 77
 ---
 
 ## Contexte
@@ -31,6 +32,7 @@ Une **Préférence alimentaire** est rattachée à un Compte : allergie, aliment
 
 ## Décisions déjà prises
 
+- Maquette : `preferences-alimentaires-1424.png`, `preferences-alimentaires-390.png` dans `design/captures/ecrans/` (frames `msw9z`, `LgbDJ` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Les deux Comptes voient et modifient les préférences des deux : ce sont des données du Foyer.
 - Pas de « régime » (végétarien…) en V1 : il s'exprime par des exclusions.
 

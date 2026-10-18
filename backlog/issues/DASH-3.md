@@ -10,6 +10,7 @@ blocked_by: [DASH-2, INFRA-13]
 adr: [0020]
 risques: [OPS-1]
 revue_visuelle: true
+reprend: 83
 ---
 
 ## Contexte
@@ -29,6 +30,7 @@ Le PRD veut un widget d'état de santé, dont l'état des sauvegardes. L'API ne 
 
 ## Décisions déjà prises
 
+- Maquette : `accueil-1424.png`, `accueil-1024.png`, `accueil-390.png` dans `design/captures/ecrans/` (frames `O1sya8`, `D4B8M`, `PFX8V` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Seuil : 26 heures, comme INFRA-13.
 
 ## Critères d'acceptation

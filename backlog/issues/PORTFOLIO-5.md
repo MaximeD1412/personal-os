@@ -30,6 +30,7 @@ Le **Portfolio** est le site public, unique, en français et en anglais. Langue 
 
 ## Décisions déjà prises
 
+- Maquette : `portfolio-public-1424.png`, `portfolio-public-390.png` dans `design/captures/ecrans/` (frames `Gs5bj`, `THiTg` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Pas de repli d'une langue vers l'autre, jamais.
 
 ## Critères d'acceptation

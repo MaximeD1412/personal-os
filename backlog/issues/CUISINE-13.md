@@ -29,6 +29,7 @@ Une liste produite est figée (ADR 0012). Si le planning change ensuite, l'appli
 
 ## Décisions déjà prises
 
+- Maquette : `liste-de-courses-1424.png`, `liste-de-courses-390.png` dans `design/captures/ecrans/` (frames `Bb4hE`, `I5yWov` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Un excédent (repas retiré après la liste) n'est jamais signalé : les courses faites restent faites.
 
 ## Critères d'acceptation

@@ -10,6 +10,7 @@ blocked_by: [PORTFOLIO-5]
 adr: [0019, 0029]
 risques: []
 revue_visuelle: true
+reprend: 97
 ---
 
 ## Contexte
@@ -28,6 +29,7 @@ Le PRD veut un portfolio « agréable à regarder et rapide ». C'est la vitrine
 
 ## Décisions déjà prises
 
+- Maquette : `portfolio-public-1424.png`, `portfolio-public-390.png` dans `design/captures/ecrans/` (frames `Gs5bj`, `THiTg` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Pas de framework d'animation : CSS seul.
 
 ## Critères d'acceptation
