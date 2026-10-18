@@ -136,6 +136,12 @@ case $cmd in
     ;;
   drop)
     # Rien à détruire côté base : les tests suppriment leur base jetable.
+    # Le démon Nx du worktree, lancé par la première commande nx, survit à
+    # l'agent : arrêté ici, sinon il plante pendant `git worktree remove`
+    # (node_modules effacé sous lui) et réécrit .nx/workspace-data, ce qui
+    # laisse le dossier du worktree sur le disque.
+    env -u NODE_ENV pnpm exec nx daemon --stop >/dev/null 2>&1 || true
+    echo "ok   démon Nx arrêté"
     step "suppression de dist/ et .nx/cache" rm -rf "$root/dist" "$root/.nx/cache"
     echo "ok   dist/ et .nx/cache supprimés"
     echo "Pour retirer le worktree, depuis le dépôt principal :"
