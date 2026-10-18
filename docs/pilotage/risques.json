@@ -536,7 +536,7 @@
         {
           "texte": "Conventions écrites : ADR 0030 et AGENTS.md",
           "ref": "ADR 0030",
-          "fait": false
+          "fait": true
         },
         {
           "texte": "Ticket exemple en M0 : events et agenda migrés aux conventions",
