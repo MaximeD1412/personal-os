@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import type { Routes } from '@angular/router';
 import type { DccmNavEntry } from '@personal-os/ui/dccm';
+import { appRoutes } from './app.routes';
 import { NAVIGATION, selonLesEcrans } from './navigation';
 
 @Component({ template: '' })
@@ -42,12 +43,25 @@ describe('selonLesEcrans', () => {
         path: 'foyer',
         children: [{ path: 'preferences', loadComponent: async () => Ecran }],
       },
-      { path: 'repas', loadChildren: async () => [] },
     ];
 
     expect(aVenir(routes, '/foyer/preferences')).toBe(false);
     expect(aVenir(routes, '/foyer')).toBe(true);
-    expect(aVenir(routes, '/repas/planning')).toBe(false);
+  });
+
+  it("ne devine pas les écrans d'un module chargé à la demande", () => {
+    // Ses enfants ne sont connus qu'une fois chargé : « recettes » seule
+    // n'y fait pas exister le planning ni le stock.
+    const routes: Routes = [
+      {
+        path: 'repas',
+        loadChildren: async () => [{ path: 'recettes', component: Ecran }],
+      },
+    ];
+
+    expect(aVenir(routes, '/repas/recettes')).toBe(true);
+    expect(aVenir(routes, '/repas/planning')).toBe(true);
+    expect(aVenir(routes, '/repas/stock')).toBe(true);
   });
 
   it("ne prend ni la route attrape-tout ni un paramètre pour l'écran", () => {
@@ -58,6 +72,21 @@ describe('selonLesEcrans', () => {
 
     expect(aVenir(routes, '/projets')).toBe(true);
     expect(aVenir(routes, '/finances')).toBe(true);
+  });
+});
+
+describe('appRoutes', () => {
+  it('déclare chaque écran dans la configuration, sans module chargé à la demande', () => {
+    // La navigation lit cette configuration pour activer ses entrées : un
+    // écran caché derrière un `loadChildren` resterait « À venir ». Un écran
+    // chargé à la demande se déclare ici, avec `loadComponent`.
+    const sansLoadChildren = (routes: Routes): boolean =>
+      routes.every(
+        (route) =>
+          !route.loadChildren && sansLoadChildren(route.children ?? []),
+      );
+
+    expect(sansLoadChildren(appRoutes)).toBe(true);
   });
 });
 

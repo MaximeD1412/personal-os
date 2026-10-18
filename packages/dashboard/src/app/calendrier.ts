@@ -1,5 +1,12 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import {
   estEcheance,
@@ -21,6 +28,7 @@ import {
 import { HlmInput } from '@personal-os/ui/input';
 import { HlmLabel } from '@personal-os/ui/label';
 import { HlmSelectImports } from '@personal-os/ui/select';
+import { EspaceCourant } from './espace-courant';
 import { EspaceService } from './espace.service';
 import { EventService } from './event.service';
 import { PARAMETRE_D_EVENEMENT } from './modules-d-origine';
@@ -68,7 +76,9 @@ const SAISIE_VIERGE: Saisie = {
  * qui sert aussi bien à en créer un qu'à en modifier un.
  *
  * L'Espace est toujours explicite — le Calendrier acceptant les deux, rien ne
- * permettrait de le deviner, et le champ démarre donc vide (ADR 0014).
+ * permettrait de le deviner (ADR 0014). Une nouvelle saisie reprend l'Espace
+ * pré-choisi dans la TopBar (`EspaceCourant`), visible et modifiable dans le
+ * champ ; sans pré-choix, le champ démarre vide.
  */
 @Component({
   selector: 'pos-calendrier',
@@ -103,12 +113,28 @@ export class Calendrier {
   protected readonly enEdition = signal<Event | null>(null);
   protected readonly saisie = signal<Saisie>({ ...SAISIE_VIERGE });
 
+  private readonly espaceCourant = inject(EspaceCourant);
+  /** L'Espace a été choisi dans le champ : le sélecteur ne le change plus. */
+  private readonly espaceChoisiALaMain = signal(false);
+
   protected readonly pretAEnregistrer = computed(() => {
     const { titre, debut, espaceId } = this.saisie();
     return titre.trim().length > 0 && debut.length > 0 && espaceId.length > 0;
   });
 
   constructor() {
+    // Une nouvelle saisie suit l'Espace pré-choisi tant qu'on n'en a pas
+    // choisi un dans le champ ; un Événement repris garde le sien.
+    effect(() => {
+      const preChoisi = this.espaceCourant.espace();
+      if (!preChoisi || this.enEdition() || this.espaceChoisiALaMain()) {
+        return;
+      }
+      untracked(() =>
+        this.saisie.update((saisie) => ({ ...saisie, espaceId: preChoisi.id })),
+      );
+    });
+
     this.espacesApi.mesEspaces().subscribe({
       next: (espaces) => this.espaces.set(espaces),
       error: () => this.erreur.set("Les Espaces n'ont pas pu être lus."),
@@ -210,6 +236,9 @@ export class Calendrier {
     champ: keyof Saisie,
     valeur: string | null | undefined,
   ): void {
+    if (champ === 'espaceId' && (valeur ?? '') !== this.saisie().espaceId) {
+      this.espaceChoisiALaMain.set(true);
+    }
     this.saisie.update((saisie) => ({ ...saisie, [champ]: valeur ?? '' }));
   }
 
@@ -228,7 +257,11 @@ export class Calendrier {
 
   protected annuler(): void {
     this.enEdition.set(null);
-    this.saisie.set({ ...SAISIE_VIERGE });
+    this.espaceChoisiALaMain.set(false);
+    this.saisie.set({
+      ...SAISIE_VIERGE,
+      espaceId: this.espaceCourant.espace()?.id ?? '',
+    });
   }
 
   protected enregistrer(): void {

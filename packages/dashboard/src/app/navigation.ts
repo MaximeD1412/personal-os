@@ -139,9 +139,11 @@ export const ICONES_DE_NAVIGATION = {
  *
  * Une route ne compte que si elle affiche un écran : une redirection seule
  * (`''` vers l'Agenda, en attendant l'Accueil) ne fait pas exister l'écran de
- * l'entrée, et la route attrape-tout ne fait pas exister tous les écrans. Une
- * route chargée à la demande (`loadChildren`) couvre tout ce qui est sous
- * elle : ses enfants ne sont connus qu'à son chargement.
+ * l'entrée, et la route attrape-tout ne fait pas exister tous les écrans. Les
+ * enfants d'un module chargé à la demande (`loadChildren`) ne sont connus
+ * qu'à son chargement : rien n'y est deviné, ses entrées restent « À venir ».
+ * Un écran chargé à la demande se déclare donc dans `app.routes.ts`, avec
+ * `loadComponent` (`navigation.spec.ts` le vérifie).
  */
 export function selonLesEcrans(
   entrees: readonly DccmNavEntry[],
@@ -190,9 +192,6 @@ function couvre(route: Route, cherches: string[]): boolean {
   }
 
   const reste = cherches.slice(propres.length);
-  if (route.loadChildren) {
-    return true;
-  }
   if (reste.length === 0 && (route.component || route.loadComponent)) {
     return true;
   }

@@ -337,7 +337,10 @@ Les planches 04 Navigation et 06 Layout, leurs stories sous `Navigation/*` et
   Sidebar, estompée (`opacity-40`) dans le Rail et la barre d'onglets, faute
   de place pour le badge. Ce n'est ni un lien ni un arrêt de tabulation : un
   `span` `aria-disabled`, dont le libellé dit « (à venir) » aux lecteurs
-  d'écran. Une redirection seule ne fait pas exister un écran.
+  d'écran. Une redirection seule ne fait pas exister un écran, ni un module
+  chargé à la demande (`loadChildren`), dont les enfants ne sont connus qu'au
+  chargement : un écran chargé à la demande se déclare dans `app.routes.ts`
+  avec `loadComponent`.
 - **L'entrée active** est celle de l'écran affiché (`routerLinkActive`, exact
   pour `/`) : `primary-20`, texte et icône `primary`, `aria-current="page"`.
   Focus : anneau 2 px `primary` intérieur, comme la galerie.
@@ -374,8 +377,10 @@ Les planches 04 Navigation et 06 Layout, leurs stories sous `Navigation/*` et
   `surface-container-lowest-80` (celui de la barre de commande).
 - **Le sélecteur d'Espace** ne liste que les Espaces de l'API et ne filtre
   rien : il retient l'Espace pré-choisi d'une création
-  (`EspaceCourant.espace()`, Espace personnel par défaut), que les
-  formulaires liront.
+  (`EspaceCourant.espace()`, Espace personnel par défaut). Un formulaire de
+  création en préremplit son champ Espace, qui reste visible et modifiable,
+  tant qu'on n'y a pas choisi un Espace à la main ; un objet en modification
+  garde le sien (le Calendrier le fait).
 
 ## Audit
 
