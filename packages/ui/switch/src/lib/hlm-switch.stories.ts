@@ -27,9 +27,10 @@ export const Interrupteur: Story = {
   render: (args) => ({
     props: args,
     template: `
-      <div hlmField orientation="horizontal">
+      <div hlmField orientation="horizontal" class="flex-wrap">
         <hlm-switch inputId="interrupteur" [checked]="checked" [disabled]="disabled" />
         <label hlmFieldLabel for="interrupteur">{{ libelle }}</label>
+        <p hlmFieldDescription class="basis-full">Un rappel la veille de chaque échéance.</p>
       </div>`,
   }),
 };

@@ -5,11 +5,13 @@ import {
 	Component,
 	computed,
 	forwardRef,
+	inject,
 	input,
 	linkedSignal,
 	output,
 } from '@angular/core';
 import { type ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { BrnFieldA11yService } from '@spartan-ng/brain/field';
 import type { ChangeFn, TouchFn } from '@spartan-ng/brain/forms';
 import { BrnSwitch, BrnSwitchThumb } from '@spartan-ng/brain/switch';
 import { hlm } from '@personal-os/ui/utils';
@@ -45,7 +47,7 @@ export const HLM_SWITCH_VALUE_ACCESSOR = {
 			[id]="inputId()"
 			[aria-label]="ariaLabel()"
 			[aria-labelledby]="ariaLabelledby()"
-			[aria-describedby]="ariaDescribedby()"
+			[aria-describedby]="_describedBy()"
 		>
 			<brn-switch-thumb hlm />
 		</brn-switch>
@@ -90,6 +92,16 @@ export class HlmSwitch implements ControlValueAccessor {
 
 	/** Used to set the aria-describedby attribute on the underlying brn element. */
 	public readonly ariaDescribedby = input<string | null>(null, { alias: 'aria-describedby' });
+
+	private readonly _champ = inject(BrnFieldA11yService, { optional: true });
+
+	/** La description donnée et celles du FormField (aide, erreur), pour le contrôle focalisable. */
+	protected readonly _describedBy = computed(() => {
+		const ids = [this.ariaDescribedby(), this._champ?.describedBy()]
+			.flatMap((liste) => liste?.split(/\s+/) ?? [])
+			.filter(Boolean);
+		return ids.length ? [...new Set(ids)].join(' ') : null;
+	});
 
 	protected readonly _disabled = linkedSignal(this.disabled);
 

@@ -5,6 +5,7 @@ import {
 	Component,
 	computed,
 	forwardRef,
+	inject,
 	input,
 	linkedSignal,
 	model,
@@ -15,7 +16,7 @@ import { type ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { matCheckOutline } from '@ng-icons/material-symbols/outline';
 import { BrnCheckbox } from '@spartan-ng/brain/checkbox';
-import { BrnFieldControlDescribedBy } from '@spartan-ng/brain/field';
+import { BrnFieldA11yService } from '@spartan-ng/brain/field';
 import type { ChangeFn, TouchFn } from '@spartan-ng/brain/forms';
 import { hlm } from '@personal-os/ui/utils';
 import type { ClassValue } from 'clsx';
@@ -33,12 +34,12 @@ export const HLM_CHECKBOX_VALUE_ACCESSOR = {
 	providers: [HLM_CHECKBOX_VALUE_ACCESSOR],
 	viewProviders: [provideIcons({ matCheckOutline })],
 	changeDetection: ChangeDetectionStrategy.OnPush,
-	hostDirectives: [BrnFieldControlDescribedBy],
 	host: {
 		class: 'contents peer',
 		'data-slot': 'checkbox',
 		'[attr.aria-label]': 'null',
 		'[attr.aria-labelledby]': 'null',
+		'[attr.aria-describedby]': 'null',
 		'[attr.data-disabled]': '_disabled() ? "" : null',
 	},
 	template: `
@@ -52,7 +53,7 @@ export const HLM_CHECKBOX_VALUE_ACCESSOR = {
 			[required]="required()"
 			[aria-label]="ariaLabel()"
 			[aria-labelledby]="ariaLabelledby()"
-			[aria-describedby]="ariaDescribedby()"
+			[aria-describedby]="_describedBy()"
 			[forceInvalid]="forceInvalid()"
 			(checkedChange)="_handleChange($event)"
 			(touched)="_onTouched?.()"
@@ -93,6 +94,16 @@ export class HlmCheckbox implements ControlValueAccessor {
 
 	/** Used to set the aria-describedby attribute on the underlying brn element. */
 	public readonly ariaDescribedby = input<string | null>(null, { alias: 'aria-describedby' });
+
+	private readonly _champ = inject(BrnFieldA11yService, { optional: true });
+
+	/** La description donnée et celles du FormField (aide, erreur), pour le contrôle focalisable. */
+	protected readonly _describedBy = computed(() => {
+		const ids = [this.ariaDescribedby(), this._champ?.describedBy()]
+			.flatMap((liste) => liste?.split(/\s+/) ?? [])
+			.filter(Boolean);
+		return ids.length ? [...new Set(ids)].join(' ') : null;
+	});
 
 	/** The checked state of the checkbox. */
 	public readonly checkedInput = input<boolean, BooleanInput>(false, { alias: 'checked', transform: booleanAttribute });

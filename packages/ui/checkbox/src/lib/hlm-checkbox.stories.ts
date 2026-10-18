@@ -27,9 +27,10 @@ export const Case: Story = {
   render: (args) => ({
     props: args,
     template: `
-      <div hlmField orientation="horizontal">
+      <div hlmField orientation="horizontal" class="flex-wrap">
         <hlm-checkbox inputId="case" [checked]="checked" [disabled]="disabled" />
         <label hlmFieldLabel for="case">{{ libelle }}</label>
+        <p hlmFieldDescription class="basis-full">Retiré de la liste une fois coché.</p>
       </div>`,
   }),
 };
