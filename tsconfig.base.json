@@ -27,7 +27,14 @@
       "@personal-os/ui/card": ["./packages/ui/card/src/index.ts"],
       "@personal-os/ui/badge": ["./packages/ui/badge/src/index.ts"],
       "@personal-os/ui/select": ["./packages/ui/select/src/index.ts"],
-      "@personal-os/ui/dccm": ["./packages/ui/dccm/src/index.ts"]
+      "@personal-os/ui/dccm": ["./packages/ui/dccm/src/index.ts"],
+      "@personal-os/ui/checkbox": ["./packages/ui/checkbox/src/index.ts"],
+      "@personal-os/ui/switch": ["./packages/ui/switch/src/index.ts"],
+      "@personal-os/ui/toggle-group": [
+        "./packages/ui/toggle-group/src/index.ts"
+      ],
+      "@personal-os/ui/field": ["./packages/ui/field/src/index.ts"],
+      "@personal-os/ui/kbd": ["./packages/ui/kbd/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

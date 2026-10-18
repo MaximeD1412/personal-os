@@ -8,7 +8,8 @@
     "@personal-os/ui/utils": "0.0.1",
     "@ng-icons/core": ">=32.0.0 <34.0.0",
     "@ng-icons/material-symbols": "^33.4.0",
-    "clsx": "^2.1.1"
+    "clsx": "^2.1.1",
+    "@personal-os/ui/input": "0.0.1"
   },
   "sideEffects": false
 }
