@@ -42,6 +42,13 @@ du pont, et l'accès direct aux conteneurs des ponts par défaut (`docker0`,
 pont au nom choisi (`com.docker.network.bridge.name`), passe vers n'importe
 quel port.
 
+La chaîne ne reconnaît que les ponts `docker0` et `br-*`. Sont donc refusés à
+chaque passage, avant toute modification puis une fois Docker démarré : un
+réseau en mode `routed` ou `nat-unprotected` (ses ports publiés se joignent en
+routage direct, sans DNAT), la même option par défaut dans `daemon.json`
+(`default-network-opts`), et sous Docker < 28 un pont au nom choisi, dont
+Docker ne bloque pas encore l'accès direct aux conteneurs.
+
 ## Lancer
 
 ```bash

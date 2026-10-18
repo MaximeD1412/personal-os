@@ -328,7 +328,40 @@ check_docker_firewall() {
   if grep -Eq '"iptables"[[:space:]]*:[[:space:]]*false' "$path"; then
     refuse "/etc/docker/daemon.json : iptables désactivé, Docker ne passerait pas par DOCKER-USER. Retirer l'option, redémarrer Docker, puis relancer"
   fi
+  if grep -Eq '"com\.docker\.network\.bridge\.gateway_mode_ipv[46]"[[:space:]]*:[[:space:]]*"(routed|nat-unprotected)"' "$path"; then
+    refuse "/etc/docker/daemon.json : réseaux routed ou nat-unprotected par défaut (default-network-opts), leurs ports publiés échapperaient à DOCKER-USER. Retirer l'option, redémarrer Docker, puis relancer"
+  fi
   return 0
+}
+
+# Les réseaux Docker existants que DOCKER-USER ne protège pas, un par ligne :
+# - en mode routed ou nat-unprotected, un port publié se joint en routage
+#   direct vers le conteneur, sans DNAT, et Docker l'accepte avant ufw ; la
+#   chaîne ne reconnaît que les ponts docker0 et br-* ;
+# - sous Docker < 28, un pont au nom choisi (com.docker.network.bridge.name)
+#   laisse joindre ses conteneurs en routage direct (Docker 28 le bloque).
+# Rien si Docker ne répond pas.
+docker_unprotected_networks() {
+  local version ids
+  version=$(docker version --format '{{.Server.Version}}' 2>/dev/null) || return 0
+  ids=$(docker network ls -q --filter driver=bridge) || return 0
+  [[ -n "$ids" ]] || return 0
+  # shellcheck disable=SC2086 # un identifiant par mot
+  docker network inspect --format '{{.Name}}|{{or (index .Options "com.docker.network.bridge.name") "-"}}|{{or (index .Options "com.docker.network.bridge.gateway_mode_ipv4") "-"}}|{{or (index .Options "com.docker.network.bridge.gateway_mode_ipv6") "-"}}' $ids |
+    awk -F '|' -v old="$((${version%%.*} < 28))" '
+      $3 ~ /^(routed|nat-unprotected)$/ { print "  " $1 " (gateway_mode_ipv4=" $3 ")"; next }
+      $4 ~ /^(routed|nat-unprotected)$/ { print "  " $1 " (gateway_mode_ipv6=" $4 ")"; next }
+      old && $2 != "-" && $2 != "docker0" && $2 !~ /^br-/ { print "  " $1 " (pont " $2 ", Docker < 28)" }
+    '
+}
+
+# $1 : refuse avant toute modification, die une fois Docker démarré.
+check_docker_networks() {
+  [[ "$ROOT" == / ]] && command -v docker >/dev/null || return 0
+  local unprotected
+  unprotected=$(docker_unprotected_networks)
+  [[ -z "$unprotected" ]] ||
+    "$1" "$(printf 'réseaux Docker dont les ports publiés échapperaient à DOCKER-USER :\n%s\nLes recréer en mode nat, sur un pont docker0 ou br-* (ou mettre Docker à jour), puis relancer' "$unprotected")"
 }
 
 # --- Configuration ---
@@ -637,6 +670,7 @@ main() {
   check_foreign_rules
   check_compose
   check_docker_firewall
+  check_docker_networks refuse
   collect_keys
 
   local jail_changed=false
@@ -649,6 +683,7 @@ main() {
   configure_fail2ban "$jail_changed"
   configure_docker
   configure_firewall
+  $DRY_RUN || check_docker_networks die
   summary
   ! $REFUSED
 }

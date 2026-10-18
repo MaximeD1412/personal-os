@@ -123,6 +123,16 @@ describe('provision.sh : Docker', () => {
   it.each([
     ['firewall-backend nftables', '{ "firewall-backend": "nftables" }'],
     ['iptables désactivé', '{ "iptables": false }'],
+    // Les réseaux créés ensuite publieraient leurs ports en routage direct,
+    // sans DNAT : DOCKER-USER ne reconnaît pas un pont au nom choisi.
+    [
+      'réseaux routed par défaut',
+      '{ "default-network-opts": { "bridge": { "com.docker.network.bridge.gateway_mode_ipv4": "routed" } } }',
+    ],
+    [
+      'réseaux nat-unprotected par défaut',
+      '{ "default-network-opts": { "bridge": { "com.docker.network.bridge.gateway_mode_ipv6": "nat-unprotected" } } }',
+    ],
   ])('%s : refusé avant toute modification', (_, daemon) => {
     const root = machine({ provisioned: true });
     put(root, 'etc/docker/daemon.json', `${daemon}\n`);

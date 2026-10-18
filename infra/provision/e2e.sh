@@ -264,3 +264,27 @@ sudo docker run --rm --network app "$BUSYBOX" wget -q -T 5 -O /dev/null "http://
   ko "une connexion sortante du pont app0 vers $OUT:5432 est bloquée"
 reachable "$HOST" 8082 && ko "port 8082 publié depuis le pont app0 joignable de dehors"
 ok "pont app0 : connexion sortante vers 5432 permise, port publié 8082 fermé de dehors"
+
+# Un réseau en mode routed publie ses ports sans DNAT : de dehors, avec une
+# route vers son sous-réseau, on joint directement le conteneur, et son pont
+# au nom choisi échappe à DOCKER-USER. Le script refuse, sans rien modifier.
+sudo docker network create -o com.docker.network.bridge.name=rte0 \
+  -o com.docker.network.bridge.gateway_mode_ipv4=routed --subnet 172.30.77.0/24 route >/dev/null
+sudo docker run -d --rm --name route-test --network route --ip 172.30.77.10 -p 8086:8086 \
+  "$BUSYBOX" httpd -f -p 8086 -h / >/dev/null
+outside ip route add 172.30.77.0/24 via "$HOST"
+sleep 2
+reachable 172.30.77.10 8086 || ko "témoin : le conteneur du réseau routed injoignable de dehors"
+state >"$work/avant-refus-route"
+# shellcheck disable=SC2024 # journal écrit par l'utilisateur du test, voulu
+if sudo "$here/provision.sh" >"$work/refus-route.log" 2>&1; then
+  ko "le script passe malgré un réseau Docker en mode routed"
+fi
+grep -q 'route (gateway_mode_ipv4=routed)' "$work/refus-route.log" || ko "le refus ne cite pas le réseau : $(cat "$work/refus-route.log")"
+state >"$work/apres-refus-route"
+diff -u "$work/avant-refus-route" "$work/apres-refus-route" || ko "le passage refusé a modifié la machine"
+sudo docker rm -f route-test >/dev/null
+sudo docker network rm route >/dev/null
+sudo "$here/provision.sh" | tee "$work/apres-retrait-route.log"
+grep -q '^Aucun changement' "$work/apres-retrait-route.log" || ko "le passage après retrait du réseau annonce des changements"
+ok "un réseau Docker en mode routed fait refuser le passage, sans modification"
