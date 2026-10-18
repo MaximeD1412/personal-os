@@ -117,6 +117,9 @@ describe('provision.sh : SSH', () => {
   it.each([
     ['à la fin de sshd_config', 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\nInclude /etc/ssh/root-exception.conf\n', 'Include /etc/ssh/root-exception.conf'],
     ['avec « = » et un chemin relatif', 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\nInclude=sshd_config.d/*.conf\n', 'Include=sshd_config.d/*.conf'],
+    // OpenSSH passe le chemin tel quel à glob : SSHD_CONFIG.D est un autre
+    // dossier, qui ne serait pas contrôlé.
+    ['dont seule la casse diffère du standard', 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\nInclude /etc/ssh/SSHD_CONFIG.D/*.CONF\n', 'Include /etc/ssh/SSHD_CONFIG.D/*.CONF'],
     ['depuis un fichier de sshd_config.d', 'etc/ssh/sshd_config.d/60-renvoi.conf', 'Include /etc/ssh/autres/*.conf\n', 'Include /etc/ssh/autres/*.conf'],
   ])('refuse un Include %s, à chaque passage', (_, file, content, line) => {
     const root = machine({ provisioned: true });

@@ -230,11 +230,14 @@ check_sshd_precedence() {
       key = line; sub(/[ \t=].*/, "", key)
       val = substr(line, length(key) + 1); key = tolower(key)
       sub(/^[ \t]*=?[ \t]*/, "", val); sub(/[ \t]+#.*$/, "", val); sub(/[ \t]+$/, "", val)
-      gsub(/"/, "", val); gsub(/[ \t]+/, " ", val); val = tolower(val)
+      gsub(/"/, "", val); gsub(/[ \t]+/, " ", val)
+      # Les chemins gardent leur casse (OpenSSH les passe tels quels à glob) ;
+      # seules les valeurs des directives se comparent sans casse.
+      path = val; val = tolower(val)
     }
     # Seul l Include standard de Debian et Ubuntu est suivi : un autre fichier
     # inclus (ailleurs, ou depuis sshd_config.d) échapperait au contrôle.
-    key == "include" && main && val == "/etc/ssh/sshd_config.d/*.conf" { before = 0; next }
+    key == "include" && main && path == "/etc/ssh/sshd_config.d/*.conf" { before = 0; next }
     key == "include" { print FILENAME ": " $0 " (Include non pris en charge)"; next }
     key == "match" { inmatch = 1; next }
     (before || inmatch) && key in want && val != want[key] {
