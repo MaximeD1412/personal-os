@@ -19,14 +19,19 @@ const LINTER = `
   const sources = JSON.parse(await new Response(process.stdin).text());
   const eslint = new ESLint();
   const resultats = [];
-  for (const source of sources) {
-    const [r] = await eslint.lintText(source, { filePath: 'src/app/exemple/exemple.repository.ts' });
+  for (const { source, filePath } of sources) {
+    const [r] = await eslint.lintText(source, { filePath });
     resultats.push(r.messages.map(({ ruleId, message }) => ({ ruleId, message })));
   }
   process.stdout.write(JSON.stringify(resultats));
 `;
 
-function linter(sources: string[]): Message[][] {
+interface Cas {
+  source: string;
+  filePath: string;
+}
+
+function linter(sources: Cas[]): Message[][] {
   const resultat = spawnSync(
     process.execPath,
     ['--input-type=module', '--eval', LINTER],
@@ -36,14 +41,20 @@ function linter(sources: string[]): Message[][] {
   return JSON.parse(resultat.stdout);
 }
 
-const REFUSES: [string, string][] = [
+const REPOSITORY = 'src/app/exemple/exemple.repository.ts';
+
+const REFUSES: [string, string, string?][] = [
   ['$queryRaw en gabarit', 'export const f = (p: any) => p.$queryRaw`SELECT 1`;'],
   ['$queryRaw en appel', 'export const f = (p: any) => p.$queryRaw("SELECT 1");'],
   ['$queryRawUnsafe', 'export const f = (p: any) => p.$queryRawUnsafe("SELECT 1");'],
   ['$executeRaw', 'export const f = (p: any) => p.$executeRaw`DELETE FROM x`;'],
   ['$executeRawUnsafe', 'export const f = (p: any) => p.$executeRawUnsafe("DELETE");'],
   ['un accès calculé', 'export const f = (p: any) => p["$queryRaw"]`SELECT 1`;'],
+  ['un accès par gabarit', 'export const f = (p: any) => p[`$queryRaw`]`SELECT 1`;'],
   ['une déstructuration', 'export const f = ({ $executeRaw }: any) => $executeRaw;'],
+  ['une déstructuration à clé littérale', 'export const f = ({ "$queryRawUnsafe": sql }: any) => sql;'],
+  ['une déstructuration à clé calculée', "export const f = ({ ['$queryRawUnsafe']: sql }: any) => sql;"],
+  ['une déstructuration à clé gabarit', 'export const f = ({ [`$executeRaw`]: sql }: any) => sql;'],
   ['un import de @prisma/client', "import { PrismaClient } from '@prisma/client';\nexport const c = PrismaClient;"],
   ['un sous-chemin de @prisma/client', "import { Prisma } from '@prisma/client/runtime/library';\nexport const c = Prisma;"],
   ['un autre paquet @prisma', "import { PrismaPg } from '@prisma/adapter-pg';\nexport const c = PrismaPg;"],
@@ -53,6 +64,10 @@ const REFUSES: [string, string][] = [
   ['un require', "export const c = require('@prisma/client');"],
   ['un import = require', "import P = require('@prisma/client');\nexport const c = P;"],
   ['un import de type', "export type T = import('@prisma/client').Prisma.Sql;"],
+  ['un import dans un .cts', "import { PrismaClient } from '@prisma/client';\nexport const c = PrismaClient;", 'src/app/exemple/exemple.cts'],
+  ['un import dans un .mts', "import { PrismaClient } from '@prisma/client';\nexport const c = PrismaClient;", 'src/app/exemple/exemple.mts'],
+  ['du SQL brut dans un .cts', 'export const f = (p: any) => p.$queryRaw`SELECT 1`;', 'src/app/exemple/exemple.cts'],
+  ['du SQL brut dans un .mts', 'export const f = (p: any) => p.$executeRaw`DELETE FROM x`;', 'src/app/exemple/exemple.mts'],
 ];
 
 const FACADE = [
@@ -64,7 +79,10 @@ describe('règles de lint de l’API', () => {
   let refus: Message[][];
 
   beforeAll(() => {
-    refus = linter([...REFUSES.map(([, source]) => source), FACADE]).map(
+    refus = linter([
+      ...REFUSES.map(([, source, filePath = REPOSITORY]) => ({ source, filePath })),
+      { source: FACADE, filePath: REPOSITORY },
+    ]).map(
       (messages) => messages.filter((m) => m.message === MESSAGE),
     );
   }, 60_000);

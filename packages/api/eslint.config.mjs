@@ -14,14 +14,19 @@ const clientNu = '/^@prisma\\W|generated\\Wprisma/';
 export default [
   ...baseConfig,
   {
-    files: ['**/*.ts', '**/*.js', '**/*.mjs', '**/*.cjs'],
+    // Sans `files` : le bloc vaut pour toute extension que la config racine lint.
     rules: {
       'no-restricted-syntax': [
         'error',
         ...[
+          // Identifiant, littéral ou gabarit : `p.$queryRaw`, `p['$queryRaw']`,
+          // `{ $queryRaw }`, `{ '$queryRaw': sql }`, `{ [`$queryRaw`]: sql }`.
           `MemberExpression[property.name=${sqlBrut}]`,
           `MemberExpression[property.value=${sqlBrut}]`,
+          `MemberExpression[property.quasis.0.value.cooked=${sqlBrut}]`,
           `ObjectPattern > Property[key.name=${sqlBrut}]`,
+          `ObjectPattern > Property[key.value=${sqlBrut}]`,
+          `ObjectPattern > Property[key.quasis.0.value.cooked=${sqlBrut}]`,
           `ImportDeclaration[source.value=${clientNu}]`,
           `ExportNamedDeclaration[source.value=${clientNu}]`,
           `ExportAllDeclaration[source.value=${clientNu}]`,
