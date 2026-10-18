@@ -1,0 +1,47 @@
+name: Provisionnement
+
+# Le provisionnement de la machine (INFRA-11), lancé pour de vrai sur une
+# machine jetable. Le filtre `paths` évite de démarrer quatre machines quand le
+# script ne change pas : sa logique est déjà couverte par `nx test provision`,
+# dans la vérification commune.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - infra/provision/**
+      - .github/workflows/provision.yml
+  pull_request:
+    paths:
+      - infra/provision/**
+      - .github/workflows/provision.yml
+
+concurrency:
+  group: provision-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Chaque machine est un conteneur systemd fraîchement démarré, à partir de
+  # l'image du système : le script installe tout, Docker compris, comme sur un
+  # VPS neuf. Il y tourne deux fois de suite, et le second passage ne doit rien
+  # changer ; puis un réseau « dehors » vérifie qu'un port publié par Docker
+  # hors de 80 et 443 reste fermé (infra/provision/e2e.sh).
+  provision:
+    name: Provisionne deux fois une machine jetable (${{ matrix.image }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { image: 'ubuntu:24.04', arch: x86, runner: ubuntu-24.04 }
+          - { image: 'ubuntu:22.04', arch: x86, runner: ubuntu-24.04 }
+          - { image: 'debian:12', arch: x86, runner: ubuntu-24.04 }
+          - { image: 'ubuntu:24.04', arch: ARM, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Provisionnement et vérifications
+        run: infra/provision/e2e-conteneur.sh '${{ matrix.image }}'

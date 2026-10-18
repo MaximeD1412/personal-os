@@ -311,8 +311,8 @@
       "categorie": "ops",
       "gravite": "moyenne",
       "titre": "Migration vers le homelab",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-10-18",
       "solutions": [
         {
           "texte": "Pièges recensés dans docs/migration-homelab.md",
@@ -321,8 +321,8 @@
         },
         {
           "texte": "Provisionnement idempotent (provision.sh)",
-          "ref": "",
-          "fait": false
+          "ref": "infra/provision/provision.sh",
+          "fait": true
         },
         {
           "texte": "Secrets ajoutés puis révoqués, jamais recopiés",

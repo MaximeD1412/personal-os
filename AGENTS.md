@@ -23,8 +23,9 @@ Monorepo Nx, pnpm.
   `packages/theme/tokens.css` porte les jetons, sous les noms de pen.dev.
   **Avant de toucher un écran ou un composant, lis
   [`docs/design-system.md`](docs/design-system.md).**
-- `infra/` : `deploy` (agent de déploiement), `backup` (Restic), `edge` (proxy
-  de tête). Chaque dossier a son README, qui fait foi pour l'exploitation.
+- `infra/` : `provision` (la machine elle-même), `deploy` (agent de
+  déploiement), `backup` (Restic), `edge` (proxy de tête). Chaque dossier a
+  son README, qui fait foi pour l'exploitation.
 
 ## Conventions
 
