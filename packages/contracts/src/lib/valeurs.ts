@@ -4,28 +4,34 @@ import { z } from 'zod';
  * Les formes de valeur (ADR 0030). Chacune n'a qu'un schéma, celui-ci : aucun
  * module n'en redéfinit. Les dates restent des chaînes dans les contrats ; la
  * conversion en `Date` se fait au bord du dépôt.
+ *
+ * Les schémas sont marqués purs : un écran qui importe une autre valeur de
+ * `contracts` n'embarque pas zod tant qu'il n'en utilise aucun.
  */
 
 /** Un instant, ISO-8601 en UTC (`Z`), stocké en `timestamptz`. */
-export const zInstant = z.iso.datetime();
+export const zInstant = /* @__PURE__ */ z.iso.datetime();
 
 /** Un jour civil `YYYY-MM-DD`, stocké en `date`, jamais converti en instant. */
-export const zDay = z.iso.date();
+export const zDay = /* @__PURE__ */ z.iso.date();
 
 const LUNDI = 1;
 
 /** Une semaine, désignée par son lundi. */
-export const zWeek = zDay.refine((jour) => jourDeLaSemaine(jour) === LUNDI, {
-  error: 'Une semaine se désigne par son lundi.',
-});
+export const zWeek = /* @__PURE__ */ zDay.refine(
+  (jour) => jourDeLaSemaine(jour) === LUNDI,
+  {
+    error: 'Une semaine se désigne par son lundi.',
+  },
+);
 
 /** Un montant, en entier de centimes. */
-export const zCents = z.int().min(0);
+export const zCents = /* @__PURE__ */ z.int().min(0);
 
 /** Un montant et sa devise, l'euro par défaut. */
-export const zMoney = z.object({
+export const zMoney = /* @__PURE__ */ z.object({
   cents: zCents,
-  currency: z.literal('EUR').default('EUR'),
+  currency: /* @__PURE__ */ z.literal('EUR').default('EUR'),
 });
 
 /** Le fuseau de tout calcul relatif : aujourd'hui, cette semaine, une péremption. */
