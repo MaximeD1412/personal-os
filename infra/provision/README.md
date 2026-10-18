@@ -73,8 +73,11 @@ tourne.
 - **Refusée aussi, à chaque passage, avant toute modification** : une
   directive sshd contraire au durcissement lue avant `00-personal-os.conf`
   (dans `sshd_config` avant l'`Include`, ou dans un fichier de
-  `sshd_config.d` trié avant), puisque sshd garde la première valeur lue. La
-  configuration effective (`sshd -T`) est en plus vérifiée à chaque passage.
+  `sshd_config.d` trié avant), puisque sshd garde la première valeur lue, ou
+  dans un bloc `Match` où qu'il soit (il remplacerait la valeur globale pour
+  les connexions qu'il désigne). La configuration effective est en plus
+  vérifiée à chaque passage, pour root et pour l'administrateur
+  (`sshd -T -C user=…`).
 - **Refusés aussi, avant toute modification** : un Docker installé hors du
   dépôt officiel sans Compose (`docker.io`), et un `daemon.json` avec
   `"firewall-backend": "nftables"` ou `"iptables": false` (Docker ne

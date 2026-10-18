@@ -64,6 +64,45 @@ describe('provision.sh : SSH', () => {
     }
   });
 
+  // Dans un bloc Match, une directive remplace la valeur globale pour les
+  // connexions qu'il désigne, même lue après 00-personal-os.conf.
+  it.each([
+    [
+      'dans sshd_config, après l’Include',
+      'etc/ssh/sshd_config',
+      'Include /etc/ssh/sshd_config.d/*.conf\nMatch User root\n  PermitRootLogin yes\n',
+      '  PermitRootLogin yes (bloc Match)',
+    ],
+    [
+      'dans un fichier de sshd_config.d trié après le nôtre',
+      'etc/ssh/sshd_config.d/60-exceptions.conf',
+      'Match Address 10.0.0.0/8\n  PasswordAuthentication yes\n',
+      '  PasswordAuthentication yes (bloc Match)',
+    ],
+  ])('refuse une exception Match contraire %s, à chaque passage', (_, file, content, line) => {
+    const root = machine({ provisioned: true });
+    put(root, file, content);
+
+    for (let passage = 1; passage <= 2; passage++) {
+      const result = provision(root);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(`/${file}: ${line}`);
+      expect(commands(root)).toEqual([]);
+    }
+  });
+
+  it('accepte un bloc Match qui ne touche pas au durcissement', () => {
+    const root = machine({ provisioned: true });
+    put(
+      root,
+      'etc/ssh/sshd_config',
+      'Include /etc/ssh/sshd_config.d/*.conf\nMatch User sftp\n  ForceCommand internal-sftp\n  PermitRootLogin no\n',
+    );
+
+    expect(provision(root).status).toBe(0);
+  });
+
   it('ignore une directive contraire lue après le nôtre', () => {
     const root = machine({ provisioned: true });
     put(root, 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\nPermitRootLogin yes\n');

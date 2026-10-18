@@ -197,28 +197,39 @@ check_sshd_include() {
 
 # sshd garde la première valeur lue. Une directive de durcissement contraire,
 # lue avant 00-personal-os.conf (dans sshd_config avant l'Include, ou dans un
-# fichier de sshd_config.d trié avant le nôtre), l'emporterait : la machine
+# fichier de sshd_config.d trié avant le nôtre), l'emporterait. Dans un bloc
+# Match, où qu'il soit, elle remplacerait la valeur globale pour les connexions
+# qu'il désigne (« Match User root » puis « PermitRootLogin yes »). La machine
 # est refusée, à chaque passage, avant toute modification.
 check_sshd_precedence() {
   local lus=() file conflicts LC_ALL=C
   lus+=("$ROOT/etc/ssh/sshd_config")
   while IFS= read -r file; do
-    [[ -n "$file" && "$(basename "$file")" < 00-personal-os.conf ]] && lus+=("$file")
-  done < <(compgen -G "$ROOT/etc/ssh/sshd_config.d/*.conf" | LC_ALL=C sort)
+    [[ -n "$file" && "$(basename "$file")" != 00-personal-os.conf ]] && lus+=("$file")
+  done < <(compgen -G "$ROOT/etc/ssh/sshd_config.d/*.conf" | sort)
   conflicts=$(awk '
     BEGIN {
       want["permitrootlogin"] = "no"; want["passwordauthentication"] = "no"
       want["kbdinteractiveauthentication"] = "no"; want["challengeresponseauthentication"] = "no"
       want["pubkeyauthentication"] = "yes"; want["authenticationmethods"] = "publickey"
     }
-    # Dans sshd_config, seul ce qui précède l Include compte.
-    FNR == 1 { main = (FILENAME ~ /\/sshd_config$/); stop = 0 }
-    main && tolower($1) == "include" { stop = 1 }
-    stop || /^[[:space:]]*(#|$)/ { next }
-    { key = tolower($1); if (key in want && tolower($2) != want[key]) print FILENAME ": " $0 }
+    FNR == 1 {
+      name = FILENAME; sub(/.*\//, "", name)
+      main = (name == "sshd_config"); inmatch = 0
+      # Lu avant le nôtre : sshd_config jusqu à l Include, et les fichiers
+      # triés avant 00-personal-os.conf.
+      before = main || name < "00-personal-os.conf"
+    }
+    /^[[:space:]]*(#|$)/ { next }
+    { key = tolower($1) }
+    main && key == "include" { before = 0; next }
+    key == "match" { inmatch = 1; next }
+    (before || inmatch) && key in want && tolower($2) != want[key] {
+      print FILENAME ": " $0 (inmatch ? " (bloc Match)" : "")
+    }
   ' "${lus[@]}")
   [[ -z "$conflicts" ]] ||
-    die "$(printf 'directives sshd lues avant 00-personal-os.conf, qui annuleraient le durcissement :\n%s\nLes retirer, puis relancer' "${conflicts//"$ROOT"\//\/}")"
+    die "$(printf 'directives sshd qui annuleraient le durcissement (lues avant 00-personal-os.conf, ou dans un bloc Match) :\n%s\nLes retirer, puis relancer' "${conflicts//"$ROOT"\//\/}")"
 }
 
 # Clés de l'administrateur : les siennes, gardées telles quelles, puis celles du
@@ -351,10 +362,13 @@ EOF
   if [[ "$ROOT" == / ]] && ! $DRY_RUN; then
     # Lue en entier : `sshd -T | grep -q` échoue sous pipefail quand grep
     # ferme le tube avant la fin (SIGPIPE).
-    local effective
-    effective=$(sshd -T)
-    grep -qx 'passwordauthentication no' <<<"$effective" || die "sshd accepte encore les mots de passe : une autre configuration l'emporte"
-    grep -qx 'permitrootlogin no' <<<"$effective" || die "sshd accepte encore root : une autre configuration l'emporte"
+    # -C : la configuration d'une connexion donnée, blocs Match compris.
+    local effective who
+    for who in root "$ADMIN_USER"; do
+      effective=$(sshd -T -C "user=$who,host=localhost,addr=127.0.0.1")
+      grep -qx 'passwordauthentication no' <<<"$effective" || die "sshd accepte encore les mots de passe pour $who : une autre configuration l'emporte"
+      grep -qx 'permitrootlogin no' <<<"$effective" || die "sshd accepte encore root (connexion de $who) : une autre configuration l'emporte"
+    done
   fi
 }
 
