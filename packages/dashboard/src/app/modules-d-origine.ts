@@ -1,11 +1,12 @@
 import { SOURCE_CALENDRIER, type AgendaItem } from '@personal-os/contracts';
+import { moisDe } from './mois';
 
 /** Où mène une Entrée d'agenda, et sous quel nom son module se présente. */
 export interface ModuleDOrigine {
   /** Le chemin de l'écran qui possède l'objet. */
   chemin: string;
-  /** Le paramètre par lequel l'écran reconnaît l'objet à ouvrir. */
-  parametre: string;
+  /** Les paramètres par lesquels l'écran retrouve l'objet à ouvrir. */
+  parametres(entree: AgendaItem): Record<string, string>;
   libelle: string;
 }
 
@@ -26,10 +27,19 @@ export interface ModuleDOrigine {
  */
 export const PARAMETRE_D_EVENEMENT = 'evenement';
 
+/**
+ * Le paramètre du mois que le Calendrier affiche. Le lien le porte : le
+ * Calendrier ne lit qu'un mois à la fois, et l'Événement visé doit s'y trouver.
+ */
+export const PARAMETRE_DE_MOIS = 'mois';
+
 const MODULES: Readonly<Record<string, ModuleDOrigine>> = {
   [SOURCE_CALENDRIER]: {
     chemin: '/calendrier',
-    parametre: PARAMETRE_D_EVENEMENT,
+    parametres: (entree) => ({
+      [PARAMETRE_D_EVENEMENT]: entree.sourceId,
+      [PARAMETRE_DE_MOIS]: moisDe(entree.startsAt),
+    }),
     libelle: 'Calendrier',
   },
 };

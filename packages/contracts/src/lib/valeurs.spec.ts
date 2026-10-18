@@ -2,10 +2,12 @@ import {
   aujourdhui,
   FUSEAU,
   lundiDe,
+  periodeDuMois,
   zCents,
   zDay,
   zInstant,
   zMoney,
+  zPeriod,
   zWeek,
 } from './valeurs';
 
@@ -170,5 +172,71 @@ describe('lundiDe', () => {
 
   it('refuse ce qui n’est pas un jour', () => {
     expect(() => lundiDe('2026-02-30')).toThrow();
+  });
+});
+
+describe('zPeriod', () => {
+  const SEPTEMBRE = {
+    from: '2026-09-01T00:00:00.000Z',
+    to: '2026-09-30T23:59:59.999Z',
+  };
+
+  it('accepte deux bornes dans l’ordre', () => {
+    expect(zPeriod.parse(SEPTEMBRE)).toEqual(SEPTEMBRE);
+  });
+
+  it('accepte une période d’un seul instant', () => {
+    expect(
+      zPeriod.safeParse({ from: SEPTEMBRE.from, to: SEPTEMBRE.from }).success,
+    ).toBe(true);
+  });
+
+  it.each([
+    ['sans début', { to: SEPTEMBRE.to }, 'from'],
+    ['sans fin', { from: SEPTEMBRE.from }, 'to'],
+    ['avec une borne qui n’est pas un instant', { ...SEPTEMBRE, from: 'hier' }, 'from'],
+    ['qui finit avant de commencer', { from: SEPTEMBRE.to, to: SEPTEMBRE.from }, 'to'],
+  ])('refuse une période %s, sur le bon champ', (_cas, periode, champ) => {
+    const resultat = zPeriod.safeParse(periode);
+
+    expect(resultat.success).toBe(false);
+    expect(resultat.error?.issues.map(({ path }) => path.join('.'))).toEqual([
+      champ,
+    ]);
+  });
+
+  it('compare des instants, pas des chaînes', () => {
+    expect(
+      zPeriod.safeParse({
+        from: '2026-09-01T00:00:00Z',
+        to: '2026-09-01T00:00:00.000Z',
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe('periodeDuMois', () => {
+  it.each([
+    // Octobre : commence à l’heure d’été (UTC+2), finit à l’heure d’hiver.
+    ['2026-10', '2026-09-30T22:00:00.000Z', '2026-10-31T22:59:59.999Z'],
+    // Janvier, tout entier à l’heure d’hiver, et qui commence l’année.
+    ['2026-01', '2025-12-31T23:00:00.000Z', '2026-01-31T22:59:59.999Z'],
+    // Mars : passe à l’heure d’été le dernier dimanche.
+    ['2026-03', '2026-02-28T23:00:00.000Z', '2026-03-31T21:59:59.999Z'],
+    // Décembre, dont la fin est le début de l’année suivante.
+    ['2026-12', '2026-11-30T23:00:00.000Z', '2026-12-31T22:59:59.999Z'],
+    // Février d’une année bissextile.
+    ['2028-02', '2028-01-31T23:00:00.000Z', '2028-02-29T22:59:59.999Z'],
+  ])('borne %s du premier au dernier jour, à Paris', (mois, from, to) => {
+    expect(periodeDuMois(mois)).toEqual({ from, to });
+  });
+
+  it('rend une zPeriod', () => {
+    expect(zPeriod.safeParse(periodeDuMois('2026-10')).success).toBe(true);
+  });
+
+  it('refuse ce qui n’est pas un mois', () => {
+    expect(() => periodeDuMois('2026-13')).toThrow();
+    expect(() => periodeDuMois('octobre')).toThrow();
   });
 });

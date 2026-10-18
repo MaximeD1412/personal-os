@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import type {
   AgendaContributor,
   AgendaItem,
@@ -97,28 +96,7 @@ describe('Agenda', () => {
     );
   });
 
-  describe('La période, toujours donnée', () => {
-    it('refuse une demande à qui il manque une borne', async () => {
-      await expect(agenda.lister({ from: SEPTEMBRE.from })).rejects.toThrow(
-        BadRequestException,
-      );
-      await expect(agenda.lister({ to: SEPTEMBRE.to })).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it("refuse une borne qui n'est pas une date ISO-8601", async () => {
-      await expect(
-        agenda.lister({ from: 'hier', to: SEPTEMBRE.to }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('refuse une période qui finit avant de commencer', async () => {
-      await expect(
-        agenda.lister({ from: SEPTEMBRE.to, to: SEPTEMBRE.from }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
+  describe('La période', () => {
     it('passe la période telle quelle à chaque contributeur', async () => {
       const sport = contributeur('sport', []);
       registre.enregistrer(sport);

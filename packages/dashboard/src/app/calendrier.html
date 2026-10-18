@@ -8,6 +8,17 @@
   </div>
 
   <div hlmCardContent>
+    <label class="mb-4 flex w-fit flex-col gap-1.5">
+      <span hlmLabel>Mois</span>
+      <input
+        hlmInput
+        type="month"
+        data-test="mois"
+        [value]="mois()"
+        (input)="afficherLeMois($event)"
+      />
+    </label>
+
     <form
       class="flex flex-wrap items-end gap-3"
       (submit)="$event.preventDefault(); enregistrer()"
@@ -194,7 +205,7 @@
       </li>
       } @empty {
       <li class="text-muted-foreground py-2 text-sm">
-        Aucun Événement dans vos Espaces.
+        Aucun Événement ce mois-ci dans vos Espaces.
       </li>
       }
     </ul>

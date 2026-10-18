@@ -102,7 +102,7 @@ export class Agenda {
 
   protected retour(entree: AgendaItem): Record<string, string> {
     const module = this.origine(entree);
-    return module ? { [module.parametre]: entree.sourceId } : {};
+    return module ? module.parametres(entree) : {};
   }
 
   private relire(du: string, au: string): void {

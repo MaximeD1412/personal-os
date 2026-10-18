@@ -8,7 +8,7 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import type { Event, Scope } from '@personal-os/contracts';
+import { aujourdhui, type Event, type Scope } from '@personal-os/contracts';
 import {
   choisirDansLeSelect,
   optionsOffertes,
@@ -88,12 +88,18 @@ describe('Calendrier', () => {
     fixture.detectChanges();
 
     httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
-    httpMock.expectOne(`${BASE}/events`).flush(evenements);
+    lecture().flush(evenements);
 
     await fixture.whenStable();
     fixture.detectChanges();
     return fixture;
   }
+
+  /** La lecture des Événements, quelle que soit sa période. */
+  const lecture = () =>
+    httpMock.expectOne(
+      ({ method, url }) => method === 'GET' && url === `${BASE}/events`,
+    );
 
   const element = (fixture: { nativeElement: unknown }) =>
     fixture.nativeElement as HTMLElement;
@@ -141,6 +147,100 @@ describe('Calendrier', () => {
     it("le dit quand aucun Événement n'est visible", async () => {
       expect(element(await monter([])).textContent).toContain(
         'Aucun Événement',
+      );
+    });
+  });
+
+  describe('Le mois affiché', () => {
+    it('demande les Événements du mois en cours, du premier au dernier jour à Paris', async () => {
+      const fixture = TestBed.createComponent(Calendrier);
+      fixture.detectChanges();
+      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+
+      const demande = lecture().request;
+      const [annee, mois] = aujourdhui().split('-').map(Number);
+      const premier = new Date(Date.UTC(annee, mois - 1, 1));
+      const suivant = new Date(Date.UTC(annee, mois, 1));
+      const from = new Date(demande.params.get('from') ?? '');
+      const to = new Date(demande.params.get('to') ?? '');
+
+      // Minuit à Paris est 22 h ou 23 h UTC la veille, selon la saison.
+      expect(premier.getTime() - from.getTime()).toBeGreaterThanOrEqual(3_600_000);
+      expect(premier.getTime() - from.getTime()).toBeLessThanOrEqual(7_200_000);
+      expect(suivant.getTime() - to.getTime() - 1).toBeGreaterThanOrEqual(3_600_000);
+      expect(suivant.getTime() - to.getTime() - 1).toBeLessThanOrEqual(7_200_000);
+    });
+
+    it('ouvre le mois que le lien désigne', async () => {
+      parametres = { mois: '2026-10' };
+      const fixture = TestBed.createComponent(Calendrier);
+      fixture.detectChanges();
+      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+
+      const demande = lecture().request;
+      expect(demande.params.get('from')).toBe('2026-09-30T22:00:00.000Z');
+      expect(demande.params.get('to')).toBe('2026-10-31T22:59:59.999Z');
+      expect(champ<HTMLInputElement>(element(fixture), 'mois').value).toBe(
+        '2026-10',
+      );
+    });
+
+    it("ignore un mois qui n'en est pas un, et ouvre le mois en cours", async () => {
+      parametres = { mois: 'octobre' };
+      const fixture = TestBed.createComponent(Calendrier);
+      fixture.detectChanges();
+      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+      lecture().flush([]);
+
+      expect(champ<HTMLInputElement>(element(fixture), 'mois').value).toBe(
+        aujourdhui().slice(0, 7),
+      );
+    });
+
+    it('relit les Événements quand on change de mois', async () => {
+      const fixture = await monter();
+
+      saisir(element(fixture), 'mois', '2027-05');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const demande = lecture();
+      expect(demande.request.params.get('from')).toBe('2027-04-30T22:00:00.000Z');
+      expect(demande.request.params.get('to')).toBe('2027-05-31T21:59:59.999Z');
+      demande.flush([DECLARATION]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(element(fixture).textContent).not.toContain('Dentiste');
+      expect(element(fixture).textContent).toContain('Déclaration de revenus');
+    });
+
+    it("n'affiche que le dernier mois demandé, même si l'ancien répond après", async () => {
+      const fixture = await monter();
+
+      saisir(element(fixture), 'mois', '2027-05');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      saisir(element(fixture), 'mois', '2027-06');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const [mai, juin] = httpMock.match(
+        ({ method, url }) => method === 'GET' && url === `${BASE}/events`,
+      );
+      expect(juin.request.params.get('from')).toBe('2027-05-31T22:00:00.000Z');
+
+      juin.flush([{ ...DENTISTE, id: 'event-juin', title: 'Fête de juin' }]);
+      // Une lecture abandonnée ne doit plus pouvoir écraser la liste.
+      if (!mai.cancelled) {
+        mai.flush([DECLARATION]);
+      }
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(element(fixture).textContent).toContain('Fête de juin');
+      expect(element(fixture).textContent).not.toContain(
+        'Déclaration de revenus',
       );
     });
   });

@@ -1,10 +1,19 @@
+import { z } from 'zod';
+import { zInstant, zPeriod } from './valeurs';
+
 /**
  * Où en est un objet daté, dit dans le seul vocabulaire que l'Agenda affiche.
  * Il couvre les cinq modules qui produisent des objets datés (ADR 0011) : un
  * Événement est toujours prévu, une Séance porte les trois (ADR 0022), un
  * Repas planifié devient réalisé quand il est cuisiné.
  */
-export type AgendaItemStatus = 'PLANNED' | 'DONE' | 'MISSED';
+export const zAgendaItemStatus = /* @__PURE__ */ z.enum([
+  'PLANNED',
+  'DONE',
+  'MISSED',
+]);
+
+export type AgendaItemStatus = z.infer<typeof zAgendaItemStatus>;
 
 /**
  * La référence à un objet daté telle qu'elle apparaît dans l'Agenda.
@@ -14,22 +23,23 @@ export type AgendaItemStatus = 'PLANNED' | 'DONE' | 'MISSED';
  * ni catégorie, ni allure, ni portions, ni même l'Espace. L'Agenda affiche des
  * références, pas des objets (ADR 0011).
  */
-export interface AgendaItem {
+export const zAgendaItem = /* @__PURE__ */ z.object({
   /**
    * L'identifiant du module d'origine. C'est une chaîne libre et non une
    * union : un module nouveau s'annonce sans que les contrats partagés, ni
    * l'Agenda, aient à le connaître d'avance.
    */
-  source: string;
+  source: /* @__PURE__ */ z.string(),
   /** L'identité de l'objet **dans son module**, jamais celle d'une entrée. */
-  sourceId: string;
-  title: string;
-  /** ISO-8601, comme tout ce qui traverse le réseau. */
-  startsAt: string;
+  sourceId: /* @__PURE__ */ z.string(),
+  title: /* @__PURE__ */ z.string(),
+  startsAt: zInstant,
   /** Vide quand l'objet n'a pas de fin distincte de son début. */
-  endsAt: string | null;
-  status: AgendaItemStatus;
-}
+  endsAt: /* @__PURE__ */ zInstant.nullable(),
+  status: zAgendaItemStatus,
+});
+
+export type AgendaItem = z.infer<typeof zAgendaItem>;
 
 /** Les champs qu'une Entrée d'agenda porte, et les seuls. */
 export const CHAMPS_D_ENTREE_D_AGENDA: readonly (keyof AgendaItem)[] = [
@@ -46,12 +56,9 @@ export const CHAMPS_D_ENTREE_D_AGENDA: readonly (keyof AgendaItem)[] = [
  * obligatoires : l'Agenda est une vue « pour une période donnée », et sans
  * bornes il grossirait sans fin.
  */
-export interface AgendaPeriod {
-  /** ISO-8601, borne incluse. */
-  from: string;
-  /** ISO-8601, borne incluse. */
-  to: string;
-}
+export const zAgendaPeriod = zPeriod;
+
+export type AgendaPeriod = z.infer<typeof zAgendaPeriod>;
 
 /**
  * Le port par lequel un module se présente à l'Agenda. Chaque module

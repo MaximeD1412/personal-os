@@ -128,6 +128,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
       PORT: 3000
+      # La production par défaut : l'OpenAPI n'y est pas servi (ADR 0030). Le
+      # staging pose la sienne dans son propre fichier d'environnement.
+      APP_ENV: ${APP_ENV:-production}
       # Le tableau de bord appelle l'API sous son propre hôte, via son nginx :
       # en production il n'y a pas de requête inter-origine à autoriser.
       CORS_ORIGINS: ${CORS_ORIGINS:-}

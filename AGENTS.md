@@ -30,7 +30,14 @@ Monorepo Nx, pnpm.
 ## Conventions
 
 Les conventions d'API sont dans l'**[ADR 0030](docs/adr/0030-conventions-d-api.md)**,
-à lire avant de toucher une route. L'essentiel :
+à lire avant de toucher une route. **Le module à imiter est
+`packages/api/src/app/calendar/`** : contrats zod dans `contracts`, DTO
+`createZodDto`, `@ZodResponse` sur chaque route, `ErreurMetier` pour les règles,
+tests d'intégration au socle ci-dessous. La section « État actuel du code »
+d'un ticket peut se contenter de dire « imite `packages/api/src/app/calendar/` ».
+L'OpenAPI se déduit des schémas : `pnpm exec nx run api:openapi` l'écrit dans
+`packages/api/openapi.json` (non versionné), et l'API le sert en
+`/api/openapi.json` hors production. L'essentiel :
 
 - **Les contrats sont des schémas zod** dans `contracts`, validés par le pipe
   global, avec un schéma de sortie par route. Pas de validation de forme dans
@@ -76,6 +83,7 @@ et lève `food.list_already_closed`.
 | Participant, Invités | `participantIds` (des `User`), `guestCount` |
 | Événement, Échéance | `Event`, catégorie `DEADLINE` |
 | Agenda | `agenda`, port `AgendaContributor` |
+| Période (d'une lecture datée) | `zPeriod` (`from`, `to`) |
 | Séance, Objectif | `TrainingSession`, `TrainingGoal` |
 | Ingrédient, Alias, Unité canonique | `Ingredient`, `IngredientAlias`, `canonicalUnit` |
 | Recette | `Recipe` |

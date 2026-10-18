@@ -67,3 +67,6 @@ packages/database/src/generated
 # Storybook, et la sortie de compodoc qu'il régénère à chaque lancement.
 storybook-static
 packages/ui/dccm/documentation.json
+
+# OpenAPI généré par `nx run api:openapi`, jamais versionné
+packages/api/openapi.json

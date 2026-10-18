@@ -34,8 +34,86 @@ export const zMoney = /* @__PURE__ */ z.object({
   currency: /* @__PURE__ */ z.literal('EUR').default('EUR'),
 });
 
+/**
+ * Une période, bornes incluses. Toute lecture d'objets datés en exige une
+ * (ADR 0030). Une fin qui précède le début se refuse sur `to` ; les bornes se
+ * comparent comme des instants, pas comme des chaînes.
+ */
+export const zPeriod = /* @__PURE__ */ z
+  .object({ from: zInstant, to: zInstant })
+  // Une borne mal formée est déjà refusée sur son propre champ : la période
+  // ne se juge qu'entre deux instants.
+  .refine(({ from, to }) => !(Date.parse(to) < Date.parse(from)), {
+    path: ['to'],
+    error: "La fin d'une période ne précède pas son début.",
+  });
+
 /** Le fuseau de tout calcul relatif : aujourd'hui, cette semaine, une péremption. */
 export const FUSEAU = 'Europe/Paris';
+
+const MOIS = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+/**
+ * La période d'un mois `YYYY-MM`, du premier jour à minuit au dernier jour à
+ * 23:59:59.999, dans le fuseau donné.
+ */
+export function periodeDuMois(
+  mois: string,
+  fuseau = FUSEAU,
+): { from: string; to: string } {
+  const correspondance = MOIS.exec(mois);
+  if (!correspondance) {
+    throw new Error(`${mois} n'est pas un mois YYYY-MM.`);
+  }
+  const annee = Number(correspondance[1]);
+  const indice = Number(correspondance[2]) - 1;
+
+  const debut = minuitDans(fuseau, annee, indice);
+  const suivant = minuitDans(fuseau, annee, indice + 1);
+
+  return {
+    from: debut.toISOString(),
+    to: new Date(suivant.getTime() - 1).toISOString(),
+  };
+}
+
+/**
+ * Le premier jour d'un mois à minuit, heure du fuseau. Minuit ne tombe jamais
+ * dans un changement d'heure à Paris : un seul décalage le désigne.
+ */
+function minuitDans(fuseau: string, annee: number, indice: number): Date {
+  const minuitUtc = Date.UTC(annee, indice, 1);
+  const premier = minuitUtc - decalage(fuseau, minuitUtc);
+
+  return new Date(minuitUtc - decalage(fuseau, premier));
+}
+
+/** L'avance du fuseau sur UTC à un instant, en millisecondes. */
+function decalage(fuseau: string, instant: number): number {
+  const parties = new Intl.DateTimeFormat('en-US', {
+    timeZone: fuseau,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+  }).formatToParts(new Date(instant));
+  const partie = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parties.find((p) => p.type === type)?.value);
+
+  const murale = Date.UTC(
+    partie('year'),
+    partie('month') - 1,
+    partie('day'),
+    partie('hour'),
+    partie('minute'),
+    partie('second'),
+  );
+
+  return murale - Math.floor(instant / 1000) * 1000;
+}
 
 /** Le jour civil en cours dans un fuseau, sous la forme d'un `zDay`. */
 export function aujourdhui(fuseau = FUSEAU, maintenant = new Date()): string {

@@ -5,8 +5,10 @@ import {
   SOURCE_CALENDRIER,
   type AgendaItem,
   type Event,
+  zAgendaItem,
 } from '@personal-os/contracts';
 import request from 'supertest';
+import { z } from 'zod';
 import {
   ENTREE_FACTICE,
   ModuleFactice,
@@ -20,7 +22,8 @@ import {
   poserLeJeuDEspaces,
   type JeuDEspaces,
 } from '../../../test/jeu-d-espaces';
-import { codeDErreur } from '../../../test/code-d-erreur';
+import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
+import { conformeA } from '../../../test/conforme';
 import { AppModule } from '../app.module';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
@@ -92,6 +95,13 @@ describe('Agenda', () => {
     });
 
     it("ne laisse passer aucun attribut métier de l'objet d'origine", async () => {
+      await request(app.getHttpServer())
+        .get('/api/agenda')
+        .query(PERIODE)
+        .set('Cookie', jeu.a.session)
+        .expect(200)
+        .expect(conformeA(z.array(zAgendaItem.strict())));
+
       for (const entree of await lister(jeu.a)) {
         expect(Object.keys(entree).sort()).toEqual(
           [...CHAMPS_D_ENTREE_D_AGENDA].sort(),
@@ -126,16 +136,37 @@ describe('Agenda', () => {
       );
     });
 
-    it('refuse une demande sans période', async () => {
+    it('refuse en 400 une demande sans période, sur les bornes manquantes', async () => {
       await request(app.getHttpServer())
         .get('/api/agenda')
         .set('Cookie', jeu.a.session)
-        .expect(400);
+        .expect(400)
+        .expect(champsEnErreur(['from', 'to']));
 
       await request(app.getHttpServer())
-        .get(`/api/agenda?from=${PERIODE.from}`)
+        .get('/api/agenda')
+        .query({ from: PERIODE.from })
         .set('Cookie', jeu.a.session)
-        .expect(400);
+        .expect(400)
+        .expect(champsEnErreur(['to']));
+    });
+
+    it("refuse en 400 une borne qui n'est pas un instant", async () => {
+      await request(app.getHttpServer())
+        .get('/api/agenda')
+        .query({ from: 'hier', to: PERIODE.to })
+        .set('Cookie', jeu.a.session)
+        .expect(400)
+        .expect(champsEnErreur(['from']));
+    });
+
+    it('refuse en 400 une période qui finit avant de commencer', async () => {
+      await request(app.getHttpServer())
+        .get('/api/agenda')
+        .query({ from: PERIODE.to, to: PERIODE.from })
+        .set('Cookie', jeu.a.session)
+        .expect(400)
+        .expect(champsEnErreur(['to']));
     });
   });
 

@@ -1,4 +1,3 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { EventRepository, EventWrite } from './event.repository';
 import { EventService } from './event.service';
 
@@ -39,6 +38,9 @@ function depotComplaisant(): {
   return { repository, ecrit: () => dernier };
 }
 
+/** Une règle métier violée : son code, en 422 (ADR 0030). */
+const REGLE = (code: string) => ({ code, status: 422 });
+
 const SAISIE_MINIMALE = {
   title: 'Dentiste',
   startsAt: DEBUT,
@@ -47,26 +49,6 @@ const SAISIE_MINIMALE = {
 };
 
 describe('EventService', () => {
-  describe("L'Espace, obligatoire à la création", () => {
-    it("refuse une création qui ne nomme aucun Espace", async () => {
-      const { repository } = depotComplaisant();
-      const service = new EventService(repository);
-
-      await expect(
-        service.creer({ ...SAISIE_MINIMALE, scopeId: undefined }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it("refuse un Espace vide autant qu'un Espace absent", async () => {
-      const { repository } = depotComplaisant();
-      const service = new EventService(repository);
-
-      await expect(
-        service.creer({ ...SAISIE_MINIMALE, scopeId: '   ' }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-  });
-
   describe('La période', () => {
     it("refuse une fin antérieure au début", async () => {
       const { repository } = depotComplaisant();
@@ -77,7 +59,7 @@ describe('EventService', () => {
           ...SAISIE_MINIMALE,
           endsAt: '2026-09-14T08:00:00.000Z',
         }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      ).rejects.toMatchObject(REGLE('event.period_reversed'));
     });
 
     it('accepte une fin égale au début', async () => {
@@ -87,15 +69,6 @@ describe('EventService', () => {
       await expect(
         service.creer({ ...SAISIE_MINIMALE, endsAt: DEBUT }),
       ).resolves.toMatchObject({ endsAt: DEBUT });
-    });
-
-    it("refuse une date qui n'est pas de l'ISO-8601", async () => {
-      const { repository } = depotComplaisant();
-      const service = new EventService(repository);
-
-      await expect(
-        service.creer({ ...SAISIE_MINIMALE, startsAt: 'mardi prochain' }),
-      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 
@@ -109,24 +82,6 @@ describe('EventService', () => {
       expect(ecrit().reminderLeadMinutes).toBe(1_440);
     });
 
-    it("refuse un délai négatif — un rappel ne suit pas l'Événement", async () => {
-      const { repository } = depotComplaisant();
-      const service = new EventService(repository);
-
-      await expect(
-        service.creer({ ...SAISIE_MINIMALE, reminderLeadMinutes: -30 }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('refuse un délai fractionnaire', async () => {
-      const { repository } = depotComplaisant();
-      const service = new EventService(repository);
-
-      await expect(
-        service.creer({ ...SAISIE_MINIMALE, reminderLeadMinutes: 12.5 }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
     it("laisse l'Événement sans rappel quand aucun n'est donné", async () => {
       const { repository, ecrit } = depotComplaisant();
       const service = new EventService(repository);
@@ -134,20 +89,6 @@ describe('EventService', () => {
       await service.creer(SAISIE_MINIMALE);
 
       expect(ecrit().reminderLeadMinutes).toBeNull();
-    });
-  });
-
-  describe('La catégorie', () => {
-    it("refuse une catégorie hors du jeu connu", async () => {
-      const { repository } = depotComplaisant();
-      const service = new EventService(repository);
-
-      await expect(
-        service.creer({
-          ...SAISIE_MINIMALE,
-          category: 'ECHEANCE' as never,
-        }),
-      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 
@@ -165,8 +106,8 @@ describe('EventService', () => {
       const { repository } = depotComplaisant();
       const service = new EventService(repository);
 
-      await expect(service.modifier('event-1', {})).rejects.toBeInstanceOf(
-        BadRequestException,
+      await expect(service.modifier('event-1', {})).rejects.toMatchObject(
+        REGLE('event.empty_update'),
       );
     });
 
@@ -189,7 +130,7 @@ describe('EventService', () => {
 
       await expect(
         service.modifier('event-1', { endsAt: '2026-07-20T00:00:00.000Z' }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      ).rejects.toMatchObject(REGLE('event.period_reversed'));
     });
 
     it("ne relit rien quand la modification ne touche aucune borne", async () => {
@@ -234,7 +175,7 @@ describe('EventService', () => {
 
       await expect(
         service.modifier('event-1', { title: 'x' }),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      ).rejects.toMatchObject({ code: 'event.not_found', status: 404 });
     });
   });
 });
