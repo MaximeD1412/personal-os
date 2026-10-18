@@ -77,6 +77,30 @@ ses `inputs` (`nx test theme` le vérifie).
 - **Les chiffres d'une carte, d'une métrique ou d'un horaire sont tabulaires** :
   `tabular-nums`.
 
+### Les classes d'un composant
+
+Les composants composent leurs classes par `hlm()` et `classes()`
+(`@personal-os/ui/utils`), qui passent par tailwind-merge : de deux classes
+du même groupe, la dernière gagne. Deux pièges, couverts par
+`nx test utils` et `nx test button` :
+
+- tailwind-merge ne connaît que les noms de Tailwind. `hlm.ts` lui déclare
+  l'échelle typographique et les tailles d'icône ; un nouveau niveau
+  `--text-<niveau>` ou `--icon-<taille>` s'y ajoute (le test relit
+  `tokens.css`). Sans cela, `text-body-dense` passe pour une couleur et
+  disparaît devant `text-on-surface`.
+- `classes()` dédoublonne en gardant la **première** occurrence d'une classe.
+  Une classe répétée d'une partie à l'autre d'un `cva` (la base et une
+  variante composée) garde donc sa place de base, et perd devant la variante
+  qu'elle devait remplacer. Une classe ne s'écrit qu'une fois par `cva`.
+
+Les états suivent `DESIGN.md > Interactive states` : survol un cran plus haut
+dans la rampe (ou bordure `outline-variant` pour un champ), focus visible
+anneau 2 px `primary-20` et bordure `primary`, pressé `scale-98`, désactivé
+`opacity-40` et `cursor-not-allowed`. Le désactivé d'un bouton se lit sur
+`data-[disabled]` (le variant `data-disabled:` du preset spartan est en
+`:where()`, sans spécificité, et ne se nie pas avec `not-`).
+
 ### Les alias de spartan
 
 Les composants spartan lisent des jetons shadcn. `tokens.css` les redirige vers
@@ -110,17 +134,18 @@ générateur les pose.
 | Jeton                                                                                    | Classes                                                             | Exemple                                                                                         |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | Couleur `--<nom>` (43)                                                                   | `bg-`, `text-`, `border-`, `ring-`, `fill-`… `<nom>`                | `bg-surface-container`, `text-on-surface-variant`, `border-outline-variant`                     |
-| Piste teintée `--<couleur>-<alpha>` (8)                                                  | idem                                                                | `bg-primary-20`, `bg-error-20`                                                                  |
+| Piste teintée `--<couleur>-<alpha>` (8, plus 2 hors Foundations)                         | idem                                                                | `bg-primary-20`, `bg-error-20`, `border-error-stroke-30`                                        |
 | Espacement `--space-*`, `--gutter`, `--gutter-compact`, `--margin`, `--margin-mobile`    | `p-`, `m-`, `gap-`, `w-`… `<nom>`                                   | `p-space-md`, `gap-gutter`, `px-margin`                                                         |
 | Rayon `--radius-sm` 4, `--radius` 8, `--radius-md` 12, `--radius-lg` 16, `--radius-full` | `rounded-sm`, `rounded`, `rounded-md`, `rounded-lg`, `rounded-full` | tag `rounded-sm`, bouton `rounded`, carte `rounded-md`                                          |
 | Typographie `--text-<niveau>` (11)                                                       | `text-<niveau>` : taille, interligne, graisse et approche           | `text-headline-lg`, `text-body-dense`, `text-label-micro uppercase`, `text-code-mono font-mono` |
 | Police `--font-body`, `--font-mono`                                                      | `font-body` (par défaut sur `body`), `font-mono`                    |                                                                                                 |
-| Icône `--icon-xs` 16, `-sm` 18, `-md` 20, `-lg` 24, `-xl` 32                             | `icon-xs` … `icon-xl` sur `ng-icon`                                 | `<ng-icon name="matCheckOutline" class="icon-sm" />`                                            |
+| Icône `--icon-2xs` 14, `-xs` 16, `-sm` 18, `-md` 20, `-lg` 24, `-xl` 32                  | `icon-2xs` … `icon-xl` sur `ng-icon`                                | `<ng-icon name="matCheckOutline" class="icon-sm" />`                                            |
 | Ombre `--shadow-popover`                                                                 | `shadow-popover`                                                    | modale, popover                                                                                 |
 
 Les rayons `rounded-xl` à `rounded-4xl` restent ceux du preset spartan, dérivés
 de `--radius` : ils n'existent pas dans la bibliothèque, un écran ne s'en sert
-pas. Les tailles d'icône : 16 dans les badges, tags, fils d'Ariane et tableaux
+pas. Les tailles d'icône : 14 dans les liens, les segments et la case cochée
+(hors Foundations, mais employée par les masters) ; 16 dans les badges, tags, fils d'Ariane et tableaux
 denses ; 18 dans la navigation, les listes et les boutons ; 20 dans les
 en-têtes de carte et les tuiles KPI ; 24 dans la barre d'onglets mobile et les
 actions de page ; 32 dans les états vides et d'erreur.
@@ -140,9 +165,17 @@ actions de page ; 32 dans les états vides et d'erreur.
 4. **Une story par composant** (`<nom>.stories.ts`, titre
    `<Catégorie>/<Composant>`), avec les variantes, tailles et états des
    galeries pen.dev, des contrôles pour ses entrées, et l'addon a11y sans
-   violation.
-5. **Remplir sa ligne** dans la table ci-dessous, dans la PR du composant.
-6. **Une valeur absente des jetons** (une piste alpha qu'un master emploie et
+   violation. Survol, focus et pression se forcent par le paramètre `pseudo`
+   (`storybook-addon-pseudo-states`) sur un sélecteur de la story
+   (`pseudo: { hover: '[data-etat=hover]' }`). Le `tsconfig.lib.json` du
+   projet exclut `**/*.stories.ts`.
+5. **Ses comportements en jest**, à côté du composant (`nx test <projet>` ; un
+   projet de `packages/ui` qui n'a pas encore de tests reçoit le
+   `jest.config.cts` de `button`). Le composant s'ajoute à la liste de
+   `packages/ui/dccm/src/design-system.spec.ts`, qui refuse couleur, taille
+   de police et rayon en dur.
+6. **Remplir sa ligne** dans la table ci-dessous, dans la PR du composant.
+7. **Une valeur absente des jetons** (une piste alpha qu'un master emploie et
    que la Foundations ne liste pas, par exemple) s'ajoute à `tokens.css` sous un
    nom `<couleur>-<alpha>`, dans la PR du composant qui en a besoin, et l'écart
    se note dans l'audit ci-dessous.
@@ -152,56 +185,60 @@ actions de page ; 32 dans les états vides et d'erreur.
 Une ligne par master de `personalos.lib.pen`. La colonne « Composant » se
 remplit dans la PR qui l'implémente.
 
-| Planche         | Master                 | Id       | Ticket      | Composant Angular |
-| --------------- | ---------------------- | -------- | ----------- | ----------------- |
-| 01 Actions      | `Button/Primary`       | `fm2Pg`  | UI-5 (#106) |                   |
-| 01 Actions      | `Button/Secondary`     | `kSA0S`  | UI-5 (#106) |                   |
-| 01 Actions      | `Button/Ghost`         | `skoX7`  | UI-5 (#106) |                   |
-| 01 Actions      | `Button/Destructive`   | `YxFNj`  | UI-5 (#106) |                   |
-| 01 Actions      | `Button/Icon`          | `XtxvG`  | UI-5 (#106) |                   |
-| 01 Actions      | `Button/Link`          | `AbBjI`  | UI-5 (#106) |                   |
-| 01 Actions      | `KeyboardHint`         | `wUjrG`  | UI-5 (#106) |                   |
-| 02 Forms        | `Input`                | `ALZVI`  | UI-5 (#106) |                   |
-| 02 Forms        | `FormField`            | `q3MAZQ` | UI-5 (#106) |                   |
-| 02 Forms        | `Checkbox`             | `JwWQG`  | UI-5 (#106) |                   |
-| 02 Forms        | `Switch`               | `S9hTL`  | UI-5 (#106) |                   |
-| 02 Forms        | `Stepper`              | `Ahi2D`  | UI-5 (#106) |                   |
-| 02 Forms        | `Tab/Active`           | `ms6qi`  | UI-5 (#106) |                   |
-| 02 Forms        | `Tab/Inactive`         | `dsKE8`  | UI-5 (#106) |                   |
-| 02 Forms        | `SegmentedControl`     | `ee30V`  | UI-5 (#106) |                   |
-| 03 Data Display | `Badge`                | `AsJMu`  | UI-6 (#107) |                   |
-| 03 Data Display | `Tag`                  | `d6arwe` | UI-6 (#107) |                   |
-| 03 Data Display | `Avatar`               | `qV14Y`  | UI-6 (#107) |                   |
-| 03 Data Display | `ProgressBar`          | `phWRw`  | UI-6 (#107) |                   |
-| 03 Data Display | `Divider`              | `n1yjU`  | UI-6 (#107) |                   |
-| 03 Data Display | `CardTitle`            | `JNiEe`  | UI-6 (#107) |                   |
-| 03 Data Display | `CardHeader`           | `t2Hdg8` | UI-6 (#107) |                   |
-| 03 Data Display | `SectionHeader`        | `xvhC6`  | UI-6 (#107) |                   |
-| 03 Data Display | `Card`                 | `F9aBD`  | UI-6 (#107) |                   |
-| 03 Data Display | `KpiTile`              | `UmdUk`  | UI-6 (#107) |                   |
-| 03 Data Display | `Table/HeaderCell`     | `b4QLdx` | UI-6 (#107) |                   |
-| 03 Data Display | `Table/Cell`           | `sUITn`  | UI-6 (#107) |                   |
-| 03 Data Display | `ListRow`              | `DHctf`  | UI-6 (#107) |                   |
-| 04 Navigation   | `TopBar`               | `DVUUC`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `Sidebar`              | `EDbRo`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `Rail`                 | `GfuO7`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `MobileTabBar`         | `jFjwa`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `NavItem`              | `rXP4M`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `RailItem`             | `sXviG`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `TabBarItem`           | `jEtQt`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `Breadcrumb/Item`      | `D5oZd`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `Breadcrumb/Separator` | `yKOOs`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `Breadcrumb`           | `PVPne`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `MobileHeader`         | `LNnJM`  | UI-2 (#60)  |                   |
-| 04 Navigation   | `PageHeader`           | `xMGff`  | UI-2 (#60)  |                   |
-| 05 Feedback     | `Banner`               | `L9HFJ`  | UI-3 (#62)  |                   |
-| 05 Feedback     | `Toast`                | `bESqe`  | UI-3 (#62)  |                   |
-| 05 Feedback     | `Skeleton`             | `kNtnJ`  | UI-3 (#62)  |                   |
-| 05 Feedback     | `Modal`                | `CX7L8`  | UI-3 (#62)  |                   |
-| 05 Feedback     | `EmptyState`           | `QLVDE`  | UI-3 (#62)  |                   |
-| 06 Layout       | `AppShell/Desktop`     | `ZVeDP`  | UI-2 (#60)  |                   |
-| 06 Layout       | `AppShell/Tablet`      | `izfng`  | UI-2 (#60)  |                   |
-| 06 Layout       | `AppShell/Mobile`      | `jvzeX`  | UI-2 (#60)  |                   |
+| Planche         | Master                 | Id       | Ticket      | Composant Angular                                                                                                    |
+| --------------- | ---------------------- | -------- | ----------- | -------------------------------------------------------------------------------------------------------------------- |
+| 01 Actions      | `Button/Primary`       | `fm2Pg`  | UI-5 (#106) | `HlmButton` (`@personal-os/ui/button`), `variant="primary"`, le défaut                                               |
+| 01 Actions      | `Button/Secondary`     | `kSA0S`  | UI-5 (#106) | `HlmButton variant="secondary"`                                                                                      |
+| 01 Actions      | `Button/Ghost`         | `skoX7`  | UI-5 (#106) | `HlmButton variant="ghost"`                                                                                          |
+| 01 Actions      | `Button/Destructive`   | `YxFNj`  | UI-5 (#106) | `HlmButton variant="destructive"`                                                                                    |
+| 01 Actions      | `Button/Icon`          | `XtxvG`  | UI-5 (#106) | `HlmButton size="icon"` (36) ou `"icon-lg"` (44) ; `ghost`, ou `secondary` pour le rempli ; `aria-label` obligatoire |
+| 01 Actions      | `Button/Link`          | `AbBjI`  | UI-5 (#106) | `HlmButton variant="link"`                                                                                           |
+| 01 Actions      | `KeyboardHint`         | `wUjrG`  | UI-5 (#106) | `HlmKbd` (`@personal-os/ui/kbd`)                                                                                     |
+| 02 Forms        | `Input`                | `ALZVI`  | UI-5 (#106) | `HlmInput`, et `HlmInputGroup` pour les icônes et le raccourci (`@personal-os/ui/input`)                             |
+| 02 Forms        | `FormField`            | `q3MAZQ` | UI-5 (#106) | `HlmField`, `HlmFieldLabel`, `HlmFieldDescription`, `HlmFieldError` (`@personal-os/ui/field`)                        |
+| 02 Forms        | `Checkbox`             | `JwWQG`  | UI-5 (#106) | `HlmCheckbox` (`@personal-os/ui/checkbox`)                                                                           |
+| 02 Forms        | `Switch`               | `S9hTL`  | UI-5 (#106) | `HlmSwitch` (`@personal-os/ui/switch`)                                                                               |
+| 02 Forms        | `Stepper`              | `Ahi2D`  | UI-5 (#106) | `DccmStepper` (`@personal-os/ui/dccm`)                                                                               |
+| 02 Forms        | `Tab/Active`           | `ms6qi`  | UI-5 (#106) | `HlmToggleGroupItem`, segment actif                                                                                  |
+| 02 Forms        | `Tab/Inactive`         | `dsKE8`  | UI-5 (#106) | `HlmToggleGroupItem`, segment inactif                                                                                |
+| 02 Forms        | `SegmentedControl`     | `ee30V`  | UI-5 (#106) | `HlmToggleGroup` (`@personal-os/ui/toggle-group`)                                                                    |
+| 03 Data Display | `Badge`                | `AsJMu`  | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `Tag`                  | `d6arwe` | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `Avatar`               | `qV14Y`  | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `ProgressBar`          | `phWRw`  | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `Divider`              | `n1yjU`  | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `CardTitle`            | `JNiEe`  | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `CardHeader`           | `t2Hdg8` | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `SectionHeader`        | `xvhC6`  | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `Card`                 | `F9aBD`  | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `KpiTile`              | `UmdUk`  | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `Table/HeaderCell`     | `b4QLdx` | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `Table/Cell`           | `sUITn`  | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `ListRow`              | `DHctf`  | UI-6 (#107) |                                                                                                                      |
+| 04 Navigation   | `TopBar`               | `DVUUC`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `Sidebar`              | `EDbRo`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `Rail`                 | `GfuO7`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `MobileTabBar`         | `jFjwa`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `NavItem`              | `rXP4M`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `RailItem`             | `sXviG`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `TabBarItem`           | `jEtQt`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `Breadcrumb/Item`      | `D5oZd`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `Breadcrumb/Separator` | `yKOOs`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `Breadcrumb`           | `PVPne`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `MobileHeader`         | `LNnJM`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `PageHeader`           | `xMGff`  | UI-2 (#60)  |                                                                                                                      |
+| 05 Feedback     | `Banner`               | `L9HFJ`  | UI-3 (#62)  |                                                                                                                      |
+| 05 Feedback     | `Toast`                | `bESqe`  | UI-3 (#62)  |                                                                                                                      |
+| 05 Feedback     | `Skeleton`             | `kNtnJ`  | UI-3 (#62)  |                                                                                                                      |
+| 05 Feedback     | `Modal`                | `CX7L8`  | UI-3 (#62)  |                                                                                                                      |
+| 05 Feedback     | `EmptyState`           | `QLVDE`  | UI-3 (#62)  |                                                                                                                      |
+| 06 Layout       | `AppShell/Desktop`     | `ZVeDP`  | UI-2 (#60)  |                                                                                                                      |
+| 06 Layout       | `AppShell/Tablet`      | `izfng`  | UI-2 (#60)  |                                                                                                                      |
+| 06 Layout       | `AppShell/Mobile`      | `jvzeX`  | UI-2 (#60)  |                                                                                                                      |
+
+`Label` et `Select` n'ont pas de master : `HlmLabel` prend le libellé de
+`FormField`, et le déclencheur de `HlmSelect` reprend la boîte de `Input`
+(`inputBoxClasses`) avec l'icône de fin `keyboard_arrow_down`.
 
 La planche `00 Foundations` n'a pas de master : elle est rendue par les stories
 `Foundations` (`packages/ui/dccm/src/foundations/`).
@@ -246,19 +283,36 @@ Le `.pen` l'emporte ; `tokens.css` et les composants suivent sa colonne.
 | `TopBar`                    | pas d'ombre diffuse                                                                                                                               | ombre `0 1px 8px #00000080` et flou d'arrière-plan 12                                                                                                                       |
 | Captures de documentation   | `tokens-specifications-1424.png` montre d'anciennes valeurs (`--color-*`, `.dark`, rayons 0,25/0,5/0,75 rem)                                      | ignorées : ce sont des écrans de maquette, pas la bibliothèque                                                                                                              |
 
+### Ce que les composants ont tranché
+
+- **Actions et formulaires (UI-5, #106).** Les galeries du `.pen` donnent le
+  survol et le pressé de chaque variante de `Button`, sauf le pressé du
+  primaire, en `primary-container` dans la galerie : un bouton texte n'a jamais
+  ce fond, il garde `primary` et l'échelle 0,98. Le focus suit `DESIGN.md`
+  (anneau 2 px `primary-20`, bordure 1 px `primary`) et non l'ombre `primary`
+  40 % des galeries. La case de valeur du `Stepper` prend `rounded` (8, le
+  rayon des contrôles) faute de jeton à 6. Les segments suivent le `.pen`
+  (padding 4/8, 11 px), avec sa variante 12 px sur `surface-container-low` au
+  rayon 12 (`size="md"`). Le champ passe en erreur quand son contrôle est
+  invalide et touché, ou par `forceInvalid` : `aria-invalid` seul le
+  marquerait rouge dès l'ouverture d'un formulaire vide. `KeyboardHint` et
+  `FormField` passent par les générateurs spartan `kbd` et `field` (spartan
+  1.3 n'a plus de `form-field`), selon la règle « le générateur d'abord ».
+  La taille d'icône 14 devient le jeton `--icon-2xs`.
+
 ### Valeurs alpha hors des pistes teintées
 
 Les masters et leurs galeries emploient des alphas que la Foundations ne liste
 pas. Chacune s'ajoutera à `tokens.css` dans la PR du composant qui la consomme
-(règle 6 de « Ajouter un composant ») :
+(règle 7 de « Ajouter un composant ») :
 
-| Valeur                   | Lecture                         | Où                                                                                                   |
-| ------------------------ | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `#ffb4ab4d`              | `error` 30 %                    | bordure de `Button/Destructive` (UI-5)                                                               |
-| `#adc6ff66`              | `primary` 40 %                  | anneau de focus des galeries `Button` et `Input` (UI-5), bordure de ligne sélectionnée (`DESIGN.md`) |
-| `#ffb95f33`              | `tertiary` 20 %                 | fond d'icône de `Banner` (UI-3)                                                                      |
-| `#4edea31a`              | `secondary` 10 %                | galeries                                                                                             |
-| `#93000a66`              | `error-container` 40 %          | galeries                                                                                             |
-| `#0a0e14e6`              | `surface-container-lowest` 90 % | fond de `TopBar` (UI-2)                                                                              |
-| `#10141ae6`              | `surface` 90 %                  | fond de `MobileTabBar` et `MobileHeader` (UI-2)                                                      |
-| `#00000080`, `#0000000d` | ombres                          | `TopBar`, sélecteur d'environnement (UI-2)                                                           |
+| Valeur                   | Lecture                         | Où                                                                                                                                                |
+| ------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `#ffb4ab4d`              | `error` 30 %                    | bordure de `Button/Destructive` : `--error-stroke-30` (UI-5 ; `error-30` désigne déjà `error-container`)                                          |
+| `#adc6ff66`              | `primary` 40 %                  | anneau de focus des galeries `Button` et `Input` : non retenu, UI-5 suit `DESIGN.md` (`primary-20`) ; bordure de ligne sélectionnée (`DESIGN.md`) |
+| `#ffb95f33`              | `tertiary` 20 %                 | fond d'icône de `Banner` (UI-3)                                                                                                                   |
+| `#4edea31a`              | `secondary` 10 %                | galeries                                                                                                                                          |
+| `#93000a66`              | `error-container` 40 %          | `Button/Destructive` pressé : `--error-40` (UI-5)                                                                                                 |
+| `#0a0e14e6`              | `surface-container-lowest` 90 % | fond de `TopBar` (UI-2)                                                                                                                           |
+| `#10141ae6`              | `surface` 90 %                  | fond de `MobileTabBar` et `MobileHeader` (UI-2)                                                                                                   |
+| `#00000080`, `#0000000d` | ombres                          | `TopBar`, sélecteur d'environnement (UI-2)                                                                                                        |
