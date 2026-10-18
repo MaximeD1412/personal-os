@@ -1,5 +1,4 @@
 import {
-  OS,
   commands,
   machine,
   provision,
