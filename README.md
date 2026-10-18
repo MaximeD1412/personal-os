@@ -135,6 +135,17 @@ pnpm db:up             # un serveur PostgreSQL doit être joignable
 pnpm test:integration
 ```
 
+### Dans un worktree
+
+Les agents (la boucle, `pick-issue`) travaillent dans un worktree par ticket,
+frère du dépôt principal. Plusieurs worktrees testent en même temps sur le même
+serveur PostgreSQL, puisque chaque campagne a sa base jetable.
+
+```bash
+scripts/worktree.sh setup   # copie les .env, installe, génère Prisma, vérifie Postgres
+scripts/worktree.sh drop    # supprime dist/ et .nx/cache, avant git worktree remove
+```
+
 ## Base de données
 
 ```bash
