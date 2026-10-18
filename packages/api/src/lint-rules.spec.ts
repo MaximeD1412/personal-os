@@ -51,6 +51,8 @@ const REFUSES: [string, string][] = [
   ['une réexportation', "export * from '@prisma/client';"],
   ['un import dynamique', "export const c = import('@prisma/client');"],
   ['un require', "export const c = require('@prisma/client');"],
+  ['un import = require', "import P = require('@prisma/client');\nexport const c = P;"],
+  ['un import de type', "export type T = import('@prisma/client').Prisma.Sql;"],
 ];
 
 const FACADE = [
