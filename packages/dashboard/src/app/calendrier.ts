@@ -8,6 +8,7 @@ import {
   untracked,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import type { Subscription } from 'rxjs';
 import {
   estEcheance,
   periodeDuMois,
@@ -152,7 +153,12 @@ export class Calendrier {
       error: () => this.erreur.set("Les Espaces n'ont pas pu être lus."),
     });
 
-    effect(() => this.relire(this.mois()));
+    // Changer de mois abandonne la lecture en cours : une réponse tardive du
+    // mois quitté n'écrase jamais celle du mois affiché.
+    effect((auNettoyage) => {
+      const lecture = this.relire(this.mois());
+      auNettoyage(() => lecture.unsubscribe());
+    });
   }
 
   protected afficherLeMois(evenement: globalThis.Event): void {
@@ -162,8 +168,8 @@ export class Calendrier {
     }
   }
 
-  private relire(mois: string): void {
-    this.evenementsApi.lister(periodeDuMois(mois)).subscribe({
+  private relire(mois: string): Subscription {
+    return this.evenementsApi.lister(periodeDuMois(mois)).subscribe({
       next: (evenements) => {
         this.evenements.set(parDate(evenements));
         if (!this.lienRepris) {

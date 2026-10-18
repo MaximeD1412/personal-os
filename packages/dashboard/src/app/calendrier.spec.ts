@@ -214,6 +214,35 @@ describe('Calendrier', () => {
       expect(element(fixture).textContent).not.toContain('Dentiste');
       expect(element(fixture).textContent).toContain('Déclaration de revenus');
     });
+
+    it("n'affiche que le dernier mois demandé, même si l'ancien répond après", async () => {
+      const fixture = await monter();
+
+      saisir(element(fixture), 'mois', '2027-05');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      saisir(element(fixture), 'mois', '2027-06');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const [mai, juin] = httpMock.match(
+        ({ method, url }) => method === 'GET' && url === `${BASE}/events`,
+      );
+      expect(juin.request.params.get('from')).toBe('2027-05-31T22:00:00.000Z');
+
+      juin.flush([{ ...DENTISTE, id: 'event-juin', title: 'Fête de juin' }]);
+      // Une lecture abandonnée ne doit plus pouvoir écraser la liste.
+      if (!mai.cancelled) {
+        mai.flush([DECLARATION]);
+      }
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(element(fixture).textContent).toContain('Fête de juin');
+      expect(element(fixture).textContent).not.toContain(
+        'Déclaration de revenus',
+      );
+    });
   });
 
   describe("L'écran de création", () => {
