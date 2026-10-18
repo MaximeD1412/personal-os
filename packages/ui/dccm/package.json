@@ -1,0 +1,11 @@
+{
+  "name": "@personal-os/ui/dccm",
+  "version": "0.0.1",
+  "peerDependencies": {
+    "@angular/common": "^22.0.0",
+    "@angular/core": "^22.0.0",
+    "@ng-icons/core": ">=32.0.0 <34.0.0",
+    "@ng-icons/material-symbols": "^33.4.0"
+  },
+  "sideEffects": false
+}
