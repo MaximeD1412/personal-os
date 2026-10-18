@@ -8,6 +8,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { ErreursFilter } from './erreurs/erreurs.filter';
 import { EspaceModule } from './espace/espace.module';
 import { HealthModule } from './health/health.module';
+import { HouseholdModule } from './household/household.module';
 import { TraceModule } from './traces/trace.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { TraceModule } from './traces/trace.module';
     TraceModule,
     CalendarModule,
     AgendaModule,
+    HouseholdModule,
   ],
   providers: [
     // Tout body, query ou param typé par un DTO zod de `contracts` est validé
