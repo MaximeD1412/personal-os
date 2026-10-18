@@ -1,6 +1,6 @@
 # Migration du VPS OVH vers le homelab
 
-> Note vivante — dernière mise à jour : 4 août 2026.
+> Note vivante — dernière mise à jour : 18 octobre 2026.
 > Ce n'est ni un plan daté ni une décision : c'est la liste des pièges connus,
 > à relire **avant** de commencer la migration. Chaque tranche qui découvre une
 > contrainte transposable au homelab l'ajoute ici plutôt que de la laisser dans
@@ -9,6 +9,28 @@
 Le cadre est posé au §14 de la note produit : la migration ne doit pas exiger de
 réécriture applicative. Elle change des endpoints, des chemins et du DNS — pas du
 code. Ce document recense ce qui ne se déduit pas de cette phrase.
+
+## La machine : un script, pas une liste de gestes
+
+Le système du homelab se prépare comme celui du VPS, par
+[`infra/provision/provision.sh`](../infra/provision/README.md) : SSH par clé
+uniquement, fail2ban, pare-feu limité à 22, 80 et 443 (ports publiés par Docker
+compris), mises à jour de sécurité automatiques, Docker et Compose, compte
+d'administration. Debian 12+ ou Ubuntu 22.04+, x86 ou ARM : le choix du
+matériel ne change rien au script.
+
+L'ordre sur la nouvelle machine : `provision.sh`, puis l'edge
+([`infra/edge`](../infra/edge/README.md)) s'il reste nécessaire, puis l'agent
+de déploiement ([`infra/deploy`](../infra/deploy/README.md)), puis les
+restaurations ci-dessous. Le script est idempotent : le relancer après une
+mise à jour du dépôt remet la machine à niveau sans rien refaire à la main.
+
+Ce qu'il ne fait pas, et qui reste propre au homelab :
+
+- **l'accès au tableau de bord par Tailscale**, si c'est l'option retenue
+  (voir « Réseau et accès ») : l'interface `tailscale0` n'est pas ouverte par
+  le pare-feu, elle s'ajoute alors au script ;
+- **la redirection de 80 et 443 sur la box**, et l'IP dynamique.
 
 ## Secrets : ne jamais recopier, toujours ajouter puis révoquer
 

@@ -7,8 +7,8 @@ export interface BrnButtonConfig {
 }
 
 const defaultConfig: BrnButtonConfig = {
-	variant: 'default',
-	size: 'default',
+	variant: 'primary',
+	size: 'md',
 };
 
 const BrnButtonConfigToken = new InjectionToken<BrnButtonConfig>('BrnButtonConfig');

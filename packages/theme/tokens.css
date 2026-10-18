@@ -1,85 +1,346 @@
 /*
- * Les jetons de thème, partagés par le tableau de bord et le portfolio.
+ * Les jetons du design system, partagés par le tableau de bord et le portfolio.
+ *
+ * Ils recopient la bibliothèque pen.dev (`design/personalos.lib.pen`, ses 59
+ * variables) et le frontmatter de `design/DESIGN.md`, sous les mêmes noms et
+ * avec les mêmes valeurs : `nx test theme` le vérifie. La bibliothèque est la
+ * source de vérité ; on ne change pas une valeur ici sans qu'elle ait changé
+ * là-bas. Le mode d'emploi est dans `docs/design-system.md`.
  *
  * Ce fichier est importé par la feuille globale de chaque application, et il
- * n'en existe qu'un : deux copies dériveraient l'une de l'autre, et le système
- * visuel ne serait plus un système. Une application qui doit s'écarter du thème
- * redéfinit les jetons concernés **après** son import, sans toucher ici.
+ * n'en existe qu'un : deux copies dériveraient l'une de l'autre. Une
+ * application qui doit s'écarter du thème redéfinit les jetons concernés
+ * **après** son import, sans toucher ici.
  *
- * Les couleurs sont en OKLCH et portent des noms de rôle — `--primary`,
- * `--muted-foreground`, `--destructive` —, jamais des noms de teinte. Le preset
- * de spartan/ui les expose ensuite à Tailwind (`bg-background`, `text-muted-
- * foreground`, …) par ses blocs `@theme inline`.
+ * Il n'y a qu'un thème, sombre. Un futur thème redéfinira les jetons de
+ * couleur sous `:root[data-theme="…"]`, sans toucher aux noms.
  *
- * Le mode sombre s'active par la classe `dark` sur l'élément racine.
+ * Trois étages :
+ * - `:root` porte les jetons sous leurs noms pen.dev (`--surface`,
+ *   `--on-surface-variant`, `--radius-md`…), puis les alias qu'attendent les
+ *   composants spartan, redirigés vers eux ;
+ * - `@theme inline` les expose à Tailwind (`bg-surface-container`,
+ *   `text-on-surface-variant`, `p-gutter`, `rounded-md`…) ;
+ * - `@theme static` porte l'échelle typographique, dont Tailwind fait des
+ *   utilitaires complets (`text-headline-lg` pose taille, interligne, graisse
+ *   et approche).
  */
 
 :root {
-  color-scheme: light;
-
-  --font-sans:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol', 'Noto Color Emoji';
-
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
-}
-
-:root.dark {
   color-scheme: dark;
 
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.984 0.003 247.858);
-  --sidebar-primary-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  /* Surfaces */
+  --surface: #10141a;
+  --surface-dim: #10141a;
+  --surface-bright: #353940;
+  --surface-container-lowest: #0a0e14;
+  --surface-container-low: #181c22;
+  --surface-container: #1c2026;
+  --surface-container-high: #262a31;
+  --surface-container-highest: #31353c;
+
+  /* Texte et bordures */
+  --on-surface: #dfe2eb;
+  --on-surface-variant: #c2c6d6;
+  --outline: #8c909f;
+  --outline-variant: #424754;
+  --inverse-surface: #dfe2eb;
+  --inverse-on-surface: #2d3137;
+
+  /* Primary : action, sélection */
+  --primary: #adc6ff;
+  --on-primary: #002e6a;
+  --primary-container: #4d8eff;
+  --on-primary-container: #00285d;
+  --inverse-primary: #005ac2;
+  --primary-fixed: #d8e2ff;
+  --primary-fixed-dim: #adc6ff;
+  --on-primary-fixed: #001a42;
+  --on-primary-fixed-variant: #004395;
+
+  /* Secondary : succès, validation */
+  --secondary: #4edea3;
+  --on-secondary: #003824;
+  --secondary-container: #00a572;
+  --on-secondary-container: #00311f;
+  --secondary-fixed: #6ffbbe;
+  --secondary-fixed-dim: #4edea3;
+  --on-secondary-fixed: #002113;
+  --on-secondary-fixed-variant: #005236;
+
+  /* Tertiary : attente, à venir */
+  --tertiary: #ffb95f;
+  --on-tertiary: #472a00;
+  --tertiary-container: #ca8100;
+  --on-tertiary-container: #3e2400;
+  --tertiary-fixed: #ffddb8;
+  --tertiary-fixed-dim: #ffb95f;
+  --on-tertiary-fixed: #2a1700;
+  --on-tertiary-fixed-variant: #653e00;
+
+  /* Error : alerte, destruction */
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+
+  /* Pistes teintées : les seules valeurs alpha permises. Le nom dit la
+     couleur de la planche Foundations et l'opacité. */
+  --primary-20: #adc6ff33; /* primary : sélection, filtre actif, badge info */
+  --primary-10: #adc6ff1a; /* primary : ligne sélectionnée */
+  --primary-40: #adc6ff66; /* primary : bordure de ligne sélectionnée (hors Foundations) */
+  --secondary-20: #00a57233; /* secondary-container : badge succès */
+  --secondary-15: #4edea326; /* secondary : badge succès, pastille en ligne */
+  --tertiary-15: #ffb95f26; /* tertiary : badge attente */
+  --tertiary-20: #ca810033; /* tertiary-container : bannière avertissement */
+  --error-20: #93000a33; /* error-container : badge alerte, bouton destructif */
+  --error-30: #93000a4d; /* error-container : bannière critique */
+  /* Pistes qu'un master emploie hors de la Foundations (audit de
+     docs/design-system.md). `error-stroke-30` est `error` à 30 % : le nom
+     `error-30` désigne déjà `error-container`. */
+  --error-40: #93000a66; /* error-container : bouton destructif pressé */
+  --error-stroke-30: #ffb4ab4d; /* error : bordure du bouton destructif */
+  --surface-container-lowest-90: #0a0e14e6; /* fond de la TopBar, qui recouvre le contenu défilé */
+  --surface-90: #10141ae6; /* fond du MobileHeader et de la barre d'onglets */
+  --surface-container-lowest-80: #0a0e14cc; /* voile sous un panneau (barre de commande, « Plus ») */
+
+  /* Espacements, incrément de 4 px. */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 20px;
+  --space-xl: 28px;
+  --space-2xl: 40px;
+  --gutter: 16px;
+  --gutter-compact: 12px;
+  --margin: 24px;
+  --margin-mobile: 16px;
+
+  /* Rayons : tags 4, contrôles 8, cartes et modales 12, capsules full. */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Polices, servies par l'application (`@fontsource-variable/*`). */
+  --font-body: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Tailles d'icône (Material Symbols Outlined) : lien, onglet et case cochée
+     (14, hors Foundations), badges et tableaux denses, navigation et boutons,
+     en-têtes de carte, barre d'onglets, état vide. */
+  --icon-2xs: 14px;
+  --icon-xs: 16px;
+  --icon-sm: 18px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-xl: 32px;
+
+  /* Élévation : empilement tonal et bordure 1 px. Deux ombres : celle des
+     modales et des popovers, et celle du master `TopBar`, qui recouvre le
+     contenu défilé (audit de docs/design-system.md). */
+  --shadow-popover: 0 12px 32px 0 #000000a6;
+  --shadow-top-bar: 0 1px 8px 0 #00000080;
+
+  /* Les alias de spartan/ui, redirigés vers les jetons pen. Quand un nom
+     shadcn a un autre sens, c'est le sens pen qui gagne : `--secondary` est
+     le vert de validation, pas un gris neutre. */
+  --background: var(--surface);
+  --foreground: var(--on-surface);
+  --card: var(--surface-container);
+  --card-foreground: var(--on-surface);
+  --popover: var(--surface-container-high);
+  --popover-foreground: var(--on-surface);
+  --primary-foreground: var(--on-primary);
+  --secondary-foreground: var(--on-secondary);
+  --muted: var(--surface-container-high);
+  --muted-foreground: var(--outline);
+  --accent: var(--surface-container-high);
+  --accent-foreground: var(--on-surface);
+  --destructive: var(--error);
+  --border: var(--surface-container-highest);
+  --input: var(--surface-container-highest);
+  --ring: var(--primary);
+  --sidebar: var(--surface-container-lowest);
+  --sidebar-foreground: var(--on-surface-variant);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--on-primary);
+  --sidebar-accent: var(--primary-20);
+  --sidebar-accent-foreground: var(--primary);
+  --sidebar-border: var(--surface-container-highest);
+  --sidebar-ring: var(--primary);
+  --font-sans: var(--font-body);
+}
+
+/*
+ * L'exposition à Tailwind. Quand le nom Tailwind est celui du jeton
+ * (`--radius-md`, `--font-mono`), la ligne se lit `--x: var(--x)` : Tailwind
+ * la pose dans sa couche `theme`, et la déclaration de `:root` ci-dessus, hors
+ * couche, l'emporte. C'est la convention du preset spartan pour `--font-sans`.
+ * Elle remplace au passage les rayons que le preset dérive de `--radius`.
+ */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-bright: var(--surface-bright);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-inverse-surface: var(--inverse-surface);
+  --color-inverse-on-surface: var(--inverse-on-surface);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-inverse-primary: var(--inverse-primary);
+  --color-primary-fixed: var(--primary-fixed);
+  --color-primary-fixed-dim: var(--primary-fixed-dim);
+  --color-on-primary-fixed: var(--on-primary-fixed);
+  --color-on-primary-fixed-variant: var(--on-primary-fixed-variant);
+  --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-secondary-fixed: var(--secondary-fixed);
+  --color-secondary-fixed-dim: var(--secondary-fixed-dim);
+  --color-on-secondary-fixed: var(--on-secondary-fixed);
+  --color-on-secondary-fixed-variant: var(--on-secondary-fixed-variant);
+  --color-tertiary: var(--tertiary);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary-container: var(--on-tertiary-container);
+  --color-tertiary-fixed: var(--tertiary-fixed);
+  --color-tertiary-fixed-dim: var(--tertiary-fixed-dim);
+  --color-on-tertiary-fixed: var(--on-tertiary-fixed);
+  --color-on-tertiary-fixed-variant: var(--on-tertiary-fixed-variant);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
+
+  --color-primary-20: var(--primary-20);
+  --color-primary-10: var(--primary-10);
+  --color-primary-40: var(--primary-40);
+  --color-secondary-20: var(--secondary-20);
+  --color-secondary-15: var(--secondary-15);
+  --color-tertiary-15: var(--tertiary-15);
+  --color-tertiary-20: var(--tertiary-20);
+  --color-error-20: var(--error-20);
+  --color-error-30: var(--error-30);
+  --color-error-40: var(--error-40);
+  --color-error-stroke-30: var(--error-stroke-30);
+  --color-surface-container-lowest-90: var(--surface-container-lowest-90);
+  --color-surface-90: var(--surface-90);
+  --color-surface-container-lowest-80: var(--surface-container-lowest-80);
+
+  --spacing-space-xs: var(--space-xs);
+  --spacing-space-sm: var(--space-sm);
+  --spacing-space-md: var(--space-md);
+  --spacing-space-lg: var(--space-lg);
+  --spacing-space-xl: var(--space-xl);
+  --spacing-space-2xl: var(--space-2xl);
+  --spacing-gutter: var(--gutter);
+  --spacing-gutter-compact: var(--gutter-compact);
+  --spacing-margin: var(--margin);
+  --spacing-margin-mobile: var(--margin-mobile);
+
+  --radius: var(--radius);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-full: var(--radius-full);
+
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+
+  --shadow-popover: var(--shadow-popover);
+  --shadow-top-bar: var(--shadow-top-bar);
+}
+
+/*
+ * L'échelle typographique : taille, interligne (frontmatter de DESIGN.md),
+ * graisse et approche (planche Foundations). `static` les garde toutes dans
+ * la feuille, même inutilisées, pour que Storybook les affiche. `label-micro`
+ * s'écrit en capitales (`uppercase`), `code-mono` avec `font-mono`.
+ */
+@theme static {
+  --text-display-hero: 40px;
+  --text-display-hero--line-height: 48px;
+  --text-display-hero--font-weight: 700;
+  --text-display-hero--letter-spacing: -1.2px;
+
+  --text-headline-lg: 26px;
+  --text-headline-lg--line-height: 34px;
+  --text-headline-lg--font-weight: 600;
+  --text-headline-lg--letter-spacing: -0.5px;
+
+  --text-headline-lg-mobile: 22px;
+  --text-headline-lg-mobile--line-height: 28px;
+  --text-headline-lg-mobile--font-weight: 600;
+  --text-headline-lg-mobile--letter-spacing: -0.3px;
+
+  --text-headline-md: 18px;
+  --text-headline-md--line-height: 24px;
+  --text-headline-md--font-weight: 600;
+  --text-headline-md--letter-spacing: -0.2px;
+
+  --text-title-sm: 15px;
+  --text-title-sm--line-height: 20px;
+  --text-title-sm--font-weight: 600;
+
+  --text-body-default: 14px;
+  --text-body-default--line-height: 20px;
+  --text-body-default--font-weight: 400;
+
+  --text-body-dense: 13px;
+  --text-body-dense--line-height: 18px;
+  --text-body-dense--font-weight: 400;
+
+  --text-label-regular: 12px;
+  --text-label-regular--line-height: 16px;
+  --text-label-regular--font-weight: 500;
+
+  --text-label-micro: 11px;
+  --text-label-micro--line-height: 14px;
+  --text-label-micro--font-weight: 500;
+  --text-label-micro--letter-spacing: 0.5px;
+
+  --text-telemetry-metric: 20px;
+  --text-telemetry-metric--line-height: 24px;
+  --text-telemetry-metric--font-weight: 700;
+  --text-telemetry-metric--letter-spacing: -0.4px;
+
+  --text-code-mono: 12px;
+  --text-code-mono--line-height: 16px;
+  --text-code-mono--font-weight: 500;
+}
+
+/* Les tailles d'icône, pour `ng-icon` : `<ng-icon class="icon-sm" …>`. */
+@utility icon-2xs {
+  --ng-icon__size: var(--icon-2xs);
+}
+@utility icon-xs {
+  --ng-icon__size: var(--icon-xs);
+}
+@utility icon-sm {
+  --ng-icon__size: var(--icon-sm);
+}
+@utility icon-md {
+  --ng-icon__size: var(--icon-md);
+}
+@utility icon-lg {
+  --ng-icon__size: var(--icon-lg);
+}
+@utility icon-xl {
+  --ng-icon__size: var(--icon-xl);
 }
 
 @layer base {
@@ -88,6 +349,6 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body antialiased;
   }
 }

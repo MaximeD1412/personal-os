@@ -73,13 +73,13 @@
               jusqu'au {{ entree.endsAt | date: 'dd/MM/yyyy HH:mm' }}
             </span>
             } @if (entree.status !== 'PLANNED') {
-            <span hlmBadge variant="secondary" data-test="statut"
+            <span hlmBadge tone="neutral" data-test="statut"
               >{{ nomDuStatut(entree.status) }}</span
             >
             } @if (origine(entree); as module) {
-            <span hlmBadge variant="outline">{{ module.libelle }}</span>
+            <span hlmBadge variant="tag">{{ module.libelle }}</span>
             } @else {
-            <span hlmBadge variant="outline">{{ entree.source }}</span>
+            <span hlmBadge variant="tag">{{ entree.source }}</span>
             }
           </li>
           }

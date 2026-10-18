@@ -26,7 +26,22 @@
       "@personal-os/ui/label": ["./packages/ui/label/src/index.ts"],
       "@personal-os/ui/card": ["./packages/ui/card/src/index.ts"],
       "@personal-os/ui/badge": ["./packages/ui/badge/src/index.ts"],
-      "@personal-os/ui/select": ["./packages/ui/select/src/index.ts"]
+      "@personal-os/ui/select": ["./packages/ui/select/src/index.ts"],
+      "@personal-os/ui/dccm": ["./packages/ui/dccm/src/index.ts"],
+      "@personal-os/ui/avatar": ["./packages/ui/avatar/src/index.ts"],
+      "@personal-os/ui/progress": ["./packages/ui/progress/src/index.ts"],
+      "@personal-os/ui/separator": ["./packages/ui/separator/src/index.ts"],
+      "@personal-os/ui/table": ["./packages/ui/table/src/index.ts"],
+      "@personal-os/ui/checkbox": ["./packages/ui/checkbox/src/index.ts"],
+      "@personal-os/ui/switch": ["./packages/ui/switch/src/index.ts"],
+      "@personal-os/ui/toggle-group": [
+        "./packages/ui/toggle-group/src/index.ts"
+      ],
+      "@personal-os/ui/field": ["./packages/ui/field/src/index.ts"],
+      "@personal-os/ui/kbd": ["./packages/ui/kbd/src/index.ts"],
+      "@personal-os/ui/breadcrumb": ["./packages/ui/breadcrumb/src/index.ts"],
+      "@personal-os/ui/sheet": ["./packages/ui/sheet/src/index.ts"],
+      "@personal-os/ui/tooltip": ["./packages/ui/tooltip/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

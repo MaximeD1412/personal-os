@@ -1,11 +1,12 @@
 import { inject, InjectionToken, type ValueProvider } from '@angular/core';
 
 export type HlmCardConfig = {
-	size: 'sm' | 'default';
+	/** `nested` : une carte posée dans une autre, un cran plus haut sur la rampe de surfaces. */
+	variant: 'default' | 'nested';
 };
 
 const defaultConfig: HlmCardConfig = {
-	size: 'default',
+	variant: 'default',
 };
 
 const HlmCardConfigToken = new InjectionToken<HlmCardConfig>('HlmCardConfig');

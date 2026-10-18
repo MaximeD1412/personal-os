@@ -1,67 +1,90 @@
-<main class="mx-auto max-w-4xl px-4 py-8">
-  <header
-    class="border-border flex flex-wrap items-baseline justify-between gap-4 border-b pb-4"
+<dccm-shell>
+  <dccm-top-bar
+    [scopes]="optionsDEspace()"
+    [scope]="espaceChoisi()"
+    (scopeChange)="choisirLEspace($event)"
+    [userName]="nom()"
+    (logout)="seDeconnecter()"
   >
-    <h1 class="text-2xl font-semibold tracking-tight">Tableau de bord</h1>
+    <!-- La zone de recherche : la barre de commande (CMD-3) s'y logera. -->
+  </dccm-top-bar>
 
-    @if (nom(); as compte) {
-    <p class="flex items-baseline gap-3">
-      <span class="text-muted-foreground text-sm">{{ compte }}</span>
+  <dccm-sidebar [groups]="groupes" [footer]="pied" [status]="etat()" />
+  <dccm-sidebar
+    variant="rail"
+    [groups]="groupes"
+    [footer]="pied"
+    [status]="etat()"
+  />
+
+  <dccm-mobile-header [status]="etat()">
+    <!-- Le bouton de commande (CMD-3) s'y logera, en [dccmMobileHeaderCommand]. -->
+  </dccm-mobile-header>
+
+  <dccm-tab-bar [entries]="onglets">
+    <hlm-sheet side="left" class="contents">
       <button
-        hlmBtn
-        variant="outline"
-        size="sm"
-        type="button"
-        data-test="deconnexion"
-        (click)="seDeconnecter()"
+        hlmSheetTrigger
+        dccmTabBarItem
+        data-test="plus"
+        icon="matMoreHorizOutline"
+        label="Plus"
+      ></button>
+      <hlm-sheet-content
+        *hlmSheetPortal="let panneau"
+        class="w-72 gap-0 overflow-y-auto p-0"
       >
-        Se déconnecter
-      </button>
-    </p>
-    }
-  </header>
+        <div hlmSheetHeader class="gap-space-md pe-14">
+          <h2 hlmSheetTitle>Navigation</h2>
+          @if (optionsDEspace().length) {
+          <hlm-toggle-group
+            size="md"
+            aria-label="Espace des nouvelles saisies"
+            class="self-start"
+            [value]="espaceChoisi()"
+            (valueChange)="choisirLEspace($any($event))"
+          >
+            @for (espace of optionsDEspace(); track espace.value) {
+            <button hlmToggleGroupItem [value]="espace.value">
+              {{ espace.label }}
+            </button>
+            }
+          </hlm-toggle-group>
+          }
+        </div>
 
-  @if (probe(); as sonde) {
-  <p class="text-muted-foreground mt-4 text-sm">
-    Sonde lue en base :
-    <strong class="text-foreground">{{ sonde.label }}</strong>
-    <small>(enregistrée le {{ sonde.recordedAt }})</small>
-  </p>
-  } @else if (error(); as message) {
-  <p class="text-destructive mt-4 text-sm">{{ message }}</p>
-  } @else {
-  <p class="text-muted-foreground mt-4 text-sm">Lecture de la sonde…</p>
-  }
+        <dccm-sidebar
+          class="h-auto w-full flex-1"
+          [groups]="groupes"
+          [footer]="pied"
+          [status]="etat()"
+          (navigate)="panneau.close()"
+        />
 
-  <nav class="mt-6 flex gap-2">
-    <a
-      hlmBtn
-      variant="ghost"
-      size="sm"
-      data-test="vers-agenda"
-      routerLink="/agenda"
-      routerLinkActive="bg-muted text-foreground"
-      >Agenda</a
-    >
-    <a
-      hlmBtn
-      variant="ghost"
-      size="sm"
-      data-test="vers-calendrier"
-      routerLink="/calendrier"
-      routerLinkActive="bg-muted text-foreground"
-      >Calendrier</a
-    >
-    <a
-      hlmBtn
-      variant="ghost"
-      size="sm"
-      data-test="vers-fil-traceur"
-      routerLink="/fil-traceur"
-      routerLinkActive="bg-muted text-foreground"
-      >Fil traceur</a
-    >
-  </nav>
+        @if (nom(); as compte) {
+        <div
+          class="flex items-center justify-between gap-space-sm border-t border-surface-container-highest p-gutter"
+        >
+          <span
+            class="truncate text-label-regular font-semibold text-on-surface"
+            >{{ compte }}</span
+          >
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            type="button"
+            data-test="deconnexion-mobile"
+            (click)="seDeconnecter()"
+          >
+            <ng-icon name="matLogoutOutline" aria-hidden="true" />
+            Déconnexion
+          </button>
+        </div>
+        }
+      </hlm-sheet-content>
+    </hlm-sheet>
+  </dccm-tab-bar>
 
-  <router-outlet></router-outlet>
-</main>
+  <router-outlet />
+</dccm-shell>

@@ -18,10 +18,14 @@ Monorepo Nx, pnpm.
   (ADR 0016, 0028).
 - `packages/dashboard` (tableau de bord privé) et `packages/portfolio` (public) :
   Angular, Tailwind v4, spartan/ui (ADR 0029).
-- `packages/ui` : les composants du design system. `packages/theme/tokens.css`
-  porte les jetons, nommés par rôle.
-- `infra/` : `deploy` (agent de déploiement), `backup` (Restic), `edge` (proxy
-  de tête). Chaque dossier a son README, qui fait foi pour l'exploitation.
+- `packages/ui` : les composants du design system, spartan (`hlm`) ou propres
+  (`dccm`), et leur Storybook (`nx run dccm:storybook`).
+  `packages/theme/tokens.css` porte les jetons, sous les noms de pen.dev.
+  **Avant de toucher un écran ou un composant, lis
+  [`docs/design-system.md`](docs/design-system.md).**
+- `infra/` : `provision` (la machine elle-même), `deploy` (agent de
+  déploiement), `backup` (Restic), `edge` (proxy de tête). Chaque dossier a
+  son README, qui fait foi pour l'exploitation.
 
 ## Conventions
 
@@ -135,6 +139,10 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
   pousse jamais directement, et la PR `develop` → `main` est faite à la main.
 - Une migration ne retire jamais ce que la version précédente utilise encore
   (ADR 0024).
+- **Aucun secret commité**, même factice au format réel : la CI scanne
+  l'historique de la PR (gitleaks). Une exception s'écrit dans
+  `.gitleaks.toml`, jamais par un commentaire dans le code ni par un
+  `.gitleaksignore`.
 - **Revue visuelle** (`revue_visuelle: true` dans le ticket, label
   `revue-visuelle`) : joins à la PR des captures mobile (390 px) et desktop
   (1280 px) de chaque écran touché, ouvert par son URL préremplie. Le merge
