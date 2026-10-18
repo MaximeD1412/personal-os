@@ -5,6 +5,11 @@
   "prefix": "dccm",
   "projectType": "library",
   "tags": [],
+  "implicitDependencies": [
+    "theme",
+    "packages/ui/*",
+    "!dccm"
+  ],
   "targets": {
     "build": {
       "executor": "@nx/angular:ng-packagr-lite",
@@ -60,6 +65,23 @@
         "{options.outputDir}"
       ],
       "cache": true,
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/packages/dashboard/src/styles.css",
+        {
+          "externalDependencies": [
+            "storybook",
+            "@storybook/angular",
+            "@storybook/addon-docs",
+            "@storybook/addon-a11y",
+            "@fontsource-variable/inter",
+            "@fontsource-variable/jetbrains-mono",
+            "tailwindcss",
+            "@spartan-ng/brain"
+          ]
+        }
+      ],
       "options": {
         "configDir": "packages/ui/dccm/.storybook",
         "tsConfig": "packages/ui/dccm/.storybook/tsconfig.json",

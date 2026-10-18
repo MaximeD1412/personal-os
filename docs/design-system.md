@@ -44,6 +44,12 @@ Les catégories, dans l'ordre des planches pen.dev : `Foundations`, `Actions`,
 `Forms`, `Data Display`, `Navigation`, `Feedback`, `Layout`. Le titre d'une
 story est `<Catégorie>/<Composant>` (`Actions/Button`).
 
+Le cache de `build-storybook` suit ce qu'il affiche : `dccm` dépend
+implicitement de `theme` et de tous les projets de `packages/ui`, et la feuille
+du tableau de bord est une de ses entrées. Un nouveau projet sous `packages/ui`
+y entre sans rien déclarer ; une autre feuille chargée par Storybook s'ajoute à
+ses `inputs` (`nx test theme` le vérifie).
+
 ## Les règles
 
 - **La maquette donne l'apparence, le ticket donne le périmètre.** Un élément

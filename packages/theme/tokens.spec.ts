@@ -253,6 +253,40 @@ describe('les polices', () => {
   );
 });
 
+describe('le cache de Storybook', () => {
+  type Cible = {
+    inputs: (string | object)[];
+    options: { styles: string[] };
+  };
+  const dccm = JSON.parse(lire('packages/ui/dccm/project.json')) as {
+    implicitDependencies: string[];
+    targets: Record<string, Cible>;
+  };
+  const build = dccm.targets['build-storybook'];
+
+  it('dépend des jetons et de tous les projets de packages/ui, stories comprises', () => {
+    // `default` et non `production` : celui-ci exclut les stories.
+    expect(build.inputs).toEqual(
+      expect.arrayContaining(['default', '^default']),
+    );
+    expect(dccm.implicitDependencies).toEqual(
+      expect.arrayContaining(['theme', 'packages/ui/*']),
+    );
+  });
+
+  it('se reconstruit quand une feuille qu’il charge hors de son projet change', () => {
+    const exterieures = build.options.styles.filter(
+      (feuille) =>
+        !feuille.startsWith('node_modules/') &&
+        !feuille.startsWith('packages/ui/'),
+    );
+    expect(exterieures).not.toHaveLength(0);
+    for (const feuille of exterieures) {
+      expect(build.inputs).toContain(`{workspaceRoot}/${feuille}`);
+    }
+  });
+});
+
 type Specimen = {
   fontSize: number;
   fontWeight: string;

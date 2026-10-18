@@ -12,7 +12,10 @@
         "{workspaceRoot}/design/design-system.json",
         "{workspaceRoot}/design/DESIGN.md",
         "{workspaceRoot}/packages/dashboard/src/styles.css",
-        "{workspaceRoot}/packages/portfolio/src/styles.css"
+        "{workspaceRoot}/packages/portfolio/src/styles.css",
+        "{workspaceRoot}/packages/dashboard/project.json",
+        "{workspaceRoot}/packages/portfolio/project.json",
+        "{workspaceRoot}/packages/ui/dccm/project.json"
       ]
     }
   }
