@@ -27,16 +27,16 @@ sert à vérifier une valeur.
 
 ## Où vivent les choses
 
-| Quoi                                                                                    | Où                                                                                                                      |
-| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Les jetons (couleurs, pistes teintées, espacements, rayons, typographie, icônes, ombre) | `packages/theme/tokens.css`, vérifié contre la bibliothèque par `nx test theme`                                         |
-| Les polices (Inter, JetBrains Mono)                                                     | `@fontsource-variable/*`, chargées par le tableau `styles` de chaque application et de Storybook                        |
-| Les icônes                                                                              | `@ng-icons/material-symbols/outline` (Material Symbols Outlined)                                                        |
-| Un composant qui a un équivalent spartan                                                | `packages/ui/<nom>` (`@personal-os/ui/<nom>`, préfixe `hlm`), un projet Nx par composant                                |
-| Un composant sans équivalent spartan                                                    | `packages/ui/dccm/src/<nom>/` (`@personal-os/ui/dccm`, préfixe `dccm`), exporté par `src/index.ts`                      |
-| Les stories                                                                             | à côté du composant, `*.stories.ts` sous `packages/ui/`                                                                 |
-| Les tests d'un composant                                                                | `*.spec.ts` à côté de lui ; `badge` et `dccm` ont leur cible `test` (jest), un autre projet l'ajoute à son premier test |
-| Storybook                                                                               | porté par le projet `dccm` : `nx run dccm:storybook` (port 4400), `nx run dccm:build-storybook` (`dist/storybook/dccm`) |
+| Quoi                                                                                    | Où                                                                                                                                  |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Les jetons (couleurs, pistes teintées, espacements, rayons, typographie, icônes, ombre) | `packages/theme/tokens.css`, vérifié contre la bibliothèque par `nx test theme`                                                     |
+| Les polices (Inter, JetBrains Mono)                                                     | `@fontsource-variable/*`, chargées par le tableau `styles` de chaque application et de Storybook                                    |
+| Les icônes                                                                              | `@ng-icons/material-symbols/outline` (Material Symbols Outlined)                                                                    |
+| Un composant qui a un équivalent spartan                                                | `packages/ui/<nom>` (`@personal-os/ui/<nom>`, préfixe `hlm`), un projet Nx par composant                                            |
+| Un composant sans équivalent spartan                                                    | `packages/ui/dccm/src/<nom>/` (`@personal-os/ui/dccm`, préfixe `dccm`), exporté par `src/index.ts`                                  |
+| Les stories                                                                             | à côté du composant, `*.stories.ts` sous `packages/ui/`                                                                             |
+| Les tests d'un composant                                                                | `*.spec.ts` à côté de lui ; `badge`, `progress` et `dccm` ont leur cible `test` (jest), un autre projet l'ajoute à son premier test |
+| Storybook                                                                               | porté par le projet `dccm` : `nx run dccm:storybook` (port 4400), `nx run dccm:build-storybook` (`dist/storybook/dccm`)             |
 
 Storybook charge les polices puis `packages/dashboard/src/styles.css` : il voit
 exactement les jetons de l'application. Il a les addons docs (une page
