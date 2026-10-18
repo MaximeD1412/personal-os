@@ -62,10 +62,21 @@ tourne.
 - **Docker n'est jamais redémarré** : redémarrer `dockerd` couperait les
   conteneurs de tous les projets. Sa configuration est rechargée à chaud ;
   `live-restore` s'applique tout de suite, les journaux bornés au prochain
-  démarrage du démon (le redémarrage qui suit une mise à jour du noyau).
-- **Une règle ufw ouverte hors de 22, 80 et 443 n'est pas retirée** : elle est
-  signalée à chaque passage, à retirer à la main (`ufw status numbered`, puis
-  `ufw delete <n>`).
+  démarrage du démon (le redémarrage qui suit une mise à jour du noyau). Un
+  Docker arrêté est démarré, et lit alors sa configuration.
+- **Une autorisation ufw hors de 22, 80 et 443 fait refuser le passage**,
+  avant toute modification : en IPv6, Docker relaie un port publié par
+  docker-proxy, qui passe par INPUT, si bien qu'un `ufw allow 8080/tcp` ouvrirait
+  aussi un conteneur publié sur 8080. Elle n'est pas retirée en silence (un
+  autre projet en dépend peut-être) : le script la cite, à retirer à la main
+  (`ufw status numbered`, puis `ufw delete <n>`), puis à relancer.
+- **Refusés aussi, avant toute modification** : un Docker installé hors du
+  dépôt officiel sans Compose (`docker.io`), et un `daemon.json` avec
+  `"firewall-backend": "nftables"` ou `"iptables": false` (Docker ne
+  raccorderait pas `DOCKER-USER`). Après le pare-feu, le script vérifie que
+  Docker raccorde bien la chaîne, et échoue sinon.
+- En `--dry-run`, un refus est annoncé, le plan affiché quand même, et le code
+  de sortie vaut 1.
 - **Un port publié par Docker sur l'IP publique, hors de 80 et 443, est
   fermé.** C'est le but (`mairie-postgres-1`, voir la migration), mais un
   service qui en dépendait de dehors cesse de répondre.

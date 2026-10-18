@@ -37,6 +37,19 @@ warn() {
   echo "provision: $*" >&2
 }
 
+# Une machine que le script ne sait pas mettre dans l'état attendu est refusée
+# avant la moindre modification. En --dry-run, le refus est annoncé et le plan
+# affiché quand même ; le code de sortie est alors 1.
+REFUSED=false
+refuse() {
+  if $DRY_RUN; then
+    warn "le passage réel refusera : $*"
+    REFUSED=true
+  else
+    die "$*"
+  fi
+}
+
 usage() {
   sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' >&2
   exit 2
@@ -203,6 +216,30 @@ collect_keys() {
     die "aucune clé SSH trouvée (ni pour root, ni pour ${SUDO_USER:-le compte sudo}, ni par --ssh-key) : on se couperait l'accès"
 }
 
+# Docker déjà installé sans Compose, hors du dépôt officiel (docker.io) : le
+# script ne sait pas lui ajouter un Compose compatible, et le déploiement en a
+# besoin.
+check_compose() {
+  [[ -e "$ROOT/usr/bin/docker" ]] || return 0
+  compose_installed || package_installed docker-ce ||
+    refuse "Docker est installé sans Compose, hors du dépôt officiel (docker.io ?) : installer Docker CE (download.docker.com) ou Compose, puis relancer"
+}
+
+# La chaîne DOCKER-USER n'est raccordée par Docker qu'avec son pare-feu
+# iptables. Avec le backend nftables, ou iptables désactivé, les règles posées
+# plus bas seraient sans effet et les ports publiés passeraient outre.
+check_docker_firewall() {
+  local path="$ROOT/etc/docker/daemon.json"
+  [[ -f "$path" ]] || return 0
+  if grep -Eq '"firewall-backend"[[:space:]]*:[[:space:]]*"nftables"' "$path"; then
+    refuse "/etc/docker/daemon.json : firewall-backend nftables, Docker ne passerait pas par DOCKER-USER. Retirer l'option (backend iptables), redémarrer Docker, puis relancer"
+  fi
+  if grep -Eq '"iptables"[[:space:]]*:[[:space:]]*false' "$path"; then
+    refuse "/etc/docker/daemon.json : iptables désactivé, Docker ne passerait pas par DOCKER-USER. Retirer l'option, redémarrer Docker, puis relancer"
+  fi
+  return 0
+}
+
 # --- Configuration ---
 
 install_packages() {
@@ -332,17 +369,18 @@ configure_docker() {
     run apt-get update
     run apt-get install -y "${DOCKER_PACKAGES[@]}"
   else
+    # Hors du dépôt officiel, check_compose a déjà refusé la machine.
     if ! compose_installed; then
-      if package_installed docker-ce; then
-        changed "Docker Compose installé"
-        run apt-get install -y docker-compose-plugin
-      else
-        warn "Docker est installé sans Compose, hors du dépôt officiel : installer Compose à la main"
-      fi
+      changed "Docker Compose installé"
+      run apt-get install -y docker-compose-plugin
     fi
+    # Arrêté, il lira sa configuration en démarrant (ensure_service, plus
+    # bas) : un reload échouerait.
     if $daemon_changed; then
       run dockerd --validate --config-file /etc/docker/daemon.json
-      run systemctl reload docker
+      if service_active docker; then
+        run systemctl reload docker
+      fi
     fi
   fi
   ensure_service docker || true
@@ -396,19 +434,34 @@ ufw_has_rule() {
   grep -qxF "$(ufw_rule "$1")" "$ROOT/etc/ufw/user.rules" 2>/dev/null
 }
 
-# Une règle ouverte par quelqu'un d'autre (la machine est partagée) n'est pas
-# retirée en silence : elle est signalée à chaque passage.
-report_foreign_rules() {
-  local expected line
+# Une autorisation ufw hors de 22, 80 et 443 ouvre un port public, et en IPv6
+# elle ouvre aussi un port publié par Docker : docker-proxy le reçoit par
+# INPUT, où DOCKER-USER ne s'applique pas. La machine est partagée : une telle
+# règle n'est pas retirée en silence, elle fait refuser le passage, avant toute
+# modification, jusqu'à ce qu'on la retire à la main.
+check_foreign_rules() {
+  local expected foreign
   expected=$(for spec in "${OPEN_PORTS[@]}"; do
     ufw_rule "$spec"
     ufw_rule "$spec" | sed 's|0\.0\.0\.0/0|::/0|g'
   done)
-  { cat "$ROOT/etc/ufw/user.rules" "$ROOT/etc/ufw/user6.rules" 2>/dev/null || true; } |
-    { grep -E '^### tuple ### (allow|limit) ' || true; } | { grep -vxF "$expected" || true; } |
-    while IFS= read -r line; do
-      warn "règle ufw hors de 22, 80 et 443, laissée en place : ${line#'### tuple ### '} (ufw status numbered, puis ufw delete <n>)"
-    done
+  foreign=$(
+    { cat "$ROOT/etc/ufw/user.rules" "$ROOT/etc/ufw/user6.rules" 2>/dev/null || true; } |
+      { grep -E '^### tuple ### (route:)?(allow|limit) ' || true; } | { grep -vxF "$expected" || true; } |
+      sed 's/^### tuple ### /  /'
+  )
+  [[ -z "$foreign" ]] ||
+    refuse "$(printf 'règles ufw hors de 22, 80 et 443 (aucun autre port public) :\n%s\nLes retirer (sudo ufw status numbered, puis sudo ufw delete <n>), puis relancer' "$foreign")"
+}
+
+# Docker ne raccorde DOCKER-USER qu'en démarrant : vérifié sur la machine
+# réelle, pour ne jamais finir en succès avec une chaîne sans effet.
+check_docker_user_hooked() {
+  [[ "$ROOT" == / ]] && ! $DRY_RUN || return 0
+  local rules
+  rules=$(iptables -S)
+  grep -q -- '-j DOCKER-USER' <<<"$rules" ||
+    die "Docker ne fait pas passer ses ports publiés par DOCKER-USER : ils échapperaient au pare-feu"
 }
 
 configure_firewall() {
@@ -429,13 +482,13 @@ configure_firewall() {
   done
   replace_block etc/ufw/after.rules DOCKER-USER < <(docker_user_rules) && rules_changed=true
   replace_block etc/ufw/after6.rules DOCKER-USER < <(docker_user_rules) && rules_changed=true
-  report_foreign_rules
   if ! ufw_enabled; then
     changed "pare-feu activé"
     run ufw --force enable
   elif $rules_changed; then
     run ufw reload
   fi
+  check_docker_user_hooked
 }
 
 summary() {
@@ -476,6 +529,9 @@ main() {
   check_os
   check_arch
   check_sshd_include
+  check_foreign_rules
+  check_compose
+  check_docker_firewall
   collect_keys
 
   local jail_changed=false
@@ -489,6 +545,7 @@ main() {
   configure_docker
   configure_firewall
   summary
+  ! $REFUSED
 }
 
 main "$@"

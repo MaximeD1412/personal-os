@@ -1,5 +1,6 @@
 import {
   commands,
+  exists,
   machine,
   provision,
   put,
@@ -71,21 +72,38 @@ describe('provision.sh : pare-feu', () => {
     expect(once.match(/BEGIN PERSONAL-OS DOCKER-USER/g)).toHaveLength(1);
   });
 
-  // Le VPS est partagé : une règle posée par un autre projet n'est pas
-  // retirée en silence, elle est signalée à chaque passage.
-  it('signale une règle ouverte hors de 22, 80 et 443 sans la retirer', () => {
+  // En IPv6, Docker relaie un port publié par docker-proxy (INPUT) : une
+  // autorisation ufw sur 8080 ouvrirait aussi un conteneur publié sur 8080.
+  // La machine est partagée : la règle n'est pas retirée en silence, le
+  // passage est refusé avant toute modification.
+  it.each([
+    ['un port', '### tuple ### allow tcp 8080 0.0.0.0/0 any 0.0.0.0/0 in'],
+    ['un port en IPv6', '### tuple ### allow tcp 8080 ::/0 any ::/0 in'],
+    ['une interface', '### tuple ### allow any any 0.0.0.0/0 any 0.0.0.0/0 in_wg0'],
+    ['un routage', '### tuple ### route:allow tcp 5432 0.0.0.0/0 any 0.0.0.0/0 in'],
+  ])('refuse une autorisation ufw sur %s hors de 22, 80 et 443, avant toute modification', (_, rule) => {
     const root = machine({ provisioned: true });
-    put(
-      root,
-      'etc/ufw/user.rules',
-      read(root, 'etc/ufw/user.rules') + '### tuple ### allow any 5432 0.0.0.0/0 any 0.0.0.0/0 in\n',
-    );
+    const file = rule.includes('::/0') ? 'etc/ufw/user6.rules' : 'etc/ufw/user.rules';
+    put(root, file, `${read(root, file)}${rule}\n`);
 
     const result = provision(root);
 
-    expect(result.status).toBe(0);
-    expect(result.stderr).toContain('allow any 5432 0.0.0.0/0 any 0.0.0.0/0 in');
-    expect(ufw(root).some((c) => c.includes('delete'))).toBe(false);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain(rule.replace('### tuple ### ', ''));
+    expect(result.stderr).toContain('ufw delete');
+    expect(commands(root)).toEqual([]);
+    expect(exists(root, 'etc/ssh/sshd_config.d/00-personal-os.conf')).toBe(false);
+  });
+
+  it('--dry-run annonce le refus et montre le plan quand même, avec un code non nul', () => {
+    const root = machine({ provisioned: true });
+    put(root, 'etc/ufw/user.rules', `${read(root, 'etc/ufw/user.rules')}### tuple ### allow tcp 8080 0.0.0.0/0 any 0.0.0.0/0 in\n`);
+
+    const result = provision(root, ['--dry-run']);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('le passage réel refusera');
+    expect(result.stdout).toContain('/etc/ssh/sshd_config.d/00-personal-os.conf');
   });
 
   it("une fois actif, se recharge quand ses règles changent, sans s'activer à nouveau", () => {

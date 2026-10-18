@@ -92,6 +92,49 @@ describe('provision.sh : Docker', () => {
     expect(cmds.some((c) => c.includes('restart docker'))).toBe(false);
   });
 
+  it('arrêté : sa configuration changée est lue au démarrage, sans reload', () => {
+    const root = machine({ provisioned: true });
+    rmSync(join(root, 'etc/systemd/system/multi-user.target.wants/docker.service'));
+
+    expect(provision(root).status).toBe(0);
+
+    const cmds = commands(root);
+    expect(cmds).toContain('dockerd --validate --config-file /etc/docker/daemon.json');
+    expect(cmds).not.toContain('systemctl reload docker');
+    expect(cmds).toContain('systemctl enable --now docker');
+  });
+
+  // Le déploiement lance docker compose : une machine sans Compose n'est pas
+  // dans l'état attendu, et le script ne sait pas en ajouter un à docker.io.
+  it('installé hors du dépôt officiel sans Compose : refusé avant toute modification', () => {
+    const root = machine({ provisioned: true });
+    rmSync(join(root, 'usr/libexec/docker/cli-plugins/docker-compose'));
+    put(root, 'var/lib/dpkg/status', read(root, 'var/lib/dpkg/status').replace('Package: docker-ce\n', 'Package: docker.io\n'));
+
+    const result = provision(root);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('sans Compose');
+    expect(commands(root)).toEqual([]);
+  });
+
+  // Avec ces options, Docker ne raccorde pas DOCKER-USER : la chaîne posée
+  // serait sans effet et les ports publiés passeraient outre.
+  it.each([
+    ['firewall-backend nftables', '{ "firewall-backend": "nftables" }'],
+    ['iptables désactivé', '{ "iptables": false }'],
+  ])('%s : refusé avant toute modification', (_, daemon) => {
+    const root = machine({ provisioned: true });
+    put(root, 'etc/docker/daemon.json', `${daemon}\n`);
+
+    const result = provision(root);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('DOCKER-USER');
+    expect(commands(root)).toEqual([]);
+    expect(read(root, 'etc/docker/daemon.json')).toBe(`${daemon}\n`);
+  });
+
   it('installe Compose quand Docker vient du dépôt officiel sans lui', () => {
     const root = machine({ provisioned: true });
     rmSync(join(root, 'usr/libexec/docker/cli-plugins/docker-compose'));

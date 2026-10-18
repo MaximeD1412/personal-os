@@ -157,3 +157,29 @@ sudo "$here/provision.sh" | tee "$work/troisieme.log"
 grep -q '^Aucun changement' "$work/troisieme.log" || ko "le passage sur une machine en service annonce des changements"
 check_ports
 ok "relancé sur une machine en service : aucun changement, aucun port ouvert"
+
+# Docker fait bien passer ses ports publiés par la chaîne posée : sans ce
+# raccordement (backend nftables), DOCKER-USER serait sans effet.
+# Lue en entier : sous pipefail, grep -q fermerait le tube (SIGPIPE).
+regles=$(sudo iptables -S)
+grep -q -- '-j DOCKER-USER' <<<"$regles" || ko "Docker ne raccorde pas DOCKER-USER"
+ok "Docker fait passer ses ports publiés par DOCKER-USER"
+
+# Une autorisation ufw sur 8080, posée à la main, ouvre le conteneur publié
+# sur 8080 en IPv6 (docker-proxy, par INPUT) : le script refuse de passer,
+# sans rien modifier, tant qu'elle reste.
+sudo ufw allow 8080/tcp >/dev/null
+reachable "$HOST6" 8080 || ko "témoin : l'autorisation ufw sur 8080 n'ouvre pas le conteneur en IPv6"
+state >"$work/avant-refus"
+# shellcheck disable=SC2024 # journal écrit par l'utilisateur du test, voulu
+if sudo "$here/provision.sh" >"$work/refus.log" 2>&1; then
+  ko "le script passe malgré une autorisation ufw sur 8080"
+fi
+grep -q 'allow tcp 8080' "$work/refus.log" || ko "le refus ne cite pas la règle : $(cat "$work/refus.log")"
+state >"$work/apres-refus"
+diff -u "$work/avant-refus" "$work/apres-refus" || ko "le passage refusé a modifié la machine"
+sudo ufw delete allow 8080/tcp >/dev/null
+sudo "$here/provision.sh" | tee "$work/apres-retrait.log"
+grep -q '^Aucun changement' "$work/apres-retrait.log" || ko "le passage après retrait de la règle annonce des changements"
+check_ports
+ok "une autorisation ufw hors de 22/80/443 fait refuser le passage, sans modification"
