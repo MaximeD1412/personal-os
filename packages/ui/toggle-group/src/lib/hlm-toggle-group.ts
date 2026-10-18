@@ -65,7 +65,7 @@ export class HlmToggleGroup<T = unknown> extends BrnToggleGroup<T> {
 		const pas = PAS[event.key];
 		let cible: HlmToggleGroupItem | undefined;
 		if (event.key === 'Home') cible = segments[0];
-		else if (event.key === 'End') cible = segments.at(-1);
+		else if (event.key === 'End') cible = segments[segments.length - 1];
 		else if (pas && courant >= 0) cible = segments[(courant + pas + segments.length) % segments.length];
 		if (!cible) return;
 
