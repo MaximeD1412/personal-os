@@ -1,0 +1,1432 @@
+{
+  "$schema": "pen.dev component registry v1",
+  "project": "Sovereign Personal Cockpit (DCCM Personal OS)",
+  "penFile": "personalos.pen",
+  "backup": "untitled.backup-2026-10-17-before-design-system.pen · personalos.backup-2026-10-17-before-lib-import.pen",
+  "designReference": "DESIGN.md",
+  "boards": {
+    "foundations": {
+      "id": "SvZFe",
+      "name": "Design System / 00 Foundations"
+    },
+    "actions": {
+      "id": "H7qnUo",
+      "name": "Design System / 01 Actions"
+    },
+    "forms": {
+      "id": "BMMlG",
+      "name": "Design System / 02 Forms"
+    },
+    "dataDisplay": {
+      "id": "dgDv8",
+      "name": "Design System / 03 Data Display"
+    },
+    "navigation": {
+      "id": "h3n4y",
+      "name": "Design System / 04 Navigation"
+    },
+    "feedback": {
+      "id": "R1X92",
+      "name": "Design System / 05 Feedback"
+    },
+    "layout": {
+      "id": "ApZgn",
+      "name": "Design System / 06 Layout"
+    }
+  },
+  "conventions": {
+    "masterNaming": "PascalCase, variants separated by '/', e.g. Button/Primary, Tab/Active",
+    "sizes": "override presets on the instance root (padding) and on Label/Icon descendants",
+    "tones": "override presets: root fill + Label/Dot/Icon fill",
+    "overridePath": "instanceId/childId for direct children, instanceId/nestedInstanceId/childId for nested instances",
+    "slots": "frames carrying a `slot` property; insert instances into them or Replace them with a full subtree",
+    "tokens": "all colors are $variables defined in the .pen (DESIGN.md frontmatter); allowed alphas listed in Foundations > Pistes teintées"
+  },
+  "tokens": {
+    "colors": [
+      "surface",
+      "surface-dim",
+      "surface-bright",
+      "surface-container-lowest",
+      "surface-container-low",
+      "surface-container",
+      "surface-container-high",
+      "surface-container-highest",
+      "on-surface",
+      "on-surface-variant",
+      "inverse-surface",
+      "inverse-on-surface",
+      "outline",
+      "outline-variant",
+      "primary",
+      "on-primary",
+      "primary-container",
+      "on-primary-container",
+      "inverse-primary",
+      "secondary",
+      "on-secondary",
+      "secondary-container",
+      "on-secondary-container",
+      "tertiary",
+      "on-tertiary",
+      "tertiary-container",
+      "on-tertiary-container",
+      "error",
+      "on-error",
+      "error-container",
+      "on-error-container",
+      "primary-fixed",
+      "primary-fixed-dim",
+      "on-primary-fixed",
+      "on-primary-fixed-variant",
+      "secondary-fixed",
+      "secondary-fixed-dim",
+      "on-secondary-fixed",
+      "on-secondary-fixed-variant",
+      "tertiary-fixed",
+      "tertiary-fixed-dim",
+      "on-tertiary-fixed",
+      "on-tertiary-fixed-variant"
+    ],
+    "tints": {
+      "primary-20": "#adc6ff33",
+      "primary-10": "#adc6ff1a",
+      "secondary-20": "#00a57233",
+      "secondary-15": "#4edea326",
+      "tertiary-15": "#ffb95f26",
+      "tertiary-20": "#ca810033",
+      "error-20": "#93000a33",
+      "error-30": "#93000a4d"
+    },
+    "spacing": {
+      "space-xs": 4,
+      "space-sm": 8,
+      "space-md": 12,
+      "gutter": 16,
+      "space-lg": 20,
+      "margin": 24,
+      "space-xl": 28,
+      "space-2xl": 40
+    },
+    "radius": {
+      "radius-sm": 4,
+      "radius": 8,
+      "radius-md": 12,
+      "radius-lg": 16,
+      "radius-full": 9999
+    },
+    "fonts": {
+      "font-body": "Inter",
+      "font-mono": "JetBrains Mono",
+      "font-icons": "Material Symbols Outlined"
+    },
+    "typography": {
+      "display-hero": [
+        40,
+        700,
+        -0.03
+      ],
+      "headline-lg": [
+        26,
+        600,
+        -0.02
+      ],
+      "headline-lg-mobile": [
+        22,
+        600,
+        -0.015
+      ],
+      "headline-md": [
+        18,
+        600,
+        -0.01
+      ],
+      "title-sm": [
+        15,
+        600,
+        0
+      ],
+      "body-default": [
+        14,
+        400,
+        0
+      ],
+      "body-dense": [
+        13,
+        400,
+        0
+      ],
+      "label-regular": [
+        12,
+        500,
+        0
+      ],
+      "label-micro": [
+        11,
+        500,
+        0.02
+      ],
+      "telemetry-metric": [
+        20,
+        700,
+        -0.02
+      ],
+      "code-mono": [
+        12,
+        500,
+        0
+      ]
+    },
+    "iconSizes": [
+      16,
+      18,
+      20,
+      24,
+      32
+    ]
+  },
+  "components": [
+    {
+      "svelte": "Button",
+      "master": "Button/Primary",
+      "id": "fm2Pg",
+      "board": "actions",
+      "variantMasters": {
+        "primary": "fm2Pg",
+        "secondary": "kSA0S",
+        "ghost": "skoX7",
+        "destructive": "YxFNj"
+      },
+      "props": {
+        "variant": [
+          "primary",
+          "secondary",
+          "ghost",
+          "destructive"
+        ],
+        "size": [
+          "sm",
+          "md",
+          "lg"
+        ],
+        "label": "string",
+        "icon": "MaterialSymbol | null",
+        "trailingIcon": "MaterialSymbol | null",
+        "disabled": "boolean",
+        "loading": "boolean",
+        "fullWidth": "boolean"
+      },
+      "sizePresets": {
+        "sm": {
+          "padding": [
+            6,
+            12
+          ],
+          "fontSize": 12,
+          "icon": 16,
+          "height": 28
+        },
+        "md": {
+          "padding": [
+            8,
+            16
+          ],
+          "fontSize": 13,
+          "icon": 18,
+          "height": 36
+        },
+        "lg": {
+          "padding": [
+            10,
+            20
+          ],
+          "fontSize": 15,
+          "icon": 18,
+          "height": 40
+        }
+      },
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "pressed",
+        "disabled",
+        "loading"
+      ],
+      "parts": {
+        "Icon": "vHgIi",
+        "Label": "M0E3f8",
+        "TrailingIcon": "HjbSy"
+      },
+      "tokens": [
+        "primary",
+        "on-primary",
+        "primary-fixed",
+        "primary-container",
+        "on-primary-container",
+        "surface-container-high",
+        "surface-container-highest",
+        "on-surface",
+        "error",
+        "error-container",
+        "on-error-container",
+        "radius"
+      ],
+      "notes": "Secondary parts: Icon l3RrIZ / Label G4vsDN / TrailingIcon fF7b2. Ghost: Fqbhp / LtNDT / H06Vk. Destructive: lqFs9 / mE7gF / YF2U8."
+    },
+    {
+      "svelte": "IconButton",
+      "master": "Button/Icon",
+      "id": "XtxvG",
+      "board": "actions",
+      "props": {
+        "icon": "MaterialSymbol",
+        "size": [
+          36,
+          44
+        ],
+        "filled": "boolean",
+        "ariaLabel": "string"
+      },
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "pressed",
+        "disabled"
+      ],
+      "parts": {
+        "Icon": "y5sBuP"
+      },
+      "tokens": [
+        "on-surface-variant",
+        "surface-container-high",
+        "radius"
+      ]
+    },
+    {
+      "svelte": "LinkButton",
+      "master": "Button/Link",
+      "id": "AbBjI",
+      "board": "actions",
+      "props": {
+        "label": "string",
+        "icon": "MaterialSymbol | null",
+        "href": "string"
+      },
+      "parts": {
+        "Label": "l3Pl2K",
+        "TrailingIcon": "y4HBd"
+      },
+      "tokens": [
+        "primary"
+      ]
+    },
+    {
+      "svelte": "Kbd",
+      "master": "KeyboardHint",
+      "id": "wUjrG",
+      "board": "actions",
+      "props": {
+        "keys": "string"
+      },
+      "parts": {
+        "Label": "cllYk"
+      },
+      "tokens": [
+        "surface-container-lowest",
+        "outline",
+        "radius-sm"
+      ]
+    },
+    {
+      "svelte": "Input",
+      "master": "Input",
+      "id": "ALZVI",
+      "board": "forms",
+      "props": {
+        "value": "string",
+        "placeholder": "string",
+        "leadingIcon": "MaterialSymbol | null",
+        "trailingIcon": "MaterialSymbol | null",
+        "shortcut": "string | null",
+        "invalid": "boolean",
+        "disabled": "boolean",
+        "type": [
+          "text",
+          "search",
+          "select"
+        ]
+      },
+      "states": [
+        "default",
+        "focus",
+        "filled",
+        "error",
+        "disabled"
+      ],
+      "parts": {
+        "LeadingIcon": "D9Dkl",
+        "Value": "S36Lk",
+        "TrailingHint": "DyaRb (KeyboardHint instance)",
+        "TrailingIcon": "LXXC9"
+      },
+      "dependencies": [
+        "KeyboardHint"
+      ],
+      "tokens": [
+        "surface-container-lowest",
+        "surface-container-highest",
+        "outline",
+        "on-surface",
+        "primary",
+        "error",
+        "radius"
+      ]
+    },
+    {
+      "svelte": "FormField",
+      "master": "FormField",
+      "id": "q3MAZQ",
+      "board": "forms",
+      "props": {
+        "label": "string",
+        "helper": "string | null",
+        "error": "string | null"
+      },
+      "parts": {
+        "Label": "DjW8S",
+        "Input": "eJKcu (Input instance)",
+        "Helper": "haULc"
+      },
+      "dependencies": [
+        "Input"
+      ],
+      "slots": [
+        "default → Input"
+      ],
+      "tokens": [
+        "on-surface-variant",
+        "outline",
+        "error"
+      ]
+    },
+    {
+      "svelte": "Checkbox",
+      "master": "Checkbox",
+      "id": "JwWQG",
+      "board": "forms",
+      "props": {
+        "checked": "boolean",
+        "disabled": "boolean"
+      },
+      "states": [
+        "unchecked",
+        "checked",
+        "focus",
+        "disabled"
+      ],
+      "parts": {
+        "Check": "XM6JE"
+      },
+      "tokens": [
+        "surface-container-lowest",
+        "outline-variant",
+        "primary",
+        "on-primary",
+        "radius-sm"
+      ]
+    },
+    {
+      "svelte": "Switch",
+      "master": "Switch",
+      "id": "S9hTL",
+      "board": "forms",
+      "props": {
+        "checked": "boolean",
+        "disabled": "boolean"
+      },
+      "parts": {
+        "Knob": "wV2hg"
+      },
+      "tokens": [
+        "primary",
+        "on-primary",
+        "surface-container-highest",
+        "outline",
+        "radius-full"
+      ]
+    },
+    {
+      "svelte": "Stepper",
+      "master": "Stepper",
+      "id": "Ahi2D",
+      "board": "forms",
+      "props": {
+        "value": "number",
+        "unit": "string | null",
+        "min": "number",
+        "max": "number",
+        "size": [
+          28,
+          36
+        ]
+      },
+      "parts": {
+        "Minus": "DX6u5 (Button/Icon)",
+        "ValueBox": "o4bAnB",
+        "Value": "r6muAF",
+        "Plus": "dSWSR (Button/Icon)"
+      },
+      "dependencies": [
+        "IconButton"
+      ],
+      "tokens": [
+        "surface-container-high",
+        "surface-container-lowest",
+        "on-surface"
+      ]
+    },
+    {
+      "svelte": "SegmentedControl",
+      "master": "SegmentedControl",
+      "id": "ee30V",
+      "board": "forms",
+      "props": {
+        "items": "{label, icon?}[]",
+        "value": "string",
+        "size": [
+          "11px",
+          "12px"
+        ]
+      },
+      "parts": {
+        "children": "Tab/Active ms6qi (Icon dObqA, Label FFF16) · Tab/Inactive dsKE8 (Icon hCRcX, Label LH9Dw)"
+      },
+      "dependencies": [
+        "Tab/Active",
+        "Tab/Inactive"
+      ],
+      "tokens": [
+        "surface-container-lowest",
+        "surface-container-low",
+        "primary",
+        "on-surface-variant",
+        "radius"
+      ]
+    },
+    {
+      "svelte": "Badge",
+      "master": "Badge",
+      "id": "AsJMu",
+      "board": "dataDisplay",
+      "props": {
+        "label": "string",
+        "tone": [
+          "info",
+          "success",
+          "warning",
+          "error",
+          "neutral"
+        ],
+        "dot": "boolean",
+        "icon": "MaterialSymbol | null",
+        "counter": "boolean"
+      },
+      "tonePresets": {
+        "info": [
+          "#adc6ff33",
+          "primary"
+        ],
+        "success": [
+          "#00a57233",
+          "secondary"
+        ],
+        "warning": [
+          "#ffb95f26",
+          "tertiary"
+        ],
+        "error": [
+          "#93000a33",
+          "error"
+        ],
+        "neutral": [
+          "surface-container-high",
+          "on-surface-variant"
+        ]
+      },
+      "parts": {
+        "Dot": "UUFnC",
+        "Icon": "C1MfX",
+        "Label": "phKcm"
+      },
+      "tokens": [
+        "primary",
+        "secondary",
+        "tertiary",
+        "error",
+        "surface-container-high",
+        "on-surface-variant",
+        "radius-full"
+      ]
+    },
+    {
+      "svelte": "Tag",
+      "master": "Tag",
+      "id": "d6arwe",
+      "board": "dataDisplay",
+      "props": {
+        "label": "string",
+        "icon": "MaterialSymbol | null",
+        "accent": "boolean"
+      },
+      "parts": {
+        "Icon": "cIKLR",
+        "Label": "Zk4UO"
+      },
+      "tokens": [
+        "surface-container-high",
+        "surface-container-highest",
+        "on-surface-variant",
+        "primary",
+        "radius-sm"
+      ]
+    },
+    {
+      "svelte": "Avatar",
+      "master": "Avatar",
+      "id": "qV14Y",
+      "board": "dataDisplay",
+      "props": {
+        "icon": "MaterialSymbol",
+        "initials": "string | null",
+        "size": [
+          24,
+          32,
+          40
+        ],
+        "tone": [
+          "primary",
+          "secondary",
+          "neutral"
+        ]
+      },
+      "parts": {
+        "Icon": "YTcv0",
+        "Initials": "MRj5V"
+      },
+      "tokens": [
+        "primary",
+        "on-primary",
+        "secondary-container",
+        "on-secondary-container",
+        "surface-container-high",
+        "radius-full"
+      ]
+    },
+    {
+      "svelte": "ProgressBar",
+      "master": "ProgressBar",
+      "id": "phWRw",
+      "board": "dataDisplay",
+      "props": {
+        "value": "0..100",
+        "tone": [
+          "secondary",
+          "primary",
+          "tertiary",
+          "error"
+        ],
+        "thickness": [
+          4,
+          6
+        ]
+      },
+      "parts": {
+        "Fill": "IbdSi (width = value %)"
+      },
+      "tokens": [
+        "surface-container-highest",
+        "secondary",
+        "primary-container",
+        "tertiary",
+        "error",
+        "radius-full"
+      ]
+    },
+    {
+      "svelte": "Divider",
+      "master": "Divider",
+      "id": "n1yjU",
+      "board": "dataDisplay",
+      "tokens": [
+        "surface-container-high"
+      ]
+    },
+    {
+      "svelte": "CardTitle",
+      "master": "CardTitle",
+      "id": "JNiEe",
+      "board": "dataDisplay",
+      "props": {
+        "icon": "MaterialSymbol",
+        "title": "string",
+        "iconTone": "token"
+      },
+      "parts": {
+        "Icon": "Gv297",
+        "Title": "uQxxX"
+      },
+      "tokens": [
+        "primary",
+        "on-surface"
+      ]
+    },
+    {
+      "svelte": "CardHeader",
+      "master": "CardHeader",
+      "id": "t2Hdg8",
+      "board": "dataDisplay",
+      "props": {
+        "icon": "MaterialSymbol",
+        "title": "string"
+      },
+      "slots": [
+        "trailing (o3dsss) → Badge | LinkButton | IconButton"
+      ],
+      "parts": {
+        "CardTitle": "J07Jv",
+        "Trailing": "o3dsss",
+        "Badge": "o3dsss/nIZtQ"
+      },
+      "dependencies": [
+        "CardTitle",
+        "Badge"
+      ]
+    },
+    {
+      "svelte": "Card",
+      "master": "Card",
+      "id": "F9aBD",
+      "board": "dataDisplay",
+      "props": {
+        "icon": "MaterialSymbol",
+        "title": "string",
+        "meta": "string | null",
+        "footerLink": "string | null",
+        "nested": "boolean"
+      },
+      "slots": [
+        "header (MXZc8, CardHeader instance)",
+        "content (Sowr2)",
+        "footer (f95bXt)"
+      ],
+      "parts": {
+        "Header": "MXZc8",
+        "Content": "Sowr2",
+        "Footer": "f95bXt",
+        "Meta": "f95bXt/MFTYo",
+        "FooterLink": "f95bXt/vYhi4"
+      },
+      "dependencies": [
+        "CardHeader",
+        "LinkButton"
+      ],
+      "tokens": [
+        "surface-container",
+        "surface-container-highest",
+        "surface-container-high",
+        "outline",
+        "radius-md",
+        "gutter"
+      ]
+    },
+    {
+      "svelte": "KpiTile",
+      "master": "KpiTile",
+      "id": "UmdUk",
+      "board": "dataDisplay",
+      "props": {
+        "icon": "MaterialSymbol",
+        "eyebrow": "string",
+        "value": "string",
+        "meta": "string | null",
+        "status": "string",
+        "link": "string",
+        "tone": [
+          "primary",
+          "secondary",
+          "tertiary"
+        ],
+        "href": "string"
+      },
+      "parts": {
+        "IconBox": "Lx8Ur/p7LRb/WxS8I",
+        "Icon": "Lx8Ur/p7LRb/WxS8I/llIyi",
+        "Eyebrow": "Lx8Ur/p7LRb/V8fELJ",
+        "Arrow": "Lx8Ur/SUfRb",
+        "Value": "hV0b0/KpNeH",
+        "Meta": "hV0b0/VGnrl",
+        "Status": "QhbgO/XhKXe",
+        "Link": "QhbgO/FHQQu"
+      },
+      "tokens": [
+        "surface-container",
+        "surface-container-highest",
+        "outline",
+        "on-surface",
+        "on-surface-variant",
+        "primary",
+        "telemetry-metric"
+      ]
+    },
+    {
+      "svelte": "SectionHeader",
+      "master": "SectionHeader",
+      "id": "xvhC6",
+      "board": "dataDisplay",
+      "props": {
+        "title": "string",
+        "description": "string | null"
+      },
+      "slots": [
+        "trailing (k6hKe)"
+      ],
+      "parts": {
+        "Title": "p76HW/ZUVIF",
+        "Description": "p76HW/svcjL",
+        "Trailing": "k6hKe"
+      },
+      "dependencies": [
+        "LinkButton"
+      ],
+      "tokens": [
+        "on-surface",
+        "outline",
+        "headline-md"
+      ]
+    },
+    {
+      "svelte": "ListRow",
+      "master": "ListRow",
+      "id": "DHctf",
+      "board": "dataDisplay",
+      "props": {
+        "title": "string",
+        "meta": "string | null",
+        "checkable": "boolean",
+        "checked": "boolean",
+        "selected": "boolean",
+        "chevron": "boolean"
+      },
+      "states": [
+        "default",
+        "hover",
+        "checked",
+        "selected"
+      ],
+      "slots": [
+        "trailing (xV4mz)"
+      ],
+      "parts": {
+        "Checkbox": "gFseE",
+        "Title": "b3FaWj/MXfpb",
+        "Meta": "b3FaWj/m7Gs2W",
+        "Trailing": "xV4mz",
+        "Chevron": "clpK5"
+      },
+      "dependencies": [
+        "Checkbox",
+        "Badge"
+      ],
+      "tokens": [
+        "surface-container-high",
+        "on-surface",
+        "outline",
+        "primary",
+        "radius"
+      ]
+    },
+    {
+      "svelte": "TableHeaderCell",
+      "master": "Table/HeaderCell",
+      "id": "b4QLdx",
+      "board": "dataDisplay",
+      "props": {
+        "label": "string",
+        "width": "number | fill"
+      },
+      "parts": {
+        "Label": "mF5x3"
+      },
+      "tokens": [
+        "outline",
+        "label-micro"
+      ]
+    },
+    {
+      "svelte": "TableCell",
+      "master": "Table/Cell",
+      "id": "sUITn",
+      "board": "dataDisplay",
+      "props": {
+        "width": "number | fill"
+      },
+      "slots": [
+        "default (Value k7fQaX or any content)"
+      ],
+      "tokens": [
+        "on-surface-variant",
+        "body-dense"
+      ]
+    },
+    {
+      "svelte": "NavItem",
+      "master": "NavItem",
+      "id": "rXP4M",
+      "board": "navigation",
+      "props": {
+        "icon": "MaterialSymbol",
+        "label": "string",
+        "active": "boolean",
+        "comingSoon": "boolean",
+        "href": "string"
+      },
+      "states": [
+        "default",
+        "hover",
+        "active",
+        "focus-visible",
+        "disabled"
+      ],
+      "parts": {
+        "Icon": "wTXUB/RI99f",
+        "Label": "wTXUB/QMBGA",
+        "Soon": "J4gmz (Badge)"
+      },
+      "dependencies": [
+        "Badge"
+      ],
+      "tokens": [
+        "on-surface-variant",
+        "primary",
+        "surface-container",
+        "tertiary",
+        "radius"
+      ]
+    },
+    {
+      "svelte": "Sidebar",
+      "master": "Sidebar",
+      "id": "EDbRo",
+      "board": "navigation",
+      "props": {
+        "activeKey": "string",
+        "groups": "{title, items[]}[]",
+        "nodeStatus": "{label, version}"
+      },
+      "parts": {
+        "Groups": "fe311",
+        "Footer": "sOWFK",
+        "Status Label": "sOWFK/VYyPq/UEWin/mPhK1",
+        "Version": "sOWFK/VYyPq/Szsqj"
+      },
+      "nested": {
+        "NavItem Accueil": "fe311/SkxrU/wHFOq/GUDs0",
+        "NavItem Agenda": "fe311/SkxrU/wHFOq/S4eMIp",
+        "NavItem Calendrier": "fe311/SkxrU/wHFOq/UujPh",
+        "NavItem Sport": "fe311/SkxrU/wHFOq/a0e8JL",
+        "NavItem Planning des repas": "fe311/rtz8J/u493J/WWVnT",
+        "NavItem Recettes": "fe311/rtz8J/u493J/JjVCI",
+        "NavItem Stock": "fe311/rtz8J/u493J/BSlV1",
+        "NavItem Courses": "fe311/rtz8J/u493J/KwBUv",
+        "NavItem Finances": "fe311/JnNqG/Q3FZQ/Co8Qn",
+        "NavItem Documents": "fe311/JnNqG/Q3FZQ/nr1g7",
+        "NavItem Immobilier": "fe311/JnNqG/Q3FZQ/Hk7Tk",
+        "NavItem Projets": "fe311/f4CdfT/xrgdZ/WmUg0",
+        "NavItem Portfolio": "fe311/f4CdfT/xrgdZ/k9bDKr",
+        "NavItem Documentation": "fe311/f4CdfT/xrgdZ/jlDWU",
+        "NavItem Sauvegardes": "fe311/gG94z/lO6el/tOKan",
+        "NavItem Intégrations": "fe311/gG94z/lO6el/K6bgd1",
+        "NavItem Paramètres": "fe311/gG94z/lO6el/oGp53",
+        "NavItem Aide et support": "sOWFK/z279W"
+      },
+      "activeOverride": "instance/<navItemInstance> fill #adc6ff33 · /RI99f fill $primary · /QMBGA fill $primary fontWeight 600",
+      "dependencies": [
+        "NavItem"
+      ],
+      "tokens": [
+        "surface-container-lowest",
+        "surface-container-low",
+        "outline",
+        "secondary"
+      ]
+    },
+    {
+      "svelte": "RailItem",
+      "master": "RailItem",
+      "id": "sXviG",
+      "board": "navigation",
+      "props": {
+        "icon": "MaterialSymbol",
+        "active": "boolean",
+        "tooltip": "string"
+      },
+      "parts": {
+        "Icon": "RhzrC"
+      }
+    },
+    {
+      "svelte": "Rail",
+      "master": "Rail",
+      "id": "GfuO7",
+      "board": "navigation",
+      "props": {
+        "activeKey": "string"
+      },
+      "nested": "RailItem <label> under wF3D0/<group>/…, Aide under ejapM/F3aDL9",
+      "dependencies": [
+        "RailItem"
+      ]
+    },
+    {
+      "svelte": "TopBar",
+      "master": "TopBar",
+      "id": "DVUUC",
+      "board": "navigation",
+      "props": {
+        "brand": "string",
+        "environment": [
+          "Mon espace",
+          "Foyer"
+        ],
+        "searchPlaceholder": "string",
+        "user": "{name, role}"
+      },
+      "parts": {
+        "Search": "button width 576 (override to 320 on tablet)",
+        "Theme toggle": "uA9t7/CYlAC/x9dTE9",
+        "User block": "uA9t7/NELOf"
+      },
+      "notes": "Internals kept as imported frames; candidate refactor: Input (command) + Avatar + SegmentedControl",
+      "tokens": [
+        "surface-container-lowest",
+        "surface-container-low",
+        "surface-container-highest",
+        "primary"
+      ]
+    },
+    {
+      "svelte": "TabBarItem",
+      "master": "TabBarItem",
+      "id": "jEtQt",
+      "board": "navigation",
+      "props": {
+        "icon": "MaterialSymbol",
+        "label": "string",
+        "active": "boolean"
+      },
+      "parts": {
+        "Icon": "fkhdn",
+        "Label": "kpbmi"
+      }
+    },
+    {
+      "svelte": "MobileTabBar",
+      "master": "MobileTabBar",
+      "id": "jFjwa",
+      "board": "navigation",
+      "props": {
+        "activeKey": [
+          "Accueil",
+          "Agenda",
+          "Sport",
+          "Repas",
+          "Plus"
+        ]
+      },
+      "nested": {
+        "Tab Accueil": "O9A9W",
+        "Tab Agenda": "lQ5uM",
+        "Tab Sport": "KRAwU",
+        "Tab Repas": "I6Q4wn",
+        "Tab Plus": "Jk09x"
+      },
+      "activeOverride": "instance/<tab>/fkhdn fill $primary · /kpbmi fill $primary fontWeight 600",
+      "dependencies": [
+        "TabBarItem"
+      ],
+      "tokens": [
+        "surface",
+        "surface-container-highest",
+        "primary",
+        "on-surface-variant"
+      ]
+    },
+    {
+      "svelte": "MobileHeader",
+      "master": "MobileHeader",
+      "id": "LNnJM",
+      "board": "navigation",
+      "props": {
+        "brand": "string",
+        "nodeStatus": "string",
+        "showCommand": "boolean"
+      },
+      "nested": {
+        "MenuButton": "bfLFc/yhSMf",
+        "Brand": "bfLFc/EKi4V",
+        "NodeStatus": "bfLFc/KMDMW",
+        "CommandButton": "MHV8Z/ZrrYA",
+        "Avatar": "MHV8Z/vkYVK"
+      },
+      "dependencies": [
+        "IconButton",
+        "Tag",
+        "Badge",
+        "Avatar"
+      ]
+    },
+    {
+      "svelte": "BreadcrumbItem",
+      "master": "Breadcrumb/Item",
+      "id": "D5oZd",
+      "board": "navigation",
+      "props": {
+        "label": "string",
+        "current": "boolean",
+        "href": "string"
+      },
+      "parts": {
+        "Label": "ZwoIu"
+      },
+      "tokens": [
+        "outline",
+        "on-surface-variant",
+        "label-micro"
+      ]
+    },
+    {
+      "svelte": "BreadcrumbSeparator",
+      "master": "Breadcrumb/Separator",
+      "id": "yKOOs",
+      "board": "navigation",
+      "parts": {
+        "Icon": "VdutI"
+      }
+    },
+    {
+      "svelte": "Breadcrumb",
+      "master": "Breadcrumb",
+      "id": "PVPne",
+      "board": "navigation",
+      "props": {
+        "items": "{label, href?}[]"
+      },
+      "nested": {
+        "Crumb 1": "f7zHTH",
+        "Sep 1": "I0RQz",
+        "Crumb 2": "vSH0v",
+        "Sep 2": "suS2s",
+        "Crumb current": "CGW3y"
+      },
+      "dependencies": [
+        "BreadcrumbItem",
+        "BreadcrumbSeparator"
+      ]
+    },
+    {
+      "svelte": "PageHeader",
+      "master": "PageHeader",
+      "id": "xMGff",
+      "board": "navigation",
+      "props": {
+        "breadcrumb": "items[]",
+        "title": "string",
+        "subtitle": "string | null"
+      },
+      "slots": [
+        "actions (pD2Bc/I4VX8E)"
+      ],
+      "parts": {
+        "Breadcrumb": "cd7tj",
+        "Title": "pD2Bc/d4eTvz/B7T43",
+        "Subtitle": "pD2Bc/d4eTvz/tkh8S",
+        "Actions": "pD2Bc/I4VX8E",
+        "SecondaryAction": "pD2Bc/I4VX8E/WyPDY",
+        "PrimaryAction": "pD2Bc/I4VX8E/GyLUK"
+      },
+      "dependencies": [
+        "Breadcrumb",
+        "Button"
+      ],
+      "tokens": [
+        "on-surface",
+        "outline",
+        "headline-lg",
+        "body-default"
+      ]
+    },
+    {
+      "svelte": "Banner",
+      "master": "Banner",
+      "id": "L9HFJ",
+      "board": "feedback",
+      "props": {
+        "tone": [
+          "info",
+          "success",
+          "warning",
+          "error"
+        ],
+        "icon": "MaterialSymbol",
+        "title": "string",
+        "badge": "string | null",
+        "message": "string",
+        "secondaryLabel": "string | null",
+        "primaryLabel": "string | null"
+      },
+      "tonePresets": {
+        "info": [
+          "#adc6ff1a",
+          "#adc6ff33",
+          "primary"
+        ],
+        "success": [
+          "#4edea31a",
+          "#4edea326",
+          "secondary"
+        ],
+        "warning": [
+          "#ca810033",
+          "#ffb95f33",
+          "tertiary"
+        ],
+        "error": [
+          "#93000a33",
+          "#93000a4d",
+          "error"
+        ]
+      },
+      "parts": {
+        "IconBox": "Y2uiw9/SFEoV",
+        "Icon": "Y2uiw9/SFEoV/p6f2AP",
+        "Title": "Y2uiw9/uuRrX/yYtmM/lnEiD",
+        "TitleBadge": "Y2uiw9/uuRrX/yYtmM/P1FgeM",
+        "Message": "Y2uiw9/uuRrX/ZvJbT",
+        "SecondaryAction": "kuyVh/ye3Xp",
+        "PrimaryAction": "kuyVh/O5IAD"
+      },
+      "dependencies": [
+        "Badge",
+        "Button"
+      ],
+      "tokens": [
+        "tertiary",
+        "on-tertiary",
+        "on-surface",
+        "on-surface-variant",
+        "radius-md"
+      ]
+    },
+    {
+      "svelte": "Toast",
+      "master": "Toast",
+      "id": "bESqe",
+      "board": "feedback",
+      "props": {
+        "tone": [
+          "success",
+          "error",
+          "neutral"
+        ],
+        "icon": "MaterialSymbol",
+        "message": "string",
+        "actionIcon": "MaterialSymbol | null"
+      },
+      "parts": {
+        "Icon": "jIGxN/lNWki",
+        "Message": "jIGxN/nSwVW",
+        "ActionIcon": "NQcVy"
+      },
+      "tokens": [
+        "secondary-container",
+        "on-secondary-container",
+        "error-container",
+        "on-error-container",
+        "surface-container-high",
+        "radius-md"
+      ]
+    },
+    {
+      "svelte": "Modal",
+      "master": "Modal",
+      "id": "CX7L8",
+      "board": "feedback",
+      "props": {
+        "title": "string",
+        "subtitle": "string | null",
+        "confirmLabel": "string",
+        "cancelLabel": "string",
+        "destructive": "boolean"
+      },
+      "slots": [
+        "content (ukjKP)"
+      ],
+      "parts": {
+        "Title": "k53GU/W04Tn/kPzo5",
+        "Subtitle": "k53GU/W04Tn/W3mYYH",
+        "Close": "k53GU/BKIgF",
+        "Content": "ukjKP",
+        "Footer": "vtEiA",
+        "Cancel": "vtEiA/lTydT",
+        "Confirm": "vtEiA/IRYNO"
+      },
+      "dependencies": [
+        "IconButton",
+        "Button"
+      ],
+      "tokens": [
+        "surface-container",
+        "surface-container-lowest",
+        "surface-container-high",
+        "outline-variant",
+        "radius-md"
+      ]
+    },
+    {
+      "svelte": "EmptyState",
+      "master": "EmptyState",
+      "id": "QLVDE",
+      "board": "feedback",
+      "props": {
+        "variant": [
+          "empty",
+          "error"
+        ],
+        "icon": "MaterialSymbol",
+        "title": "string",
+        "description": "string",
+        "actionLabel": "string | null"
+      },
+      "parts": {
+        "IconBox": "JuY6I",
+        "Icon": "JuY6I/hdf6f",
+        "Title": "tZvXd",
+        "Description": "ROLHD",
+        "Action": "t65oe"
+      },
+      "dependencies": [
+        "Button"
+      ],
+      "tokens": [
+        "surface-container",
+        "surface-container-lowest",
+        "outline",
+        "on-surface",
+        "error"
+      ]
+    },
+    {
+      "svelte": "Skeleton",
+      "master": "Skeleton",
+      "id": "kNtnJ",
+      "board": "feedback",
+      "props": {
+        "lines": "number",
+        "widths": "number[]"
+      },
+      "tokens": [
+        "surface-container-highest",
+        "radius-sm"
+      ]
+    },
+    {
+      "svelte": "AppShell (desktop)",
+      "master": "AppShell/Desktop",
+      "id": "ZVeDP",
+      "board": "layout",
+      "slots": [
+        "main (IDc6a)"
+      ],
+      "nested": {
+        "TopBar": "pTjdT",
+        "Sidebar": "PfmSa",
+        "PageHeader": "IDc6a/O5cA1"
+      },
+      "layout": {
+        "topBar": 64,
+        "sidebar": 240,
+        "mainPadding": 24,
+        "gutter": 16
+      }
+    },
+    {
+      "svelte": "AppShell (tablet)",
+      "master": "AppShell/Tablet",
+      "id": "izfng",
+      "board": "layout",
+      "slots": [
+        "main (sCgLZ)"
+      ],
+      "nested": {
+        "TopBar": "KNFrw",
+        "Rail": "pZhA7",
+        "PageHeader": "sCgLZ/IDYJq"
+      },
+      "layout": {
+        "topBar": 64,
+        "rail": 72,
+        "mainPadding": 24
+      }
+    },
+    {
+      "svelte": "AppShell (mobile)",
+      "master": "AppShell/Mobile",
+      "id": "jvzeX",
+      "board": "layout",
+      "slots": [
+        "main (VVjR0)"
+      ],
+      "nested": {
+        "MobileHeader": "FlAU8",
+        "MobileTabBar": "k8XKoE"
+      },
+      "layout": {
+        "header": 56,
+        "tabBar": 64,
+        "mainPadding": 16,
+        "gutter": 12
+      }
+    }
+  ],
+  "notMutualised": [
+    "TopBar internals (search bar, environment switch, user block) kept as imported frames",
+    "Mobile page headers of the 13 mobile screens (vary per page); MobileHeader master exists for new screens",
+    "Search / filter inputs inside screens (mobile search bars, stock filters) – Input master exists, not swapped",
+    "Stock and recipe tables (cells vary) – Table/HeaderCell & Table/Cell masters exist as reference",
+    "Agenda day columns and event cards, calendar month grid cells, meal-planning day cards",
+    "Recipe cards with image fills, portfolio project cards, sport session cards",
+    "Custom progress bars, steppers and the single switch inside screens (masters exist, not swapped)",
+    "Documentation pages (storybook, tokens, motifs transverses) and the public portfolio"
+  ],
+  "library": {
+    "file": "personalos.lib.pen",
+    "importAlias": "lib",
+    "importDeclaration": {
+      "imports": {
+        "lib": "./personalos.lib.pen"
+      }
+    },
+    "refSyntax": "ref: \"lib:<masterId>\" (alias + colon + master id)",
+    "descendantPathSyntax": "\"lib:<childId>\" for direct children, \"lib:<nestedInstanceId>/lib:<childId>\" for nested instances; name-based keys stay unprefixed",
+    "slotSyntax": "slot: [\"lib:<masterId>\", ...]",
+    "contains": "7 Design System boards (00 Foundations … 06 Layout), 48 masters, 59 variables",
+    "appCommands": [
+      "list-libraries",
+      "import-library",
+      "remove-library"
+    ],
+    "note": "Master ids are identical in the library and in design-system.json; in a consuming document they are addressed with the lib: prefix."
+  }
+}
