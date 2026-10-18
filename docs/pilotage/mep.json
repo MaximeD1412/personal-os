@@ -50,6 +50,22 @@
       ],
       "commande": "docker run --rm -v \"$PWD:/repo\" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --config /repo/.gitleaks.toml --log-opts=\"--diff-merges=first-parent origin/main..origin/develop\"",
       "ajouteLe": "2026-10-18"
+    },
+    {
+      "id": "provision-vps-actuel",
+      "phase": "vps",
+      "source": "#87",
+      "titre": "Passer infra/provision/provision.sh sur le VPS actuel et noter les écarts",
+      "pourquoi": "Le VPS a été préparé à la main. Le script doit pouvoir le reprendre sans rien casser, sinon il ne prouve pas qu'on sait refaire la machine. Sur une machine en service, il ne redémarre jamais Docker et ne retire aucune règle ufw, mais il ferme de dehors tout port publié par Docker hors de 80 et 443 (mairie-postgres-1 publie PostgreSQL sur l'IP publique), désactive la connexion root et les mots de passe SSH, et active un redémarrage automatique à 05:00 quand une mise à jour l'exige.",
+      "etapes": [
+        "Copier le script sur le VPS (scp infra/provision/provision.sh <compte>@<vps>:) et lancer d'abord sudo ./provision.sh --dry-run : il affiche chaque fichier qui changerait (avec la différence) et chaque commande qu'il lancerait.",
+        "Relire le plan : connexion root ou par mot de passe encore utilisée, règles ufw signalées hors de 22/80/443, ports Docker publiés sur l'IP publique (sudo docker ps --format '{{.Names}} {{.Ports}}' | grep -v 127.0.0.1), configuration Docker existante. Noter chaque écart dans la PR ou un ticket ; corriger côté mairie ce qui doit l'être avant de lancer.",
+        "Lancer sudo ./provision.sh, puis ouvrir une nouvelle session ssh ops@<vps> avant de fermer la première.",
+        "Relancer sudo ./provision.sh : il doit afficher « Aucun changement ».",
+        "Vérifier depuis un poste extérieur que les sites répondent (80/443) et qu'un port publié par Docker hors de 80/443 ne répond plus (nc -vz <vps> 5432)."
+      ],
+      "commande": "sudo ./provision.sh --dry-run",
+      "ajouteLe": "2026-10-18"
     }
   ],
   "format": "élément = { id (stable), phase, source (#n), titre, pourquoi, etapes: [], commande (facultative), ajouteLe (YYYY-MM-DD) }"

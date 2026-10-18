@@ -20,8 +20,9 @@ Monorepo Nx, pnpm.
   Angular, Tailwind v4, spartan/ui (ADR 0029).
 - `packages/ui` : les composants du design system. `packages/theme/tokens.css`
   porte les jetons, nommés par rôle.
-- `infra/` : `deploy` (agent de déploiement), `backup` (Restic), `edge` (proxy
-  de tête). Chaque dossier a son README, qui fait foi pour l'exploitation.
+- `infra/` : `provision` (la machine elle-même), `deploy` (agent de
+  déploiement), `backup` (Restic), `edge` (proxy de tête). Chaque dossier a
+  son README, qui fait foi pour l'exploitation.
 
 ## Conventions
 
