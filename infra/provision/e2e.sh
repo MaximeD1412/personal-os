@@ -201,3 +201,25 @@ sudo rm /etc/ssh/sshd_config.d/60-exception.conf
 sudo "$here/provision.sh" | tee "$work/apres-retrait-ssh.log"
 grep -q '^Aucun changement' "$work/apres-retrait-ssh.log" || ko "le passage après retrait de l'exception annonce des changements"
 ok "une exception Match qui autorise root fait refuser le passage, sans modification"
+
+# Un autre fichier inclus, qu'on ne contrôle pas, et que sshd applique bien :
+# l'Include lui-même fait refuser le passage, sans modification.
+printf 'Match Address 203.0.113.0/24\nPermitRootLogin=yes\n' | sudo tee /etc/ssh/root-exception.conf >/dev/null
+sudo cp /etc/ssh/sshd_config "$work/sshd_config.orig"
+echo 'Include /etc/ssh/root-exception.conf' | sudo tee -a /etc/ssh/sshd_config >/dev/null
+effectif=$(sudo sshd -T -C user=root,host=exterieur,addr=203.0.113.5)
+grep -qx 'permitrootlogin yes' <<<"$effectif" || ko "témoin : sshd n'applique pas l'exception du fichier inclus"
+state >"$work/avant-refus-include"
+# shellcheck disable=SC2024 # journal écrit par l'utilisateur du test, voulu
+if sudo "$here/provision.sh" >"$work/refus-include.log" 2>&1; then
+  ko "le script passe malgré un Include non contrôlé"
+fi
+grep -q 'Include /etc/ssh/root-exception.conf (Include non pris en charge)' "$work/refus-include.log" ||
+  ko "le refus ne cite pas l'Include : $(cat "$work/refus-include.log")"
+state >"$work/apres-refus-include"
+diff -u "$work/avant-refus-include" "$work/apres-refus-include" || ko "le passage refusé a modifié la machine"
+sudo cp "$work/sshd_config.orig" /etc/ssh/sshd_config
+sudo rm /etc/ssh/root-exception.conf
+sudo "$here/provision.sh" | tee "$work/apres-retrait-include.log"
+grep -q '^Aucun changement' "$work/apres-retrait-include.log" || ko "le passage après retrait de l'Include annonce des changements"
+ok "un Include non contrôlé fait refuser le passage, sans modification"

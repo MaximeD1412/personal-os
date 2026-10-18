@@ -199,8 +199,10 @@ check_sshd_include() {
 # lue avant 00-personal-os.conf (dans sshd_config avant l'Include, ou dans un
 # fichier de sshd_config.d trié avant le nôtre), l'emporterait. Dans un bloc
 # Match, où qu'il soit, elle remplacerait la valeur globale pour les connexions
-# qu'il désigne (« Match User root » puis « PermitRootLogin yes »). La machine
-# est refusée, à chaque passage, avant toute modification.
+# qu'il désigne (« Match User root » puis « PermitRootLogin yes »). Tout autre
+# Include que celui de sshd_config.d/*.conf est refusé : le fichier inclus ne
+# serait pas contrôlé. La machine est refusée, à chaque passage, avant toute
+# modification.
 check_sshd_precedence() {
   local lus=() file conflicts LC_ALL=C
   lus+=("$ROOT/etc/ssh/sshd_config")
@@ -230,14 +232,17 @@ check_sshd_precedence() {
       sub(/^[ \t]*=?[ \t]*/, "", val); sub(/[ \t]+#.*$/, "", val); sub(/[ \t]+$/, "", val)
       gsub(/"/, "", val); gsub(/[ \t]+/, " ", val); val = tolower(val)
     }
-    main && key == "include" { before = 0; next }
+    # Seul l Include standard de Debian et Ubuntu est suivi : un autre fichier
+    # inclus (ailleurs, ou depuis sshd_config.d) échapperait au contrôle.
+    key == "include" && main && val == "/etc/ssh/sshd_config.d/*.conf" { before = 0; next }
+    key == "include" { print FILENAME ": " $0 " (Include non pris en charge)"; next }
     key == "match" { inmatch = 1; next }
     (before || inmatch) && key in want && val != want[key] {
       print FILENAME ": " $0 (inmatch ? " (bloc Match)" : "")
     }
   ' "${lus[@]}")
   [[ -z "$conflicts" ]] ||
-    die "$(printf 'directives sshd qui annuleraient le durcissement (lues avant 00-personal-os.conf, ou dans un bloc Match) :\n%s\nLes retirer, puis relancer' "${conflicts//"$ROOT"\//\/}")"
+    die "$(printf 'directives sshd qui annuleraient le durcissement (lues avant 00-personal-os.conf, dans un bloc Match, ou dans un fichier inclus non contrôlé) :\n%s\nLes retirer, puis relancer' "${conflicts//"$ROOT"\//\/}")"
 }
 
 # Clés de l'administrateur : les siennes, gardées telles quelles, puis celles du

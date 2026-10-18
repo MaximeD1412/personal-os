@@ -75,7 +75,9 @@ tourne.
   (dans `sshd_config` avant l'`Include`, ou dans un fichier de
   `sshd_config.d` trié avant), puisque sshd garde la première valeur lue, ou
   dans un bloc `Match` où qu'il soit (il remplacerait la valeur globale pour
-  les connexions qu'il désigne). La configuration effective est en plus
+  les connexions qu'il désigne). Tout `Include` autre que celui de
+  `sshd_config.d/*.conf` est aussi refusé : le fichier inclus ne serait pas
+  contrôlé. La configuration effective est en plus
   vérifiée à chaque passage, pour root et pour l'administrateur
   (`sshd -T -C user=…`).
 - **Refusés aussi, avant toute modification** : un Docker installé hors du

@@ -112,6 +112,26 @@ describe('provision.sh : SSH', () => {
     }
   });
 
+  // Un fichier inclus ailleurs que sshd_config.d/*.conf ne serait pas
+  // contrôlé : l'Include lui-même fait refuser la machine.
+  it.each([
+    ['à la fin de sshd_config', 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\nInclude /etc/ssh/root-exception.conf\n', 'Include /etc/ssh/root-exception.conf'],
+    ['avec « = » et un chemin relatif', 'etc/ssh/sshd_config', 'Include /etc/ssh/sshd_config.d/*.conf\nInclude=sshd_config.d/*.conf\n', 'Include=sshd_config.d/*.conf'],
+    ['depuis un fichier de sshd_config.d', 'etc/ssh/sshd_config.d/60-renvoi.conf', 'Include /etc/ssh/autres/*.conf\n', 'Include /etc/ssh/autres/*.conf'],
+  ])('refuse un Include %s, à chaque passage', (_, file, content, line) => {
+    const root = machine({ provisioned: true });
+    put(root, file, content);
+    put(root, 'etc/ssh/root-exception.conf', 'Match Address 203.0.113.0/24\nPermitRootLogin=yes\n');
+
+    for (let passage = 1; passage <= 2; passage++) {
+      const result = provision(root);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(`/${file}: ${line} (Include non pris en charge)`);
+      expect(commands(root)).toEqual([]);
+    }
+  });
+
   it('reconnaît « = » aussi avant l’Include', () => {
     const root = machine({ provisioned: true });
     put(root, 'etc/ssh/sshd_config', 'PasswordAuthentication=yes\nInclude /etc/ssh/sshd_config.d/*.conf\n');
