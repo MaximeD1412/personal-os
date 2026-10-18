@@ -45,7 +45,9 @@ pas confirmer l'existence de la rangée.
 - **Les requêtes SQL brutes.** Elles ne sont plus exposées par la façade
   `PrismaService` aux modules métier. Un accès technique dédié devra être
   introduit explicitement si une migration ou une opération d'administration
-  en a besoin.
+  en a besoin. Une règle de lint de l'API (`packages/api/eslint.config.mjs`)
+  refuse le SQL brut et tout import de `@prisma/*` ou du client généré, sans
+  exception.
 - **Les écritures imbriquées entre modèles cloisonnés.** La garde vérifie
   l'**Espace** de la charge écrite, pas celui des charges qu'elle contiendrait.
   Les chemins qui passent par un ou plusieurs modèles hors Espace sont refusés
