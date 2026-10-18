@@ -58,7 +58,7 @@ import { HlmButton } from '@personal-os/ui/button';
     </button>
     <span
       role="spinbutton"
-      class="bg-surface-container-lowest text-body-dense text-on-surface focus-visible:outline-primary focus-visible:ring-primary-20 flex min-w-10 items-center justify-center rounded px-2 font-semibold tabular-nums outline-none focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:ring-2 aria-disabled:opacity-40"
+      class="bg-surface-container-lowest text-body-dense text-on-surface focus-visible:outline-primary focus-visible:ring-primary-20 flex min-w-10 items-center justify-center rounded px-2 font-semibold tabular-nums outline-none focus-visible:outline-1 focus-visible:outline-solid focus-visible:-outline-offset-1 focus-visible:ring-2 aria-disabled:opacity-40"
       [class.h-7]="size() === 'sm'"
       [class.h-9]="size() === 'md'"
       [attr.tabindex]="desactive() ? -1 : 0"

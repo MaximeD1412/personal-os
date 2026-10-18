@@ -10,7 +10,7 @@ export const toggleGroupItemVariants = cva(
 		'text-on-surface-variant inline-flex cursor-pointer items-center justify-center gap-1.5 rounded px-2 py-1 font-medium whitespace-nowrap outline-none select-none',
 		'transition-[color,background-color,box-shadow,scale,opacity]',
 		'data-[state=on]:bg-primary-20 data-[state=on]:text-primary data-[state=on]:font-semibold hover:not-disabled:data-[state=off]:bg-surface-container',
-		'focus-visible:ring-primary-20 focus-visible:outline-primary focus-visible:ring-2 focus-visible:outline-1 focus-visible:-outline-offset-1',
+		'focus-visible:ring-primary-20 focus-visible:outline-primary focus-visible:ring-2 focus-visible:outline-1 focus-visible:outline-solid focus-visible:-outline-offset-1',
 		'active:not-disabled:scale-98 disabled:cursor-not-allowed disabled:opacity-40',
 		'[&_ng-icon]:icon-2xs [&_ng-icon]:pointer-events-none [&_ng-icon]:shrink-0',
 	],

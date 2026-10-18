@@ -24,7 +24,7 @@ import { injectBrnButtonConfig } from './hlm-button.token';
  */
 export const buttonVariants = cva(
 	[
-		'group/button inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded border border-transparent font-semibold outline-none select-none',
+		'group/button inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded border font-semibold outline-none select-none',
 		'transition-[color,background-color,border-color,box-shadow,scale,opacity]',
 		'focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary-20',
 		'active:not-data-[disabled]:scale-98',
@@ -34,13 +34,13 @@ export const buttonVariants = cva(
 	{
 		variants: {
 			variant: {
-				primary: 'bg-primary text-on-primary hover:not-data-[disabled]:bg-primary-fixed',
+				primary: 'bg-primary border-transparent text-on-primary hover:not-data-[disabled]:bg-primary-fixed',
 				secondary:
 					'bg-surface-container-high border-surface-container-highest text-on-surface hover:not-data-[disabled]:border-primary hover:not-data-[disabled]:text-primary active:not-data-[disabled]:bg-surface-container-highest',
-				ghost: 'text-on-surface-variant hover:not-data-[disabled]:bg-surface-container active:not-data-[disabled]:bg-surface-container-high',
+				ghost: 'border-transparent text-on-surface-variant hover:not-data-[disabled]:bg-surface-container active:not-data-[disabled]:bg-surface-container-high',
 				destructive:
 					'bg-error-20 border-error-stroke-30 text-error hover:not-data-[disabled]:bg-error-container hover:not-data-[disabled]:text-on-error-container active:not-data-[disabled]:bg-error-40',
-				link: 'text-primary underline-offset-4 hover:not-data-[disabled]:underline',
+				link: 'border-transparent text-primary underline-offset-4 hover:not-data-[disabled]:underline',
 			},
 			size: {
 				sm: 'h-7 gap-2 px-3 text-label-regular [&_ng-icon]:icon-xs',
@@ -54,6 +54,9 @@ export const buttonVariants = cva(
 				false: '',
 			},
 		},
+		// Une classe ne se répète pas d'une partie à l'autre : `classes()` les
+		// dédoublonne en gardant la première, et tailwind-merge garderait alors
+		// celle qu'une variante devait remplacer.
 		compoundVariants: [
 			// `Button/Icon` rempli (`filled`) : le fond du secondaire, sans sa bordure.
 			{

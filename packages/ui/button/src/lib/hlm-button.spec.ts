@@ -79,4 +79,19 @@ describe('HlmButton', () => {
     expect(lien.getAttribute('aria-disabled')).toBe('true');
     expect(lien.getAttribute('tabindex')).toBe('-1');
   });
+
+  it("rempli (secondary) en bouton d'icône, n'a pas la bordure du secondaire", () => {
+    const fixture = TestBed.createComponent(BoutonIcone);
+    fixture.detectChanges();
+    const bouton: HTMLButtonElement = fixture.nativeElement.querySelector('button');
+
+    expect(bouton.classList).toContain('border-transparent');
+    expect(bouton.classList).not.toContain('border-surface-container-highest');
+  });
 });
+
+@Component({
+  imports: [HlmButton],
+  template: `<button hlmBtn variant="secondary" size="icon" aria-label="Modifier"></button>`,
+})
+class BoutonIcone {}
