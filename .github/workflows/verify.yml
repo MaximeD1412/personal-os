@@ -29,11 +29,71 @@ env:
   NX: ${{ inputs.portee == 'complete' && 'run-many' || 'affected' }}
 
 jobs:
-  # Trois jobs plutôt qu'un, parce qu'ils n'ont aucune dépendance entre eux et
-  # que le dépôt est public : les minutes sont gratuites, et les enchaîner sur
-  # un seul coureur ne payait que du temps d'attente. Le découpage suit le coût
-  # réel, pas la logique : le banc de déploiement pèse à lui seul plus que tout
-  # le reste, il a donc son coureur.
+  # Plusieurs jobs plutôt qu'un, parce qu'ils n'ont aucune dépendance entre eux
+  # et que le dépôt est public : les minutes sont gratuites, et les enchaîner
+  # sur un seul coureur ne payait que du temps d'attente. Le découpage suit le
+  # coût réel, pas la logique : le banc de déploiement pèse à lui seul plus que
+  # tout le reste, il a donc son coureur.
+
+  # Des agents commitent sans relecture humaine du code : un secret commité
+  # doit faire échouer la proposition avant la fusion. Le scan ne dépend pas
+  # de la portée, il lit l'historique que l'événement apporte (les commits de
+  # la proposition, ou ceux du push).
+  secrets:
+    name: Cherche des secrets dans l'historique
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Un secret ajouté puis retiré dans la même proposition reste dans
+          # l'historique : c'est lui qu'on scanne, pas le seul dernier état.
+          fetch-depth: 0
+
+      # gitleaks honore par défaut un commentaire d'exception en ligne et un
+      # fichier .gitleaksignore, et l'action ne permet pas de les désactiver.
+      # Les deux contourneraient la revue : une exception passe par
+      # .gitleaks.toml, et nulle part ailleurs.
+      - name: Refuser les exceptions hors de .gitleaks.toml
+        run: |
+          if [ -e .gitleaksignore ]; then
+            echo "::error::.gitleaksignore est refusé : une exception s'écrit dans .gitleaks.toml."
+            exit 1
+          fi
+          commits=$(git log -G 'gitleaks[:]allow' --format='%h %s' HEAD)
+          if [ -n "$commits" ]; then
+            echo "::error::Commentaire d'exception gitleaks refusé : une exception s'écrit dans .gitleaks.toml."
+            echo "$commits"
+            exit 1
+          fi
+
+      - name: Scanner avec gitleaks
+        # v3.0.0, épinglée par SHA : un tag déplacé ferait tourner un autre
+        # code avec le jeton du dépôt.
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_VERSION: 8.30.1
+          # Le commentaire de l'action propose d'ajouter l'empreinte à
+          # .gitleaksignore, justement ce que l'étape précédente refuse. Et le
+          # jeton n'a pas le droit d'écrire sur la proposition.
+          GITLEAKS_ENABLE_COMMENTS: false
+
+      # Un scan qui ne trouve rien ne prouve rien si la configuration a cessé
+      # de chercher (exception trop large, fichier illisible). On lui donne
+      # donc un jeton factice au format réel, fabriqué ici pour qu'aucun
+      # n'existe dans le dépôt, et on exige qu'il le signale.
+      - name: Vérifier que le scan attrape un vrai format de jeton
+        run: |
+          leurre=$(mktemp -d)
+          printf 'GITHUB_TOKEN=ghp_%s\n' "$(openssl rand -hex 18)" > "$leurre/config.env"
+          code=0
+          gitleaks dir "$leurre" --config .gitleaks.toml --no-banner --redact --exit-code 3 || code=$?
+          if [ "$code" -ne 3 ]; then
+            echo "::error::Le scan n'a pas signalé un jeton GitHub factice (code $code)."
+            exit 1
+          fi
 
   statique:
     name: Lint, construit et teste

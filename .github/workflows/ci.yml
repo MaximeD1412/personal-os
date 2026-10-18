@@ -18,6 +18,9 @@ permissions:
   # qu'une exécution en échec n'a jamais vérifié.
   actions: read
   contents: read
+  # Le scan de secrets demande à l'API la liste des commits de la
+  # proposition. Le dépôt public s'en passerait, pas un dépôt privé.
+  pull-requests: read
 
 jobs:
   verify:

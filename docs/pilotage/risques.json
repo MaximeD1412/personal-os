@@ -153,8 +153,8 @@
         },
         {
           "texte": "Scan de secrets en CI",
-          "ref": "",
-          "fait": false
+          "ref": ".gitleaks.toml",
+          "fait": true
         },
         {
           "texte": "Aucun secret de production accessible aux agents",
