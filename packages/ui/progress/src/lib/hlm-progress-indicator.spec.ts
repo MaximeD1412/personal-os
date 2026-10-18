@@ -35,6 +35,7 @@ describe('HlmProgressIndicator', () => {
     expect(remplissage.style.transform).toBe('translateX(-50%)');
     expect(barre.getAttribute('aria-valuenow')).toBe('5');
     expect(barre.getAttribute('aria-valuemax')).toBe('10');
+    expect(barre.getAttribute('aria-valuetext')).toBe('50%');
   });
 
   it('remplit toute la piste quand la valeur atteint le maximum', async () => {
@@ -44,8 +45,35 @@ describe('HlmProgressIndicator', () => {
   });
 
   it('laisse la piste vide quand le maximum est nul', async () => {
-    const { remplissage } = await rendre(0, 0);
+    const { barre, remplissage } = await rendre(0, 0);
 
     expect(remplissage.style.transform).toBe('translateX(-100%)');
+    // Le libellé par défaut de spartan divise 0 par 0 : « NaN% ».
+    expect(barre.getAttribute('aria-valuetext')).toBe('0%');
+  });
+});
+
+@Component({
+  imports: [HlmProgress, HlmProgressIndicator],
+  template: `
+    <hlm-progress aria-label="Séances" [value]="3" [max]="4" [getValueLabel]="libelle">
+      <hlm-progress-indicator />
+    </hlm-progress>
+  `,
+})
+class BarreLibellee {
+  readonly libelle = (value: number, max: number) => `${value} séances sur ${max}`;
+}
+
+describe('HlmProgress', () => {
+  it("annonce le libellé que l'écran lui donne", async () => {
+    const fixture = TestBed.createComponent(BarreLibellee);
+    await fixture.whenStable();
+
+    expect(
+      (fixture.nativeElement as HTMLElement)
+        .querySelector('hlm-progress')
+        ?.getAttribute('aria-valuetext'),
+    ).toBe('3 séances sur 4');
   });
 });
