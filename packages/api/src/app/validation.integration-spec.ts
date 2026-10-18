@@ -11,6 +11,7 @@ import { createZodDto } from 'nestjs-zod';
 import request from 'supertest';
 import { z } from 'zod';
 import { AppModule } from './app.module';
+import { champsEnErreur } from '../../test/code-d-erreur';
 import { Public } from './auth/public.decorator';
 
 class SaisieDeSemaine extends createZodDto(
@@ -63,13 +64,15 @@ describe('Le pipe de validation global (ADR 0030)', () => {
     await request(app.getHttpServer())
       .post('/api/validation-de-test')
       .send({ week: '2026-10-20' })
-      .expect(400);
+      .expect(400)
+      .expect(champsEnErreur(['week']));
   });
 
   it('refuse en 400 un body sans le champ requis', async () => {
     await request(app.getHttpServer())
       .post('/api/validation-de-test')
       .send({ note: '2026-10-20' })
-      .expect(400);
+      .expect(400)
+      .expect(champsEnErreur(['week']));
   });
 });

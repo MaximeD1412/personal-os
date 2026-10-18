@@ -20,6 +20,7 @@ import {
   poserLeJeuDEspaces,
   type JeuDEspaces,
 } from '../../../test/jeu-d-espaces';
+import { codeDErreur } from '../../../test/code-d-erreur';
 import { AppModule } from '../app.module';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
@@ -173,7 +174,8 @@ describe('Agenda', () => {
     it("n'expose rien sans session", async () => {
       await request(app.getHttpServer())
         .get(`/api/agenda?from=${PERIODE.from}&to=${PERIODE.to}`)
-        .expect(401);
+        .expect(401)
+        .expect(codeDErreur('auth.required'));
     });
   });
 
