@@ -36,6 +36,21 @@
       "description": "Ce qui doit être noté ou décidé ailleurs."
     }
   ],
-  "elements": [],
+  "elements": [
+    {
+      "id": "secrets-filetoken-pen",
+      "phase": "dep",
+      "source": "#91",
+      "titre": "Trancher le fileToken de la maquette pen.dev avant la prochaine livraison",
+      "pourquoi": "Le scan de secrets signale \"fileToken\": \"<uuid>\" dans design/personalos.pen (commit db8d399), le lien de la maquette vers personalos.lib.pen. Le commit n'est pas encore sur main : la PR develop → main et la livraison échoueront sur ce résultat tant qu'il n'est pas tranché.",
+      "etapes": [
+        "Vérifier dans pen.dev si ce fileToken donne un accès (au compte, à la bibliothèque) ou s'il ne fait qu'identifier le fichier lié.",
+        "S'il ne donne aucun accès : ajouter à .gitleaks.toml une exception limitée à la règle generic-api-key, au fichier design/personalos.pen et à ce résultat (regexTarget = \"match\"), dans une PR vers develop.",
+        "S'il donne un accès : le révoquer dans pen.dev (il est déjà public, le dépôt l'étant), puis ajouter l'exception par le SHA du commit (commits = [...]) pour que l'historique passe."
+      ],
+      "commande": "docker run --rm -v \"$PWD:/repo\" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --config /repo/.gitleaks.toml --log-opts=\"--diff-merges=first-parent origin/main..origin/develop\"",
+      "ajouteLe": "2026-10-18"
+    }
+  ],
   "format": "élément = { id (stable), phase, source (#n), titre, pourquoi, etapes: [], commande (facultative), ajouteLe (YYYY-MM-DD) }"
 }

@@ -135,6 +135,10 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
   pousse jamais directement, et la PR `develop` → `main` est faite à la main.
 - Une migration ne retire jamais ce que la version précédente utilise encore
   (ADR 0024).
+- **Aucun secret commité**, même factice au format réel : la CI scanne
+  l'historique de la PR (gitleaks). Une exception s'écrit dans
+  `.gitleaks.toml`, jamais par un commentaire dans le code ni par un
+  `.gitleaksignore`.
 - **Revue visuelle** (`revue_visuelle: true` dans le ticket, label
   `revue-visuelle`) : joins à la PR des captures mobile (390 px) et desktop
   (1280 px) de chaque écran touché, ouvert par son URL préremplie. Le merge

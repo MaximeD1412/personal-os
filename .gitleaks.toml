@@ -1,0 +1,22 @@
+# Scan de secrets de la CI (job `secrets` de .github/workflows/verify.yml).
+#
+# Les règles sont celles de gitleaks, sans en retirer aucune. Ce fichier ne
+# fait qu'ajouter des exceptions, et c'est le seul endroit où elles vivent :
+# pas de commentaire d'exception dans le code, pas de .gitleaksignore (la CI
+# refuse l'un et l'autre). Une exception se lit donc ici, en revue, avec sa
+# raison.
+
+title = "Personal OS"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Modèles de configuration et fixtures de test nommées"
+paths = [
+  # Les modèles `*.example` portent des valeurs factices volontaires : c'est
+  # ce qu'on copie avant d'y mettre les vraies.
+  '''\.example$''',
+  # Une fixture de test qui doit contenir un secret au format réel s'ajoute
+  # ici, par son chemin exact, jamais par un motif de dossier.
+]
