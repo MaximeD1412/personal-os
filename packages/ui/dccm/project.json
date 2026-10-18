@@ -1,0 +1,110 @@
+{
+  "name": "dccm",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/ui/dccm/src",
+  "prefix": "dccm",
+  "projectType": "library",
+  "tags": [],
+  "implicitDependencies": [
+    "theme",
+    "packages/ui/*",
+    "!dccm"
+  ],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": [
+        "{workspaceRoot}/dist/{projectRoot}"
+      ],
+      "defaultConfiguration": "production",
+      "options": {
+        "project": "packages/ui/dccm/ng-package.json",
+        "tsConfig": "packages/ui/dccm/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "packages/ui/dccm/tsconfig.lib.prod.json"
+        },
+        "development": {}
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "storybook": {
+      "executor": "@storybook/angular:start-storybook",
+      "continuous": true,
+      "options": {
+        "browserTarget": "dccm:build-storybook",
+        "configDir": "packages/ui/dccm/.storybook",
+        "tsConfig": "packages/ui/dccm/.storybook/tsconfig.json",
+        "styles": [
+          "node_modules/@fontsource-variable/inter/index.css",
+          "node_modules/@fontsource-variable/jetbrains-mono/index.css",
+          "packages/dashboard/src/styles.css"
+        ],
+        "compodoc": true,
+        "compodocArgs": [
+          "-e",
+          "json",
+          "-d",
+          "packages/ui/dccm"
+        ],
+        "experimentalZoneless": true,
+        "port": 4400
+      },
+      "configurations": {
+        "ci": {
+          "quiet": true
+        }
+      }
+    },
+    "build-storybook": {
+      "executor": "@storybook/angular:build-storybook",
+      "outputs": [
+        "{options.outputDir}"
+      ],
+      "cache": true,
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/packages/dashboard/src/styles.css",
+        {
+          "externalDependencies": [
+            "storybook",
+            "@storybook/angular",
+            "@storybook/addon-docs",
+            "@storybook/addon-a11y",
+            "@fontsource-variable/inter",
+            "@fontsource-variable/jetbrains-mono",
+            "tailwindcss",
+            "@spartan-ng/brain"
+          ]
+        }
+      ],
+      "options": {
+        "configDir": "packages/ui/dccm/.storybook",
+        "tsConfig": "packages/ui/dccm/.storybook/tsconfig.json",
+        "styles": [
+          "node_modules/@fontsource-variable/inter/index.css",
+          "node_modules/@fontsource-variable/jetbrains-mono/index.css",
+          "packages/dashboard/src/styles.css"
+        ],
+        "compodoc": true,
+        "compodocArgs": [
+          "-e",
+          "json",
+          "-d",
+          "packages/ui/dccm"
+        ],
+        "experimentalZoneless": true,
+        "outputDir": "dist/storybook/dccm"
+      },
+      "configurations": {
+        "ci": {
+          "quiet": true
+        }
+      }
+    }
+  }
+}

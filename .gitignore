@@ -63,3 +63,7 @@ packages/database/src/generated
 
 # boucle d'agents (agent-loop) : état, prompts rendus et journaux
 .agent-loop/
+
+# Storybook, et la sortie de compodoc qu'il régénère à chaque lancement.
+storybook-static
+packages/ui/dccm/documentation.json
