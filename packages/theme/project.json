@@ -1,0 +1,19 @@
+{
+  "name": "theme",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/theme",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "test": {
+      "inputs": [
+        "default",
+        "{workspaceRoot}/design/personalos.lib.pen",
+        "{workspaceRoot}/design/design-system.json",
+        "{workspaceRoot}/design/DESIGN.md",
+        "{workspaceRoot}/packages/dashboard/src/styles.css",
+        "{workspaceRoot}/packages/portfolio/src/styles.css"
+      ]
+    }
+  }
+}
