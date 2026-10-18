@@ -10,6 +10,7 @@ import {
   poserLeJeuDEspaces,
   type JeuDEspaces,
 } from '../../../test/jeu-d-espaces';
+import { codeDErreur } from '../../../test/code-d-erreur';
 import { AppModule } from '../app.module';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
@@ -133,7 +134,7 @@ describe('Calendrier', () => {
       expect(relu?.endsAt).toBe('2026-08-15T00:00:00.000Z');
     });
 
-    it("supprime un Événement, qui disparaît de la liste", async () => {
+    it('supprime un Événement, qui disparaît de la liste', async () => {
       const cree = await creer(jeu.a, {
         title: 'Annulé',
         startsAt: '2026-09-21T10:00:00.000Z',
@@ -151,7 +152,7 @@ describe('Calendrier', () => {
   });
 
   describe("L'Espace, choisi et jamais deviné", () => {
-    it("refuse une création qui ne nomme aucun Espace", async () => {
+    it('refuse une création qui ne nomme aucun Espace', async () => {
       await request(app.getHttpServer())
         .post('/api/events')
         .set('Cookie', jeu.a.session)
@@ -186,7 +187,8 @@ describe('Calendrier', () => {
           category: 'OTHER',
           scopeId: jeu.b.espacePersonnel,
         })
-        .expect(403);
+        .expect(403)
+        .expect(codeDErreur('scope.out_of_reach'));
     });
   });
 
@@ -202,7 +204,7 @@ describe('Calendrier', () => {
       expect((await lister(jeu.a)).map(({ id }) => id)).not.toContain(sien.id);
     });
 
-    it("ne le rend pas davantage à qui devine son identifiant", async () => {
+    it('ne le rend pas davantage à qui devine son identifiant', async () => {
       const sien = await creer(jeu.b, {
         title: 'À deviner',
         startsAt: '2026-09-25T10:00:00.000Z',
@@ -214,7 +216,8 @@ describe('Calendrier', () => {
         .patch(`/api/events/${sien.id}`)
         .set('Cookie', jeu.a.session)
         .send({ title: 'Volé' })
-        .expect(404);
+        .expect(404)
+        .expect(codeDErreur('http.404'));
 
       await request(app.getHttpServer())
         .delete(`/api/events/${sien.id}`)
@@ -235,14 +238,15 @@ describe('Calendrier', () => {
       });
 
       for (const compte of [jeu.a, jeu.b]) {
-        expect((await lister(compte)).map(({ id }) => id)).toContain(
-          commun.id,
-        );
+        expect((await lister(compte)).map(({ id }) => id)).toContain(commun.id);
       }
     });
 
     it("n'expose rien sans session", async () => {
-      await request(app.getHttpServer()).get('/api/events').expect(401);
+      await request(app.getHttpServer())
+        .get('/api/events')
+        .expect(401)
+        .expect(codeDErreur('auth.required'));
     });
   });
 

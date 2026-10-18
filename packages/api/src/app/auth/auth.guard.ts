@@ -1,11 +1,12 @@
 import {
   type CanActivate,
   type ExecutionContext,
+  HttpStatus,
   Injectable,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
+import { ErreurMetier } from '../erreurs/erreur-metier';
 import type { UserRecord } from './auth.repository';
 import { AuthService } from './auth.service';
 import { SESSION_COOKIE, readCookie } from './cookies';
@@ -31,15 +32,19 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const token = readCookie(request, SESSION_COOKIE);
     if (!token) {
-      throw new UnauthorizedException('Aucune session.');
+      throw sessionRequise('Aucune session.');
     }
 
     const porteur = await this.auth.porteurDeSession(token);
     if (!porteur) {
-      throw new UnauthorizedException('Session inconnue, expirée ou révoquée.');
+      throw sessionRequise('Session inconnue, expirée ou révoquée.');
     }
 
     (request as Request & Record<string, UserRecord>)[PORTEUR] = porteur;
     return true;
   }
+}
+
+function sessionRequise(message: string): ErreurMetier {
+  return new ErreurMetier('auth.required', message, HttpStatus.UNAUTHORIZED);
 }

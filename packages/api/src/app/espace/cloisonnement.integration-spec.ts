@@ -11,6 +11,7 @@ import {
   type JeuDEspaces,
 } from '../../../test/jeu-d-espaces';
 import { ModuleRestreint } from '../../../test/module-restreint';
+import { codeDErreur } from '../../../test/code-d-erreur';
 import { AppModule } from '../app.module';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
@@ -25,7 +26,7 @@ const ADRESSE_B = 'b@exemple.test';
  * lui vaudra pour tout modèle qui portera un Espace, puisque c'est le même
  * chemin de code.
  */
-describe("Cloisonnement par Espace", () => {
+describe('Cloisonnement par Espace', () => {
   let authentik: FauxAuthentik;
   let app: INestApplication;
   let jeu: JeuDEspaces;
@@ -79,7 +80,7 @@ describe("Cloisonnement par Espace", () => {
       expect(tous.size).toBe(3);
     });
 
-    it("donne aux deux Comptes le même Espace foyer", async () => {
+    it('donne aux deux Comptes le même Espace foyer', async () => {
       const sien = await request(app.getHttpServer())
         .get('/api/espaces')
         .set('Cookie', jeu.b.session)
@@ -105,14 +106,15 @@ describe("Cloisonnement par Espace", () => {
       );
     });
 
-    it("ne la rend pas davantage à qui devine son identifiant", async () => {
+    it('ne la rend pas davantage à qui devine son identifiant', async () => {
       const sienne = await creer(jeu.b, 'à deviner', jeu.b.espacePersonnel);
 
       await request(app.getHttpServer())
         .patch(`/api/traces/${sienne.id}`)
         .set('Cookie', jeu.a.session)
         .send({ label: 'volée' })
-        .expect(404);
+        .expect(404)
+        .expect(codeDErreur('http.404'));
     });
 
     it("ne laisse pas modifier une Trace de l'autre Espace personnel", async () => {
@@ -155,11 +157,12 @@ describe("Cloisonnement par Espace", () => {
         .post('/api/traces')
         .set('Cookie', jeu.a.session)
         .send({ label: 'intrusion', scopeId: jeu.b.espacePersonnel })
-        .expect(403);
+        .expect(403)
+        .expect(codeDErreur('scope.out_of_reach'));
     });
   });
 
-  describe("Ce que les deux Comptes voient pareil", () => {
+  describe('Ce que les deux Comptes voient pareil', () => {
     it("rend à chacun la même Trace de l'Espace foyer", async () => {
       const commune = await creer(jeu.a, 'vacances', jeu.espaceFoyer);
 
@@ -192,7 +195,8 @@ describe("Cloisonnement par Espace", () => {
         .post('/api/foyer-seul')
         .set('Cookie', jeu.a.session)
         .send({ label: 'personnelle', scopeId: jeu.a.espacePersonnel })
-        .expect(403);
+        .expect(403)
+        .expect(codeDErreur('scope.kind_refused'));
     });
 
     it("accepte celui qu'il déclare", async () => {
@@ -208,12 +212,13 @@ describe("Cloisonnement par Espace", () => {
         .post('/api/sans-declaration')
         .set('Cookie', jeu.a.session)
         .send({ label: 'muette', scopeId: jeu.espaceFoyer })
-        .expect(500);
+        .expect(500)
+        .expect(codeDErreur('scope.undeclared'));
     });
 
     // Le refus par la garde elle-même est vérifié en test unitaire : ici, la
     // saisie n'atteint même pas l'accès aux données.
-    it("refuse une saisie qui ne nomme aucun Espace", async () => {
+    it('refuse une saisie qui ne nomme aucun Espace', async () => {
       await request(app.getHttpServer())
         .post('/api/traces')
         .set('Cookie', jeu.a.session)
@@ -224,8 +229,14 @@ describe("Cloisonnement par Espace", () => {
 
   describe('Sans session', () => {
     it("n'expose rien de cloisonné", async () => {
-      await request(app.getHttpServer()).get('/api/traces').expect(401);
-      await request(app.getHttpServer()).get('/api/espaces').expect(401);
+      await request(app.getHttpServer())
+        .get('/api/traces')
+        .expect(401)
+        .expect(codeDErreur('auth.required'));
+      await request(app.getHttpServer())
+        .get('/api/espaces')
+        .expect(401)
+        .expect(codeDErreur('auth.required'));
     });
   });
 
