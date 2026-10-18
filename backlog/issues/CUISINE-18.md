@@ -10,6 +10,7 @@ blocked_by: [CUISINE-7]
 adr: [0030]
 risques: []
 revue_visuelle: true
+reprend: 76
 ---
 
 ## Contexte
@@ -28,6 +29,7 @@ Un **Souhait** est une Recette ou une envie déposée avant la génération, que
 
 ## Décisions déjà prises
 
+- Maquette : `planning-de-repas-overlays.png`, `planning-de-repas-1424.png`, `planning-de-repas-390.png` dans `design/captures/ecrans/` (frames `z6HKq`, `DjOyh`, `P0DQS` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Un Souhait honoré n'est pas supprimé : il reste lié à sa semaine.
 
 ## Critères d'acceptation

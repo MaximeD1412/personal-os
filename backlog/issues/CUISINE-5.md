@@ -31,6 +31,7 @@ Une **Recette** est une préparation réutilisable : des Ingrédients en quantit
 
 ## Décisions déjà prises
 
+- Maquette : `recettes-ingredients-1424.png`, `recettes-ingredients-390.png` dans `design/captures/ecrans/` (frames `G2E7s`, `WgPSA` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - La mise à jour des lignes se fait par remplacement complet dans une transaction (suppression puis création imbriquée), jamais ligne à ligne.
 - Unité de chaque ligne : celle saisie, conservée ; la conversion n'a lieu qu'à la consolidation.
 

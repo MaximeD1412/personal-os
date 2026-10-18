@@ -10,6 +10,7 @@ blocked_by: [AGENDA-1, UI-4]
 adr: [0018, 0030]
 risques: []
 revue_visuelle: true
+reprend: 64
 ---
 
 ## Contexte
@@ -28,6 +29,7 @@ L'utilisateur peut modifier ou supprimer **une seule occurrence** sans casser la
 
 ## Décisions déjà prises
 
+- Maquette : `calendrier-1424.png`, `calendrier-390.png`, `motifs-transverses-1424.png` dans `design/captures/ecrans/` (frames `kTbwn`, `e4t4N`, `C6sbOX` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Pas d'option « cette occurrence et les suivantes » en V1.
 
 ## Critères d'acceptation

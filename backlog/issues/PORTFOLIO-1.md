@@ -30,6 +30,7 @@ Un **Projet** est un travail suivi dans l'application, avec ses notes, ses liens
 
 ## Décisions déjà prises
 
+- Maquette : `projets-1424.png`, `projets-390.png` dans `design/captures/ecrans/` (frames `EZy1P`, `XiIf0` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Les notes sont en markdown, rendues côté front ; elles ne sortent jamais vers le portfolio.
 
 ## Critères d'acceptation

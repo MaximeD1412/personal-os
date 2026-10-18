@@ -19,15 +19,16 @@ La page d'accueil répond à « qu'est-ce qui m'attend dans les prochains jours 
 
 ## État actuel du code
 
-- `GET /agenda`, `GET /dashboard/todos`, `GET /dashboard/summaries` (DASH-1) ; primitives `DccmMetricCard`, `DccmSurface` (UI-1) ; coque (UI-2) ; éventuelle maquette `dashboard-home` reprise par UI-1.
+- `GET /agenda`, `GET /dashboard/todos`, `GET /dashboard/summaries` (DASH-1) ; composants `DccmKpiTile`, `HlmCard` (UI-6) ; coque (UI-2).
 
 ## À faire
 
-- Écran `/` (remplace la redirection vers `/agenda`) : « Les 7 prochains jours » (Agenda de la période), « À faire » (liens vers les écrans), widgets de résumé par module (`DccmMetricCard`).
+- Écran `/` (remplace la redirection vers `/agenda`) : « Les 7 prochains jours » (Agenda de la période), « À faire » (liens vers les écrans), widgets de résumé par module (`DccmKpiTile`).
 - Zone d'en-tête réservée à la barre de commande (CMD-3).
 
 ## Décisions déjà prises
 
+- Maquette : `accueil-1424.png`, `accueil-1024.png`, `accueil-390.png` dans `design/captures/ecrans/` (frames `O1sya8`, `D4B8M`, `PFX8V` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - L'accueil ne fait que lire : aucune action ne s'y fait directement, chaque élément renvoie vers son écran.
 
 ## Critères d'acceptation

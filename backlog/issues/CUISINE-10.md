@@ -10,6 +10,7 @@ blocked_by: [CUISINE-9]
 adr: [0012, 0013, 0030]
 risques: [CUI-1]
 revue_visuelle: true
+reprend: 73
 ---
 
 ## Contexte
@@ -27,6 +28,7 @@ Clôturer une liste fait monter le Stock domestique des quantités **réellement
 
 ## Décisions déjà prises
 
+- Maquette : `liste-de-courses-1424.png`, `liste-de-courses-390.png`, `motifs-transverses-1424.png` dans `design/captures/ecrans/` (frames `Bb4hE`, `I5yWov`, `C6sbOX` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - La quantité achetée est en Unité canonique ; l'arrondi au conditionnement arrive avec les Produits (CUISINE-12).
 
 ## Critères d'acceptation

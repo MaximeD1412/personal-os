@@ -10,6 +10,7 @@ blocked_by: [SPORT-1]
 adr: [0022, 0030]
 risques: []
 revue_visuelle: true
+reprend: 100
 ---
 
 ## Contexte
@@ -28,6 +29,7 @@ Un **Objectif** (une course, une date, une intention) remplace la notion de plan
 
 ## Décisions déjà prises
 
+- Maquette : `sport-1424.png`, `sport-390.png` dans `design/captures/ecrans/` (frames `k7UxE`, `o4lfKt` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Pas d'entité « semaine » ni « plan » : la série crée des séances indépendantes, modifiables une à une.
 
 ## Critères d'acceptation

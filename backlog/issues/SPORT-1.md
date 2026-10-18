@@ -32,6 +32,7 @@ Une **Séance** porte **à la fois** le prévu et le réalisé, plus un statut (
 
 ## Décisions déjà prises
 
+- Maquette : `sport-1424.png`, `sport-390.png` dans `design/captures/ecrans/` (frames `k7UxE`, `o4lfKt` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Distances en mètres, durées en secondes (entiers) ; l'allure se calcule à l'affichage.
 
 ## Critères d'acceptation

@@ -10,6 +10,7 @@ blocked_by: [UI-3]
 adr: [0019, 0030]
 risques: [SEC-2]
 revue_visuelle: true
+reprend: 96
 ---
 
 ## Contexte
@@ -28,6 +29,7 @@ Une **Page de contenu** est le texte rédigé d'une page du portfolio (présenta
 
 ## Décisions déjà prises
 
+- Maquette : `portfolio-cockpit-1424.png`, `portfolio-cockpit-390.png` dans `design/captures/ecrans/` (frames `qgq9I`, `flenV` de `design/personalos.pen`). Elle donne l'apparence, ce ticket le périmètre : un élément de maquette absent du ticket n'est pas implémenté, ses textes de remplissage ne sont pas repris, et l'écran se compose avec les composants du design system (`docs/design-system.md`).
 - Trois pages fixes en V1 : `about`, `experience`, `skills`.
 
 ## Critères d'acceptation
