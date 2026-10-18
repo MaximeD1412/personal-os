@@ -102,6 +102,9 @@ describe('tokens.css', () => {
     const pistes: Record<string, [couleur: string, alpha: string]> = {
       'error-40': ['error-container', '66'], // Button/Destructive pressé
       'error-stroke-30': ['error', '4d'], // bordure de Button/Destructive
+      'surface-container-lowest-90': ['surface-container-lowest', 'e6'], // fond de TopBar
+      'surface-90': ['surface', 'e6'], // fond de MobileHeader et MobileTabBar
+      'surface-container-lowest-80': ['surface-container-lowest', 'cc'], // voile sous un panneau (barre de commande)
     };
     const theme = declarations(bloc(tokens, '@theme inline'));
     for (const [nom, [couleur, alpha]] of Object.entries(pistes)) {
@@ -225,6 +228,7 @@ describe('tokens.css', () => {
       'font-body',
       'font-mono',
       'shadow-popover',
+      'shadow-top-bar',
     ]) {
       expect([nom, theme.get(`--${nom}`)]).toEqual([nom, `var(--${nom})`]);
     }

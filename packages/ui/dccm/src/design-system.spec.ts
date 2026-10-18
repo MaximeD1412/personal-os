@@ -10,6 +10,7 @@ const ui = join(__dirname, '../..');
 const COMPOSANTS = [
   'avatar',
   'badge',
+  'breadcrumb',
   'button',
   'card',
   'checkbox',
@@ -20,13 +21,22 @@ const COMPOSANTS = [
   'progress',
   'select',
   'separator',
+  'sheet',
   'switch',
   'table',
   'toggle-group',
+  'tooltip',
   'dccm/src/kpi-tile',
   'dccm/src/list-row',
+  'dccm/src/mobile-header',
+  'dccm/src/nav-item',
+  'dccm/src/page-header',
   'dccm/src/section-header',
+  'dccm/src/shell',
+  'dccm/src/sidebar',
   'dccm/src/stepper',
+  'dccm/src/tab-bar',
+  'dccm/src/top-bar',
 ];
 
 const INTERDITS: [string, RegExp][] = [

@@ -145,7 +145,7 @@ générateur les pose.
 | Typographie `--text-<niveau>` (11)                                                       | `text-<niveau>` : taille, interligne, graisse et approche           | `text-headline-lg`, `text-body-dense`, `text-label-micro uppercase`, `text-code-mono font-mono` |
 | Police `--font-body`, `--font-mono`                                                      | `font-body` (par défaut sur `body`), `font-mono`                    |                                                                                                 |
 | Icône `--icon-2xs` 14, `-xs` 16, `-sm` 18, `-md` 20, `-lg` 24, `-xl` 32                  | `icon-2xs` … `icon-xl` sur `ng-icon`                                | `<ng-icon name="matCheckOutline" class="icon-sm" />`                                            |
-| Ombre `--shadow-popover`                                                                 | `shadow-popover`                                                    | modale, popover                                                                                 |
+| Ombre `--shadow-popover`, `--shadow-top-bar`                                             | `shadow-popover`, `shadow-top-bar`                                  | modale, popover ; la `TopBar`                                                                   |
 
 Les rayons `rounded-xl` à `rounded-4xl` restent ceux du preset spartan, dérivés
 de `--radius` : ils n'existent pas dans la bibliothèque, un écran ne s'en sert
@@ -220,26 +220,26 @@ remplit dans la PR qui l'implémente.
 | 03 Data Display | `Table/HeaderCell`     | `b4QLdx` | UI-6 (#107) | `HlmTh` (`th[hlmTableHead]`, `@personal-os/ui/table`)                                                                |
 | 03 Data Display | `Table/Cell`           | `sUITn`  | UI-6 (#107) | `HlmTd` (`td[hlmTableCell]`), `HlmTable`, `HlmTr`…                                                                   |
 | 03 Data Display | `ListRow`              | `DHctf`  | UI-6 (#107) | `DccmListRow` (`@personal-os/ui/dccm`)                                                                               |
-| 04 Navigation   | `TopBar`               | `DVUUC`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `Sidebar`              | `EDbRo`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `Rail`                 | `GfuO7`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `MobileTabBar`         | `jFjwa`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `NavItem`              | `rXP4M`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `RailItem`             | `sXviG`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `TabBarItem`           | `jEtQt`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `Breadcrumb/Item`      | `D5oZd`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `Breadcrumb/Separator` | `yKOOs`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `Breadcrumb`           | `PVPne`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `MobileHeader`         | `LNnJM`  | UI-2 (#60)  |                                                                                                                      |
-| 04 Navigation   | `PageHeader`           | `xMGff`  | UI-2 (#60)  |                                                                                                                      |
+| 04 Navigation   | `TopBar`               | `DVUUC`  | UI-2 (#60)  | `DccmTopBar` (`@personal-os/ui/dccm`), zone de recherche projetée `[dccmTopBarSearch]`                               |
+| 04 Navigation   | `Sidebar`              | `EDbRo`  | UI-2 (#60)  | `DccmSidebar`, `variant="full"` (240 px)                                                                             |
+| 04 Navigation   | `Rail`                 | `GfuO7`  | UI-2 (#60)  | `DccmSidebar variant="rail"` (72 px, libellés en infobulle `HlmTooltip`)                                             |
+| 04 Navigation   | `MobileTabBar`         | `jFjwa`  | UI-2 (#60)  | `DccmTabBar`                                                                                                         |
+| 04 Navigation   | `NavItem`              | `rXP4M`  | UI-2 (#60)  | `DccmNavItem` (`a[dccmNavItem]`, `span[dccmNavItem] comingSoon`)                                                     |
+| 04 Navigation   | `RailItem`             | `sXviG`  | UI-2 (#60)  | `DccmNavItem compact`                                                                                                |
+| 04 Navigation   | `TabBarItem`           | `jEtQt`  | UI-2 (#60)  | `DccmTabBarItem` (`a`, `button` ou `span[dccmTabBarItem]`)                                                           |
+| 04 Navigation   | `Breadcrumb/Item`      | `D5oZd`  | UI-2 (#60)  | `HlmBreadcrumbItem`, `HlmBreadcrumbLink`, `HlmBreadcrumbPage` (`@personal-os/ui/breadcrumb`)                         |
+| 04 Navigation   | `Breadcrumb/Separator` | `yKOOs`  | UI-2 (#60)  | `HlmBreadcrumbSeparator`                                                                                             |
+| 04 Navigation   | `Breadcrumb`           | `PVPne`  | UI-2 (#60)  | `HlmBreadcrumb`, `HlmBreadcrumbList`                                                                                 |
+| 04 Navigation   | `MobileHeader`         | `LNnJM`  | UI-2 (#60)  | `DccmMobileHeader`, bouton de commande projeté `[dccmMobileHeaderCommand]`                                           |
+| 04 Navigation   | `PageHeader`           | `xMGff`  | UI-2 (#60)  | `DccmPageHeader`                                                                                                     |
 | 05 Feedback     | `Banner`               | `L9HFJ`  | UI-3 (#62)  |                                                                                                                      |
 | 05 Feedback     | `Toast`                | `bESqe`  | UI-3 (#62)  |                                                                                                                      |
 | 05 Feedback     | `Skeleton`             | `kNtnJ`  | UI-3 (#62)  |                                                                                                                      |
 | 05 Feedback     | `Modal`                | `CX7L8`  | UI-3 (#62)  |                                                                                                                      |
 | 05 Feedback     | `EmptyState`           | `QLVDE`  | UI-3 (#62)  |                                                                                                                      |
-| 06 Layout       | `AppShell/Desktop`     | `ZVeDP`  | UI-2 (#60)  |                                                                                                                      |
-| 06 Layout       | `AppShell/Tablet`      | `izfng`  | UI-2 (#60)  |                                                                                                                      |
-| 06 Layout       | `AppShell/Mobile`      | `jvzeX`  | UI-2 (#60)  |                                                                                                                      |
+| 06 Layout       | `AppShell/Desktop`     | `ZVeDP`  | UI-2 (#60)  | `DccmShell` (`@personal-os/ui/dccm`), à partir de 1280 px                                                            |
+| 06 Layout       | `AppShell/Tablet`      | `izfng`  | UI-2 (#60)  | `DccmShell`, de 768 à 1279 px                                                                                        |
+| 06 Layout       | `AppShell/Mobile`      | `jvzeX`  | UI-2 (#60)  | `DccmShell`, sous 768 px                                                                                             |
 
 `Label` et `Select` n'ont pas de master : `HlmLabel` prend le libellé de
 `FormField`, et le déclencheur de `HlmSelect` reprend la boîte de `Input`
@@ -315,6 +315,68 @@ signale à la console un badge qui n'a ni l'un ni l'autre).
   pour que `p-gutter-compact md:p-gutter` de la carte se fusionne avec un
   `p-*` passé par l'écran ; voir « Des jetons aux classes Tailwind ».
 
+## Navigation et coque (UI-2)
+
+Les planches 04 Navigation et 06 Layout, leurs stories sous `Navigation/*` et
+`Layout/*`. Ce que la traduction a tranché :
+
+### La coque
+
+- **`DccmShell`** range ce qu'on lui projette selon la largeur : à partir de
+  1280 px, `dccm-top-bar` et `dccm-sidebar` ; de 768 à 1279 px, `dccm-top-bar`
+  et `dccm-sidebar variant="rail"` (768 à 1023 n'est pas dessiné, il suit la
+  tablette) ; sous 768 px, `dccm-mobile-header` et `dccm-tab-bar`. Tout le
+  reste est le contenu, dans un `<main>` à marge 24 (16 sur mobile). Ce qui ne
+  sert pas à une largeur est en `display: none`, donc hors de l'arbre
+  d'accessibilité. La variante de la Sidebar se lit sur son attribut
+  `variant`, écrit en dur.
+- **La navigation se décrit une fois**, dans
+  `packages/dashboard/src/app/navigation.ts` (`DccmNavGroup`,
+  `DccmNavEntry`). Une entrée sans chemin, ou dont l'écran n'a pas de route
+  dans la configuration du routeur, est « À venir » : badge `warning` dans la
+  Sidebar, estompée (`opacity-40`) dans le Rail et la barre d'onglets, faute
+  de place pour le badge. Ce n'est ni un lien ni un arrêt de tabulation : un
+  `span` `aria-disabled`, dont le libellé dit « (à venir) » aux lecteurs
+  d'écran. Une redirection seule ne fait pas exister un écran.
+- **L'entrée active** est celle de l'écran affiché (`routerLinkActive`, exact
+  pour `/`) : `primary-20`, texte et icône `primary`, `aria-current="page"`.
+  Focus : anneau 2 px `primary` intérieur, comme la galerie.
+- **Le panneau « Plus »** de la barre d'onglets est un `hlm-sheet` (côté
+  gauche) qui reprend la Sidebar, le sélecteur d'Espace et le compte. Le
+  dialogue de CDK piège le focus, le ferme par Échap et rend le focus au
+  bouton ; suivre un lien le ferme (`(navigate)` de la Sidebar).
+
+### Les pièces
+
+- **`DccmNavItem`** : sur `<a routerLink>` ou sur `<span comingSoon>` ;
+  `compact` donne le `RailItem` (48 × 40, icône 20, libellé en `sr-only`).
+- **`DccmSidebar`** : groupes en `label-micro` capitales `outline` (titres
+  lus par `aria-labelledby` sur chaque liste, visuellement masqués en rail,
+  où un filet sépare les groupes), pied avec « Aide et support » et la
+  pastille d'état (`role="status"`, un point de 8 px et son libellé ; en rail,
+  le point seul et son libellé en infobulle).
+- **`DccmTopBar`** : fond `surface-container-lowest-90`, flou 12 et
+  `shadow-top-bar` ; marque, sélecteur d'Espace (`hlm-toggle-group size="md"`
+  à libellés 11 px, `[(scope)]`), zone de recherche projetée, bloc compte
+  (Avatar, nom, « Déconnexion »). Le logo du `.pen` est une image absente du
+  dépôt : l'emblème est l'icône `diamond` sur `surface-container-high`.
+- **`DccmMobileHeader`** : la marque en tag accentué, la pastille d'état en
+  badge `dot` sur `surface-container-low`, le bouton de commande projeté.
+- **`DccmTabBar`** : les onglets reçus, puis ceux qu'on projette (« Plus »
+  sur un `button[dccmTabBarItem]`). Cible 64 × 48.
+- **`DccmPageHeader`** : fil d'Ariane (`HlmBreadcrumb`), titre
+  `headline-lg-mobile` puis `headline-lg` à partir de 768, sous-titre
+  `outline`, actions projetées.
+- **`HlmTooltip`** et **`HlmSheet`** n'ont pas de master : l'infobulle prend
+  `surface-container-highest`, `label-regular` et `shadow-popover` ; le
+  panneau `surface-container-lowest`, une bordure
+  `surface-container-highest`, `shadow-popover`, sur un voile
+  `surface-container-lowest-80` (celui de la barre de commande).
+- **Le sélecteur d'Espace** ne liste que les Espaces de l'API et ne filtre
+  rien : il retient l'Espace pré-choisi d'une création
+  (`EspaceCourant.espace()`, Espace personnel par défaut), que les
+  formulaires liront.
+
 ## Audit
 
 Fait le 18 octobre 2026 (UI-1, #59), sur `personalos.lib.pen` v2.21.
@@ -386,6 +448,7 @@ pas. Chacune s'ajoutera à `tokens.css` dans la PR du composant qui la consomme
 | `#ffb95f33`              | `tertiary` 20 %                 | fond d'icône de `Banner` (UI-3)                                                                                                                                               |
 | `#4edea31a`              | `secondary` 10 %                | galeries                                                                                                                                                                      |
 | `#93000a66`              | `error-container` 40 %          | `Button/Destructive` pressé : `--error-40` (UI-5)                                                                                                                             |
-| `#0a0e14e6`              | `surface-container-lowest` 90 % | fond de `TopBar` (UI-2)                                                                                                                                                       |
-| `#10141ae6`              | `surface` 90 %                  | fond de `MobileTabBar` et `MobileHeader` (UI-2)                                                                                                                               |
-| `#00000080`, `#0000000d` | ombres                          | `TopBar`, sélecteur d'environnement (UI-2)                                                                                                                                    |
+| `#0a0e14e6`              | `surface-container-lowest` 90 % | fond de `TopBar` : **`--surface-container-lowest-90`** (UI-2)                                                                                                                 |
+| `#10141ae6`              | `surface` 90 %                  | fond de `MobileTabBar` et `MobileHeader` : **`--surface-90`** (UI-2)                                                                                                          |
+| `#0a0e14cc`              | `surface-container-lowest` 80 % | voile de la barre de commande (`personalos.pen`), repris sous le panneau « Plus » : **`--surface-container-lowest-80`** (UI-2)                                                |
+| `#00000080`, `#0000000d` | ombres                          | `TopBar` : **`--shadow-top-bar`** (UI-2) ; l'ombre `#0000000d` du segment actif du sélecteur d'Espace n'est pas reprise (le `SegmentedControl` n'en a pas)                    |
