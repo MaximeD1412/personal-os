@@ -35,8 +35,23 @@ step() {
   }
 }
 
+# Hôte et port du Postgres des tests, lus dans la même URL que postgres_accepte :
+# un autre projet peut occuper 5432, et .env déplace alors celui-ci
+# (POSTGRES_PORT et les URL).
+adresse_postgres() {
+  node -e '
+    require("dotenv").config({ quiet: true });
+    const url = new URL(
+      process.env.TEST_DATABASE_URL ??
+        process.env.DATABASE_URL ??
+        "postgresql://personalos:personalos@localhost:5432/postgres",
+    );
+    console.log(`${url.hostname}:${url.port || 5432}`);
+  '
+}
+
 port_ouvert() {
-  (exec 3<>/dev/tcp/localhost/5432) 2>/dev/null
+  (exec 3<>"/dev/tcp/${adresse%:*}/${adresse##*:}") 2>/dev/null
 }
 
 # Vrai si le Postgres des tests accepte les identifiants de .env : même URL que
@@ -107,15 +122,16 @@ case $cmd in
     # 4. Postgres partagé par tous les worktrees : celui du dépôt principal.
     # `db:up` est lancé depuis le dépôt principal pour garder le même projet
     # compose, donc le même conteneur et le même volume.
+    adresse=$(adresse_postgres)
     if refus=$(postgres_accepte 2>&1); then
-      echo "ok   Postgres accepte la connexion sur localhost:5432"
+      echo "ok   Postgres accepte la connexion sur $adresse"
     elif port_ouvert; then
-      fail "un Postgres répond sur localhost:5432 mais refuse les identifiants de .env ($refus). Le port est sans doute pris par un autre projet : docker ps --filter publish=5432"
+      fail "un Postgres répond sur $adresse mais refuse les identifiants de .env ($refus). Le port est sans doute pris par un autre projet (docker ps --filter publish=${adresse##*:}) : déplace celui-ci avec POSTGRES_PORT et les URL de .env"
     else
-      echo "...  Postgres ne répond pas sur localhost:5432, lancement de pnpm db:up"
+      echo "...  Postgres ne répond pas sur $adresse, lancement de pnpm db:up"
       step "pnpm db:up (docker est-il lancé ?)" pnpm --dir "$main" db:up
-      attendre_postgres || fail "Postgres refuse toujours la connexion sur localhost:5432 après 60 s"
-      echo "ok   Postgres accepte la connexion sur localhost:5432"
+      attendre_postgres || fail "Postgres refuse toujours la connexion sur $adresse après 60 s"
+      echo "ok   Postgres accepte la connexion sur $adresse"
     fi
     ;;
   drop)
