@@ -8,15 +8,24 @@ import { join } from 'node:path';
 
 const ui = join(__dirname, '../..');
 const COMPOSANTS = [
+  'avatar',
+  'badge',
   'button',
+  'card',
   'checkbox',
   'field',
   'input',
   'kbd',
   'label',
+  'progress',
   'select',
+  'separator',
   'switch',
+  'table',
   'toggle-group',
+  'dccm/src/kpi-tile',
+  'dccm/src/list-row',
+  'dccm/src/section-header',
   'dccm/src/stepper',
 ];
 
@@ -49,7 +58,7 @@ function sources(dossier: string): string[] {
   });
 }
 
-describe('les composants actions et formulaires', () => {
+describe('les composants du design system', () => {
   it.each(COMPOSANTS)('%s ne porte aucune valeur en dur', (composant) => {
     const fichiers = sources(join(ui, composant));
     expect(fichiers.length).toBeGreaterThan(0);

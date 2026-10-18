@@ -42,7 +42,13 @@ export default [
   },
   {
     files: ['**/*.html'],
-    // Override or add rules here
-    rules: {},
+    rules: {
+      // `<a dccmListRow label="…">` : le titre de la ligne est une entrée, et
+      // le composant le rend dans le lien ou le bouton.
+      '@angular-eslint/template/elements-content': [
+        'error',
+        { allowList: ['label'] },
+      ],
+    },
   },
 ];

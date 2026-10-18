@@ -5,6 +5,9 @@
     "resolveJsonModule": true
   },
   "exclude": ["../../**/*.spec.ts", "../../**/test-setup.ts"],
+  // Compodoc lit les entrées des composants dans les fichiers inclus ici : les
+  // sources de `packages/ui`, pas seulement les stories. Il ne retrouve pas
+  // `dccm` par `../../*/src`, d'où la ligne `../src`.
   "include": [
     "../../**/*.stories.ts",
     "../../*/src/**/*.ts",

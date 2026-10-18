@@ -9,6 +9,9 @@ const tokens = readFileSync(
 const niveaux = [...tokens.matchAll(/^\s*--text-([a-z]+(?:-[a-z]+)*):/gm)].map(
   ([, nom]) => nom,
 );
+const espacements = [
+  ...tokens.matchAll(/^\s*--spacing-([a-z0-9-]+):/gm),
+].map(([, nom]) => nom);
 const icones = [...tokens.matchAll(/^@utility icon-([a-z0-9]+)/gm)].map(
   ([, nom]) => nom,
 );
@@ -38,5 +41,13 @@ describe('hlm', () => {
     expect(hlm('[&_ng-icon]:icon-sm [&_ng-icon]:icon-xs')).toBe(
       '[&_ng-icon]:icon-xs',
     );
+  });
+
+  it('laisse le dernier espacement pen gagner, pour chaque espacement de tokens.css', () => {
+    expect(espacements.length).toBeGreaterThanOrEqual(10);
+    for (const nom of espacements) {
+      expect(hlm(`p-4 p-${nom}`)).toBe(`p-${nom}`);
+      expect(hlm(`gap-space-xs gap-${nom}`)).toBe(`gap-${nom}`);
+    }
   });
 });

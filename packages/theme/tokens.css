@@ -88,6 +88,7 @@
      couleur de la planche Foundations et l'opacité. */
   --primary-20: #adc6ff33; /* primary : sélection, filtre actif, badge info */
   --primary-10: #adc6ff1a; /* primary : ligne sélectionnée */
+  --primary-40: #adc6ff66; /* primary : bordure de ligne sélectionnée (hors Foundations) */
   --secondary-20: #00a57233; /* secondary-container : badge succès */
   --secondary-15: #4edea326; /* secondary : badge succès, pastille en ligne */
   --tertiary-15: #ffb95f26; /* tertiary : badge attente */
@@ -222,6 +223,7 @@
 
   --color-primary-20: var(--primary-20);
   --color-primary-10: var(--primary-10);
+  --color-primary-40: var(--primary-40);
   --color-secondary-20: var(--secondary-20);
   --color-secondary-15: var(--secondary-15);
   --color-tertiary-15: var(--tertiary-15);

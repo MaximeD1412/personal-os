@@ -154,20 +154,20 @@
         </span>
 
         @if (estUneEcheance(evenement)) {
-        <span hlmBadge variant="destructive" data-test="echeance"
+        <span hlmBadge tone="error" data-test="echeance"
           >Échéance</span
         >
         } @else {
-        <span hlmBadge variant="outline"
+        <span hlmBadge variant="tag"
           >{{ nomDeLaCategorie(evenement.category) }}</span
         >
         } @if (evenement.reminderLeadMinutes !== null) {
-        <span hlmBadge variant="secondary" data-test="rappel">
+        <span hlmBadge tone="neutral" data-test="rappel">
           Rappel {{ libelleDuRappel(evenement.reminderLeadMinutes) }} avant
         </span>
         }
 
-        <span hlmBadge variant="secondary"
+        <span hlmBadge variant="tag"
           >{{ nomDeLEspace(evenement.scopeId) }}</span
         >
 

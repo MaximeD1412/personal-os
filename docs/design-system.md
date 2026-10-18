@@ -35,6 +35,7 @@ sert à vérifier une valeur.
 | Un composant qui a un équivalent spartan                                                | `packages/ui/<nom>` (`@personal-os/ui/<nom>`, préfixe `hlm`), un projet Nx par composant                                |
 | Un composant sans équivalent spartan                                                    | `packages/ui/dccm/src/<nom>/` (`@personal-os/ui/dccm`, préfixe `dccm`), exporté par `src/index.ts`                      |
 | Les stories                                                                             | à côté du composant, `*.stories.ts` sous `packages/ui/`                                                                 |
+| Les tests d'un composant                                                                | `*.spec.ts` à côté de lui (étape 5 de « Ajouter un composant »)                                                         |
 | Storybook                                                                               | porté par le projet `dccm` : `nx run dccm:storybook` (port 4400), `nx run dccm:build-storybook` (`dist/storybook/dccm`) |
 
 Storybook charge les polices puis `packages/dashboard/src/styles.css` : il voit
@@ -85,9 +86,9 @@ du même groupe, la dernière gagne. Deux pièges, couverts par
 `nx test utils` et `nx test button` :
 
 - tailwind-merge ne connaît que les noms de Tailwind. `hlm.ts` lui déclare
-  l'échelle typographique et les tailles d'icône ; un nouveau niveau
-  `--text-<niveau>` ou `--icon-<taille>` s'y ajoute (le test relit
-  `tokens.css`). Sans cela, `text-body-dense` passe pour une couleur et
+  l'échelle typographique, les espacements et les tailles d'icône ; un
+  nouveau `--text-<niveau>`, `--spacing-<nom>` ou `--icon-<taille>` s'y
+  ajoute (le test relit `tokens.css`). Sans cela, `text-body-dense` passe pour une couleur et
   disparaît devant `text-on-surface`.
 - `classes()` dédoublonne en gardant la **première** occurrence d'une classe.
   Une classe répétée d'une partie à l'autre d'un `cva` (la base et une
@@ -206,19 +207,19 @@ remplit dans la PR qui l'implémente.
 | 02 Forms        | `Tab/Active`           | `ms6qi`  | UI-5 (#106) | `HlmToggleGroupItem`, segment actif                                                                                  |
 | 02 Forms        | `Tab/Inactive`         | `dsKE8`  | UI-5 (#106) | `HlmToggleGroupItem`, segment inactif                                                                                |
 | 02 Forms        | `SegmentedControl`     | `ee30V`  | UI-5 (#106) | `HlmToggleGroup` (`@personal-os/ui/toggle-group`)                                                                    |
-| 03 Data Display | `Badge`                | `AsJMu`  | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `Tag`                  | `d6arwe` | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `Avatar`               | `qV14Y`  | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `ProgressBar`          | `phWRw`  | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `Divider`              | `n1yjU`  | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `CardTitle`            | `JNiEe`  | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `CardHeader`           | `t2Hdg8` | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `SectionHeader`        | `xvhC6`  | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `Card`                 | `F9aBD`  | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `KpiTile`              | `UmdUk`  | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `Table/HeaderCell`     | `b4QLdx` | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `Table/Cell`           | `sUITn`  | UI-6 (#107) |                                                                                                                      |
-| 03 Data Display | `ListRow`              | `DHctf`  | UI-6 (#107) |                                                                                                                      |
+| 03 Data Display | `Badge`                | `AsJMu`  | UI-6 (#107) | `HlmBadge` (`@personal-os/ui/badge`), `variant="badge"` et `"counter"`                                               |
+| 03 Data Display | `Tag`                  | `d6arwe` | UI-6 (#107) | `HlmBadge` `variant="tag"`                                                                                           |
+| 03 Data Display | `Avatar`               | `qV14Y`  | UI-6 (#107) | `HlmAvatar`, `HlmAvatarFallback` (`@personal-os/ui/avatar`)                                                          |
+| 03 Data Display | `ProgressBar`          | `phWRw`  | UI-6 (#107) | `HlmProgress`, `HlmProgressIndicator` (`@personal-os/ui/progress`)                                                   |
+| 03 Data Display | `Divider`              | `n1yjU`  | UI-6 (#107) | `HlmSeparator` (`@personal-os/ui/separator`)                                                                         |
+| 03 Data Display | `CardTitle`            | `JNiEe`  | UI-6 (#107) | `HlmCardTitle` (`@personal-os/ui/card`)                                                                              |
+| 03 Data Display | `CardHeader`           | `t2Hdg8` | UI-6 (#107) | `HlmCardHeader`, `HlmCardAction`, `HlmCardDescription`                                                               |
+| 03 Data Display | `SectionHeader`        | `xvhC6`  | UI-6 (#107) | `DccmSectionHeader` (`@personal-os/ui/dccm`)                                                                         |
+| 03 Data Display | `Card`                 | `F9aBD`  | UI-6 (#107) | `HlmCard`, `HlmCardContent`, `HlmCardFooter`                                                                         |
+| 03 Data Display | `KpiTile`              | `UmdUk`  | UI-6 (#107) | `DccmKpiTile` (`@personal-os/ui/dccm`)                                                                               |
+| 03 Data Display | `Table/HeaderCell`     | `b4QLdx` | UI-6 (#107) | `HlmTh` (`th[hlmTableHead]`, `@personal-os/ui/table`)                                                                |
+| 03 Data Display | `Table/Cell`           | `sUITn`  | UI-6 (#107) | `HlmTd` (`td[hlmTableCell]`), `HlmTable`, `HlmTr`…                                                                   |
+| 03 Data Display | `ListRow`              | `DHctf`  | UI-6 (#107) | `DccmListRow` (`@personal-os/ui/dccm`)                                                                               |
 | 04 Navigation   | `TopBar`               | `DVUUC`  | UI-2 (#60)  |                                                                                                                      |
 | 04 Navigation   | `Sidebar`              | `EDbRo`  | UI-2 (#60)  |                                                                                                                      |
 | 04 Navigation   | `Rail`                 | `GfuO7`  | UI-2 (#60)  |                                                                                                                      |
@@ -246,6 +247,73 @@ remplit dans la PR qui l'implémente.
 
 La planche `00 Foundations` n'a pas de master : elle est rendue par les stories
 `Foundations` (`packages/ui/dccm/src/foundations/`).
+
+## Affichage de données (UI-6)
+
+Les composants de la planche 03 Data Display, leurs stories sous
+`Data Display/*`. Ce que la traduction a tranché :
+
+### Les tonalités de badge
+
+Un badge dit un **sens**, pas une couleur. Le sens choisit la tonalité ; un
+libellé ou une icône l'accompagnent toujours (en développement, `HlmBadge`
+signale à la console un badge qui n'a ni l'un ni l'autre).
+
+| Sens                                   | `tone`    | Texte, point, icône  | Fond                         |
+| -------------------------------------- | --------- | -------------------- | ---------------------------- |
+| Validé, en ligne, sain                 | `success` | `secondary`          | `secondary-20` (`#00a57233`) |
+| En attente, bientôt, à venir           | `warning` | `tertiary`           | `tertiary-15` (`#ffb95f26`)  |
+| Alerte, dégradé, en échec              | `error`   | `error`              | `error-20` (`#93000a33`)     |
+| Information (par défaut)               | `info`    | `primary`            | `primary-20` (`#adc6ff33`)   |
+| Neutre (un état sans valeur, une date) | `neutral` | `on-surface-variant` | `surface-container-high`     |
+
+- `<span hlmBadge tone="warning" dot>En attente</span>` : `dot` pose un point
+  de 6 px dans la couleur du texte ; une `ng-icon` projetée avant le libellé
+  prend 16 px (`icon-xs`).
+- `variant="counter"` : le compteur de 16 px, dans la tonalité de son
+  contexte ; `solid` le remplit en `primary-container`.
+- `variant="tag"` : un **mot-clé** (lieu, rayon, sprint), pas un statut. Rayon
+  4, `surface-container-high`, texte `on-surface-variant` ; `accent` passe le
+  texte en `primary`.
+
+### Cartes et piliers
+
+- `hlmCard` (`variant="nested"` pour une carte dans une carte), puis
+  `hlmCardHeader` avec `hlmCardTitle`, `hlmCardDescription` et la zone de fin
+  `hlmCardAction`, `hlmCardContent`, `hlmCardFooter`. Le pied met en forme son
+  `<a>` enfant comme le lien du master (`primary`, 11/600, flèche 16).
+- L'icône de pilier est la première `ng-icon` du titre, colorée par
+  `hlmCardTitle [tone]` : Agenda et Projets `primary`, Sport et Finances
+  `secondary`, Repas, Stock et Courses `tertiary`, Infrastructure `outline`.
+  `dccm-kpi-tile` prend le même `tone`.
+- Pas d'ombre : la profondeur vient de la rampe de surfaces et de la bordure
+  `surface-container-highest`. Padding 16, 12 sous 768 px.
+- Les cartes métier (événement, repas, recette, séance) se composent dans leur
+  module avec ces directives, `hlmBadge` et `dccm-list-row`.
+
+### Lignes, tuiles et tableaux
+
+- **`DccmListRow`** : l'élément qui le porte dit l'usage. `<a dccmListRow>`
+  mène au détail (avec `chevron`), `<button dccmListRow>` agit,
+  `<dccm-list-row checkable [(checked)]>` porte une case à cocher, qui ne se
+  pose jamais dans un lien ou un bouton. Le titre est le libellé de la case :
+  il la nomme, et un clic dessus la bascule ; au clavier, Tab puis Espace.
+  Cochée, le titre est barré en `outline` ; `selected`, la ligne passe en
+  `primary-10` bordé de `primary-40`. Le titre est l'entrée `label` (pas
+  `title`, qui poserait une infobulle native) : la règle
+  `@angular-eslint/template/elements-content` l'accepte dans `dccm` et le
+  tableau de bord.
+- **`DccmKpiTile`** : sur un lien (`<a dccmKpiTile routerLink="…">`), toute la
+  tuile mène au module et une flèche le dit. Le statut est un texte
+  (`status`) ou un `hlmBadge` projeté. Son icône est un nom fourni par l'écran
+  (`provideIcons`).
+- **Tableau** : les directives spartan (`hlmTableContainer`, `hlmTable`,
+  `hlmTableHeader`, `hlmTableRow`, `hlmTableHead`, `hlmTableCell`). La cellule
+  principale d'une ligne s'écrit `class="font-semibold text-on-surface"` ; une
+  ligne sélectionnée porte `data-state="selected"`.
+- **`hlm()` connaît aussi les espacements pen** (`p-gutter`, `gap-space-md`),
+  pour que `p-gutter-compact md:p-gutter` de la carte se fusionne avec un
+  `p-*` passé par l'écran ; voir « Des jetons aux classes Tailwind ».
 
 ## Audit
 
@@ -279,6 +347,7 @@ Le `.pen` l'emporte ; `tokens.css` et les composants suivent sa colonne.
 | Ombre de popover            | `0 12px 32px -4px rgba(0,0,0,0.65)`                                                                                                               | `0 12px 32px` sans étalement, `#000000a6`                                                                                                                                   |
 | Fond de `Modal`             | `surface-container-high` (et la Foundations, « Modale / popover »)                                                                                | le master `Modal` est en `surface-container` ; à trancher par UI-3 sur le master                                                                                            |
 | `Tag`                       | fond `surface-container-highest` (`DESIGN.md`, UI-6)                                                                                              | `surface-container-high`                                                                                                                                                    |
+| Badge `success`             | `secondary` 15 % (`DESIGN.md`)                                                                                                                    | `secondary-container` 20 % (`secondary-20`) ; UI-6 suit le `.pen`                                                                                                           |
 | `Badge`                     | hauteur 22, padding 2/10                                                                                                                          | padding 2/8, hauteur à l'auto ; icône 14                                                                                                                                    |
 | `Tab` et `SegmentedControl` | segment 28 px, `label-regular` (12/500), inactif en `outline`                                                                                     | padding 4/8, libellé 11 (600 actif, 500 inactif), inactif en `on-surface-variant`                                                                                           |
 | `KpiTile`                   | sur-titre en `label-micro`                                                                                                                        | sur-titre 12/500, approche 1 px                                                                                                                                             |
@@ -310,13 +379,13 @@ Les masters et leurs galeries emploient des alphas que la Foundations ne liste
 pas. Chacune s'ajoutera à `tokens.css` dans la PR du composant qui la consomme
 (règle 7 de « Ajouter un composant ») :
 
-| Valeur                   | Lecture                         | Où                                                                                                                                                |
-| ------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `#ffb4ab4d`              | `error` 30 %                    | bordure de `Button/Destructive` : `--error-stroke-30` (UI-5 ; `error-30` désigne déjà `error-container`)                                          |
-| `#adc6ff66`              | `primary` 40 %                  | anneau de focus des galeries `Button` et `Input` : non retenu, UI-5 suit `DESIGN.md` (`primary-20`) ; bordure de ligne sélectionnée (`DESIGN.md`) |
-| `#ffb95f33`              | `tertiary` 20 %                 | fond d'icône de `Banner` (UI-3)                                                                                                                   |
-| `#4edea31a`              | `secondary` 10 %                | galeries                                                                                                                                          |
-| `#93000a66`              | `error-container` 40 %          | `Button/Destructive` pressé : `--error-40` (UI-5)                                                                                                 |
-| `#0a0e14e6`              | `surface-container-lowest` 90 % | fond de `TopBar` (UI-2)                                                                                                                           |
-| `#10141ae6`              | `surface` 90 %                  | fond de `MobileTabBar` et `MobileHeader` (UI-2)                                                                                                   |
-| `#00000080`, `#0000000d` | ombres                          | `TopBar`, sélecteur d'environnement (UI-2)                                                                                                        |
+| Valeur                   | Lecture                         | Où                                                                                                                                                                            |
+| ------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `#ffb4ab4d`              | `error` 30 %                    | bordure de `Button/Destructive` : `--error-stroke-30` (UI-5 ; `error-30` désigne déjà `error-container`)                                                                      |
+| `#adc6ff66`              | `primary` 40 %                  | anneau de focus des galeries `Button` et `Input` : non retenu, UI-5 suit `DESIGN.md` (`primary-20`) ; bordure de ligne sélectionnée (`DESIGN.md`) : **`--primary-40`** (UI-6) |
+| `#ffb95f33`              | `tertiary` 20 %                 | fond d'icône de `Banner` (UI-3)                                                                                                                                               |
+| `#4edea31a`              | `secondary` 10 %                | galeries                                                                                                                                                                      |
+| `#93000a66`              | `error-container` 40 %          | `Button/Destructive` pressé : `--error-40` (UI-5)                                                                                                                             |
+| `#0a0e14e6`              | `surface-container-lowest` 90 % | fond de `TopBar` (UI-2)                                                                                                                                                       |
+| `#10141ae6`              | `surface` 90 %                  | fond de `MobileTabBar` et `MobileHeader` (UI-2)                                                                                                                               |
+| `#00000080`, `#0000000d` | ombres                          | `TopBar`, sélecteur d'environnement (UI-2)                                                                                                                                    |

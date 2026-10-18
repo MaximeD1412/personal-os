@@ -20,6 +20,22 @@ import { extendTailwindMerge } from 'tailwind-merge';
  */
 const twMerge = extendTailwindMerge<'icon-size'>({
 	extend: {
+		theme: {
+			// Les espacements pen (`p-gutter`, `gap-space-md`) : sans eux,
+			// `p-gutter-compact md:p-gutter` ne se fusionne pas avec un `p-*`.
+			spacing: [
+				'space-xs',
+				'space-sm',
+				'space-md',
+				'space-lg',
+				'space-xl',
+				'space-2xl',
+				'gutter',
+				'gutter-compact',
+				'margin',
+				'margin-mobile',
+			],
+		},
 		classGroups: {
 			'font-size': [
 				{
