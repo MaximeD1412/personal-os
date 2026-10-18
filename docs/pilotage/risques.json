@@ -566,13 +566,13 @@
       "categorie": "ag",
       "gravite": "elevee",
       "titre": "Ticket ambigu : l'agent invente",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-10-18",
       "solutions": [
         {
           "texte": "Gabarit d'issue complet : aucune question à se poser",
-          "ref": "",
-          "fait": false
+          "ref": "pick-issue",
+          "fait": true
         },
         {
           "texte": "L'agent s'arrête par blocked.md plutôt que de trancher seul",
