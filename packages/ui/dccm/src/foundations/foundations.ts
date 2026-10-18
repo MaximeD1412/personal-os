@@ -84,6 +84,8 @@ export const PISTES_TEINTEES = [
   { jeton: 'tertiary-20', usage: 'bannière avertissement (tertiary-container)' },
   { jeton: 'error-20', usage: 'badge alerte, bouton destructif' },
   { jeton: 'error-30', usage: 'bannière critique' },
+  { jeton: 'error-40', usage: 'bouton destructif pressé (hors Foundations)' },
+  { jeton: 'error-stroke-30', usage: 'bordure du bouton destructif (error, hors Foundations)' },
 ];
 
 // Les classes sont écrites en entier pour que Tailwind les trouve.
@@ -123,6 +125,7 @@ export const RAYONS = [
 ];
 
 export const TAILLES_ICONE = [
+  { jeton: 'icon-2xs', classe: 'icon-2xs', usage: 'lien, onglet, case cochée (hors Foundations)' },
   { jeton: 'icon-xs', classe: 'icon-xs', usage: 'badges, tags, fil d’Ariane, tableaux denses' },
   { jeton: 'icon-sm', classe: 'icon-sm', usage: 'navigation, listes, boutons' },
   { jeton: 'icon-md', classe: 'icon-md', usage: 'en-têtes de carte, tuiles KPI' },
@@ -196,7 +199,7 @@ export class DccmFoundationsCouleurs {
   template: `
     <dccm-foundations-section
       titre="Pistes teintées"
-      description="Les seules valeurs alpha permises : des couleurs de la bibliothèque à 10, 15, 20 ou 30 %."
+      description="Les seules valeurs alpha permises : des couleurs de la bibliothèque à 10, 15, 20, 30 ou 40 %."
     >
       <ul class="flex flex-wrap gap-space-md">
         @for (piste of pistes; track piste.jeton) {

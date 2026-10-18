@@ -16,6 +16,6 @@ import { classes } from '@personal-os/ui/utils';
 })
 export class HlmSelectScrollDown {
 	constructor() {
-		classes(() => "bg-popover z-10 flex cursor-default items-center justify-center py-1 [&_ng-icon:not([class*='text-'])]:text-[length:--spacing(4)] sticky bottom-0 w-full data-hidden:hidden");
+		classes(() => "bg-surface-container-high text-outline [&_ng-icon]:icon-xs z-10 flex cursor-default items-center justify-center py-1 sticky bottom-0 w-full data-hidden:hidden");
 	}
 }

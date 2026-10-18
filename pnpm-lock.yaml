@@ -131,7 +131,7 @@ importers:
         version: 11.1.28(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.28)(@nestjs/platform-express@11.1.28)
       '@nx/angular':
         specifier: 23.1.1
-        version: 23.1.1(e0a213360967854d180619a59c435820)
+        version: 23.1.1(68f9f699816f0f56311b69f72541849c)
       '@nx/eslint':
         specifier: 23.1.1
         version: 23.1.1(@babel/traverse@7.29.8)(@nx/jest@23.1.1(@babel/traverse@7.29.8)(@types/node@22.20.1)(babel-plugin-macros@3.1.0)(jest@30.3.0(@types/node@22.20.1)(babel-plugin-macros@3.1.0)(ts-node@10.9.1(@types/node@22.20.1)(typescript@6.0.3)))(nx@23.1.1)(ts-jest@29.4.12(@babel/core@7.29.7)(@jest/transform@30.4.1)(@jest/types@30.4.1)(babel-jest@30.4.1(@babel/core@7.29.7))(jest-util@30.3.0)(jest@30.3.0(@types/node@22.20.1)(babel-plugin-macros@3.1.0)(ts-node@10.9.1(@types/node@22.20.1)(typescript@6.0.3)))(typescript@6.0.3))(ts-node@10.9.1(@types/node@22.20.1)(typescript@6.0.3))(typescript@6.0.3))(@zkochan/js-yaml@0.0.7)(eslint@9.39.5(jiti@2.7.0))(nx@23.1.1)
@@ -246,6 +246,9 @@ importers:
       storybook:
         specifier: ^10.6.2
         version: 10.6.2(@types/react@19.2.18)(prettier@3.6.2)(react@19.2.8)
+      storybook-addon-pseudo-states:
+        specifier: ^10.6.2
+        version: 10.6.2(storybook@10.6.2(@types/react@19.2.18)(prettier@3.6.2)(react@19.2.8))
       supertest:
         specifier: ^7.2.2
         version: 7.2.2
@@ -9097,6 +9100,11 @@ packages:
     resolution: {integrity: sha512-eCPu1qRxPVkl5605OTWF8Wz40b4Mf45NY5LQmVPQ599knfs5QhASUm9GbJ5BDMDOXgrnh0wyEdvzmL//YMlw0A==}
     engines: {node: '>=18'}
 
+  storybook-addon-pseudo-states@10.6.2:
+    resolution: {integrity: sha512-JXzmpXTFTjN//Z9xzxTc74Bqf+n86YH8MlJhj3pe8c7FvGoTQfFwWni81sk8Cj/tTAkh3QPfU9LeFAYjAUZUsg==}
+    peerDependencies:
+      storybook: ^10.6.2
+
   storybook@10.6.2:
     resolution: {integrity: sha512-qHDINMiapxFUxYb+xC3j8u7Y+85X3u+/PlytE/wmnyg+bU0agCW3jUmWP4vIh2MioO2jTK/2B3Lcw6IpRFzQBA==}
     hasBin: true
@@ -13030,7 +13038,7 @@ snapshots:
       - webpack-cli
       - webpack-dev-server
 
-  '@nx/angular@23.1.1(e0a213360967854d180619a59c435820)':
+  '@nx/angular@23.1.1(68f9f699816f0f56311b69f72541849c)':
     dependencies:
       '@angular-devkit/core': 22.0.9(chokidar@5.0.0)
       '@angular-devkit/schematics': 22.0.9(chokidar@5.0.0)
@@ -13038,7 +13046,7 @@ snapshots:
       '@nx/eslint': 23.1.1(@babel/traverse@7.29.8)(@nx/jest@23.1.1(@babel/traverse@7.29.8)(@types/node@22.20.1)(babel-plugin-macros@3.1.0)(jest@30.3.0(@types/node@22.20.1)(babel-plugin-macros@3.1.0)(ts-node@10.9.1(@types/node@22.20.1)(typescript@6.0.3)))(nx@23.1.1)(ts-jest@29.4.12(@babel/core@7.29.7)(@jest/transform@30.4.1)(@jest/types@30.4.1)(babel-jest@30.4.1(@babel/core@7.29.7))(jest-util@30.3.0)(jest@30.3.0(@types/node@22.20.1)(babel-plugin-macros@3.1.0)(ts-node@10.9.1(@types/node@22.20.1)(typescript@6.0.3)))(typescript@6.0.3))(ts-node@10.9.1(@types/node@22.20.1)(typescript@6.0.3))(typescript@6.0.3))(@zkochan/js-yaml@0.0.7)(eslint@9.39.5(jiti@2.7.0))(nx@23.1.1)
       '@nx/js': 23.1.1(@babel/traverse@7.29.8)(nx@23.1.1)
       '@nx/module-federation': 23.1.1(0a4afbf6c3b75804bd6f0e230bdc0b91)
-      '@nx/rspack': 23.1.1(786000e0c6d55f02a50f118b6bf23e07)
+      '@nx/rspack': 23.1.1(086109ece0dcc74d776e6015127e1bca)
       '@nx/web': 23.1.1(48dc0763ed2d2f0410d4bca1b8cd433f)
       '@nx/webpack': 23.1.1(@babel/traverse@7.29.8)(@rspack/core@2.1.7(@swc/helpers@0.5.23))(html-webpack-plugin@5.6.8(@rspack/core@2.1.7(@swc/helpers@0.5.23))(webpack@5.105.2))(lightningcss@1.33.0)(nx@23.1.1)(typescript@6.0.3)(webpack-cli@7.2.2)(webpack-dev-server@5.2.6)(webpack@5.105.2)
       '@phenomnomnominal/tsquery': 6.2.0(typescript@6.0.3)
@@ -13459,74 +13467,6 @@ snapshots:
       express: 4.22.2
       http-proxy-middleware: 3.0.7
       less-loader: 12.3.3(@rspack/core@2.1.7(@swc/helpers@0.5.23))(less@4.9.1)(webpack@5.105.2)
-      license-webpack-plugin: 4.0.2(webpack@5.105.2)
-      loader-utils: 2.0.4
-      parse5: 4.0.0
-      picocolors: 1.1.1
-      postcss: 8.5.28
-      postcss-import: 14.1.0(postcss@8.5.28)
-      postcss-loader: 8.2.1(@rspack/core@2.1.7(@swc/helpers@0.5.23))(postcss@8.5.28)(typescript@6.0.3)(webpack@5.105.2)
-      sass: 1.104.1
-      sass-embedded: 1.100.0
-      sass-loader: 16.0.8(@rspack/core@2.1.7(@swc/helpers@0.5.23))(sass-embedded@1.100.0)(sass@1.104.1)(webpack@5.105.2)
-      semver: 7.8.5
-      source-map-loader: 5.0.0(webpack@5.105.2)
-      style-loader: 3.3.4(webpack@5.105.2)
-      ts-checker-rspack-plugin: 1.6.0(@rspack/core@2.1.7(@swc/helpers@0.5.23))(tslib@2.8.1)(typescript@6.0.3)
-      tslib: 2.8.1
-      webpack: 5.105.2(lightningcss@1.33.0)(postcss@8.5.28)(webpack-cli@7.2.2)
-      webpack-node-externals: 3.0.0
-    optionalDependencies:
-      '@rspack/core': 2.1.7(@swc/helpers@0.5.23)
-    transitivePeerDependencies:
-      - '@babel/traverse'
-      - '@minify-html/node'
-      - '@module-federation/enhanced'
-      - '@module-federation/node'
-      - '@module-federation/runtime-tools'
-      - '@nx/cypress'
-      - '@nx/eslint'
-      - '@nx/jest'
-      - '@nx/playwright'
-      - '@nx/vite'
-      - '@nx/webpack'
-      - '@swc-node/register'
-      - '@swc/cli'
-      - '@swc/core'
-      - '@swc/css'
-      - '@swc/helpers'
-      - '@swc/html'
-      - '@typescript/native-preview'
-      - clean-css
-      - cssnano
-      - csso
-      - debug
-      - esbuild
-      - html-minifier-terser
-      - less
-      - lightningcss
-      - node-sass
-      - nx
-      - supports-color
-      - typescript
-      - uglify-js
-      - verdaccio
-      - webpack-cli
-
-  '@nx/rspack@23.1.1(786000e0c6d55f02a50f118b6bf23e07)':
-    dependencies:
-      '@nx/devkit': 23.1.1(nx@23.1.1)
-      '@nx/js': 23.1.1(@babel/traverse@7.29.8)(nx@23.1.1)
-      '@nx/module-federation': 23.1.1(3981222142a1e6c4efb576f7d762d698)
-      '@nx/web': 23.1.1(48dc0763ed2d2f0410d4bca1b8cd433f)
-      '@phenomnomnominal/tsquery': 6.2.0(typescript@6.0.3)
-      autoprefixer: 10.6.0(postcss@8.5.28)
-      browserslist: 4.29.3
-      css-loader: 6.11.0(@rspack/core@2.1.7(@swc/helpers@0.5.23))(webpack@5.105.2)
-      enquirer: 2.3.6
-      express: 4.22.2
-      http-proxy-middleware: 3.0.7
-      less-loader: 12.3.3(@rspack/core@2.1.7(@swc/helpers@0.5.23))(less@4.5.1)(webpack@5.105.2)
       license-webpack-plugin: 4.0.2(webpack@5.105.2)
       loader-utils: 2.0.4
       parse5: 4.0.0
@@ -20855,6 +20795,10 @@ snapshots:
   std-env@3.10.0: {}
 
   stdin-discarder@0.3.2: {}
+
+  storybook-addon-pseudo-states@10.6.2(storybook@10.6.2(@types/react@19.2.18)(prettier@3.6.2)(react@19.2.8)):
+    dependencies:
+      storybook: 10.6.2(@types/react@19.2.18)(prettier@3.6.2)(react@19.2.8)
 
   storybook@10.6.2(@types/react@19.2.18)(prettier@3.6.2)(react@19.2.8):
     dependencies:

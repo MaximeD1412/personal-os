@@ -14,7 +14,7 @@ import { classes } from '@personal-os/ui/utils';
 	template: `
 		<ng-content />
 		@if (_active()) {
-			<ng-icon name="matCheckOutline" class="absolute end-2 flex items-center justify-center text-[length:--spacing(4)]" aria-hidden="true" />
+			<ng-icon name="matCheckOutline" class="text-primary absolute end-2 flex items-center justify-center" aria-hidden="true" />
 		}
 	`,
 })
@@ -26,7 +26,7 @@ export class HlmSelectItem {
 	constructor() {
 		classes(
 			() =>
-				'data-highlighted:bg-accent data-highlighted:text-accent-foreground not-data-[variant=destructive]:data-highlighted:**:text-accent-foreground gap-2 rounded-sm py-1.5 ps-2 pe-8 text-sm *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 relative flex w-full cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_ng-icon]:pointer-events-none [&_ng-icon]:shrink-0',
+				'data-highlighted:bg-surface-container-highest text-body-dense text-on-surface relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 ps-2 pe-8 outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-40 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 [&_ng-icon]:icon-xs [&_ng-icon]:pointer-events-none [&_ng-icon]:shrink-0',
 		);
 	}
 }

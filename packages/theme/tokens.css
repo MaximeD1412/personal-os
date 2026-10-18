@@ -94,6 +94,11 @@
   --tertiary-20: #ca810033; /* tertiary-container : bannière avertissement */
   --error-20: #93000a33; /* error-container : badge alerte, bouton destructif */
   --error-30: #93000a4d; /* error-container : bannière critique */
+  /* Pistes qu'un master emploie hors de la Foundations (audit de
+     docs/design-system.md). `error-stroke-30` est `error` à 30 % : le nom
+     `error-30` désigne déjà `error-container`. */
+  --error-40: #93000a66; /* error-container : bouton destructif pressé */
+  --error-stroke-30: #ffb4ab4d; /* error : bordure du bouton destructif */
 
   /* Espacements, incrément de 4 px. */
   --space-xs: 4px;
@@ -119,8 +124,10 @@
   --font-mono:
     'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Tailles d'icône (Material Symbols Outlined) : badges et tableaux denses,
-     navigation et boutons, en-têtes de carte, barre d'onglets, état vide. */
+  /* Tailles d'icône (Material Symbols Outlined) : lien, onglet et case cochée
+     (14, hors Foundations), badges et tableaux denses, navigation et boutons,
+     en-têtes de carte, barre d'onglets, état vide. */
+  --icon-2xs: 14px;
   --icon-xs: 16px;
   --icon-sm: 18px;
   --icon-md: 20px;
@@ -221,6 +228,8 @@
   --color-tertiary-20: var(--tertiary-20);
   --color-error-20: var(--error-20);
   --color-error-30: var(--error-30);
+  --color-error-40: var(--error-40);
+  --color-error-stroke-30: var(--error-stroke-30);
 
   --spacing-space-xs: var(--space-xs);
   --spacing-space-sm: var(--space-sm);
@@ -304,6 +313,9 @@
 }
 
 /* Les tailles d'icône, pour `ng-icon` : `<ng-icon class="icon-sm" …>`. */
+@utility icon-2xs {
+  --ng-icon__size: var(--icon-2xs);
+}
 @utility icon-xs {
   --ng-icon__size: var(--icon-xs);
 }

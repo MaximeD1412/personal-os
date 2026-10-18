@@ -4,6 +4,12 @@
     "emitDecoratorMetadata": true,
     "resolveJsonModule": true
   },
-  "exclude": ["../../**/*.spec.ts"],
-  "include": ["../../**/*.stories.ts", "preview.ts", "theme.ts"]
+  "exclude": ["../../**/*.spec.ts", "../../**/test-setup.ts"],
+  "include": [
+    "../../**/*.stories.ts",
+    "../../*/src/**/*.ts",
+    "../src/**/*.ts",
+    "preview.ts",
+    "theme.ts"
+  ]
 }
