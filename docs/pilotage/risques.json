@@ -21,7 +21,12 @@
       "titre": "Agents et projet"
     }
   ],
-  "statuts": ["ouvert", "solution choisie", "implémenté", "accepté"],
+  "statuts": [
+    "ouvert",
+    "solution choisie",
+    "implémenté",
+    "accepté"
+  ],
   "risques": [
     {
       "id": "SEC-1",
@@ -52,7 +57,11 @@
           "fait": false
         }
       ],
-      "tickets": ["CUISINE-5", "SOCLE-5", "SOCLE-6"]
+      "tickets": [
+        "CUISINE-5",
+        "SOCLE-5",
+        "SOCLE-6"
+      ]
     },
     {
       "id": "SEC-2",
@@ -73,7 +82,12 @@
           "fait": false
         }
       ],
-      "tickets": ["PORTFOLIO-1", "PORTFOLIO-2", "PORTFOLIO-3", "PORTFOLIO-5"]
+      "tickets": [
+        "PORTFOLIO-1",
+        "PORTFOLIO-2",
+        "PORTFOLIO-3",
+        "PORTFOLIO-5"
+      ]
     },
     {
       "id": "SEC-3",
@@ -94,7 +108,10 @@
           "fait": false
         }
       ],
-      "tickets": ["INFRA-8", "INFRA-9"]
+      "tickets": [
+        "INFRA-8",
+        "INFRA-9"
+      ]
     },
     {
       "id": "SEC-4",
@@ -115,7 +132,11 @@
           "fait": false
         }
       ],
-      "tickets": ["INFRA-6", "INFRA-7", "INFRA-9"]
+      "tickets": [
+        "INFRA-6",
+        "INFRA-7",
+        "INFRA-9"
+      ]
     },
     {
       "id": "SEC-5",
@@ -141,7 +162,10 @@
           "fait": false
         }
       ],
-      "tickets": ["INFRA-1", "INFRA-5"]
+      "tickets": [
+        "INFRA-1",
+        "INFRA-5"
+      ]
     },
     {
       "id": "SEC-6",
@@ -162,7 +186,13 @@
           "fait": false
         }
       ],
-      "tickets": ["CMD-1", "CMD-2", "CMD-3", "CUISINE-14", "CUISINE-16"]
+      "tickets": [
+        "CMD-1",
+        "CMD-2",
+        "CMD-3",
+        "CUISINE-14",
+        "CUISINE-16"
+      ]
     },
     {
       "id": "IA-1",
@@ -183,7 +213,12 @@
           "fait": false
         }
       ],
-      "tickets": ["CUISINE-1", "CUISINE-16", "CUISINE-17", "FOYER-2"]
+      "tickets": [
+        "CUISINE-1",
+        "CUISINE-16",
+        "CUISINE-17",
+        "FOYER-2"
+      ]
     },
     {
       "id": "IA-2",
@@ -199,7 +234,11 @@
           "fait": false
         }
       ],
-      "tickets": ["CMD-2", "CUISINE-14", "CUISINE-16"]
+      "tickets": [
+        "CMD-2",
+        "CUISINE-14",
+        "CUISINE-16"
+      ]
     },
     {
       "id": "IA-3",
@@ -220,7 +259,11 @@
           "fait": false
         }
       ],
-      "tickets": ["CUISINE-14", "CUISINE-16", "CUISINE-3"]
+      "tickets": [
+        "CUISINE-14",
+        "CUISINE-16",
+        "CUISINE-3"
+      ]
     },
     {
       "id": "IA-4",
@@ -236,7 +279,9 @@
           "fait": false
         }
       ],
-      "tickets": ["CUISINE-14"]
+      "tickets": [
+        "CUISINE-14"
+      ]
     },
     {
       "id": "OPS-1",
@@ -262,7 +307,11 @@
           "fait": false
         }
       ],
-      "tickets": ["DASH-3", "INFRA-13", "PORTFOLIO-4"]
+      "tickets": [
+        "DASH-3",
+        "INFRA-13",
+        "PORTFOLIO-4"
+      ]
     },
     {
       "id": "OPS-2",
@@ -288,7 +337,9 @@
           "fait": true
         }
       ],
-      "tickets": ["INFRA-8"]
+      "tickets": [
+        "INFRA-8"
+      ]
     },
     {
       "id": "OPS-3",
@@ -304,7 +355,9 @@
           "fait": false
         }
       ],
-      "tickets": ["INFRA-7"]
+      "tickets": [
+        "INFRA-7"
+      ]
     },
     {
       "id": "OPS-4",
@@ -330,7 +383,9 @@
           "fait": true
         }
       ],
-      "tickets": ["INFRA-11"]
+      "tickets": [
+        "INFRA-11"
+      ]
     },
     {
       "id": "OPS-5",
@@ -372,7 +427,11 @@
           "fait": false
         }
       ],
-      "tickets": ["CUISINE-10", "CUISINE-11", "CUISINE-8"]
+      "tickets": [
+        "CUISINE-10",
+        "CUISINE-11",
+        "CUISINE-8"
+      ]
     },
     {
       "id": "CUI-2",
@@ -393,7 +452,10 @@
           "fait": false
         }
       ],
-      "tickets": ["CUISINE-2", "CUISINE-9"]
+      "tickets": [
+        "CUISINE-2",
+        "CUISINE-9"
+      ]
     },
     {
       "id": "CUI-3",
@@ -414,7 +476,12 @@
           "fait": false
         }
       ],
-      "tickets": ["CUISINE-1", "CUISINE-3", "CUISINE-4", "CUISINE-6"]
+      "tickets": [
+        "CUISINE-1",
+        "CUISINE-3",
+        "CUISINE-4",
+        "CUISINE-6"
+      ]
     },
     {
       "id": "AG-1",
@@ -450,7 +517,13 @@
           "fait": true
         }
       ],
-      "tickets": ["INFRA-1", "INFRA-4", "INFRA-6", "INFRA-7", "INFRA-8"]
+      "tickets": [
+        "INFRA-1",
+        "INFRA-4",
+        "INFRA-6",
+        "INFRA-7",
+        "INFRA-8"
+      ]
     },
     {
       "id": "AG-2",
@@ -507,7 +580,10 @@
           "fait": true
         }
       ],
-      "tickets": ["INFRA-1", "INFRA-2"]
+      "tickets": [
+        "INFRA-1",
+        "INFRA-2"
+      ]
     },
     {
       "id": "AG-4",
@@ -528,7 +604,15 @@
           "fait": false
         }
       ],
-      "tickets": ["INFRA-10", "UI-1", "UI-2", "UI-3", "UI-4", "UI-5", "UI-6"]
+      "tickets": [
+        "INFRA-10",
+        "UI-1",
+        "UI-2",
+        "UI-3",
+        "UI-4",
+        "UI-5",
+        "UI-6"
+      ]
     },
     {
       "id": "AG-5",
@@ -549,7 +633,10 @@
           "fait": false
         }
       ],
-      "tickets": ["INFRA-1", "INFRA-3"]
+      "tickets": [
+        "INFRA-1",
+        "INFRA-3"
+      ]
     },
     {
       "id": "AG-6",
@@ -565,7 +652,9 @@
           "fait": true
         }
       ],
-      "tickets": ["INFRA-1"]
+      "tickets": [
+        "INFRA-1"
+      ]
     },
     {
       "id": "PROJ-1",
