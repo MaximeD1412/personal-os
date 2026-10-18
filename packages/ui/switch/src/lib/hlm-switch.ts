@@ -55,7 +55,10 @@ export class HlmSwitch implements ControlValueAccessor {
 	public readonly userClass = input<ClassValue>('', { alias: 'class' });
 	protected readonly _computedClass = computed(() =>
 		hlm(
-			'group/switch inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent outline-none transition-[background-color,border-color,box-shadow,opacity]',
+			'group/switch relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent outline-none transition-[background-color,border-color,box-shadow,opacity,scale]',
+			// L'interrupteur reste à 36 × 20, sa cible tactile fait 36 × 36 (DESIGN.md).
+			'after:absolute after:top-1/2 after:left-1/2 after:h-9 after:w-9 after:-translate-1/2',
+			'active:not-disabled:scale-98',
 			'data-checked:bg-primary data-unchecked:bg-surface-container-highest hover:not-disabled:data-checked:bg-primary-fixed hover:not-disabled:data-unchecked:bg-surface-bright',
 			'focus-visible:border-primary focus-visible:ring-primary-20 focus-visible:ring-2',
 			'data-[matches-spartan-invalid=true]:border-error disabled:cursor-not-allowed disabled:opacity-40',

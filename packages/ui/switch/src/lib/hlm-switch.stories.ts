@@ -41,6 +41,7 @@ export const Etats: Story = {
     pseudo: {
       hover: '[data-etat=hover] button',
       focusVisible: '[data-etat=focus] button',
+      active: '[data-etat=pressed] button',
     },
   },
   render: () => ({
@@ -50,6 +51,7 @@ export const Etats: Story = {
         ${echantillon('off', '<hlm-switch aria-label="Rappels" />')}
         ${echantillon('hover', '<span data-etat="hover"><hlm-switch aria-label="Rappels" checked /></span>')}
         ${echantillon('focus', '<span data-etat="focus"><hlm-switch aria-label="Rappels" checked /></span>')}
+        ${echantillon('pressed', '<span data-etat="pressed"><hlm-switch aria-label="Rappels" checked /></span>')}
         ${echantillon('disabled', '<hlm-switch aria-label="Rappels" checked disabled />')}
         ${echantillon('off disabled', '<hlm-switch aria-label="Rappels" disabled />')}
       </div>`,

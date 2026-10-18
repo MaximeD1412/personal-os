@@ -13,13 +13,21 @@ import { HlmButton } from './hlm-button';
     >
       Enregistrer
     </button>
-    <a hlmBtn href="/ailleurs" [loading]="enCours()">Ouvrir</a>
+    <a
+      hlmBtn
+      href="/ailleurs"
+      [loading]="enCours()"
+      [disabled]="desactive()"
+      (click)="clicsLien = clicsLien + 1"
+      >Ouvrir</a
+    >
   `,
 })
 class Hote {
   readonly enCours = signal(false);
   readonly desactive = signal(false);
   clics = 0;
+  clicsLien = 0;
 }
 
 function rendre() {
@@ -65,6 +73,33 @@ describe('HlmButton', () => {
     fixture.detectChanges();
 
     expect(bouton.disabled).toBe(true);
+  });
+
+  it("un lien en chargement ou désactivé n'appelle pas son gestionnaire (click)", () => {
+    const { fixture, hote, lien } = rendre();
+    hote.enCours.set(true);
+    fixture.detectChanges();
+    lien.click();
+    expect(hote.clicsLien).toBe(0);
+
+    hote.enCours.set(false);
+    hote.desactive.set(true);
+    fixture.detectChanges();
+    lien.click();
+    expect(hote.clicsLien).toBe(0);
+
+    hote.desactive.set(false);
+    fixture.detectChanges();
+    lien.dispatchEvent(new MouseEvent('click', { cancelable: true, bubbles: true }));
+    expect(hote.clicsLien).toBe(1);
+  });
+
+  it('un bouton en chargement ou désactivé n’appelle pas son gestionnaire (click)', () => {
+    const { fixture, hote, bouton } = rendre();
+    hote.enCours.set(true);
+    fixture.detectChanges();
+    bouton.dispatchEvent(new MouseEvent('click', { cancelable: true, bubbles: true }));
+    expect(hote.clics).toBe(0);
   });
 
   it('un lien en chargement ne navigue pas et sort de la tabulation', () => {

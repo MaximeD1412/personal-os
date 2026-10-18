@@ -4,6 +4,8 @@ import {
 	ChangeDetectionStrategy,
 	Component,
 	computed,
+	DestroyRef,
+	ElementRef,
 	HOST_TAG_NAME,
 	inject,
 	input,
@@ -104,7 +106,6 @@ export type ButtonVariants = VariantProps<typeof buttonVariants>;
 		'[attr.tabindex]': '_isAnchor && _disabled() ? -1 : null',
 		'[attr.data-loading]': 'loading() ? true : null',
 		'[attr.aria-busy]': 'loading() ? true : null',
-		'(click)': '_bloquerSiDesactive($event)',
 	},
 	template: `
 		@if (loading()) {
@@ -135,6 +136,14 @@ export class HlmButton {
 	protected readonly _disabled = computed(() => this.disabled() || this.loading());
 
 	constructor() {
+		// En capture sur l'hôte : l'écouteur passe avant ceux qu'Angular pose
+		// pour les `(click)` du template parent, qu'un `stopImmediatePropagation`
+		// en phase de bouillonnement n'arrêterait pas.
+		const hote: HTMLElement = inject(ElementRef).nativeElement;
+		const bloquer = (event: Event) => this._bloquerSiDesactive(event);
+		hote.addEventListener('click', bloquer, { capture: true });
+		inject(DestroyRef).onDestroy(() => hote.removeEventListener('click', bloquer, { capture: true }));
+
 		classes(() => [
 			buttonVariants({ variant: this.variant(), size: this.size(), fullWidth: this.fullWidth() }),
 			this._additionalClasses(),
@@ -145,8 +154,12 @@ export class HlmButton {
 		this._additionalClasses.set(classes);
 	}
 
-	/** Un lien n'a pas d'attribut `disabled` : son clic est annulé ici. */
-	protected _bloquerSiDesactive(event: Event): void {
+	/**
+	 * Un lien n'a pas d'attribut `disabled`, et un clic synthétique atteint
+	 * même un bouton désactivé : désactivé ou en chargement, le clic est annulé
+	 * avant tout gestionnaire.
+	 */
+	private _bloquerSiDesactive(event: Event): void {
 		if (!this._disabled()) return;
 		event.preventDefault();
 		event.stopImmediatePropagation();

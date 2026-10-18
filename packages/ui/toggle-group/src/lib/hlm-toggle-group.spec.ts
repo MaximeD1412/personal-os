@@ -115,4 +115,38 @@ describe('HlmToggleGroup (SegmentedControl)', () => {
     touche(segments[0], 'ArrowRight');
     expect(actifs()).toEqual(['Liste']);
   });
+
+  it('se désactive avec le FormControl, segments et clavier compris, puis se réactive', () => {
+    const { fixture, hote, segments, actifs, touche } = rendre();
+    hote.periode.disable();
+    fixture.detectChanges();
+
+    expect(segments.map((s) => s.disabled)).toEqual([true, true, true]);
+    expect(segments.map((s) => s.tabIndex)).toEqual([-1, -1, -1]);
+    segments[1].click();
+    touche(segments[0], 'ArrowRight');
+    expect(actifs()).toEqual(['Semaine']);
+
+    hote.periode.enable();
+    fixture.detectChanges();
+    expect(segments.map((s) => s.disabled)).toEqual([false, false, false]);
+    expect(segments.map((s) => s.tabIndex)).toEqual([0, -1, -1]);
+  });
+
+  it('garde une entrée dans la tabulation quand le segment actif est désactivé', () => {
+    const { fixture, hote, segments } = rendre();
+    hote.periode.setValue('mois');
+    hote.moisDesactive.set(true);
+    fixture.detectChanges();
+
+    expect(segments.map((s) => s.tabIndex)).toEqual([0, -1, -1]);
+  });
+
+  it('sans valeur, ne laisse que le premier segment disponible dans la tabulation', () => {
+    const { fixture, hote, segments } = rendre();
+    hote.periode.setValue(null);
+    fixture.detectChanges();
+
+    expect(segments.map((s) => s.tabIndex)).toEqual([0, -1, -1]);
+  });
 });

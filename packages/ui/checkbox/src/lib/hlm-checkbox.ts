@@ -70,7 +70,10 @@ export class HlmCheckbox implements ControlValueAccessor {
 
 	protected readonly _computedClass = computed(() =>
 		hlm(
-			'peer border-outline-variant bg-surface-container-lowest text-on-primary flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-sm border-[1.5px] outline-none transition-[border-color,background-color,box-shadow,opacity]',
+			'peer border-outline-variant bg-surface-container-lowest text-on-primary relative flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-sm border-[1.5px] outline-none transition-[border-color,background-color,box-shadow,opacity,scale]',
+			// La case reste à 18 px, sa cible tactile fait 36 × 36 (DESIGN.md).
+			'after:absolute after:top-1/2 after:left-1/2 after:size-9 after:-translate-1/2',
+			'active:not-disabled:scale-98',
 			'hover:not-disabled:data-unchecked:border-outline data-checked:border-primary data-checked:bg-primary',
 			'focus-visible:border-primary focus-visible:ring-primary-20 focus-visible:border-2 focus-visible:ring-2',
 			'data-[matches-spartan-invalid=true]:border-error disabled:cursor-not-allowed disabled:opacity-40',

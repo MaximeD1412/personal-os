@@ -1,4 +1,4 @@
-import { contentChildren, Directive, forwardRef, input } from '@angular/core';
+import { computed, contentChildren, Directive, forwardRef, input } from '@angular/core';
 import { NG_VALUE_ACCESSOR } from '@angular/forms';
 import { BrnToggleGroup, provideBrnToggleGroup } from '@spartan-ng/brain/toggle-group';
 import { classes } from '@personal-os/ui/utils';
@@ -47,7 +47,16 @@ const PAS: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1
 export class HlmToggleGroup<T = unknown> extends BrnToggleGroup<T> {
 	public readonly size = input<ToggleGroupVariants['size']>('sm');
 
-	private readonly _segments = contentChildren(HlmToggleGroupItem, { descendants: true });
+	private readonly _segments = contentChildren<HlmToggleGroupItem<T>>(HlmToggleGroupItem, { descendants: true });
+
+	/**
+	 * Le segment qui reçoit la tabulation : l'actif s'il est disponible, sinon
+	 * le premier disponible, pour qu'un groupe reste atteignable au clavier.
+	 */
+	readonly segmentTabulable = computed(() => {
+		const disponibles = this._segments().filter((segment) => !segment.desactive());
+		return disponibles.find((segment) => segment.actif()) ?? disponibles[0];
+	});
 
 	constructor() {
 		super();
@@ -63,7 +72,7 @@ export class HlmToggleGroup<T = unknown> extends BrnToggleGroup<T> {
 		const segments = this._segments().filter((segment) => !segment.desactive());
 		const courant = segments.findIndex((segment) => segment.element.contains(event.target as Node));
 		const pas = PAS[event.key];
-		let cible: HlmToggleGroupItem | undefined;
+		let cible: HlmToggleGroupItem<T> | undefined;
 		if (event.key === 'Home') cible = segments[0];
 		else if (event.key === 'End') cible = segments[segments.length - 1];
 		else if (pas && courant >= 0) cible = segments[(courant + pas + segments.length) % segments.length];

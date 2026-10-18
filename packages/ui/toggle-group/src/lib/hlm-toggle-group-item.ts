@@ -1,7 +1,9 @@
-import { computed, Directive, ElementRef, inject } from '@angular/core';
-import { BrnToggleGroupItem } from '@spartan-ng/brain/toggle-group';
+import type { BooleanInput } from '@angular/cdk/coercion';
+import { booleanAttribute, computed, Directive, ElementRef, inject, input } from '@angular/core';
+import type { BrnToggleGroupItem } from '@spartan-ng/brain/toggle-group';
 import { classes } from '@personal-os/ui/utils';
 import { cva } from 'class-variance-authority';
+import type { HlmToggleGroup } from './hlm-toggle-group';
 import { injectHlmToggleGroup } from './hlm-toggle-group.token';
 
 /** Les masters `Tab/Active` (`data-state="on"`) et `Tab/Inactive`. */
@@ -25,37 +27,46 @@ export const toggleGroupItemVariants = cva(
 	},
 );
 
+/**
+ * Un segment. Il ne passe pas par `BrnToggleGroupItem`, qui ne lit que
+ * l'entrée `disabled` du groupe : un groupe désactivé par son `FormControl`
+ * (`disabledState`) y resterait cliquable et dans la tabulation.
+ */
 @Directive({
 	selector: 'button[hlmToggleGroupItem]',
-	hostDirectives: [
-		{
-			directive: BrnToggleGroupItem,
-			inputs: ['id', 'value', 'disabled', 'aria-label', 'type'],
-		},
-	],
 	host: {
 		'data-slot': 'toggle-group-item',
+		type: 'button',
+		'[attr.disabled]': 'desactive() ? true : null',
+		'[attr.data-disabled]': 'desactive() ? true : null',
+		'[attr.data-state]': 'actif() ? "on" : "off"',
+		'[attr.aria-pressed]': 'actif()',
 		'[attr.tabindex]': '_tabindex()',
+		'(click)': 'activer()',
 	},
 })
-export class HlmToggleGroupItem {
-	private readonly _groupe = injectHlmToggleGroup();
-	private readonly _brn = inject(BrnToggleGroupItem);
+export class HlmToggleGroupItem<T = unknown> {
+	private readonly _groupe = injectHlmToggleGroup() as HlmToggleGroup<T>;
 
 	public readonly element: HTMLElement = inject(ElementRef).nativeElement;
 
-	public readonly actif = computed(() => this._groupe.isSelected(this._brn.value()));
+	public readonly value = input<T>();
 
-	public readonly desactive = computed(() => this._brn.disabled() || this._groupe.disabled());
+	public readonly disabled = input<boolean, BooleanInput>(false, { transform: booleanAttribute });
 
-	/** Seul le segment actif est dans la tabulation ; tous, tant qu'aucun ne l'est. */
-	protected readonly _tabindex = computed(() => (this.actif() || this._groupe.value() == null ? 0 : -1));
+	public readonly actif = computed(() => this._groupe.isSelected(this.value() as T));
+
+	public readonly desactive = computed(() => this.disabled() || this._groupe.disabledState());
+
+	/** Un seul segment dans la tabulation, choisi par le groupe. */
+	protected readonly _tabindex = computed(() => (this._groupe.segmentTabulable() === this ? 0 : -1));
 
 	constructor() {
 		classes(() => toggleGroupItemVariants({ size: this._groupe.size() }));
 	}
 
 	activer(): void {
-		if (!this.actif()) this._brn.toggle();
+		if (this.desactive() || this.actif()) return;
+		this._groupe.select(this.value() as T, this as unknown as BrnToggleGroupItem<T>);
 	}
 }

@@ -100,6 +100,10 @@ anneau 2 px `primary-20` et bordure `primary`, pressé `scale-98`, désactivé
 `opacity-40` et `cursor-not-allowed`. Le désactivé d'un bouton se lit sur
 `data-[disabled]` (le variant `data-disabled:` du preset spartan est en
 `:where()`, sans spécificité, et ne se nie pas avec `not-`).
+Un contrôle plus petit que 36 × 36 (case 18 px, interrupteur 36 × 20)
+garde sa taille visuelle et étend sa cible tactile par un `::after` de
+36 × 36 centré. Un clic sur un bouton désactivé ou en chargement est arrêté
+en capture, avant les `(click)` du template.
 
 ### Les alias de spartan
 
