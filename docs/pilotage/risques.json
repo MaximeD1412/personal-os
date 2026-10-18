@@ -53,8 +53,8 @@
         },
         {
           "texte": "Règle de lint qui interdit $queryRaw et $executeRaw dans les modules métier",
-          "ref": "",
-          "fait": false
+          "ref": "ADR 0028",
+          "fait": true
         }
       ],
       "tickets": [
