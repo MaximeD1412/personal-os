@@ -183,3 +183,21 @@ sudo "$here/provision.sh" | tee "$work/apres-retrait.log"
 grep -q '^Aucun changement' "$work/apres-retrait.log" || ko "le passage après retrait de la règle annonce des changements"
 check_ports
 ok "une autorisation ufw hors de 22/80/443 fait refuser le passage, sans modification"
+
+# Une exception Match écrite avec « = », que sshd applique bien : le script
+# refuse de passer, sans rien modifier, tant qu'elle reste.
+printf 'Match Address 203.0.113.0/24\nPermitRootLogin=yes\n' | sudo tee /etc/ssh/sshd_config.d/60-exception.conf >/dev/null
+effectif=$(sudo sshd -T -C user=root,host=exterieur,addr=203.0.113.5)
+grep -qx 'permitrootlogin yes' <<<"$effectif" || ko "témoin : sshd n'applique pas l'exception Match écrite avec ="
+state >"$work/avant-refus-ssh"
+# shellcheck disable=SC2024 # journal écrit par l'utilisateur du test, voulu
+if sudo "$here/provision.sh" >"$work/refus-ssh.log" 2>&1; then
+  ko "le script passe malgré une exception Match qui autorise root"
+fi
+grep -q 'PermitRootLogin=yes (bloc Match)' "$work/refus-ssh.log" || ko "le refus ne cite pas l'exception : $(cat "$work/refus-ssh.log")"
+state >"$work/apres-refus-ssh"
+diff -u "$work/avant-refus-ssh" "$work/apres-refus-ssh" || ko "le passage refusé a modifié la machine"
+sudo rm /etc/ssh/sshd_config.d/60-exception.conf
+sudo "$here/provision.sh" | tee "$work/apres-retrait-ssh.log"
+grep -q '^Aucun changement' "$work/apres-retrait-ssh.log" || ko "le passage après retrait de l'exception annonce des changements"
+ok "une exception Match qui autorise root fait refuser le passage, sans modification"

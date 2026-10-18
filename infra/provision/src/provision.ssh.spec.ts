@@ -92,12 +92,42 @@ describe('provision.sh : SSH', () => {
     }
   });
 
+  // OpenSSH accepte « = » comme séparateur, et des guillemets autour de la
+  // valeur : l'exception doit être reconnue sous toutes ses formes.
+  it.each([
+    ['Match Address 203.0.113.0/24\nPermitRootLogin=yes\n', 'PermitRootLogin=yes'],
+    ['Match Address 203.0.113.0/24\n  PermitRootLogin = yes\n', '  PermitRootLogin = yes'],
+    ['Match=User root\n\tPermitRootLogin "prohibit-password"\n', '\tPermitRootLogin "prohibit-password"'],
+    ['Match User ops\n  AuthenticationMethods publickey password\n', '  AuthenticationMethods publickey password'],
+  ])('refuse l’exception %j, à chaque passage', (content, line) => {
+    const root = machine({ provisioned: true });
+    put(root, 'etc/ssh/sshd_config.d/60-exceptions.conf', content);
+
+    for (let passage = 1; passage <= 2; passage++) {
+      const result = provision(root);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(`/etc/ssh/sshd_config.d/60-exceptions.conf: ${line} (bloc Match)`);
+      expect(commands(root)).toEqual([]);
+    }
+  });
+
+  it('reconnaît « = » aussi avant l’Include', () => {
+    const root = machine({ provisioned: true });
+    put(root, 'etc/ssh/sshd_config', 'PasswordAuthentication=yes\nInclude /etc/ssh/sshd_config.d/*.conf\n');
+
+    const result = provision(root);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('/etc/ssh/sshd_config: PasswordAuthentication=yes');
+  });
+
   it('accepte un bloc Match qui ne touche pas au durcissement', () => {
     const root = machine({ provisioned: true });
     put(
       root,
       'etc/ssh/sshd_config',
-      'Include /etc/ssh/sshd_config.d/*.conf\nMatch User sftp\n  ForceCommand internal-sftp\n  PermitRootLogin no\n',
+      'Include /etc/ssh/sshd_config.d/*.conf\nMatch User sftp\n  ForceCommand internal-sftp\n  PermitRootLogin=no\n  AuthenticationMethods "publickey"\n',
     );
 
     expect(provision(root).status).toBe(0);

@@ -221,10 +221,18 @@ check_sshd_precedence() {
       before = main || name < "00-personal-os.conf"
     }
     /^[[:space:]]*(#|$)/ { next }
-    { key = tolower($1) }
+    # Comme OpenSSH : le mot-clé se sépare de sa valeur par des blancs ou par
+    # un « = » (PermitRootLogin=yes) ; la valeur peut être entre guillemets.
+    {
+      line = $0; sub(/^[ \t]+/, "", line)
+      key = line; sub(/[ \t=].*/, "", key)
+      val = substr(line, length(key) + 1); key = tolower(key)
+      sub(/^[ \t]*=?[ \t]*/, "", val); sub(/[ \t]+#.*$/, "", val); sub(/[ \t]+$/, "", val)
+      gsub(/"/, "", val); gsub(/[ \t]+/, " ", val); val = tolower(val)
+    }
     main && key == "include" { before = 0; next }
     key == "match" { inmatch = 1; next }
-    (before || inmatch) && key in want && tolower($2) != want[key] {
+    (before || inmatch) && key in want && val != want[key] {
       print FILENAME ": " $0 (inmatch ? " (bloc Match)" : "")
     }
   ' "${lus[@]}")
