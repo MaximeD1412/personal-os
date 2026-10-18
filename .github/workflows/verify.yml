@@ -60,7 +60,9 @@ jobs:
             echo "::error::.gitleaksignore est refusé : une exception s'écrit dans .gitleaks.toml."
             exit 1
           fi
-          commits=$(git log -G 'gitleaks[:]allow' --format='%h %s' HEAD)
+          # --diff-merges : un marqueur ajouté en résolvant une fusion compte
+          # aussi.
+          commits=$(git log -G 'gitleaks[:]allow' --diff-merges=first-parent --no-patch --format='%h %s' HEAD)
           if [ -n "$commits" ]; then
             echo "::error::Commentaire d'exception gitleaks refusé : une exception s'écrit dans .gitleaks.toml."
             echo "$commits"
@@ -79,6 +81,31 @@ jobs:
           # .gitleaksignore, justement ce que l'étape précédente refuse. Et le
           # jeton n'a pas le droit d'écrire sur la proposition.
           GITLEAKS_ENABLE_COMMENTS: false
+
+      # L'action ne voit pas tout l'historique de la proposition : elle ne lit
+      # que les 30 premiers commits que l'API lui renvoie, et passe à gitleaks
+      # --first-parent --no-merges. Un jeton au 31e commit, sur une branche
+      # fusionnée dans la proposition ou ajouté en résolvant une fusion lui
+      # échappe. Ce second passage prend la plage entière depuis les SHA de
+      # l'événement, tous les parents, et le diff de chaque fusion contre son
+      # premier parent.
+      - name: Scanner toute la plage, fusions comprises
+        env:
+          EVENEMENT: ${{ github.event_name }}
+          BASE_PR: ${{ github.event.pull_request.base.sha }}
+          TETE_PR: ${{ github.event.pull_request.head.sha }}
+          AVANT: ${{ github.event.before }}
+          APRES: ${{ github.event.after }}
+        run: |
+          case "$EVENEMENT" in
+            pull_request) plage="$BASE_PR..$TETE_PR" ;;
+            # Un push dont la base est inconnue (nouvelle branche, historique
+            # réécrit) reprend tout ce qui mène à sa tête.
+            push) if git cat-file -e "$AVANT^{commit}" 2>/dev/null; then plage="$AVANT..$APRES"; else plage="$APRES"; fi ;;
+            *) plage=HEAD ;;
+          esac
+          echo "Plage scannée : $plage"
+          gitleaks git . --config .gitleaks.toml --no-banner --redact --log-opts="--diff-merges=first-parent $plage"
 
       # Un scan qui ne trouve rien ne prouve rien si la configuration a cessé
       # de chercher (exception trop large, fichier illisible). On lui donne

@@ -20,16 +20,3 @@ paths = [
   # Une fixture de test qui doit contenir un secret au format réel s'ajoute
   # ici, par son chemin exact, jamais par un motif de dossier.
 ]
-
-[[allowlists]]
-description = "Lien d'une maquette pen.dev vers sa bibliothèque"
-# Toutes les conditions à la fois : la règle générique, un fichier de
-# maquette, et cette clé précise avec un UUID. Un autre secret dans le même
-# fichier reste signalé.
-condition = "AND"
-targetRules = ["generic-api-key"]
-paths = ['''^design/[^/]+\.pen$''']
-regexTarget = "line"
-regexes = [
-  '''"fileToken": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"''',
-]
