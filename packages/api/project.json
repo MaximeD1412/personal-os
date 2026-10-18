@@ -22,6 +22,23 @@
         }
       }
     },
+    "openapi": {
+      "executor": "nx:run-commands",
+      "outputs": [
+        "{projectRoot}/openapi.json"
+      ],
+      "options": {
+        "cwd": "packages/api",
+        "env": {
+          "NODE_ENV": "development"
+        },
+        "parallel": false,
+        "commands": [
+          "webpack-cli build --config webpack.openapi.config.js",
+          "node ../../dist/packages/api-openapi/main.js openapi.json"
+        ]
+      }
+    },
     "prune-lockfile": {
       "dependsOn": [
         "build"

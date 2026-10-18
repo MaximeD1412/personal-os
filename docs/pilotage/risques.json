@@ -457,8 +457,8 @@
       "categorie": "ag",
       "gravite": "elevee",
       "titre": "Les conventions dérivent d'un agent à l'autre",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-10-19",
       "solutions": [
         {
           "texte": "Conventions écrites : ADR 0030 et AGENTS.md",
@@ -467,8 +467,8 @@
         },
         {
           "texte": "Ticket exemple en M0 : events et agenda migrés aux conventions",
-          "ref": "",
-          "fait": false
+          "ref": "#58",
+          "fait": true
         },
         {
           "texte": "Codex vérifie le respect des conventions",

@@ -161,11 +161,13 @@ describe('Agenda', () => {
       }
     });
 
-    it("renvoie chaque entrée vers son module d'origine", async () => {
+    it("renvoie chaque entrée vers son module d'origine, au mois où elle commence", async () => {
       const [dentiste] = entrees(await monter());
       const lien = dentiste.querySelector('a') as HTMLAnchorElement;
 
-      expect(lien.getAttribute('href')).toBe('/calendrier?evenement=event-1');
+      expect(lien.getAttribute('href')).toBe(
+        '/calendrier?evenement=event-1&mois=2026-09',
+      );
     });
 
     it("affiche sans lien l'entrée d'un module que l'écran ne connaît pas", async () => {

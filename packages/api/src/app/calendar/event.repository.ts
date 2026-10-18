@@ -13,7 +13,7 @@ export interface EventRecord {
   createdAt: Date;
 }
 
-/** Ce qu'une écriture pose, une fois la saisie validée par le service. */
+/** Ce qu'une écriture pose : la saisie du contrat, ses instants devenus des `Date`. */
 export interface EventWrite {
   title: string;
   startsAt: Date;
@@ -31,10 +31,6 @@ export interface EventWrite {
 @Injectable()
 export class EventRepository {
   constructor(private readonly prisma: PrismaService) {}
-
-  lister(): Promise<EventRecord[]> {
-    return this.prisma.event.findMany({ orderBy: { startsAt: 'asc' } });
-  }
 
   /**
    * Les Événements qui **rencontrent** la période, et non ceux qui y

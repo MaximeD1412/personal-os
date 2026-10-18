@@ -10,6 +10,7 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import {
   estEcheance,
+  periodeDuMois,
   type Event,
   type EventCategory,
   type EventInput,
@@ -31,7 +32,11 @@ import { HlmSelectImports } from '@personal-os/ui/select';
 import { EspaceCourant } from './espace-courant';
 import { EspaceService } from './espace.service';
 import { EventService } from './event.service';
-import { PARAMETRE_D_EVENEMENT } from './modules-d-origine';
+import { estUnMois, moisCourant } from './mois';
+import {
+  PARAMETRE_DE_MOIS,
+  PARAMETRE_D_EVENEMENT,
+} from './modules-d-origine';
 
 /** Les catégories, dans l'ordre où l'écran les propose. */
 const CATEGORIES: readonly { valeur: EventCategory; libelle: string }[] = [
@@ -72,8 +77,11 @@ const SAISIE_VIERGE: Saisie = {
 };
 
 /**
- * Le Calendrier vu de l'interface : la liste des Événements, et le formulaire
- * qui sert aussi bien à en créer un qu'à en modifier un.
+ * Le Calendrier vu de l'interface : les Événements du mois affiché, et le
+ * formulaire qui sert aussi bien à en créer un qu'à en modifier un.
+ *
+ * Le mois va du premier au dernier jour, à Paris. C'est le mois en cours, ou
+ * celui que le lien désigne (`?mois=YYYY-MM`).
  *
  * L'Espace est toujours explicite — le Calendrier acceptant les deux, rien ne
  * permettrait de le deviner (ADR 0014). Une nouvelle saisie reprend l'Espace
@@ -105,6 +113,8 @@ export class Calendrier {
   protected readonly categories = CATEGORIES;
   protected readonly paliers = PALIERS_DE_RAPPEL;
 
+  protected readonly mois = signal(this.moisDuLien() ?? moisCourant());
+
   protected readonly espaces = signal<Scope[]>([]);
   protected readonly evenements = signal<Event[]>([]);
   protected readonly erreur = signal<string | null>(null);
@@ -116,6 +126,8 @@ export class Calendrier {
   private readonly espaceCourant = inject(EspaceCourant);
   /** L'Espace a été choisi dans le champ : le sélecteur ne le change plus. */
   private readonly espaceChoisiALaMain = signal(false);
+  /** Le lien de l'Agenda ne vise un Événement qu'à l'arrivée sur l'écran. */
+  private lienRepris = false;
 
   protected readonly pretAEnregistrer = computed(() => {
     const { titre, debut, espaceId } = this.saisie();
@@ -140,13 +152,33 @@ export class Calendrier {
       error: () => this.erreur.set("Les Espaces n'ont pas pu être lus."),
     });
 
-    this.evenementsApi.lister().subscribe({
+    effect(() => this.relire(this.mois()));
+  }
+
+  protected afficherLeMois(evenement: globalThis.Event): void {
+    const valeur = (evenement.target as HTMLInputElement).value;
+    if (estUnMois(valeur)) {
+      this.mois.set(valeur);
+    }
+  }
+
+  private relire(mois: string): void {
+    this.evenementsApi.lister(periodeDuMois(mois)).subscribe({
       next: (evenements) => {
         this.evenements.set(parDate(evenements));
-        this.reprendreCeluiDuLien();
+        if (!this.lienRepris) {
+          this.lienRepris = true;
+          this.reprendreCeluiDuLien();
+        }
       },
       error: () => this.erreur.set("Les Événements n'ont pas pu être lus."),
     });
+  }
+
+  /** Un mois mal formé dans le lien est ignoré : on ouvre le mois en cours. */
+  private moisDuLien(): string | null {
+    const demande = this.route.snapshot.queryParamMap.get(PARAMETRE_DE_MOIS);
+    return estUnMois(demande) ? demande : null;
   }
 
   /**
