@@ -1,4 +1,8 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import {
+  HttpClient,
+  httpResource,
+  type HttpResourceRef,
+} from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
   Event,
@@ -14,11 +18,19 @@ export class EventService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  /** Les Événements se demandent toujours bornés : ceux qui rencontrent la période. */
-  lister(periode: EventListQuery): Observable<Event[]> {
-    return this.http.get<Event[]>(`${this.baseUrl}/events`, {
-      params: new HttpParams().set('from', periode.from).set('to', periode.to),
-    });
+  /**
+   * Les Événements se demandent toujours bornés : ceux qui rencontrent la
+   * période. La lecture suit la période qu'on lui donne, et abandonne celle
+   * qu'une nouvelle période remplace.
+   */
+  lecture(periode: () => EventListQuery): HttpResourceRef<Event[]> {
+    return httpResource<Event[]>(
+      () => {
+        const { from, to } = periode();
+        return { url: `${this.baseUrl}/events`, params: { from, to } };
+      },
+      { defaultValue: [] },
+    );
   }
 
   creer(saisie: EventInput): Observable<Event> {

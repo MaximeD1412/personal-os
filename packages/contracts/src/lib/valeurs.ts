@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 /**
  * Les formes de valeur (ADR 0030). Chacune n'a qu'un schéma, celui-ci : aucun
