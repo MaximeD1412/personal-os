@@ -97,7 +97,7 @@ et lève `food.list_already_closed`.
 | Projet, Présentation publique | `Project`, `PublicPresentation` |
 | Page de contenu | `PageContent` |
 
-Les modules Nest : `calendar`, `agenda`, `training`, `food`, `projects`,
+Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
 `portfolio`, `dashboard`, `command-bar`. Un terme absent de cette table se
 traduit en restant au plus près du glossaire, et la traduction s'ajoute ici
 dans la même PR.
