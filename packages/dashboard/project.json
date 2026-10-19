@@ -11,6 +11,15 @@
       "outputs": [
         "{options.outputPath}"
       ],
+      "dependsOn": [
+        "^build",
+        {
+          "projects": [
+            "api"
+          ],
+          "target": "command-catalog"
+        }
+      ],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/packages/dashboard",

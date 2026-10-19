@@ -37,7 +37,13 @@ tests d'intégration au socle ci-dessous. La section « État actuel du code »
 d'un ticket peut se contenter de dire « imite `packages/api/src/app/calendar/` ».
 L'OpenAPI se déduit des schémas : `pnpm exec nx run api:openapi` l'écrit dans
 `packages/api/openapi.json` (non versionné), et l'API le sert en
-`/api/openapi.json` hors production. L'essentiel :
+`/api/openapi.json` hors production. Le catalogue de la barre de commande en
+est tiré : un endpoint n'y entre que s'il porte `@Command(...)`
+(`packages/api/src/app/command-bar/command.decorator.ts`, ADR 0018), et
+`pnpm exec nx run api:command-catalog` réécrit
+`packages/contracts/src/generated/command-catalog.json`, versionné et comparé
+en CI à sa régénération. Il passe avant le build de l'API et du tableau de
+bord. L'essentiel :
 
 - **Les contrats sont des schémas zod** dans `contracts`, validés par le pipe
   global, avec un schéma de sortie par route. Pas de validation de forme dans
@@ -76,31 +82,34 @@ et lève `food.list_already_closed`.
 
 ### Du domaine au code
 
-| Domaine (`CONTEXT.md`)                 | Code                                                             |
-| -------------------------------------- | ---------------------------------------------------------------- |
-| Espace, Espace personnel, Espace foyer | `Scope`, `PERSONAL`, `HOUSEHOLD`                                 |
-| Foyer, Compte                          | `Household`, `User`                                              |
-| Participant, Invités                   | `participantIds` (des `User`), `guestCount`                      |
-| Événement, Échéance                    | `Event`, catégorie `DEADLINE`                                    |
-| Récurrence, Occurrence, Exception      | `recurrence` (`Recurrence`), `EventOccurrence`, `EventException` |
-| Portée (occurrence ou série)           | `DccmScope`, `'occurrence'`, `'series'`                          |
-| Agenda                                 | `agenda`, port `AgendaContributor`                               |
-| Période (d'une lecture datée)          | `zPeriod` (`from`, `to`)                                         |
-| Séance, Objectif                       | `TrainingSession`, `TrainingGoal`                                |
-| Ingrédient, Alias, Unité canonique     | `Ingredient`, `IngredientAlias`, `canonicalUnit`                 |
-| Recette                                | `Recipe`                                                         |
-| Planning de repas, Repas planifié      | `MealPlan`, `MealPlanEntry`                                      |
-| Tour de génération, Souhait            | `GenerationRound`, `MealWish`                                    |
-| Préférence alimentaire, Allergène      | `FoodPreference`, `Allergen`                                     |
-| Liste de courses, Article de courses   | `ShoppingList`, `ShoppingListItem`                               |
-| Produit, Produit préféré               | `Product`, `preferredProduct`                                    |
-| Stock domestique                       | `PantryItem`                                                     |
-| Repas cuisiné                          | `CookedMeal`                                                     |
-| Projet, Présentation publique          | `Project`, `PublicPresentation`                                  |
-| Page de contenu                        | `PageContent`                                                    |
+| Domaine (`CONTEXT.md`)                   | Code                                                             |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| Espace, Espace personnel, Espace foyer   | `Scope`, `PERSONAL`, `HOUSEHOLD`                                 |
+| Foyer, Compte                            | `Household`, `User`                                              |
+| Participant, Invités                     | `participantIds` (des `User`), `guestCount`                      |
+| Événement, Échéance                      | `Event`, catégorie `DEADLINE`                                    |
+| Récurrence, Occurrence, Exception        | `recurrence` (`Recurrence`), `EventOccurrence`, `EventException` |
+| Portée (occurrence ou série)             | `DccmScope`, `'occurrence'`, `'series'`                          |
+| Agenda                                   | `agenda`, port `AgendaContributor`                               |
+| Période (d'une lecture datée)            | `zPeriod` (`from`, `to`)                                         |
+| Séance, Objectif                         | `TrainingSession`, `TrainingGoal`                                |
+| Ingrédient, Alias, Unité canonique       | `Ingredient`, `IngredientAlias`, `canonicalUnit`                 |
+| Recette                                  | `Recipe`                                                         |
+| Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |
+| Tour de génération, Souhait              | `GenerationRound`, `MealWish`                                    |
+| Préférence alimentaire, Allergène        | `FoodPreference`, `Allergen`                                     |
+| Liste de courses, Article de courses     | `ShoppingList`, `ShoppingListItem`                               |
+| Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
+| Stock domestique                         | `PantryItem`                                                     |
+| Repas cuisiné                            | `CookedMeal`                                                     |
+| Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
+| Page de contenu                          | `PageContent`                                                    |
+| Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
+| Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
+| Commande non comprise                    | `UnresolvedCommand`                                              |
 
 Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
-`portfolio`, `dashboard`, `command-bar`. Un terme absent de cette table se
+`portfolio`, `dashboard`, `command-bar`, `ai`. Un terme absent de cette table se
 traduit en restant au plus près du glossaire, et la traduction s'ajoute ici
 dans la même PR.
 

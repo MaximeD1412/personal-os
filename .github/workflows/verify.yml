@@ -143,6 +143,21 @@ jobs:
       - name: Construire
         run: pnpm exec nx $NX -t build
 
+      # Le catalogue de la barre de commande est versionné, pour que le front
+      # et l'API le lisent sans exécuter l'API (ADR 0018). Il est donc
+      # régénéré ici quelle que soit la portée, et doit être identique à celui
+      # du commit : une annotation modifiée sans régénération ferait mentir le
+      # fichier.
+      - name: Vérifier le catalogue de la barre de commande
+        run: |
+          pnpm exec nx run api:command-catalog
+          catalogue=packages/contracts/src/generated/command-catalog.json
+          if [ -n "$(git status --porcelain -- "$catalogue")" ]; then
+            echo "::error::Le catalogue versionné n'est pas à jour : lancer \`pnpm exec nx run api:command-catalog\` et commiter $catalogue."
+            git diff -- "$catalogue"
+            exit 1
+          fi
+
       - name: Tests unitaires
         run: pnpm exec nx $NX -t test
 

@@ -9,3 +9,8 @@
 # mais on les garde tels que le générateur les pose : les reformater ferait
 # diverger chaque `nx g @spartan-ng/cli:ui` suivant du reste du répertoire.
 /packages/ui
+
+# Le catalogue de la barre de commande, écrit par `nx run api:command-catalog`
+# et comparé en CI à sa régénération : il garde la forme que le générateur lui
+# donne.
+/packages/contracts/src/generated

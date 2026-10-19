@@ -50,6 +50,17 @@ describe("L'OpenAPI, déduit des schémas (ADR 0030)", () => {
       expect(Object.keys(document.paths['/api/agenda'] ?? {})).toEqual(['get']);
     });
 
+    it('décrit le journal des traces IA, lu par curseur', () => {
+      expect(Object.keys(document.paths['/api/ai-traces/{id}'] ?? {})).toEqual([
+        'get',
+      ]);
+      expect(
+        (document.paths['/api/ai-traces'].get?.parameters ?? []).map(
+          (parametre) => ('name' in parametre ? parametre.name : null),
+        ),
+      ).toEqual(['cursor', 'limit']);
+    });
+
     it('exige la période des lectures, en paramètres de requête', () => {
       for (const chemin of ['/api/events', '/api/agenda']) {
         const parametres = document.paths[chemin].get?.parameters ?? [];

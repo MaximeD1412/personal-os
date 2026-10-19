@@ -7,6 +7,9 @@
   "targets": {
     "build": {
       "executor": "nx:run-commands",
+      "dependsOn": [
+        "command-catalog"
+      ],
       "options": {
         "command": "webpack-cli build",
         "env": {
@@ -37,6 +40,19 @@
           "webpack-cli build --config webpack.openapi.config.js",
           "node ../../dist/packages/api-openapi/main.js openapi.json"
         ]
+      }
+    },
+    "command-catalog": {
+      "executor": "nx:run-commands",
+      "dependsOn": [
+        "openapi"
+      ],
+      "outputs": [
+        "{workspaceRoot}/packages/contracts/src/generated/command-catalog.json"
+      ],
+      "options": {
+        "cwd": "packages/api",
+        "command": "node ../../dist/packages/api-openapi/command-catalog.js openapi.json ../contracts/src/generated/command-catalog.json"
       }
     },
     "prune-lockfile": {

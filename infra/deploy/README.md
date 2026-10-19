@@ -251,6 +251,23 @@ dit — plutôt que d'échouer plus loin sur une signature.
 > **Ce nom d'hôte s'arrête une fois.** L'émetteur en dépend, et en changer après
 > coup oblige à refaire le client OIDC et à reconfigurer l'API.
 
+### 5. La clé de l'API Claude
+
+L'API refuse de démarrer en production sans `AI_PROVIDER=claude` : le double de
+test (`factice`) n'y est pas admis, et le staging le garde.
+
+1. Dans la console Anthropic, créer une clé **dédiée** à Personal OS, dans un
+   espace de travail qui porte sa propre **limite de dépense** mensuelle. C'est
+   le filet sous le plafond applicatif, qui n'est qu'une estimation.
+2. Reporter dans `/opt/personal-os/.env` : `AI_PROVIDER=claude`,
+   `ANTHROPIC_API_KEY`, `AI_MODEL`, le tarif du modèle en centimes par million
+   de jetons (`AI_PRICE_INPUT_PER_MTOK_CENTS`, `AI_PRICE_OUTPUT_PER_MTOK_CENTS` :
+   200 et 1000 pour `claude-sonnet-5-5`, à vérifier sur la grille du jour) et
+   `AI_MONTHLY_BUDGET_CENTS`.
+
+Changer de modèle, c'est changer son tarif dans le même geste : sans quoi le
+plafond se calcule sur le prix d'un autre.
+
 ## Exploitation courante
 
 ```bash
