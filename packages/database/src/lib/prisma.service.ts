@@ -80,6 +80,10 @@ export class PrismaService {
     return this.#client.unresolvedCommand;
   }
 
+  get trainingSession() {
+    return this.#client.trainingSession;
+  }
+
   get session() {
     return this.#client.session;
   }

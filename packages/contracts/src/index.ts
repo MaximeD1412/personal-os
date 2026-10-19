@@ -8,4 +8,5 @@ export * from './lib/health';
 export * from './lib/household';
 export * from './lib/scope';
 export * from './lib/trace';
+export * from './lib/training';
 export * from './lib/valeurs';
