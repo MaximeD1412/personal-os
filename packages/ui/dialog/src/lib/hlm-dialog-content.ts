@@ -1,7 +1,7 @@
 import type { BooleanInput } from '@angular/cdk/coercion';
 import type { ComponentType } from '@angular/cdk/portal';
 import { NgComponentOutlet, NgTemplateOutlet } from '@angular/common';
-import { booleanAttribute, ChangeDetectionStrategy, Component, computed, inject, input, TemplateRef } from '@angular/core';
+import { booleanAttribute, ChangeDetectionStrategy, Component, computed, inject, Injector, input, TemplateRef } from '@angular/core';
 import { NgIcon } from '@ng-icons/core';
 import { matCloseOutline } from '@ng-icons/material-symbols/outline';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
@@ -27,7 +27,7 @@ type HlmDialogContentContext = {
 	},
 	template: `
 		@if (_modele) {
-			<ng-container [ngTemplateOutlet]="_modele" [ngTemplateOutletContext]="{ $implicit: _dialogRef }" />
+			<ng-container [ngTemplateOutlet]="_modele" [ngTemplateOutletContext]="{ $implicit: _dialogRef }" [ngTemplateOutletInjector]="_injecteur" />
 		} @else if (_composant) {
 			<ng-container [ngComponentOutlet]="_composant" />
 		} @else {
@@ -54,7 +54,10 @@ export class HlmDialogContent {
 	public readonly component = this._dialogContext?.$component;
 	// `HlmDialogService.open()` reçoit un composant ou un modèle : le modèle se
 	// rend par `ngTemplateOutlet`, avec la référence du dialogue en `$implicit`
-	// (`<ng-template let-ref>`… `ref.close()`).
+	// (`<ng-template let-ref>`… `ref.close()`). Il reçoit aussi l'injecteur du
+	// dialogue : sans lui, ses `hlmDialogTitle` et `hlmDialogClose` chercheraient
+	// `BrnDialogRef` depuis l'endroit où le modèle est déclaré.
+	protected readonly _injecteur = inject(Injector);
 	protected readonly _modele = this.component instanceof TemplateRef ? this.component : null;
 	protected readonly _composant = this.component instanceof TemplateRef ? null : this.component;
 	// L'icône passe en SVG : fournie par `provideIcons` ici, elle serait cherchée
