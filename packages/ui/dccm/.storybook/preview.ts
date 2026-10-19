@@ -19,7 +19,7 @@ const preview: Preview = {
     docs: { theme },
     options: {
       storySort: {
-        order: ['Foundations', 'Actions', 'Forms', 'Data Display', 'Navigation', 'Feedback', 'Layout'],
+        order: ['Foundations', 'Actions', 'Forms', 'Data Display', 'Navigation', 'Feedback', 'Layout', 'Patterns'],
       },
     },
   },

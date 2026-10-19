@@ -100,6 +100,8 @@
      `error-30` désigne déjà `error-container`. */
   --error-40: #93000a66; /* error-container : bouton destructif pressé */
   --error-stroke-30: #ffb4ab4d; /* error : bordure du bouton destructif */
+  --secondary-10: #4edea31a; /* secondary : fond de la bannière succès */
+  --tertiary-fill-20: #ffb95f33; /* tertiary : pastille d'icône de la bannière avertissement (`tertiary-20` désigne déjà `tertiary-container`) */
   --surface-container-lowest-90: #0a0e14e6; /* fond de la TopBar, qui recouvre le contenu défilé */
   --surface-90: #10141ae6; /* fond du MobileHeader et de la barre d'onglets */
   --surface-container-lowest-80: #0a0e14cc; /* voile sous un panneau (barre de commande, « Plus ») */
@@ -237,6 +239,8 @@
   --color-error-30: var(--error-30);
   --color-error-40: var(--error-40);
   --color-error-stroke-30: var(--error-stroke-30);
+  --color-secondary-10: var(--secondary-10);
+  --color-tertiary-fill-20: var(--tertiary-fill-20);
   --color-surface-container-lowest-90: var(--surface-container-lowest-90);
   --color-surface-90: var(--surface-90);
   --color-surface-container-lowest-80: var(--surface-container-lowest-80);
@@ -341,6 +345,21 @@
 }
 @utility icon-xl {
   --ng-icon__size: var(--icon-xl);
+}
+
+/* Le scintillement d'un os de `Skeleton` (UI-3) : un reflet traverse l'os de
+   gauche à droite. `animate-shimmer`, sous `motion-safe:`. */
+@theme {
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  @keyframes shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
 }
 
 @layer base {

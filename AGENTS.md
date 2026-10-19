@@ -83,6 +83,7 @@ et lève `food.list_already_closed`.
 | Participant, Invités                   | `participantIds` (des `User`), `guestCount`                      |
 | Événement, Échéance                    | `Event`, catégorie `DEADLINE`                                    |
 | Récurrence, Occurrence, Exception      | `recurrence` (`Recurrence`), `EventOccurrence`, `EventException` |
+| Portée (occurrence ou série)           | `DccmScope`, `'occurrence'`, `'series'`                          |
 | Agenda                                 | `agenda`, port `AgendaContributor`                               |
 | Période (d'une lecture datée)          | `zPeriod` (`from`, `to`)                                         |
 | Séance, Objectif                       | `TrainingSession`, `TrainingGoal`                                |
