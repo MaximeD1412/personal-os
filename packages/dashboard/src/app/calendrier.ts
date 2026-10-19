@@ -160,6 +160,8 @@ export class Calendrier {
   private readonly espaceChoisiALaMain = signal(false);
   /** Le lien de l'Agenda ne vise un Événement qu'à l'arrivée sur l'écran. */
   private lienRepris = false;
+  /** Une écriture a abouti pendant une lecture, peut-être partie avant elle. */
+  private relectureDue = false;
 
   protected readonly pretAEnregistrer = computed(() => {
     const { titre, debut, espaceId } = this.saisie();
@@ -193,6 +195,27 @@ export class Calendrier {
       this.lienRepris = true;
       untracked(() => this.reprendreCeluiDuLien());
     });
+
+    // La lecture en cours au moment d'une écriture est relue à son terme.
+    effect(() => {
+      const statut = this.lectureDuMois.status();
+      if (this.relectureDue && (statut === 'resolved' || statut === 'error')) {
+        this.relectureDue = false;
+        untracked(() => this.lectureDuMois.reload());
+      }
+    });
+  }
+
+  /**
+   * Une écriture a abouti : la liste est relue sur la période affichée, et non
+   * retouchée sur place. Une liste retouchée pendant une lecture remplacerait
+   * cette lecture par une liste partielle, et l'Événement écrit n'est pas
+   * forcément du mois affiché.
+   */
+  private relireLeMois(): void {
+    if (!this.lectureDuMois.reload()) {
+      this.relectureDue = true;
+    }
   }
 
   protected afficherLeMois(evenement: globalThis.Event): void {
@@ -365,8 +388,8 @@ export class Calendrier {
     }
 
     this.evenementsApi.creer(this.saisieCreee()).subscribe({
-      next: (cree) => {
-        this.lectureDuMois.set([...this.evenements(), cree]);
+      next: () => {
+        this.relireLeMois();
         this.annuler();
       },
       error: (refus: ApiError) => this.refus.set(refus),
@@ -377,9 +400,7 @@ export class Calendrier {
     this.evenementsApi.supprimer(id).subscribe({
       next: () => {
         this.refus.set(null);
-        this.lectureDuMois.set(
-          this.evenements().filter((evenement) => evenement.id !== id),
-        );
+        this.relireLeMois();
         if (this.enEdition()?.id === id) {
           this.annuler();
         }
@@ -402,12 +423,8 @@ export class Calendrier {
     }
 
     this.evenementsApi.modifier(repris.id, changements).subscribe({
-      next: (modifie) => {
-        this.lectureDuMois.set(
-          this.evenements().map((evenement) =>
-            evenement.id === modifie.id ? modifie : evenement,
-          ),
-        );
+      next: () => {
+        this.relireLeMois();
         this.annuler();
       },
       error: (refus: ApiError) => this.refus.set(refus),

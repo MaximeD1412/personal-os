@@ -104,6 +104,26 @@ describe('Calendrier', () => {
       ({ method, url }) => method === 'GET' && url === `${BASE}/events`,
     );
 
+  /**
+   * Laisse une réponse servie atteindre l'écran, sans attendre la stabilité :
+   * la relecture qu'elle déclenche la retarderait jusqu'à sa propre réponse.
+   */
+  async function laisserRepondre(): Promise<void> {
+    await new Promise((fin) => setTimeout(fin));
+    TestBed.tick();
+  }
+
+  /** La relecture qui suit une écriture, servie avec ce que l'API renvoie. */
+  async function relire(
+    fixture: { whenStable(): Promise<unknown>; detectChanges(): void },
+    evenements: Event[],
+  ): Promise<void> {
+    await laisserRepondre();
+    lecture().flush(evenements);
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
   const element = (fixture: { nativeElement: unknown }) =>
     fixture.nativeElement as HTMLElement;
 
@@ -321,10 +341,56 @@ describe('Calendrier', () => {
         title: 'Réunion',
         startsAt: new Date('2026-10-01T14:00').toISOString(),
       });
+      await relire(fixture, [
+        DENTISTE,
+        DECLARATION,
+        { ...DENTISTE, id: 'event-3', title: 'Réunion' },
+      ]);
+
+      expect(element(fixture).textContent).toContain('Réunion');
+    });
+  });
+
+  /*
+   * Après une écriture, la liste est relue sur la période affichée : une
+   * réponse d'écriture ne remplace jamais une lecture par une liste partielle.
+   */
+  describe('Après une écriture', () => {
+    it('relit le mois affiché quand une création aboutit pendant sa lecture', async () => {
+      const fixture = await monter();
+      const racine = element(fixture);
+
+      saisir(racine, 'titre', 'Réunion');
+      saisir(racine, 'debut', '2026-10-01T14:00');
+      fixture.detectChanges();
+      await choisirDansLeSelect(fixture, 'espace', 'Personne A');
+      champ<HTMLButtonElement>(racine, 'enregistrer').click();
+      const creation = httpMock.expectOne(
+        ({ method, url }) => method === 'POST' && url === `${BASE}/events`,
+      );
+
+      saisir(racine, 'mois', '2027-05');
+      TestBed.tick();
+      const mai = lecture();
+
+      creation.flush({ ...DENTISTE, id: 'event-3', title: 'Réunion' });
+      TestBed.tick();
+      // La lecture de mai n'est pas abandonnée au profit d'une liste partielle…
+      expect(mai.cancelled).toBe(false);
+      mai.flush([DECLARATION]);
+      await laisserRepondre();
+
+      // … et, partie avant que la création n'aboutisse, elle est relue.
+      const relecture = lecture();
+      expect(relecture.request.params.get('from')).toBe(
+        '2027-04-30T22:00:00.000Z',
+      );
+      relecture.flush([DECLARATION]);
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(element(fixture).textContent).toContain('Réunion');
+      expect(racine.textContent).toContain('Déclaration de revenus');
+      expect(racine.textContent).not.toContain('Réunion');
     });
   });
 
@@ -392,6 +458,7 @@ describe('Calendrier', () => {
       const creation = httpMock.expectOne(`${BASE}/events`);
       expect(creation.request.body).toMatchObject({ scopeId: 'espace-foyer' });
       creation.flush({ ...DECLARATION, id: 'event-3' });
+      await relire(fixture, [DENTISTE, DECLARATION]);
     });
   });
 
@@ -437,8 +504,10 @@ describe('Calendrier', () => {
       expect(envoi.request.body).toEqual({ title: 'Dentiste (reporté)' });
 
       envoi.flush({ ...DENTISTE, title: 'Dentiste (reporté)' });
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await relire(fixture, [
+        { ...DENTISTE, title: 'Dentiste (reporté)' },
+        DECLARATION,
+      ]);
 
       expect(element(fixture).textContent).toContain('Dentiste (reporté)');
     });
@@ -470,8 +539,7 @@ describe('Calendrier', () => {
       ).click();
 
       httpMock.expectOne(`${BASE}/events/event-1`).flush(null);
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await relire(fixture, [DECLARATION]);
 
       expect(element(fixture).textContent).not.toContain('Dentiste');
     });
@@ -600,8 +668,11 @@ describe('Calendrier', () => {
       httpMock
         .expectOne(`${BASE}/events`)
         .flush({ ...DENTISTE, id: 'event-3', title: 'Réunion' });
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await relire(fixture, [
+        DENTISTE,
+        DECLARATION,
+        { ...DENTISTE, id: 'event-3', title: 'Réunion' },
+      ]);
 
       expect(champ(element(fixture), 'erreur')).toBeNull();
     });
@@ -721,8 +792,7 @@ describe('Calendrier', () => {
         id: 'event-3',
         startsAt: '2026-11-03T08:30:00.000Z',
       });
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await relire(fixture, [DENTISTE, DECLARATION]);
 
       // La saisie est faite : le bandeau ne parle plus d'elle.
       expect(champ(racine, 'ignores')).toBeNull();
