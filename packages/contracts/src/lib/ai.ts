@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { zCents, zInstant } from './valeurs';
 
 /** La taille d'une page du journal des traces, quand la lecture n'en dit rien. */
