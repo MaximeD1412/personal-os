@@ -18,25 +18,29 @@ export type DccmStateSkeleton = 'list' | 'cards' | 'detail';
 
 /** Ce qu'une lecture (`httpResource`, `resource`) expose de son état. */
 export interface DccmStateSource<T> {
-  isLoading(): boolean;
-  error(): unknown;
+  /** `idle`, `loading`, `reloading`, `resolved`, `error` ou `local`. */
+  status(): string;
   hasValue(): boolean;
   value(): T | undefined;
 }
 
 /**
- * L'état d'une lecture : `loading` tant qu'aucune valeur n'est là (un
- * rechargement garde la valeur affichée), `error`, puis `empty` ou `ready`.
+ * L'état d'une lecture, d'après son `status()` : `loading` au premier
+ * chargement, même quand la lecture a une valeur par défaut
+ * (`httpResource(…, { defaultValue: [] })`, dont `hasValue()` vaut alors déjà
+ * `true`) ; un rechargement (`reloading`) garde la valeur affichée ; puis
+ * `error`, `empty` ou `ready`.
  */
 export function stateOf<T>(
   source: DccmStateSource<T>,
   isEmpty: (value: T) => boolean,
 ): DccmStateStatus {
-  if (source.hasValue()) {
-    return isEmpty(source.value() as T) ? 'empty' : 'ready';
+  const status = source.status();
+  if (status === 'error') return 'error';
+  if (status === 'idle' || status === 'loading' || !source.hasValue()) {
+    return 'loading';
   }
-  if (source.error()) return 'error';
-  return 'loading';
+  return isEmpty(source.value() as T) ? 'empty' : 'ready';
 }
 
 /**

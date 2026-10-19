@@ -1,4 +1,9 @@
-import { Component, signal } from '@angular/core';
+import { httpResource, provideHttpClient } from '@angular/common/http';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { ApplicationRef, Component, Injector, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { DccmState, stateOf, type DccmStateStatus } from './state';
 
@@ -70,10 +75,13 @@ describe('DccmState', () => {
 
 describe('stateOf', () => {
   const ressource = (r: {
+    status?: string;
     isLoading?: boolean;
     error?: Error;
     value?: string[];
   }) => ({
+    status: () =>
+      r.status ?? (r.error ? 'error' : r.isLoading ? 'loading' : 'resolved'),
     isLoading: () => r.isLoading ?? false,
     error: () => r.error,
     hasValue: () => r.value !== undefined,
@@ -89,8 +97,38 @@ describe('stateOf', () => {
   });
 
   it('garde la valeur affichée pendant un rechargement', () => {
-    expect(stateOf(ressource({ isLoading: true, value: ['a'] }), vide)).toBe(
-      'ready',
-    );
+    expect(
+      stateOf(
+        ressource({ status: 'reloading', isLoading: true, value: ['a'] }),
+        vide,
+      ),
+    ).toBe('ready');
+  });
+
+  it("ne prend pas la valeur par défaut d'une httpResource pour un résultat vide", async () => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    const seances = httpResource<string[]>(() => '/api/training-sessions', {
+      defaultValue: [],
+      injector: TestBed.inject(Injector),
+    });
+    const http = TestBed.inject(HttpTestingController);
+    TestBed.tick();
+
+    // `hasValue()` vaut déjà `true` : c'est la valeur par défaut, pas la réponse.
+    expect(seances.hasValue()).toBe(true);
+    expect(stateOf(seances, vide)).toBe('loading');
+
+    http.expectOne('/api/training-sessions').flush([]);
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(stateOf(seances, vide)).toBe('empty');
+
+    seances.reload();
+    TestBed.tick();
+    expect(stateOf(seances, vide)).toBe('empty');
+    http.expectOne('/api/training-sessions').flush(['a']);
+    await TestBed.inject(ApplicationRef).whenStable();
+    expect(stateOf(seances, vide)).toBe('ready');
   });
 });

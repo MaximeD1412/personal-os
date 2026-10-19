@@ -448,8 +448,12 @@ hlmAlertPrimaryAction`, qui prend la couleur de la tonalité. Les fonds :
   (squelette `skeleton="list"`, `"cards"` ou `"detail"`, dans une zone
   `aria-busy`), `empty` (`DccmEmptyState`, action en `[dccmStateEmpty]`),
   `error` (le `message` de l'erreur tel quel, « Réessayer » émet `retry`),
-  `ready` (le contenu). `stateOf(resource, estVide)` le déduit d'une
-  `httpResource`, en gardant la valeur affichée pendant un rechargement.
+  `ready` (le contenu). `stateOf(resource, estVide)` le déduit du `status()`
+  d'une `httpResource` : le premier chargement reste `loading` même avec une
+  `defaultValue`, un rechargement garde la valeur affichée.
+- **`HlmDialogService.open()`** rend un composant ou un `ng-template` ; le
+  modèle reçoit la référence du dialogue (`<ng-template let-ref>`,
+  `ref.close(résultat)`).
 
 ## Composer un écran
 
