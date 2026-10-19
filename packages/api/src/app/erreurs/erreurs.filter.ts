@@ -123,6 +123,12 @@ function refusDEspace(raison: RaisonDuRefus, message: string): ApiError {
         code: 'scope.undeclared',
         message: MESSAGE_DE_DEFAUT,
       };
+    case 'imbrication':
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: 'scope.nested_write',
+        message: MESSAGE_DE_DEFAUT,
+      };
   }
 }
 

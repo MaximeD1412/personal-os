@@ -3,6 +3,7 @@ import { EventInputDto } from '../src/app/calendar/event.dto';
 import { EventRepository } from '../src/app/calendar/event.repository';
 import { EventService } from '../src/app/calendar/event.service';
 import { Espaces } from '../src/app/espace/espaces.decorator';
+import { PrismaService } from '@personal-os/database';
 
 /**
  * Un module qui n'accepte que l'Espace foyer — comme le feront les repas, les
@@ -32,8 +33,35 @@ export class ControleurSansDeclaration {
   }
 }
 
+/**
+ * Un module qui rattache une exception à son Événement par un geste imbriqué,
+ * au lieu de l'écrire par le dépôt du modèle concerné (ADR 0028).
+ */
+@Controller('rattachement-imbrique')
+@Espaces('PERSONAL', 'HOUSEHOLD')
+export class ControleurRattachementImbrique {
+  constructor(private readonly prisma: PrismaService) {}
+
+  @Post()
+  async rattacher(@Body() saisie: { scopeId: string }): Promise<void> {
+    await this.prisma.event.create({
+      data: {
+        title: 'Réunion',
+        startsAt: new Date(),
+        category: 'OTHER',
+        scopeId: saisie.scopeId,
+        exceptions: { connect: { id: 'exception-quelconque' } },
+      },
+    });
+  }
+}
+
 @Module({
-  controllers: [ControleurFoyerSeul, ControleurSansDeclaration],
+  controllers: [
+    ControleurFoyerSeul,
+    ControleurSansDeclaration,
+    ControleurRattachementImbrique,
+  ],
   providers: [EventService, EventRepository],
 })
 export class ModuleRestreint {}

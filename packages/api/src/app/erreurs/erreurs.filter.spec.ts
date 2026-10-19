@@ -106,20 +106,24 @@ describe("ErreursFilter : l'enveloppe unique (ADR 0030)", () => {
       ['type-refuse', 403, 'scope.kind_refused'],
       ['absent', 422, 'scope.missing'],
       ['sans-portee', 500, 'scope.undeclared'],
+      ['imbrication', 500, 'scope.nested_write'],
     ])('%s donne un %i `%s`', (raison, status, code) => {
       const enveloppe = envelopper(new ErreurDEspace(raison, 'refusé'));
 
       expect(enveloppe).toMatchObject({ status, code });
     });
 
-    it('ne laisse rien filer du refus interne quand il est un défaut', () => {
-      const enveloppe = envelopper(
-        new ErreurDEspace('sans-portee', MESSAGE_INTERNE),
-      );
+    it.each<RaisonDuRefus>(['sans-portee', 'imbrication'])(
+      'ne laisse rien filer du refus interne quand il est un défaut (%s)',
+      (raison) => {
+        const enveloppe = envelopper(
+          new ErreurDEspace(raison, MESSAGE_INTERNE),
+        );
 
-      expect(JSON.stringify(enveloppe)).not.toContain(MESSAGE_INTERNE);
-      expect(journal).toHaveBeenCalled();
-    });
+        expect(JSON.stringify(enveloppe)).not.toContain(MESSAGE_INTERNE);
+        expect(journal).toHaveBeenCalled();
+      },
+    );
   });
 
   describe('une HttpException restante', () => {

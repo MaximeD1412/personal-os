@@ -44,7 +44,7 @@
         {
           "texte": "Étendre l'inspection des écritures imbriquées avant que les Recettes portent leurs Ingrédients",
           "ref": "ADR 0028",
-          "fait": false
+          "fait": true
         },
         {
           "texte": "Règle de lint qui interdit $queryRaw et $executeRaw dans les modules métier",

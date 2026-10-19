@@ -1,8 +1,10 @@
 import { ErreurDEspace } from './erreur-d-espace';
 import {
+  MODELE_ESPACE,
   porteUnEspace,
-  relationsCloisonnees,
+  relationsDe,
   relationsVersEspace,
+  type SchemaDEspace,
 } from './modeles';
 import type { PorteeEspace } from './portee';
 
@@ -34,15 +36,22 @@ const SANS_FILTRE = new Set([
 ]);
 
 /**
+ * Les gestes imbriqués qui ne font que rattacher un modèle hors Espace, sans
+ * rien y écrire : un Ingrédient du catalogue, par exemple.
+ */
+const RATTACHEMENTS = new Set(['connect', 'disconnect', 'set']);
+
+/**
  * Contient une opération dans la portée d'Espace de la requête. Renvoie les
  * arguments réécrits, ou lève si l'opération sort de la portée.
  */
 export function cloisonner(
   operation: OperationPrisma,
   portee: PorteeEspace | null,
+  schema: SchemaDEspace,
 ): Record<string, unknown> {
-  if (!porteUnEspace(operation.model)) {
-    return refuserLesCheminsImbriques(operation);
+  if (!porteUnEspace(operation.model, schema)) {
+    return refuserLesCheminsImbriques(operation, schema);
   }
 
   if (!portee) {
@@ -53,11 +62,15 @@ export function cloisonner(
   }
 
   const args = { ...operation.args };
+  const model = operation.model ?? '';
 
   for (const cle of CHARGES_ECRITES) {
     if (cle in args) {
-      refuserLesRelationsCloisonnees(operation.model ?? '', args[cle]);
-      args[cle] = verifierEcriture(args[cle], portee, cree(operation, cle));
+      verifierEcriture(model, args[cle], {
+        portee,
+        schema,
+        creation: cree(operation, cle),
+      });
     }
   }
 
@@ -75,8 +88,9 @@ export function cloisonner(
  */
 function refuserLesCheminsImbriques(
   operation: OperationPrisma,
+  schema: SchemaDEspace,
 ): Record<string, unknown> {
-  const interdites = relationsVersEspace(operation.model ?? '');
+  const interdites = relationsVersEspace(operation.model ?? '', schema);
 
   for (const cle of CHARGES_ECRITES) {
     const charge = operation.args[cle];
@@ -87,7 +101,7 @@ function refuserLesCheminsImbriques(
     for (const relation of interdites) {
       if (relation in charge) {
         throw new ErreurDEspace(
-          'hors-portee',
+          'imbrication',
           `Écrire « ${relation} » par un chemin imbriqué contournerait la garde d'Espace.`,
         );
       }
@@ -97,29 +111,6 @@ function refuserLesCheminsImbriques(
   return operation.args;
 }
 
-/**
- * Un modèle cloisonné qui en porte un autre ne l'écrit pas par sa relation :
- * la charge imbriquée échapperait à la garde. Il s'écrit par ses clés, sur
- * son propre modèle, où la garde le vérifie.
- */
-function refuserLesRelationsCloisonnees(model: string, charge: unknown): void {
-  const rangees = Array.isArray(charge) ? charge : [charge];
-
-  for (const rangee of rangees) {
-    if (!rangee || typeof rangee !== 'object') {
-      continue;
-    }
-    for (const relation of relationsCloisonnees(model)) {
-      if (relation in rangee) {
-        throw new ErreurDEspace(
-          'hors-portee',
-          `Écrire « ${relation} » par un chemin imbriqué échapperait à la garde d'Espace.`,
-        );
-      }
-    }
-  }
-}
-
 /** `upsert` porte les deux : sa clé `create` crée, sa clé `update` modifie. */
 function cree(operation: OperationPrisma, cle: string): boolean {
   return (
@@ -127,31 +118,173 @@ function cree(operation: OperationPrisma, cle: string): boolean {
   );
 }
 
+interface Contexte {
+  portee: PorteeEspace;
+  schema: SchemaDEspace;
+  creation: boolean;
+}
+
+/** Vérifie l'Espace de chaque rangée écrite au premier niveau, puis ses lignes. */
 function verifierEcriture(
+  model: string,
   data: unknown,
-  portee: PorteeEspace,
-  creation: boolean,
-): unknown {
-  if (Array.isArray(data)) {
-    return data.map((rangee) => verifierEcriture(rangee, portee, creation));
+  contexte: Contexte,
+): void {
+  for (const rangee of rangees(data)) {
+    const espace = espaceNomme(model, rangee, contexte.schema);
+    if (espace === undefined) {
+      if (contexte.creation) {
+        throw new ErreurDEspace(
+          'absent',
+          "L'enregistrement créé ne porte aucun Espace.",
+        );
+      }
+    } else {
+      verifierEspaceVise(espace, contexte.portee);
+    }
+
+    verifierLesLignes(model, rangee, espace, contexte);
   }
-  if (!data || typeof data !== 'object') {
-    return data;
+}
+
+/**
+ * Une écriture imbriquée ne traverse pas l'extension pour chaque modèle
+ * qu'elle atteint : la garde la suit donc elle-même, à toute profondeur, le
+ * long des relations que le schéma déclare.
+ *
+ * Vers un modèle cloisonné, seule la création passe. La ligne créée est dans
+ * l'Espace de son parent : la clé étrangère qui les relie porte `scopeId`
+ * (`modeles.spec.ts`), si bien que Prisma le tire du parent et que la base
+ * refuse tout écart. Une ligne qui nomme un autre Espace est refusée ici, avant
+ * même d'atteindre la base. Tout autre geste — rattacher, modifier, supprimer —
+ * se fait au premier niveau, par le dépôt du modèle concerné.
+ *
+ * Vers un modèle hors Espace, on rattache sans rien écrire.
+ */
+function verifierLesLignes(
+  model: string,
+  rangee: Record<string, unknown>,
+  espace: unknown,
+  contexte: Contexte,
+): void {
+  for (const [relation, cible] of Object.entries(
+    relationsDe(model, contexte.schema),
+  )) {
+    const gestes = rangee[relation];
+    if (cible === MODELE_ESPACE || !estUnObjet(gestes)) {
+      continue;
+    }
+
+    for (const [geste, charge] of Object.entries(gestes)) {
+      if (!porteUnEspace(cible, contexte.schema)) {
+        if (!RATTACHEMENTS.has(geste)) {
+          throw refusDImbrication(relation, geste);
+        }
+        continue;
+      }
+
+      if (geste !== 'create' && geste !== 'createMany') {
+        throw refusDImbrication(relation, geste);
+      }
+
+      const lignes =
+        geste === 'create'
+          ? charge
+          : estUnObjet(charge)
+            ? charge['data']
+            : undefined;
+      for (const ligne of rangees(lignes)) {
+        const sien = verifierLigne(cible, ligne, espace, contexte);
+        verifierLesLignes(cible, ligne, sien, contexte);
+      }
+    }
+  }
+}
+
+/** Une ligne n'a qu'un Espace : celui de son parent. */
+function verifierLigne(
+  model: string,
+  ligne: Record<string, unknown>,
+  espaceDuParent: unknown,
+  contexte: Contexte,
+): unknown {
+  const sien = espaceNomme(model, ligne, contexte.schema);
+  if (sien === undefined) {
+    return espaceDuParent;
   }
 
-  const rangee = data as Record<string, unknown>;
-  if (!('scopeId' in rangee)) {
-    if (creation) {
+  if (espaceDuParent === undefined) {
+    // Le parent est modifié sans nommer son Espace : la garde ne connaît pas
+    // le sien, et ne peut donc pas vérifier que la ligne est dans le même.
+    // Une ligne qui en nomme un pourrait déplacer son parent : créée du côté
+    // que vise sa clé étrangère, elle lui imposerait son `scopeId`.
+    throw new ErreurDEspace(
+      'imbrication',
+      `Une ligne imbriquée de ${model} nomme un Espace sous une modification qui ne nomme pas celui de son parent.`,
+    );
+  }
+  if (sien !== espaceDuParent) {
+    throw new ErreurDEspace(
+      'imbrication',
+      `Une ligne imbriquée de ${model} nomme l'Espace ${String(sien)}, qui n'est pas celui de son parent.`,
+    );
+  }
+  return sien;
+}
+
+/**
+ * L'Espace qu'une rangée nomme : par sa clé `scopeId`, ou par sa relation à
+ * l'Espace. Cette relation ne peut que rattacher un Espace par son
+ * identifiant ; la créer ou la modifier d'ici échapperait à la garde.
+ */
+function espaceNomme(
+  model: string,
+  rangee: Record<string, unknown>,
+  schema: SchemaDEspace,
+): unknown {
+  let espace = rangee['scopeId'];
+
+  for (const [relation, cible] of Object.entries(relationsDe(model, schema))) {
+    if (cible !== MODELE_ESPACE || !(relation in rangee)) {
+      continue;
+    }
+
+    const gestes = rangee[relation];
+    const connect = estUnObjet(gestes) ? gestes['connect'] : undefined;
+    if (
+      !estUnObjet(gestes) ||
+      Object.keys(gestes).length !== 1 ||
+      !estUnObjet(connect) ||
+      Object.keys(connect).length !== 1 ||
+      typeof connect['id'] !== 'string'
+    ) {
+      throw refusDImbrication(relation, Object.keys(gestes ?? {}).join(', '));
+    }
+    if (espace !== undefined && espace !== connect['id']) {
       throw new ErreurDEspace(
-        'absent',
-        "L'enregistrement créé ne porte aucun Espace.",
+        'imbrication',
+        `Une rangée de ${model} nomme deux Espaces à la fois.`,
       );
     }
-    return rangee;
+    espace = connect['id'];
   }
 
-  verifierEspaceVise(rangee['scopeId'], portee);
-  return rangee;
+  return espace;
+}
+
+function refusDImbrication(relation: string, geste: string): ErreurDEspace {
+  return new ErreurDEspace(
+    'imbrication',
+    `« ${geste} » imbriqué sur « ${relation} » échapperait à la garde d'Espace : il se fait au premier niveau, par le dépôt du modèle concerné.`,
+  );
+}
+
+function rangees(charge: unknown): Record<string, unknown>[] {
+  return (Array.isArray(charge) ? charge : [charge]).filter(estUnObjet);
+}
+
+function estUnObjet(valeur: unknown): valeur is Record<string, unknown> {
+  return !!valeur && typeof valeur === 'object' && !Array.isArray(valeur);
 }
 
 function verifierEspaceVise(scopeId: unknown, portee: PorteeEspace): void {

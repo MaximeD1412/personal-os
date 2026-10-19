@@ -40,6 +40,53 @@ continuent de fonctionner tout en étant bornés : deviner un identifiant ne
 rapporte rien, et la réponse est « introuvable » plutôt qu'« interdit », pour ne
 pas confirmer l'existence de la rangée.
 
+## Les écritures imbriquées
+
+> **Complété le 19 octobre 2026 par SOCLE-6 (#68).** Cette section remplace
+> le paragraphe qui laissait les écritures imbriquées hors de la garde — « le
+> jour où une **Recette** portera ses **Ingrédients**, il faudra étendre
+> l'inspection » —, et son complément de #9, qui les interdisait toutes entre
+> modèles cloisonnés par une liste tenue à la main (`RELATIONS_CLOISONNEES`).
+
+**Toute table cloisonnée porte `scopeId`**, lignes d'agrégat comprises : une
+ligne de **Recette** a le même `scopeId` que sa **Recette**. Il n'y a pas de
+modèle « dépendant » sans **Espace** : l'uniformité prime sur la redondance,
+et le filtre s'applique partout.
+
+Une écriture imbriquée ne traverse pas l'extension pour chaque modèle qu'elle
+atteint. La garde la suit donc à toute profondeur, le long des relations que
+le client Prisma déclare à l'exécution (son DMMF), et non d'une liste tenue à
+la main : un modèle nouveau est couvert sans que personne y pense. Dans une
+écriture sur un modèle cloisonné :
+
+- vers un **autre modèle cloisonné**, seuls `create` et `createMany`
+  passent. La ligne créée est dans l'**Espace** de son parent : une ligne
+  qui en nomme un autre, par `scopeId` ou par sa relation à l'**Espace**, est
+  refusée. La clé étrangère qui relie deux modèles cloisonnés porte `scopeId`
+  des deux côtés (`modeles.spec.ts` le vérifie) : Prisma tire donc l'**Espace**
+  de la ligne de celui de son parent — et refuse qu'on le répète —, et la base
+  rejette tout écart. Une ligne d'un **Événement** en suit la série quand
+  celle-ci change d'**Espace**. Sous une modification qui ne nomme pas
+  l'**Espace** de son parent, la garde ne le connaît pas : une ligne créée n'y
+  nomme donc aucun **Espace**, et la clé étrangère lui donne celui du parent.
+  Une ligne qui en nommerait un pourrait déplacer son parent — créée du côté
+  que vise sa clé étrangère, elle lui imposerait son `scopeId` ;
+- `connect`, `connectOrCreate`, `set`, `update`, `updateMany`, `upsert`,
+  `delete`, `deleteMany` et `disconnect` vers un modèle cloisonné sont
+  refusés : ces gestes se font au premier niveau, par le dépôt du modèle
+  concerné, où la garde les borne ;
+- vers un **modèle hors Espace** (un **Ingrédient** du catalogue), on
+  rattache (`connect`, `disconnect`, `set`) sans rien y écrire. La relation
+  à l'**Espace** lui-même ne fait que rattacher un **Espace** par son
+  identifiant, que la garde vérifie comme un `scopeId`.
+
+Depuis un modèle hors Espace, les chemins qui atteignent une donnée
+cloisonnée, directement ou à travers d'autres modèles hors Espace, restent
+refusés par la liste `RELATIONS_VERS_ESPACE`, relue contre le schéma.
+
+Ces refus sont un défaut du module, pas de la requête : raison
+`imbrication`, rendue en 500 `scope.nested_write`.
+
 ## Ce que la garde ne couvre pas
 
 - **Les requêtes SQL brutes.** Elles ne sont plus exposées par la façade
@@ -48,26 +95,14 @@ pas confirmer l'existence de la rangée.
   en a besoin. Une règle de lint de l'API (`packages/api/eslint.config.mjs`)
   refuse le SQL brut et tout import de `@prisma/*` ou du client généré, sans
   exception.
-- **Les écritures imbriquées entre modèles cloisonnés.** La garde vérifie
-  l'**Espace** de la charge écrite, pas celui des charges qu'elle contiendrait.
-  Les chemins qui passent par un ou plusieurs modèles hors Espace sont refusés
-  par liste de relations transitive. Le jour où une **Recette** portera ses
-  **Ingrédients**, il faudra étendre l'inspection des charges d'un modèle
-  cloisonné ; un test doit alors échouer avant la mise en production.
-
-  > **Complément — 19 octobre 2026 (#9).** Ce jour est venu avec les
-  > exceptions d'un **Événement** récurrent (`EventException`). Plutôt que
-  > d'inspecter les charges imbriquées, on les interdit : une relation entre
-  > deux modèles cloisonnés est déclarée dans `RELATIONS_CLOISONNEES`, et la
-  > garde refuse toute écriture qui passe par elle. Chaque modèle s'écrit seul,
-  > par ses clés, et la garde vérifie son **Espace**. La clé étrangère de ces
-  > relations porte `scopeId` des deux côtés : la base refuse une exception
-  > rattachée à l'**Événement** d'un autre **Espace**, et l'exception suit sa
-  > série quand celle-ci en change. `modeles.spec.ts` relit la liste contre le
-  > schéma et vérifie que chaque clé porte bien l'**Espace**.
 
 ## Options écartées
 
+- **Que la garde pose `scopeId` sur chaque ligne imbriquée.** Prisma refuse
+  ce champ sur une ligne dont la clé étrangère vers son parent le porte
+  déjà : il le tire lui-même du parent. La clé composite donne la même
+  garantie, tenue par la base ; la garde se contente de refuser une ligne qui
+  nommerait un autre **Espace**.
 - **Filtrer dans chaque service.** C'est exactement ce que l'ADR 0016 refuse :
   la garantie dépendrait de la vigilance, et un seul oubli sur quarante écrans
   suffirait.
