@@ -116,7 +116,8 @@ model Event {
 /// La trace d'un appel au modèle d'IA : ce qu'on lui a demandé, ce qu'il a
 /// répondu, et ce que cela a coûté. Un journal en ajout seul, dans l'Espace
 /// foyer, qui sert à comprendre une proposition étrange et à plafonner le coût
-/// du mois. Une réponse rejetée par son schéma est tracée comme les autres.
+/// du mois. Une réponse rejetée par son schéma, comme un appel resté sans
+/// réponse, est tracée comme les autres, avec sa raison dans `error`.
 model AiTrace {
   id           String   @id @default(uuid())
   scopeId      String
@@ -127,12 +128,17 @@ model AiTrace {
   model        String
   system       String
   input        String
-  /// La réponse brute, avant toute validation.
-  output       String
-  inputTokens  Int
-  outputTokens Int
+  /// La réponse brute, avant toute validation ; vide quand le fournisseur n'a
+  /// pas répondu.
+  output       String?
+  /// Inconnus quand le fournisseur n'a pas répondu.
+  inputTokens  Int?
+  outputTokens Int?
   /// Le coût estimé, arrondi au centime supérieur : le plafond ne se sous-estime jamais.
   costCents    Int
+  /// Pourquoi l'appel n'a rien rendu d'utilisable (panne, sortie hors schéma) ;
+  /// vide pour une réponse retenue.
+  error        String?
   createdAt    DateTime @default(now())
 
   @@index([scopeId])

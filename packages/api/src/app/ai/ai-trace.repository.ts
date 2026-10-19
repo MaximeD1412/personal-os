@@ -8,10 +8,14 @@ export interface AiTraceRecord {
   model: string;
   system: string;
   input: string;
-  output: string;
-  inputTokens: number;
-  outputTokens: number;
+  /** Vide quand le fournisseur n'a pas répondu. */
+  output: string | null;
+  /** Inconnus quand le fournisseur n'a pas répondu. */
+  inputTokens: number | null;
+  outputTokens: number | null;
   costCents: number;
+  /** Pourquoi l'appel n'a rien rendu d'utilisable ; vide pour une réponse retenue. */
+  error: string | null;
   createdAt: Date;
 }
 

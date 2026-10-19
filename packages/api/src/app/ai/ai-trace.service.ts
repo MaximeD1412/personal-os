@@ -55,6 +55,7 @@ function resumer(trace: AiTraceRecord): AiTraceSummary {
     inputTokens: trace.inputTokens,
     outputTokens: trace.outputTokens,
     costCents: trace.costCents,
+    error: trace.error,
     createdAt: trace.createdAt.toISOString(),
   };
 }

@@ -1,4 +1,6 @@
+import { HttpStatus } from '@nestjs/common';
 import type { ZodType } from 'zod';
+import { ErreurMetier } from '../erreurs/erreur-metier';
 
 /** Un appel au fournisseur : la demande telle que le port l'a reçue. */
 export interface AppelIA {
@@ -26,5 +28,23 @@ export interface ReponseIA {
  * (`GenerateurIAService`) : changer de fournisseur ne peut pas les perdre.
  */
 export abstract class FournisseurIA {
+  /** Le modèle appelé, nommé dans la trace d'un appel qui n'a pas répondu. */
+  abstract readonly modele: string;
+
   abstract appeler(appel: AppelIA): Promise<ReponseIA>;
+}
+
+/**
+ * Le fournisseur n'a pas répondu : panne réseau, surcharge, clé refusée. Le
+ * message affiché reste général ; `detail` dit ce qui s'est passé, et c'est lui
+ * que garde la trace de l'appel.
+ */
+export class PanneDuFournisseur extends ErreurMetier {
+  constructor(readonly detail: string) {
+    super(
+      'ai.provider_unavailable',
+      "Le service d'IA ne répond pas. Réessaie dans un instant.",
+      HttpStatus.BAD_GATEWAY,
+    );
+  }
 }

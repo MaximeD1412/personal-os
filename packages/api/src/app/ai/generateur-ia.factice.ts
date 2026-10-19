@@ -9,7 +9,8 @@ type Jetons = Pick<ReponseIA, 'jetonsEntree' | 'jetonsSortie'>;
  */
 @Injectable()
 export class GenerateurIAFactice extends FournisseurIA {
-  readonly #reponses = new Map<string, ReponseIA[]>();
+  readonly modele = 'factice';
+  readonly #reponses = new Map<string, (ReponseIA | Error)[]>();
 
   /**
    * Programme la prochaine réponse à ce but : une valeur, rendue en JSON. Les
@@ -17,7 +18,7 @@ export class GenerateurIAFactice extends FournisseurIA {
    */
   programmer(but: string, valeur: unknown, jetons: Partial<Jetons> = {}): void {
     this.#file(but).push({
-      modele: 'factice',
+      modele: this.modele,
       texte: JSON.stringify(valeur),
       jetonsEntree: jetons.jetonsEntree ?? 0,
       jetonsSortie: jetons.jetonsSortie ?? 0,
@@ -27,22 +28,30 @@ export class GenerateurIAFactice extends FournisseurIA {
   /** Programme une réponse brute, pour simuler une sortie mal formée. */
   programmerTexte(but: string, texte: string): void {
     this.#file(but).push({
-      modele: 'factice',
+      modele: this.modele,
       texte,
       jetonsEntree: 0,
       jetonsSortie: 0,
     });
   }
 
-  appeler(appel: AppelIA): Promise<ReponseIA> {
+  /** Programme une panne : l'appel lève cette erreur au lieu de répondre. */
+  programmerPanne(but: string, erreur: Error): void {
+    this.#file(but).push(erreur);
+  }
+
+  async appeler(appel: AppelIA): Promise<ReponseIA> {
     const reponse = this.#file(appel.but).shift();
     if (!reponse) {
       throw new Error(`Aucune réponse programmée pour « ${appel.but} ».`);
     }
-    return Promise.resolve(reponse);
+    if (reponse instanceof Error) {
+      throw reponse;
+    }
+    return reponse;
   }
 
-  #file(but: string): ReponseIA[] {
+  #file(but: string): (ReponseIA | Error)[] {
     const file = this.#reponses.get(but) ?? [];
     this.#reponses.set(but, file);
     return file;

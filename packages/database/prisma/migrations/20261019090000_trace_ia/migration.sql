@@ -15,10 +15,11 @@ CREATE TABLE "AiTrace" (
     "model" TEXT NOT NULL,
     "system" TEXT NOT NULL,
     "input" TEXT NOT NULL,
-    "output" TEXT NOT NULL,
-    "inputTokens" INTEGER NOT NULL,
-    "outputTokens" INTEGER NOT NULL,
+    "output" TEXT,
+    "inputTokens" INTEGER,
+    "outputTokens" INTEGER,
     "costCents" INTEGER NOT NULL,
+    "error" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AiTrace_pkey" PRIMARY KEY ("id")

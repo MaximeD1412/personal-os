@@ -1,8 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
-import { HttpStatus, Logger } from '@nestjs/common';
-import { ErreurMetier } from '../erreurs/erreur-metier';
-import { FournisseurIA, type AppelIA, type ReponseIA } from './fournisseur-ia';
+import { Logger } from '@nestjs/common';
+import {
+  FournisseurIA,
+  PanneDuFournisseur,
+  type AppelIA,
+  type ReponseIA,
+} from './fournisseur-ia';
 
 const journal = new Logger('ClaudeGenerateur');
 
@@ -24,7 +28,7 @@ const journal = new Logger('ClaudeGenerateur');
 export class ClaudeGenerateur extends FournisseurIA {
   constructor(
     private readonly client: Anthropic,
-    private readonly modele: string,
+    readonly modele: string,
   ) {
     super();
   }
@@ -46,11 +50,7 @@ export class ClaudeGenerateur extends FournisseurIA {
     } catch (erreur) {
       if (erreur instanceof Anthropic.APIError) {
         journal.error(`${appel.but} : ${erreur.message}`, erreur.stack);
-        throw new ErreurMetier(
-          'ai.provider_unavailable',
-          "Le service d'IA ne répond pas. Réessaie dans un instant.",
-          HttpStatus.BAD_GATEWAY,
-        );
+        throw new PanneDuFournisseur(erreur.message);
       }
       throw erreur;
     }

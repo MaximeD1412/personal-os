@@ -20,7 +20,7 @@ import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
 import { ModuleEssaiIA } from '../../../test/module-ia';
 import { AppModule } from '../app.module';
-import { FournisseurIA } from './fournisseur-ia';
+import { FournisseurIA, PanneDuFournisseur } from './fournisseur-ia';
 import { GenerateurIAFactice } from './generateur-ia.factice';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
@@ -152,6 +152,36 @@ describe('Traces IA', () => {
         'essai.invalide',
         'essai.invalide',
       ]);
+      expect(journal.items.every(({ error }) => error !== null)).toBe(true);
+    });
+
+    it('trace aussi un appel resté sans réponse du fournisseur', async () => {
+      fournisseur.programmerPanne(
+        'essai.panne',
+        new PanneDuFournisseur('529 overloaded_error'),
+      );
+
+      await generer(jeu.a, 'essai.panne', 'Un plat malgré tout.')
+        .expect(502)
+        .expect(codeDErreur('ai.provider_unavailable'));
+
+      const [derniere] = (await lirePage({ limit: 1 })).items;
+      const trace = await request(app.getHttpServer())
+        .get(`/api/ai-traces/${derniere.id}`)
+        .set('Cookie', jeu.a.session)
+        .expect(200)
+        .expect(conformeA(UNE_TRACE));
+
+      expect(trace.body as AiTrace).toMatchObject({
+        purpose: 'essai.panne',
+        model: 'factice',
+        input: 'Un plat malgré tout.',
+        output: null,
+        inputTokens: null,
+        outputTokens: null,
+        costCents: 0,
+        error: '529 overloaded_error',
+      });
     });
   });
 
@@ -234,31 +264,38 @@ describe('Traces IA', () => {
 
   // En dernier : une fois le plafond atteint, plus aucun appel ne passe ce mois-ci.
   describe('Le plafond mensuel', () => {
-    it("bloque l'appel suivant en 422 ai.budget_exceeded, sans appeler le fournisseur", async () => {
-      fournisseur.programmer(
-        'essai.plafond',
-        { plat: 'Homard' },
-        { jetonsEntree: 100_000 },
-      );
-      fournisseur.programmer('essai.plafond', { plat: 'Jamais servi' });
+    it("ne laisse passer qu'un appel quand deux arrivent ensemble, et bloque la suite en 422 ai.budget_exceeded", async () => {
+      for (const plat of ['Homard', 'Caviar']) {
+        fournisseur.programmer(
+          'essai.plafond',
+          { plat },
+          { jetonsEntree: 100_000 },
+        );
+      }
 
-      const couteuse = await generer(
-        jeu.a,
-        'essai.plafond',
-        'Un plat cher.',
-      ).expect(201);
+      const reponses = await Promise.all([
+        generer(jeu.a, 'essai.plafond', 'Un plat cher.'),
+        generer(jeu.b, 'essai.plafond', 'Un autre plat cher.'),
+      ]);
+
+      expect(reponses.map(({ status }) => status).sort()).toEqual([201, 422]);
+      const couteuse = reponses.find(({ status }) => status === 201);
+      const refusee = reponses.find(({ status }) => status === 422);
+      codeDErreur('ai.budget_exceeded')(refusee as request.Response);
+
       const trace = await request(app.getHttpServer())
-        .get(`/api/ai-traces/${couteuse.body.traceId}`)
+        .get(`/api/ai-traces/${couteuse?.body.traceId}`)
         .set('Cookie', jeu.a.session)
         .expect(200);
       expect(trace.body.costCents).toBe(10);
 
+      fournisseur.programmer('essai.plafond', { plat: 'Jamais servi' });
       await generer(jeu.b, 'essai.plafond', 'Encore un.')
         .expect(422)
         .expect(codeDErreur('ai.budget_exceeded'));
 
       const journal = await lirePage({ limit: 1 });
-      expect(journal.items[0].id).toBe(couteuse.body.traceId);
+      expect(journal.items[0].id).toBe(couteuse?.body.traceId);
     });
   });
 

@@ -6,6 +6,7 @@ import type {
   AiTraceRepository,
   AiTraceWrite,
 } from './ai-trace.repository';
+import { PanneDuFournisseur } from './fournisseur-ia';
 import { GenerateurIAFactice } from './generateur-ia.factice';
 import { GenerateurIAService } from './generateur-ia.service';
 import type { IAConfig } from './ia.config';
@@ -137,6 +138,66 @@ describe('GenerateurIAService', () => {
         '{"plat":42}',
       ]);
     });
+
+    it('laisse des traces qui disent pourquoi chaque réponse a été rejetée', async () => {
+      fournisseur.programmerTexte('meal-plan.generate', 'Voici un gratin !');
+      fournisseur.programmer('meal-plan.generate', { plat: 42 });
+
+      await echec(generateur.genererStructure(demande));
+
+      expect(journal.traces.map(({ error }) => error)).toEqual([
+        expect.stringContaining('JSON'),
+        expect.stringContaining('plat'),
+      ]);
+    });
+
+    it("ne marque pas d'erreur la réponse retenue après une nouvelle tentative", async () => {
+      fournisseur.programmer('meal-plan.generate', { plat: 42 });
+      fournisseur.programmer('meal-plan.generate', { plat: 'Gratin' });
+
+      await generateur.genererStructure(demande);
+
+      expect(journal.traces.map(({ error }) => error)).toEqual([
+        expect.stringContaining('plat'),
+        null,
+      ]);
+    });
+  });
+
+  describe('une panne du fournisseur', () => {
+    it('laisse une trace de la demande, sans jetons connus, et remonte telle quelle', async () => {
+      const panne = new PanneDuFournisseur('529 overloaded_error');
+      fournisseur.programmerPanne('meal-plan.generate', panne);
+
+      const erreur = await echec(generateur.genererStructure(demande));
+
+      expect(erreur).toBe(panne);
+      expect(journal.traces).toEqual([
+        expect.objectContaining({
+          purpose: 'meal-plan.generate',
+          model: 'factice',
+          system: 'Tu proposes des plats.',
+          input: 'Un plat pour lundi.',
+          output: null,
+          inputTokens: null,
+          outputTokens: null,
+          costCents: 0,
+          error: '529 overloaded_error',
+        }),
+      ]);
+    });
+
+    it("n'est pas retentée : seule une sortie hors schéma l'est", async () => {
+      fournisseur.programmerPanne(
+        'meal-plan.generate',
+        new PanneDuFournisseur('hors ligne'),
+      );
+      fournisseur.programmer('meal-plan.generate', { plat: 'Gratin' });
+
+      await echec(generateur.genererStructure(demande));
+
+      expect(journal.traces).toHaveLength(1);
+    });
   });
 
   describe('le plafond mensuel', () => {
@@ -188,6 +249,50 @@ describe('GenerateurIAService', () => {
       expect(erreur).toMatchObject({ code: 'ai.budget_exceeded' });
       expect(journal.traces).toHaveLength(1);
     });
+
+    it("ne laisse passer qu'un appel quand plusieurs arrivent ensemble près du plafond", async () => {
+      journal.traces.push(uneTrace({ costCents: 499 }));
+      for (let i = 0; i < 3; i++) {
+        // 50 000 jetons d'entrée à 200 centimes le million : 10 centimes.
+        fournisseur.programmer(
+          'meal-plan.generate',
+          { plat: `Plat ${i}` },
+          { jetonsEntree: 50_000 },
+        );
+      }
+
+      const resultats = await Promise.allSettled(
+        [1, 2, 3].map(() => generateur.genererStructure(demande)),
+      );
+
+      expect(resultats.map(({ status }) => status).sort()).toEqual([
+        'fulfilled',
+        'rejected',
+        'rejected',
+      ]);
+      expect(
+        journal.traces.reduce((somme, { costCents }) => somme + costCents, 0),
+      ).toBe(509);
+    });
+
+    it('rouvre la file après une panne : un appel suivant passe', async () => {
+      fournisseur.programmerPanne(
+        'meal-plan.generate',
+        new PanneDuFournisseur('hors ligne'),
+      );
+      fournisseur.programmer('meal-plan.generate', { plat: 'Gratin' });
+
+      const [premier, second] = await Promise.allSettled([
+        generateur.genererStructure(demande),
+        generateur.genererStructure(demande),
+      ]);
+
+      expect(premier.status).toBe('rejected');
+      expect(second).toMatchObject({
+        status: 'fulfilled',
+        value: { valeur: { plat: 'Gratin' } },
+      });
+    });
   });
 });
 
@@ -203,6 +308,7 @@ function uneTrace(trace: Partial<AiTraceRecord>): AiTraceRecord {
     inputTokens: 0,
     outputTokens: 0,
     costCents: 0,
+    error: null,
     createdAt: new Date(),
     ...trace,
   };
