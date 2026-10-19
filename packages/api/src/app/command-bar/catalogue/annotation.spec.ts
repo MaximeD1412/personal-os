@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Module, Post, Query } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { ApiBody } from '@nestjs/swagger';
 import { ZodResponse, createZodDto } from 'nestjs-zod';
 import * as z from 'zod';
 import { documentOpenApi } from '../../../openapi';
@@ -71,6 +72,51 @@ describe('@Command, de l’annotation au catalogue (ADR 0018)', () => {
           },
         },
       ],
+    });
+  });
+
+  it("lit les champs d'un schéma d'entrée en union discriminée", async () => {
+    const zReminderInput = z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('ONCE'), title: z.string().min(1) }),
+      z.object({
+        kind: z.literal('DAILY'),
+        title: z.string().min(1),
+        hour: z.int(),
+      }),
+    ]);
+    // Une union ne s'étend pas en classe : le DTO est la classe elle-même.
+    const ReminderInputDto = createZodDto(zReminderInput);
+
+    @Controller('reminders')
+    class ReminderController {
+      @Post()
+      @ZodResponse({ status: 201, type: NoteDto })
+      @Command({
+        intent: 'Créer un rappel',
+        examples: ['rappelle-moi de sortir les poubelles'],
+        screen: '/rappels/nouveau',
+        params: { title: 'required', hour: 'optional' },
+      })
+      @ApiBody({ type: ReminderInputDto })
+      creer(@Body() saisie: z.infer<typeof zReminderInput>) {
+        return { id: saisie.title };
+      }
+    }
+
+    @Module({ controllers: [ReminderController] })
+    class ReminderModule {}
+
+    const catalogue = await catalogueDe(ReminderModule);
+
+    expect(catalogue.actions[0].params).toEqual({
+      title: {
+        required: true,
+        schema: expect.objectContaining({ type: 'string', minLength: 1 }),
+      },
+      hour: {
+        required: false,
+        schema: expect.objectContaining({ type: 'integer' }),
+      },
     });
   });
 

@@ -192,6 +192,99 @@ describe("La génération du catalogue d'actions (ADR 0018)", () => {
     });
   });
 
+  describe("lit les champs d'un schéma d'entrée composé", () => {
+    const annoteSur = (schema: object, params: CommandAnnotation['params']) =>
+      genererCatalogue(
+        openapi(
+          {
+            '/api/events': {
+              post: {
+                operationId: 'EventController_creer',
+                requestBody: {
+                  content: { 'application/json': { schema } },
+                },
+                responses: {},
+                'x-command': { ...CREER_UN_EVENEMENT, params },
+              },
+            },
+          },
+          {
+            Rendezvous: {
+              type: 'object',
+              properties: {
+                kind: { type: 'string', const: 'APPOINTMENT' },
+                title: { type: 'string', minLength: 1 },
+              },
+            },
+            Anniversaire: {
+              type: 'object',
+              properties: {
+                kind: { type: 'string', const: 'BIRTHDAY' },
+                title: { type: 'string', minLength: 1 },
+                person: { type: 'string' },
+              },
+            },
+          },
+        ),
+      ).actions[0].params;
+
+    it('dans une union : un champ commun garde son schéma, un champ différent prend celui de chaque variante', () => {
+      const params = annoteSur(
+        {
+          oneOf: [
+            { $ref: '#/components/schemas/Rendezvous' },
+            { $ref: '#/components/schemas/Anniversaire' },
+          ],
+        },
+        { title: 'required', kind: 'optional', person: 'optional' },
+      );
+
+      expect(params).toEqual({
+        title: { required: true, schema: { type: 'string', minLength: 1 } },
+        kind: {
+          required: false,
+          schema: {
+            anyOf: [
+              { type: 'string', const: 'APPOINTMENT' },
+              { type: 'string', const: 'BIRTHDAY' },
+            ],
+          },
+        },
+        person: { required: false, schema: { type: 'string' } },
+      });
+    });
+
+    it('dans une intersection : chaque contrainte sur un champ s’applique', () => {
+      const params = annoteSur(
+        {
+          allOf: [
+            { $ref: '#/components/schemas/Rendezvous' },
+            { type: 'object', properties: { title: { maxLength: 80 } } },
+          ],
+        },
+        { title: 'required' },
+      );
+
+      expect(params['title'].schema).toEqual({
+        allOf: [{ type: 'string', minLength: 1 }, { maxLength: 80 }],
+      });
+    });
+
+    it('dans un schéma nullable', () => {
+      const params = annoteSur(
+        {
+          anyOf: [
+            { $ref: '#/components/schemas/Rendezvous' },
+            { type: 'null' },
+          ],
+        },
+        { title: 'required' },
+      );
+
+      expect(params['title'].schema).toEqual({ type: 'string', minLength: 1 });
+    });
+  });
+
   it('range les actions par identifiant, pour un fichier stable', () => {
     const annotee = (operationId: string) => ({
       operationId,

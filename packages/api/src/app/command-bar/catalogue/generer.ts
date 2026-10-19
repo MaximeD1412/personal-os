@@ -152,11 +152,11 @@ function champsDEntree(
   const corps = resoudre(openapi, operation['requestBody']) as
     | { content?: Record<string, { schema?: unknown }> }
     | undefined;
-  const schema = resoudre(
+  for (const [champ, propriete] of proprietes(
     openapi,
     corps?.content?.['application/json']?.schema,
-  ) as { properties?: Objet } | undefined;
-  for (const [champ, propriete] of Object.entries(schema?.properties ?? {})) {
+    [],
+  )) {
     champs.set(champ, propriete);
   }
 
@@ -171,6 +171,75 @@ function champsDEntree(
   }
 
   return champs;
+}
+
+/**
+ * Les propriétés d'un schéma d'objet, y compris composé : une union
+ * (`oneOf`, `anyOf`, ce que donne une union discriminée de zod) a pour champs
+ * ceux de ses variantes, et une intersection (`allOf`) ceux de ses membres.
+ * Un champ garde chaque contrainte que le schéma lui pose : celles des
+ * membres d'une intersection s'ajoutent (`allOf`), celles de variantes qui
+ * diffèrent s'offrent au choix (`anyOf`).
+ */
+function proprietes(
+  openapi: OpenAPIObject,
+  schema: unknown,
+  pile: string[],
+): Map<string, unknown> {
+  const ref = (schema as Objet | undefined)?.['$ref'];
+  if (typeof ref === 'string') {
+    if (pile.includes(ref)) {
+      throw new Error(`le schéma ${ref} est récursif : il ne se lit pas.`);
+    }
+    pile = [...pile, ref];
+  }
+
+  const objet = resoudre(openapi, schema) as Objet | undefined;
+  if (objet === null || typeof objet !== 'object') {
+    return new Map();
+  }
+
+  const membres = (cle: string) =>
+    ((objet[cle] as unknown[] | undefined) ?? []).map((membre) =>
+      proprietes(openapi, membre, pile),
+    );
+
+  return combiner(
+    [
+      new Map(Object.entries((objet['properties'] as Objet | undefined) ?? {})),
+      combiner(membres('allOf'), 'allOf'),
+      combiner([...membres('oneOf'), ...membres('anyOf')], 'anyOf'),
+    ],
+    'allOf',
+  );
+}
+
+/** Réunit les champs de plusieurs schémas ; un champ décrit différemment par plusieurs d'entre eux prend tous ses schémas, sous `mot`. */
+function combiner(
+  schemas: Map<string, unknown>[],
+  mot: 'allOf' | 'anyOf',
+): Map<string, unknown> {
+  const parChamp = new Map<string, unknown[]>();
+  for (const schema of schemas) {
+    for (const [champ, propriete] of schema) {
+      const connus = parChamp.get(champ) ?? [];
+      if (
+        !connus.some(
+          (connu) => JSON.stringify(connu) === JSON.stringify(propriete),
+        )
+      ) {
+        connus.push(propriete);
+      }
+      parChamp.set(champ, connus);
+    }
+  }
+
+  return new Map(
+    [...parChamp].map(([champ, connus]) => [
+      champ,
+      connus.length === 1 ? connus[0] : { [mot]: connus },
+    ]),
+  );
 }
 
 /** Suit les `$ref` d'un objet jusqu'à l'objet qu'ils désignent. */
