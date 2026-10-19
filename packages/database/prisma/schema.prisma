@@ -36,17 +36,19 @@ model Household {
 /// L'Espace, seule chose qui détermine qui voit une donnée. Il en existe trois :
 /// un Espace personnel par Compte, et l'Espace du Foyer.
 model Scope {
-  id              String           @id @default(uuid())
-  kind            ScopeKind
-  label           String
-  householdId     String
-  household       Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  id                 String              @id @default(uuid())
+  kind               ScopeKind
+  label              String
+  householdId        String
+  household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
   /// Le Compte dont c'est l'Espace personnel ; vide pour l'Espace foyer.
-  holderId        String?          @unique
-  holder          User?            @relation(fields: [holderId], references: [id], onDelete: Cascade)
-  traces          Trace[]
-  events          Event[]
-  eventExceptions EventException[]
+  holderId           String?             @unique
+  holder             User?               @relation(fields: [holderId], references: [id], onDelete: Cascade)
+  traces             Trace[]
+  events             Event[]
+  eventExceptions    EventException[]
+  aiTraces           AiTrace[]
+  unresolvedCommands UnresolvedCommand[]
 
   @@index([householdId])
 }
@@ -153,6 +155,51 @@ model EventException {
   @@unique([eventId, originalStart])
   @@index([scopeId])
   @@index([startsAt])
+}
+
+/// La trace d'un appel au modèle d'IA : ce qu'on lui a demandé, ce qu'il a
+/// répondu, et ce que cela a coûté. Un journal en ajout seul, dans l'Espace
+/// foyer, qui sert à comprendre une proposition étrange et à plafonner le coût
+/// du mois. Une réponse rejetée par son schéma, comme un appel resté sans
+/// réponse, est tracée comme les autres, avec sa raison dans `error`.
+model AiTrace {
+  id           String   @id @default(uuid())
+  scopeId      String
+  scope        Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  /// Le but de l'appel (`meal-plan.generate`…), qui dit quel module l'a fait.
+  purpose      String
+  /// Le modèle qui a répondu, tel que le fournisseur le nomme.
+  model        String
+  system       String
+  input        String
+  /// La réponse brute, avant toute validation ; vide quand le fournisseur n'a
+  /// pas répondu.
+  output       String?
+  /// Inconnus quand le fournisseur n'a pas répondu.
+  inputTokens  Int?
+  outputTokens Int?
+  /// Le coût estimé, arrondi au centime supérieur : le plafond ne se sous-estime jamais.
+  costCents    Int
+  /// Pourquoi l'appel n'a rien rendu d'utilisable (panne, sortie hors schéma) ;
+  /// vide pour une réponse retenue.
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@index([scopeId])
+  @@index([createdAt])
+}
+
+/// Une commande que la barre n'a pas comprise, écrite mot pour mot. Un journal
+/// en ajout seul, dans l'Espace personnel de son auteur : c'est la file de
+/// travail du catalogue d'actions (ADR 0018).
+model UnresolvedCommand {
+  id        String   @id @default(uuid())
+  scopeId   String
+  scope     Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([scopeId, createdAt])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.

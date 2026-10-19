@@ -68,6 +68,14 @@ export class PrismaService {
     return this.#client.eventException;
   }
 
+  get aiTrace() {
+    return this.#client.aiTrace;
+  }
+
+  get unresolvedCommand() {
+    return this.#client.unresolvedCommand;
+  }
+
   get session() {
     return this.#client.session;
   }

@@ -87,6 +87,7 @@
     "@angular/platform-browser": "~22.0.4",
     "@angular/platform-browser-dynamic": "~22.0.4",
     "@angular/router": "~22.0.4",
+    "@anthropic-ai/sdk": "^0.135.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@nestjs/common": "^11.0.0",
