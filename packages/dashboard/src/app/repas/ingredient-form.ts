@@ -183,8 +183,8 @@ export class FormulaireDIngredient {
         this.envoi.set(false);
         showToast({
           message: this.id
-            ? `« ${ingredient.displayName} » est enregistré.`
-            : `« ${ingredient.displayName} » est ajouté au catalogue.`,
+            ? `«\u00a0${ingredient.displayName}\u00a0» est enregistré.`
+            : `«\u00a0${ingredient.displayName}\u00a0» est ajouté au catalogue.`,
         });
         void this.router.navigate(['/repas/ingredients', ingredient.id]);
       },

@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-margin">
   <dccm-page-header
     heading="Ingrédients"
-    subtitle="Le catalogue du Foyer : l'unité canonique, les allergènes et la conservation de chaque Ingrédient."
+    subtitle="Le catalogue partagé par le Foyer."
     [breadcrumb]="fil"
   >
     <a hlmBtn routerLink="/repas/ingredients/nouveau" data-test="nouveau">
@@ -38,7 +38,7 @@
       routerLink="/repas/ingredients/nouveau"
       [queryParams]="{ displayName: cherche() }"
       data-test="creer-cherche"
-      >Créer « {{ cherche() }} »</a
+      >Créer «&nbsp;{{ cherche() }}&nbsp;»</a
     >
     } @else {
     <a dccmStateEmpty hlmBtn routerLink="/repas/ingredients/nouveau"

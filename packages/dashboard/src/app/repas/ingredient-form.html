@@ -35,23 +35,26 @@
 
       <div hlmField>
         <span hlmFieldLabel id="ingredient-unite">Unité canonique</span>
-        <hlm-toggle-group
-          size="md"
-          data-test="unite"
-          aria-labelledby="ingredient-unite"
-          [value]="unite()"
-          (valueChange)="choisirLUnite($event)"
-        >
-          @for (unite of unites; track unite.valeur) {
-          <button
-            hlmToggleGroupItem
-            [value]="unite.valeur"
-            [attr.data-unite]="unite.valeur"
+        <!-- Le champ étire ses enfants : le groupe garde sa largeur dans un conteneur. -->
+        <div>
+          <hlm-toggle-group
+            size="md"
+            data-test="unite"
+            aria-labelledby="ingredient-unite"
+            [value]="unite()"
+            (valueChange)="choisirLUnite($event)"
           >
-            {{ unite.libelle }}
-          </button>
-          }
-        </hlm-toggle-group>
+            @for (unite of unites; track unite.valeur) {
+            <button
+              hlmToggleGroupItem
+              [value]="unite.valeur"
+              [attr.data-unite]="unite.valeur"
+            >
+              {{ unite.libelle }}
+            </button>
+            }
+          </hlm-toggle-group>
+        </div>
         @if (erreurs()['canonicalUnit']; as message) {
         <hlm-field-error forceShow>{{ message }}</hlm-field-error>
         } @else {

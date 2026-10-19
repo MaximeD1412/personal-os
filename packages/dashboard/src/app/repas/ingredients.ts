@@ -7,6 +7,7 @@ import {
   matSearchOutline,
 } from '@ng-icons/material-symbols/outline';
 import {
+  ALLERGENES,
   LIBELLES_DES_ALLERGENES,
   LIBELLES_DES_UNITES,
   type Ingredient,
@@ -79,7 +80,7 @@ export class Ingredients {
 
   protected readonly titreVide = computed(() =>
     this.cherche()
-      ? `Aucun Ingrédient ne correspond à « ${this.cherche()} »`
+      ? `Aucun Ingrédient ne correspond à «\u00a0${this.cherche()}\u00a0»`
       : 'Le catalogue est vide',
   );
 
@@ -95,9 +96,10 @@ export class Ingredients {
 
   /** L'unité, puis les Allergènes déclarés. */
   protected meta(ingredient: Ingredient): string {
+    // Dans l'ordre de la liste réglementaire, comme sur la fiche.
     const allergenes = ingredient.allergens.length
-      ? ingredient.allergens
-          .map((allergene) => LIBELLES_DES_ALLERGENES[allergene])
+      ? ALLERGENES.filter((famille) => ingredient.allergens.includes(famille))
+          .map((famille) => LIBELLES_DES_ALLERGENES[famille])
           .join(', ')
       : 'Sans allergène';
 

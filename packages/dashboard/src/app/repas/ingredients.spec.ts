@@ -30,6 +30,19 @@ describe('Le catalogue d’Ingrédients', () => {
     expect(lignes[1].textContent).not.toContain('Périssable');
   });
 
+  it('nomme les Allergènes dans l’ordre de la liste réglementaire, comme la fiche', async () => {
+    const { harness, http, el } = await ouvrirLeCatalogue('/repas/ingredients');
+
+    http
+      .expectOne(`${BASE}/ingredients`)
+      .flush([{ ...OIGNON, allergens: ['SOY', 'GLUTEN'] }]);
+    await harness.fixture.whenStable();
+
+    expect(
+      el().querySelector('[data-test="ingredient"]')?.textContent,
+    ).toContain('Pièce · Gluten, Soja');
+  });
+
   it('reprend la recherche de l’URL, et la suit à la frappe', async () => {
     const { harness, http, el, router } = await ouvrirLeCatalogue(
       '/repas/ingredients?q=beurre',
@@ -72,7 +85,7 @@ describe('Le catalogue d’Ingrédients', () => {
     await harness.fixture.whenStable();
 
     expect(el().textContent).toContain(
-      'Aucun Ingrédient ne correspond à « Poireau »',
+      'Aucun Ingrédient ne correspond à «\u00a0Poireau\u00a0»',
     );
     expect(
       el().querySelector('[data-test="creer-cherche"]')?.getAttribute('href'),
