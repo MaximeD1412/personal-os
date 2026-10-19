@@ -1,6 +1,7 @@
 export * from './lib/ai';
 export * from './lib/agenda';
 export * from './lib/auth';
+export * from './lib/command-bar';
 export * from './lib/erreur';
 export * from './lib/event';
 export * from './lib/health';
