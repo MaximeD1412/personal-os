@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import type { Scope, Trace } from '@personal-os/contracts';
+import type { Event, EventOccurrence, Scope } from '@personal-os/contracts';
 import {
   ErreurDEspace,
   PrismaService,
@@ -17,7 +17,7 @@ import {
   type JeuDEspaces,
 } from '../../../test/jeu-d-espaces';
 import { ModuleRestreint } from '../../../test/module-restreint';
-import { codeDErreur } from '../../../test/code-d-erreur';
+import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { AppModule } from '../app.module';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
@@ -25,12 +25,18 @@ const DASHBOARD_URL = 'http://app.exemple.test/';
 const ADRESSE_A = 'a@exemple.test';
 const ADRESSE_B = 'b@exemple.test';
 
+/** De quoi couvrir tous les Événements de cette campagne. */
+const TOUT = {
+  from: '2026-01-01T00:00:00.000Z',
+  to: '2026-12-31T23:59:59.999Z',
+};
+
 /**
  * Les tests de non-exposition. Ils portent sur le **mécanisme** — la garde
  * d'Espace posée dans l'accès aux données — et non sur chaque endpoint pris
- * séparément (ADR 0016). Le fil traceur leur sert de sujet : ce qui vaut pour
- * lui vaudra pour tout modèle qui portera un Espace, puisque c'est le même
- * chemin de code.
+ * séparément (ADR 0016). L'Événement leur sert de sujet : ce qui vaut pour
+ * lui vaut pour tout modèle qui porte un Espace, puisque c'est le même chemin
+ * de code.
  */
 describe('Cloisonnement par Espace', () => {
   let authentik: FauxAuthentik;
@@ -99,98 +105,106 @@ describe('Cloisonnement par Espace', () => {
   });
 
   describe("Ce qu'un Compte ne voit pas", () => {
-    it("ne rend jamais une Trace de l'Espace personnel de l'autre", async () => {
+    it("ne rend jamais un Événement de l'Espace personnel de l'autre", async () => {
       const sienne = await creer(jeu.b, 'secret de B', jeu.b.espacePersonnel);
 
       const vues = await request(app.getHttpServer())
-        .get('/api/traces')
+        .get('/api/events')
+        .query(TOUT)
         .set('Cookie', jeu.a.session)
         .expect(200);
 
-      expect((vues.body as Trace[]).map(({ id }) => id)).not.toContain(
-        sienne.id,
-      );
+      expect(
+        (vues.body as EventOccurrence[]).map(({ eventId }) => eventId),
+      ).not.toContain(sienne.id);
     });
 
-    it('ne la rend pas davantage à qui devine son identifiant', async () => {
+    it('ne le rend pas davantage à qui devine son identifiant', async () => {
       const sienne = await creer(jeu.b, 'à deviner', jeu.b.espacePersonnel);
 
       await request(app.getHttpServer())
-        .patch(`/api/traces/${sienne.id}`)
+        .patch(`/api/events/${sienne.id}`)
         .set('Cookie', jeu.a.session)
-        .send({ label: 'volée' })
+        .send({ title: 'volé' })
         .expect(404)
-        .expect(codeDErreur('http.404'));
+        .expect(codeDErreur('event.not_found'));
     });
 
-    it("ne laisse pas modifier une Trace de l'autre Espace personnel", async () => {
+    it("ne laisse pas modifier un Événement de l'autre Espace personnel", async () => {
       const sienne = await creer(jeu.b, 'intacte', jeu.b.espacePersonnel);
 
       await request(app.getHttpServer())
-        .patch(`/api/traces/${sienne.id}`)
+        .patch(`/api/events/${sienne.id}`)
         .set('Cookie', jeu.a.session)
-        .send({ label: 'modifiée' })
+        .send({ title: 'modifié' })
         .expect(404);
 
       const relue = await request(app.getHttpServer())
-        .get('/api/traces')
+        .get('/api/events')
+        .query(TOUT)
         .set('Cookie', jeu.b.session)
         .expect(200);
 
       expect(
-        (relue.body as Trace[]).find(({ id }) => id === sienne.id)?.label,
+        (relue.body as EventOccurrence[]).find(
+          ({ eventId }) => eventId === sienne.id,
+        )?.title,
       ).toBe('intacte');
     });
 
-    it("ne laisse pas supprimer une Trace de l'autre Espace personnel", async () => {
+    it("ne laisse pas supprimer un Événement de l'autre Espace personnel", async () => {
       const sienne = await creer(jeu.b, 'survivante', jeu.b.espacePersonnel);
 
       await request(app.getHttpServer())
-        .delete(`/api/traces/${sienne.id}`)
+        .delete(`/api/events/${sienne.id}`)
         .set('Cookie', jeu.a.session)
         .expect(404);
 
       const relue = await request(app.getHttpServer())
-        .get('/api/traces')
+        .get('/api/events')
+        .query(TOUT)
         .set('Cookie', jeu.b.session)
         .expect(200);
 
-      expect((relue.body as Trace[]).map(({ id }) => id)).toContain(sienne.id);
+      expect(
+        (relue.body as EventOccurrence[]).map(({ eventId }) => eventId),
+      ).toContain(sienne.id);
     });
 
     it("refuse d'écrire dans l'Espace personnel de l'autre", async () => {
       await request(app.getHttpServer())
-        .post('/api/traces')
+        .post('/api/events')
         .set('Cookie', jeu.a.session)
-        .send({ label: 'intrusion', scopeId: jeu.b.espacePersonnel })
+        .send(saisie('intrusion', jeu.b.espacePersonnel))
         .expect(403)
         .expect(codeDErreur('scope.out_of_reach'));
     });
   });
 
   describe('Ce que les deux Comptes voient pareil', () => {
-    it("rend à chacun la même Trace de l'Espace foyer", async () => {
+    it("rend à chacun le même Événement de l'Espace foyer", async () => {
       const commune = await creer(jeu.a, 'vacances', jeu.espaceFoyer);
 
       for (const compte of [jeu.a, jeu.b]) {
         const vues = await request(app.getHttpServer())
-          .get('/api/traces')
+          .get('/api/events')
+          .query(TOUT)
           .set('Cookie', compte.session)
           .expect(200);
 
-        expect((vues.body as Trace[]).map(({ id }) => id)).toContain(
-          commune.id,
-        );
+        expect(
+          (vues.body as EventOccurrence[]).map(({ eventId }) => eventId),
+        ).toContain(commune.id);
       }
     });
 
-    it("laisse l'autre Compte modifier une Trace de l'Espace foyer", async () => {
+    it("laisse l'autre Compte modifier un Événement de l'Espace foyer", async () => {
       const commune = await creer(jeu.a, 'à préciser', jeu.espaceFoyer);
 
       await request(app.getHttpServer())
-        .patch(`/api/traces/${commune.id}`)
+        .patch(`/api/events/${commune.id}`)
         .set('Cookie', jeu.b.session)
-        .send({ label: 'précisée' })
+        .send({ title: 'précisé' })
         .expect(200);
     });
   });
@@ -200,7 +214,7 @@ describe('Cloisonnement par Espace', () => {
       await request(app.getHttpServer())
         .post('/api/foyer-seul')
         .set('Cookie', jeu.a.session)
-        .send({ label: 'personnelle', scopeId: jeu.a.espacePersonnel })
+        .send(saisie('personnel', jeu.a.espacePersonnel))
         .expect(403)
         .expect(codeDErreur('scope.kind_refused'));
     });
@@ -209,7 +223,7 @@ describe('Cloisonnement par Espace', () => {
       await request(app.getHttpServer())
         .post('/api/foyer-seul')
         .set('Cookie', jeu.a.session)
-        .send({ label: 'commune', scopeId: jeu.espaceFoyer })
+        .send(saisie('commun', jeu.espaceFoyer))
         .expect(201);
     });
 
@@ -217,7 +231,7 @@ describe('Cloisonnement par Espace', () => {
       await request(app.getHttpServer())
         .post('/api/sans-declaration')
         .set('Cookie', jeu.a.session)
-        .send({ label: 'muette', scopeId: jeu.espaceFoyer })
+        .send(saisie('muet', jeu.espaceFoyer))
         .expect(500)
         .expect(codeDErreur('scope.undeclared'));
     });
@@ -226,10 +240,15 @@ describe('Cloisonnement par Espace', () => {
     // saisie n'atteint même pas l'accès aux données.
     it('refuse une saisie qui ne nomme aucun Espace', async () => {
       await request(app.getHttpServer())
-        .post('/api/traces')
+        .post('/api/events')
         .set('Cookie', jeu.a.session)
-        .send({ label: 'sans espace' })
-        .expect(400);
+        .send({
+          title: 'sans espace',
+          startsAt: '2026-06-15T08:00:00.000Z',
+          category: 'OTHER',
+        })
+        .expect(400)
+        .expect(champsEnErreur(['scopeId']));
     });
   });
 
@@ -392,7 +411,8 @@ describe('Cloisonnement par Espace', () => {
   describe('Sans session', () => {
     it("n'expose rien de cloisonné", async () => {
       await request(app.getHttpServer())
-        .get('/api/traces')
+        .get('/api/events')
+        .query(TOUT)
         .expect(401)
         .expect(codeDErreur('auth.required'));
       await request(app.getHttpServer())
@@ -404,15 +424,25 @@ describe('Cloisonnement par Espace', () => {
 
   async function creer(
     compte: JeuDEspaces['a'],
-    label: string,
+    title: string,
     scopeId: string,
-  ): Promise<Trace> {
+  ): Promise<Event> {
     const reponse = await request(app.getHttpServer())
-      .post('/api/traces')
+      .post('/api/events')
       .set('Cookie', compte.session)
-      .send({ label, scopeId })
+      .send(saisie(title, scopeId))
       .expect(201);
 
     return reponse.body;
   }
 });
+
+/** Un Événement ponctuel, dans la période que la campagne relit. */
+function saisie(title: string, scopeId: string) {
+  return {
+    title,
+    startsAt: '2026-06-15T08:00:00.000Z',
+    category: 'OTHER',
+    scopeId,
+  };
+}

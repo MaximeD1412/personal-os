@@ -102,6 +102,8 @@ describe('tokens.css', () => {
     const pistes: Record<string, [couleur: string, alpha: string]> = {
       'error-40': ['error-container', '66'], // Button/Destructive pressé
       'error-stroke-30': ['error', '4d'], // bordure de Button/Destructive
+      'secondary-10': ['secondary', '1a'], // fond de Banner succès
+      'tertiary-fill-20': ['tertiary', '33'], // pastille d'icône de Banner avertissement
       'surface-container-lowest-90': ['surface-container-lowest', 'e6'], // fond de TopBar
       'surface-90': ['surface', 'e6'], // fond de MobileHeader et MobileTabBar
       'surface-container-lowest-80': ['surface-container-lowest', 'cc'], // voile sous un panneau (barre de commande)

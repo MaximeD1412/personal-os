@@ -19,6 +19,9 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@personal-os/contracts": ["./packages/contracts/src/index.ts"],
+      "@personal-os/contracts/command-catalog.json": [
+        "./packages/contracts/src/generated/command-catalog.json"
+      ],
       "@personal-os/database": ["./packages/database/src/index.ts"],
       "@personal-os/ui/button": ["./packages/ui/button/src/index.ts"],
       "@personal-os/ui/utils": ["./packages/ui/utils/src/index.ts"],
@@ -41,7 +44,14 @@
       "@personal-os/ui/kbd": ["./packages/ui/kbd/src/index.ts"],
       "@personal-os/ui/breadcrumb": ["./packages/ui/breadcrumb/src/index.ts"],
       "@personal-os/ui/sheet": ["./packages/ui/sheet/src/index.ts"],
-      "@personal-os/ui/tooltip": ["./packages/ui/tooltip/src/index.ts"]
+      "@personal-os/ui/tooltip": ["./packages/ui/tooltip/src/index.ts"],
+      "@personal-os/ui/alert": ["./packages/ui/alert/src/index.ts"],
+      "@personal-os/ui/alert-dialog": [
+        "./packages/ui/alert-dialog/src/index.ts"
+      ],
+      "@personal-os/ui/dialog": ["./packages/ui/dialog/src/index.ts"],
+      "@personal-os/ui/sonner": ["./packages/ui/sonner/src/index.ts"],
+      "@personal-os/ui/skeleton": ["./packages/ui/skeleton/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

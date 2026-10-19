@@ -66,6 +66,58 @@
       ],
       "commande": "sudo ./provision.sh --dry-run",
       "ajouteLe": "2026-10-18"
+    },
+    {
+      "id": "supprimer-table-trace",
+      "phase": "db",
+      "source": "#99",
+      "titre": "Supprimer la table Trace après la prochaine livraison",
+      "pourquoi": "#99 retire tout usage de Trace dans le code, mais la version encore déployée la lit toujours : la table ne peut disparaître qu'à la livraison suivante (ADR 0024). Le modèle reste dans schema.prisma d'ici là.",
+      "etapes": [
+        "Attendre que la livraison qui contient #99 soit en production (PR develop → main fusionnée et déployée).",
+        "Dans une PR vers develop : retirer le modèle Trace et la relation Scope.traces de packages/database/prisma/schema.prisma, retirer « traces » de MODELES_HORS_ESPACE et RELATIONS_VERS_ESPACE (packages/database/src/lib/espace/modeles.ts), puis générer la migration de suppression.",
+        "Vérifier que la migration ne contient que DROP TABLE \"Trace\" (et sa clé étrangère), puis livrer."
+      ],
+      "commande": "pnpm prisma:migrate --name supprimer_trace",
+      "ajouteLe": "2026-10-19"
+    },
+    {
+      "id": "ia-cle-anthropic",
+      "phase": "acc",
+      "source": "#66",
+      "titre": "Créer une clé API Anthropic dédiée, avec une limite de dépense côté console",
+      "pourquoi": "Le port IA appelle l'API Claude en production. Le plafond applicatif (AI_MONTHLY_BUDGET_CENTS) n'est qu'une estimation à partir des jetons et d'un tarif en configuration : la limite de dépense de la console est le filet qui tient même si ce calcul se trompe.",
+      "etapes": [
+        "Dans la console Anthropic, créer un espace de travail dédié à Personal OS et lui fixer une limite de dépense mensuelle, un peu au-dessus de AI_MONTHLY_BUDGET_CENTS.",
+        "Y créer une clé API réservée à Personal OS, et la garder pour l'étape des variables."
+      ],
+      "ajouteLe": "2026-10-19"
+    },
+    {
+      "id": "ia-variables-prod",
+      "phase": "env",
+      "source": "#66",
+      "titre": "Poser les variables du port IA dans stack.env (prod) et AI_PROVIDER=factice dans staging.env",
+      "pourquoi": "Le compose de la pile exige AI_PROVIDER (« AI_PROVIDER manquant ») et l'API refuse de démarrer en production sans AI_PROVIDER=claude, sa clé et son tarif. Sans ces variables, la livraison qui embarque #66 ne démarre pas. Le staging, qui lit le même compose, doit poser AI_PROVIDER=factice : il n'appelle aucun modèle.",
+      "etapes": [
+        "Dans stack.env (prod) : AI_PROVIDER=claude, ANTHROPIC_API_KEY=<la clé dédiée>, AI_MODEL=claude-sonnet-5-5, AI_PRICE_INPUT_PER_MTOK_CENTS et AI_PRICE_OUTPUT_PER_MTOK_CENTS au tarif du modèle (200 et 1000 pour claude-sonnet-5-5, à vérifier sur la grille du jour), AI_MONTHLY_BUDGET_CENTS=500 ou le plafond voulu.",
+        "Dans staging.env : AI_PROVIDER=factice, sans clé.",
+        "Changer de modèle plus tard, c'est changer ses deux tarifs dans le même geste."
+      ],
+      "ajouteLe": "2026-10-19"
+    },
+    {
+      "id": "ia-verifier-demarrage",
+      "phase": "chk",
+      "source": "#66",
+      "titre": "Vérifier que l'API démarre sur Claude et que le journal des traces IA se lit",
+      "pourquoi": "Une variable du port IA manquante ou mal formée empêche l'API de démarrer : c'est voulu, mais cela doit se voir au premier déploiement, pas à la première génération de planning.",
+      "etapes": [
+        "Après le déploiement, vérifier dans les journaux du conteneur personal-os-api qu'il a démarré, sans erreur AI_*.",
+        "Connecté au tableau de bord, ouvrir /api/ai-traces : la réponse est { items: [], nextCursor: null } tant qu'aucun module n'appelle le modèle."
+      ],
+      "commande": "docker logs --tail 50 personal-os-api",
+      "ajouteLe": "2026-10-19"
     }
   ],
   "format": "élément = { id (stable), phase, source (#n), titre, pourquoi, etapes: [], commande (facultative), ajouteLe (YYYY-MM-DD) }"

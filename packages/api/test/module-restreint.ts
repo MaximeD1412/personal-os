@@ -1,8 +1,8 @@
 import { Body, Controller, Module, Post } from '@nestjs/common';
+import { EventInputDto } from '../src/app/calendar/event.dto';
+import { EventRepository } from '../src/app/calendar/event.repository';
+import { EventService } from '../src/app/calendar/event.service';
 import { Espaces } from '../src/app/espace/espaces.decorator';
-import { TraceService } from '../src/app/traces/trace.service';
-import { TraceRepository } from '../src/app/traces/trace.repository';
-import type { Trace, TraceInput } from '@personal-os/contracts';
 import { PrismaService } from '@personal-os/database';
 
 /**
@@ -14,22 +14,22 @@ import { PrismaService } from '@personal-os/database';
 @Controller('foyer-seul')
 @Espaces('HOUSEHOLD')
 export class ControleurFoyerSeul {
-  constructor(private readonly traces: TraceService) {}
+  constructor(private readonly evenements: EventService) {}
 
   @Post()
-  creer(@Body() saisie: Partial<TraceInput>): Promise<Trace> {
-    return this.traces.creer(saisie);
+  creer(@Body() saisie: EventInputDto) {
+    return this.evenements.creer(saisie);
   }
 }
 
 /** Un module qui touche à des données cloisonnées sans rien déclarer. */
 @Controller('sans-declaration')
 export class ControleurSansDeclaration {
-  constructor(private readonly traces: TraceService) {}
+  constructor(private readonly evenements: EventService) {}
 
   @Post()
-  creer(@Body() saisie: Partial<TraceInput>): Promise<Trace> {
-    return this.traces.creer(saisie);
+  creer(@Body() saisie: EventInputDto) {
+    return this.evenements.creer(saisie);
   }
 }
 
@@ -62,6 +62,6 @@ export class ControleurRattachementImbrique {
     ControleurSansDeclaration,
     ControleurRattachementImbrique,
   ],
-  providers: [TraceService, TraceRepository],
+  providers: [EventService, EventRepository],
 })
 export class ModuleRestreint {}

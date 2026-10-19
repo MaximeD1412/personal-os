@@ -129,11 +129,11 @@ describe("ErreursFilter : l'enveloppe unique (ADR 0030)", () => {
   describe('une HttpException restante', () => {
     it('garde son statut et son message, sous le code `http.<status>`', () => {
       expect(
-        envelopper(new NotFoundException('Aucune Trace de cet identifiant.')),
+        envelopper(new NotFoundException('Aucune ressource de cet identifiant.')),
       ).toEqual({
         status: 404,
         code: 'http.404',
-        message: 'Aucune Trace de cet identifiant.',
+        message: 'Aucune ressource de cet identifiant.',
       });
     });
 

@@ -148,8 +148,8 @@
       "categorie": "sec",
       "gravite": "moyenne",
       "titre": "Injection de prompt par du contenu saisi (recette, souhait, commande)",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-10-19",
       "solutions": [
         {
           "texte": "La barre de commande prépare, n'exécute jamais",
@@ -159,7 +159,7 @@
         {
           "texte": "Sorties IA validées par schéma ; l'IA n'a aucun outil d'écriture",
           "ref": "ADR 0030",
-          "fait": false
+          "fait": true
         }
       ],
       "tickets": ["CMD-1", "CMD-2", "CMD-3", "CUISINE-14", "CUISINE-16"]
@@ -212,7 +212,7 @@
         {
           "texte": "Sortie structurée validée par zod",
           "ref": "ADR 0030",
-          "fait": false
+          "fait": true
         },
         {
           "texte": "Ingrédient inconnu : résolveur, puis demande à l'utilisateur",
@@ -227,13 +227,13 @@
       "categorie": "ia",
       "gravite": "faible",
       "titre": "Dépendance à un fournisseur d'IA",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-10-19",
       "solutions": [
         {
           "texte": "Interface applicative unique, fournisseur remplaçable",
           "ref": "PRD #1",
-          "fait": false
+          "fait": true
         }
       ],
       "tickets": ["CUISINE-14"]
