@@ -37,7 +37,13 @@ tests d'intégration au socle ci-dessous. La section « État actuel du code »
 d'un ticket peut se contenter de dire « imite `packages/api/src/app/calendar/` ».
 L'OpenAPI se déduit des schémas : `pnpm exec nx run api:openapi` l'écrit dans
 `packages/api/openapi.json` (non versionné), et l'API le sert en
-`/api/openapi.json` hors production. L'essentiel :
+`/api/openapi.json` hors production. Le catalogue de la barre de commande en
+est tiré : un endpoint n'y entre que s'il porte `@Command(...)`
+(`packages/api/src/app/command-bar/command.decorator.ts`, ADR 0018), et
+`pnpm exec nx run api:command-catalog` réécrit
+`packages/contracts/src/generated/command-catalog.json`, versionné et comparé
+en CI à sa régénération. Il passe avant le build de l'API et du tableau de
+bord. L'essentiel :
 
 - **Les contrats sont des schémas zod** dans `contracts`, validés par le pipe
   global, avec un schéma de sortie par route. Pas de validation de forme dans
@@ -97,6 +103,7 @@ et lève `food.list_already_closed`.
 | Repas cuisiné                          | `CookedMeal`                                                     |
 | Projet, Présentation publique          | `Project`, `PublicPresentation`                                  |
 | Page de contenu                        | `PageContent`                                                    |
+| Barre de commande, Catalogue d'actions | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
 
 Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
 `portfolio`, `dashboard`, `command-bar`. Un terme absent de cette table se

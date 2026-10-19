@@ -11,8 +11,8 @@ export const CHEMIN_OPENAPI = 'openapi.json';
 
 /**
  * L'OpenAPI de l'API, déduit des schémas zod que portent les DTO (ADR 0030).
- * Rien ne s'y écrit à la main : c'est sur lui que le catalogue de la barre de
- * commande sera construit (ADR 0018).
+ * Rien ne s'y écrit à la main : c'est de lui que le catalogue de la barre de
+ * commande est tiré (ADR 0018, `nx run api:command-catalog`).
  */
 export function documentOpenApi(app: INestApplication): OpenAPIObject {
   const configuration = new DocumentBuilder()
