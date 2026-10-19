@@ -10,14 +10,15 @@
  * `modeles-cloisonnes.spec.ts` compare cette liste au schéma : y ajouter un
  * modèle est un geste délibéré, l'oublier fait échouer la campagne de test.
  */
-export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> = {
-  HealthProbe: [],
-  User: [],
-  Session: [],
-  LoginTransaction: [],
-  Household: [],
-  Scope: ['traces', 'events'],
-};
+export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
+  {
+    HealthProbe: [],
+    User: [],
+    Session: [],
+    LoginTransaction: [],
+    Household: [],
+    Scope: ['traces', 'events', 'eventExceptions'],
+  };
 
 /**
  * Relations d'un modèle hors Espace qui peuvent, directement ou à travers
@@ -36,7 +37,28 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Session: ['user'],
   LoginTransaction: [],
   Household: ['members', 'scopes'],
-  Scope: ['household', 'holder', 'traces', 'events'],
+  Scope: ['household', 'holder', 'traces', 'events', 'eventExceptions'],
+};
+
+/**
+ * Les relations entre deux modèles cloisonnés : un Événement et ses
+ * exceptions.
+ *
+ * La garde vérifie l'Espace d'une charge écrite, pas celui des charges
+ * qu'elle contiendrait (ADR 0028). Ces relations ne s'écrivent donc jamais par
+ * un chemin imbriqué : chaque modèle s'écrit seul, par ses clés, et la garde
+ * vérifie son Espace. Leur clé étrangère porte l'Espace des deux côtés, si
+ * bien que la base refuse elle-même une exception rattachée à l'Événement
+ * d'un autre Espace.
+ *
+ * `modeles.spec.ts` relit cette liste contre le schéma, et vérifie que chaque
+ * clé porte bien `scopeId`.
+ */
+export const RELATIONS_CLOISONNEES: Readonly<
+  Record<string, readonly string[]>
+> = {
+  Event: ['exceptions'],
+  EventException: ['event'],
 };
 
 export function porteUnEspace(model: string | undefined): boolean {
@@ -45,4 +67,8 @@ export function porteUnEspace(model: string | undefined): boolean {
 
 export function relationsVersEspace(model: string): readonly string[] {
   return RELATIONS_VERS_ESPACE[model] ?? [];
+}
+
+export function relationsCloisonnees(model: string): readonly string[] {
+  return RELATIONS_CLOISONNEES[model] ?? [];
 }

@@ -14,9 +14,9 @@ import {
   periodeDuMois,
   zEventInput,
   type ApiError,
-  type Event,
   type EventCategory,
   type EventInput,
+  type EventOccurrence,
   type EventUpdate,
 } from '@personal-os/contracts';
 import { HlmBadge } from '@personal-os/ui/badge';
@@ -151,8 +151,12 @@ export class Calendrier {
   /** Ce que la requête a prérempli. */
   private readonly prerempli = signal<Partial<EventInput>>({});
 
-  /** L'Événement repris dans le formulaire, ou `null` quand on en crée un. */
-  protected readonly enEdition = signal<Event | null>(null);
+  /**
+   * L'occurrence reprise dans le formulaire, ou `null` quand on en crée un.
+   * La modifier modifie son Événement, donc toute la série : choisir entre
+   * l'occurrence et la série relève d'AGENDA-2.
+   */
+  protected readonly enEdition = signal<EventOccurrence | null>(null);
   protected readonly saisie = signal<Saisie>({ ...SAISIE_VIERGE });
 
   private readonly espaceCourant = inject(EspaceCourant);
@@ -162,6 +166,16 @@ export class Calendrier {
   private lienRepris = false;
   /** Une écriture a abouti pendant une lecture, peut-être partie avant elle. */
   private relectureDue = false;
+
+  /**
+   * Les bornes d'une occurrence ne sont pas celles de sa série : les envoyer
+   * déplacerait le début de toute la série, ou en changerait la durée de
+   * chaque occurrence. Tant que l'écran ne sait pas modifier une occurrence
+   * seule (AGENDA-2), ses horaires restent hors de la modification.
+   */
+  protected readonly horairesVerrouilles = computed(
+    () => this.enEdition()?.isRecurring ?? false,
+  );
 
   protected readonly pretAEnregistrer = computed(() => {
     const { titre, debut, espaceId } = this.saisie();
@@ -269,7 +283,7 @@ export class Calendrier {
       return;
     }
 
-    const evenement = this.evenements().find(({ id }) => id === vise);
+    const evenement = this.evenements().find(({ eventId }) => eventId === vise);
     if (evenement) {
       this.reprendre(evenement);
     }
@@ -297,7 +311,7 @@ export class Calendrier {
     rappel ? `${this.libelleDuRappel(Number(rappel))} avant` : 'Sans rappel';
 
   /** Une Échéance est un Événement portant la catégorie dédiée, rien de plus. */
-  protected estUneEcheance(evenement: Event): boolean {
+  protected estUneEcheance(evenement: EventOccurrence): boolean {
     return estEcheance(evenement);
   }
 
@@ -351,7 +365,7 @@ export class Calendrier {
     this.saisie.update((saisie) => ({ ...saisie, [champ]: valeur ?? '' }));
   }
 
-  protected reprendre(evenement: Event): void {
+  protected reprendre(evenement: EventOccurrence): void {
     this.refus.set(null);
     this.enEdition.set(evenement);
     this.saisie.set({
@@ -401,7 +415,7 @@ export class Calendrier {
       next: () => {
         this.refus.set(null);
         this.relireLeMois();
-        if (this.enEdition()?.id === id) {
+        if (this.enEdition()?.eventId === id) {
           this.annuler();
         }
       },
@@ -414,7 +428,7 @@ export class Calendrier {
    * lorsqu'on déplace vraiment l'Événement — le répéter sans raison ferait
    * vérifier à la garde un déplacement qui n'a pas lieu (ADR 0028).
    */
-  private appliquer(repris: Event): void {
+  private appliquer(repris: EventOccurrence): void {
     const changements = this.changementsSur(repris);
 
     if (Object.keys(changements).length === 0) {
@@ -422,7 +436,7 @@ export class Calendrier {
       return;
     }
 
-    this.evenementsApi.modifier(repris.id, changements).subscribe({
+    this.evenementsApi.modifier(repris.eventId, changements).subscribe({
       next: () => {
         this.relireLeMois();
         this.annuler();
@@ -431,18 +445,20 @@ export class Calendrier {
     });
   }
 
-  private changementsSur(repris: Event): EventUpdate {
+  private changementsSur(repris: EventOccurrence): EventUpdate {
     const voulu = this.saisieCreee();
     const changements: EventUpdate = {};
 
     if (voulu.title !== repris.title) {
       changements.title = voulu.title;
     }
-    if (!memeInstant(voulu.startsAt, repris.startsAt)) {
-      changements.startsAt = voulu.startsAt;
-    }
-    if (!memeInstant(voulu.endsAt ?? null, repris.endsAt)) {
-      changements.endsAt = voulu.endsAt ?? null;
+    if (!repris.isRecurring) {
+      if (!memeInstant(voulu.startsAt, repris.startsAt)) {
+        changements.startsAt = voulu.startsAt;
+      }
+      if (!memeInstant(voulu.endsAt ?? null, repris.endsAt)) {
+        changements.endsAt = voulu.endsAt ?? null;
+      }
     }
     if (voulu.category !== repris.category) {
       changements.category = voulu.category;
@@ -480,7 +496,8 @@ function valeurDe<T>(lecture: HttpResourceRef<T[]>): T[] {
   return lecture.hasValue() ? lecture.value() : [];
 }
 
-function parDate(evenements: Event[]): Event[] {
+/** Les occurrences du mois : une série en a plusieurs, un Événement une. */
+function parDate(evenements: EventOccurrence[]): EventOccurrence[] {
   return [...evenements].sort((gauche, droite) =>
     gauche.startsAt.localeCompare(droite.startsAt),
   );

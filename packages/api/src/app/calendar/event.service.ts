@@ -3,15 +3,18 @@ import type {
   Event,
   EventInput,
   EventListQuery,
+  EventOccurrence,
   EventUpdate,
 } from '@personal-os/contracts';
 import { ErreurDEspace } from '@personal-os/database';
 import { ErreurMetier, Introuvable } from '../erreurs/erreur-metier';
 import {
   EventRepository,
+  type EventExceptionRecord,
   type EventRecord,
   type EventWrite,
 } from './event.repository';
+import { occurrences, type Occurrence } from './recurrence/occurrences';
 
 /**
  * Les saisies arrivent validées par leur schéma (ADR 0030) : il ne reste ici
@@ -23,13 +26,31 @@ import {
 export class EventService {
   constructor(private readonly repository: EventRepository) {}
 
-  async lister(periode: EventListQuery): Promise<Event[]> {
+  /**
+   * Les occurrences de la période, calculées à la lecture depuis la règle et
+   * les exceptions de chaque Événement : rien n'est stocké, une règle changée
+   * se reflète donc aussitôt. L'Agenda les lit par ici lui aussi.
+   */
+  async lister(periode: EventListQuery): Promise<EventOccurrence[]> {
+    const bornes = { debut: new Date(periode.from), fin: new Date(periode.to) };
     const evenements = await this.repository.listerEntre(
-      new Date(periode.from),
-      new Date(periode.to),
+      bornes.debut,
+      bornes.fin,
+    );
+    const exceptions = parEvenement(
+      await this.repository.exceptionsDe(evenements.map(({ id }) => id)),
     );
 
-    return evenements.map(exposer);
+    return evenements
+      .flatMap((evenement) =>
+        occurrences(evenement, exceptions.get(evenement.id) ?? [], bornes).map(
+          (occurrence) => exposerLOccurrence(evenement, occurrence),
+        ),
+      )
+      .sort(
+        (gauche, droite) =>
+          Date.parse(gauche.startsAt) - Date.parse(droite.startsAt),
+      );
   }
 
   async creer(saisie: EventInput): Promise<Event> {
@@ -70,8 +91,7 @@ export class EventService {
     id: string,
     changements: Partial<EventWrite>,
   ): Promise<void> {
-    const toucheUneBorne =
-      'startsAt' in changements || 'endsAt' in changements;
+    const toucheUneBorne = 'startsAt' in changements || 'endsAt' in changements;
 
     if (!toucheUneBorne) {
       return;
@@ -126,6 +146,7 @@ function enEcriture(saisie: EventInput): EventWrite {
     endsAt: saisie.endsAt ? new Date(saisie.endsAt) : null,
     category: saisie.category,
     reminderLeadMinutes: saisie.reminderLeadMinutes ?? null,
+    recurrence: saisie.recurrence ?? null,
     scopeId: saisie.scopeId,
   };
 }
@@ -133,6 +154,7 @@ function enEcriture(saisie: EventInput): EventWrite {
 /**
  * Une modification ne porte que ce qu'elle change : un champ absent n'est pas
  * touché, un champ nommé vide (`endsAt`, `reminderLeadMinutes`) est retiré.
+ * Une règle nommée vide est retirée : l'Événement n'a plus lieu qu'une fois.
  * L'Espace n'a pas à être répété ; le nommer déplace l'Événement, et la garde
  * le vérifie (ADR 0028).
  */
@@ -153,6 +175,9 @@ function enChangements(saisie: EventUpdate): Partial<EventWrite> {
   }
   if (saisie.reminderLeadMinutes !== undefined) {
     changements.reminderLeadMinutes = saisie.reminderLeadMinutes;
+  }
+  if (saisie.recurrence !== undefined) {
+    changements.recurrence = saisie.recurrence;
   }
   if (saisie.scopeId !== undefined) {
     changements.scopeId = saisie.scopeId;
@@ -187,7 +212,44 @@ function exposer(evenement: EventRecord): Event {
     endsAt: evenement.endsAt?.toISOString() ?? null,
     category: evenement.category,
     reminderLeadMinutes: evenement.reminderLeadMinutes,
+    recurrence: evenement.recurrence,
     scopeId: evenement.scopeId,
     createdAt: evenement.createdAt.toISOString(),
   };
+}
+
+/**
+ * Une occurrence porte ce que l'exception a changé (titre, bornes) et, pour
+ * le reste, ce qu'est sa série.
+ */
+function exposerLOccurrence(
+  evenement: EventRecord,
+  occurrence: Occurrence,
+): EventOccurrence {
+  return {
+    eventId: evenement.id,
+    originalStart: occurrence.originalStart.toISOString(),
+    isRecurring: evenement.recurrence !== null,
+    title: occurrence.title,
+    startsAt: occurrence.startsAt.toISOString(),
+    endsAt: occurrence.endsAt?.toISOString() ?? null,
+    category: evenement.category,
+    reminderLeadMinutes: evenement.reminderLeadMinutes,
+    recurrence: evenement.recurrence,
+    scopeId: evenement.scopeId,
+  };
+}
+
+function parEvenement(
+  exceptions: EventExceptionRecord[],
+): Map<string, EventExceptionRecord[]> {
+  const parId = new Map<string, EventExceptionRecord[]>();
+  for (const exception of exceptions) {
+    parId.set(exception.eventId, [
+      ...(parId.get(exception.eventId) ?? []),
+      exception,
+    ]);
+  }
+
+  return parId;
 }

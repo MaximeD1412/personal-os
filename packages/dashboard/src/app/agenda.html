@@ -44,8 +44,8 @@
         </h3>
 
         <ul class="mt-1 divide-y">
-          @for (entree of journee.entrees; track entree.source +
-          entree.sourceId) {
+          @for (entree of journee.entrees; track entree.source + entree.sourceId
+          + entree.startsAt) {
           <li
             data-test="entree"
             class="flex flex-wrap items-baseline gap-3 py-2.5"

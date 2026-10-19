@@ -5,7 +5,12 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { aujourdhui, type Event, type Scope } from '@personal-os/contracts';
+import {
+  aujourdhui,
+  type Event,
+  type EventOccurrence,
+  type Scope,
+} from '@personal-os/contracts';
 import {
   choisirDansLeSelect,
   optionsOffertes,
@@ -30,6 +35,7 @@ const DENTISTE: Event = {
   endsAt: null,
   category: 'APPOINTMENT',
   reminderLeadMinutes: null,
+  recurrence: null,
   scopeId: 'espace-a',
   createdAt: '2026-08-27T08:00:00.000Z',
 };
@@ -41,9 +47,52 @@ const DECLARATION: Event = {
   endsAt: null,
   category: 'DEADLINE',
   reminderLeadMinutes: 10_080,
+  recurrence: null,
   scopeId: 'espace-foyer',
   createdAt: '2026-08-27T08:00:00.000Z',
 };
+
+/** Une occurrence d'un Événement, telle que la lecture d'un mois la rend. */
+function occurrenceDe(
+  evenement: Event,
+  champs: Partial<EventOccurrence> = {},
+): EventOccurrence {
+  return {
+    eventId: evenement.id,
+    originalStart: evenement.startsAt,
+    isRecurring: evenement.recurrence !== null,
+    title: evenement.title,
+    startsAt: evenement.startsAt,
+    endsAt: evenement.endsAt,
+    category: evenement.category,
+    reminderLeadMinutes: evenement.reminderLeadMinutes,
+    recurrence: evenement.recurrence,
+    scopeId: evenement.scopeId,
+    ...champs,
+  };
+}
+
+/** Ce que la lecture du mois rend : un Événement sans règle y est sa seule occurrence. */
+function enOccurrence(evenement: Event | EventOccurrence): EventOccurrence {
+  return 'eventId' in evenement ? evenement : occurrenceDe(evenement);
+}
+
+/** Une série hebdomadaire, et deux de ses occurrences du mois. */
+const PISCINE: Event = {
+  ...DENTISTE,
+  id: 'event-serie',
+  title: 'Piscine',
+  startsAt: '2026-09-07T16:00:00.000Z',
+  category: 'OTHER',
+  recurrence: { freq: 'WEEKLY', interval: 1 },
+};
+const PISCINES: EventOccurrence[] = [
+  occurrenceDe(PISCINE),
+  occurrenceDe(PISCINE, {
+    originalStart: '2026-09-14T16:00:00.000Z',
+    startsAt: '2026-09-14T16:00:00.000Z',
+  }),
+];
 
 describe('Calendrier', () => {
   let httpMock: HttpTestingController;
@@ -82,7 +131,7 @@ describe('Calendrier', () => {
   afterEach(() => httpMock.verify());
 
   async function monter(
-    evenements: Event[] = [DENTISTE, DECLARATION],
+    evenements: (Event | EventOccurrence)[] = [DENTISTE, DECLARATION],
     depuisLAgenda: Record<string, string> = {},
   ) {
     parametres = depuisLAgenda;
@@ -91,7 +140,7 @@ describe('Calendrier', () => {
     fixture.detectChanges();
 
     httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
-    lecture().flush(evenements);
+    lecture().flush(evenements.map(enOccurrence));
 
     await fixture.whenStable();
     fixture.detectChanges();
@@ -116,10 +165,10 @@ describe('Calendrier', () => {
   /** La relecture qui suit une écriture, servie avec ce que l'API renvoie. */
   async function relire(
     fixture: { whenStable(): Promise<unknown>; detectChanges(): void },
-    evenements: Event[],
+    evenements: (Event | EventOccurrence)[],
   ): Promise<void> {
     await laisserRepondre();
-    lecture().flush(evenements);
+    lecture().flush(evenements.map(enOccurrence));
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -394,6 +443,105 @@ describe('Calendrier', () => {
     });
   });
 
+  describe('Les occurrences d’une série', () => {
+    it('liste chaque occurrence du mois, chacune à sa date', async () => {
+      const lignes = element(await monter(PISCINES)).querySelectorAll(
+        '[data-test="evenement"]',
+      );
+
+      expect(lignes).toHaveLength(2);
+      expect(lignes[0].textContent).toContain('07/09/2026');
+      expect(lignes[1].textContent).toContain('14/09/2026');
+    });
+
+    it('relit le mois quand la série a été modifiée, ses occurrences ne se calculant que côté API', async () => {
+      const fixture = await monter(PISCINES);
+      const racine = element(fixture);
+
+      (
+        racine.querySelector('[data-test="modifier"]') as HTMLButtonElement
+      ).click();
+      fixture.detectChanges();
+      saisir(racine, 'titre', 'Natation');
+      fixture.detectChanges();
+      champ<HTMLButtonElement>(racine, 'enregistrer').click();
+
+      const envoi = httpMock.expectOne(`${BASE}/events/event-serie`);
+      expect(envoi.request.body).toEqual({ title: 'Natation' });
+      envoi.flush({ ...PISCINE, title: 'Natation' });
+      await relire(
+        fixture,
+        PISCINES.map((piscine) => ({ ...piscine, title: 'Natation' })),
+      );
+
+      expect(racine.querySelectorAll('[data-test="evenement"]')).toHaveLength(
+        2,
+      );
+      expect(racine.textContent).not.toContain('Piscine');
+    });
+
+    it("verrouille les horaires d'une occurrence reprise, et n'envoie jamais ses bornes à la série", async () => {
+      // Le 14 septembre est la deuxième occurrence : ses bornes envoyées à la
+      // série déplaceraient son début, ou allongeraient chaque occurrence.
+      const fixture = await monter(PISCINES);
+      const racine = element(fixture);
+
+      (
+        racine.querySelectorAll(
+          '[data-test="modifier"]',
+        )[1] as HTMLButtonElement
+      ).click();
+      fixture.detectChanges();
+
+      expect(champ<HTMLInputElement>(racine, 'debut').disabled).toBe(true);
+      expect(champ<HTMLInputElement>(racine, 'fin').disabled).toBe(true);
+      expect(champ(racine, 'horaires-verrouilles')).not.toBeNull();
+
+      saisir(racine, 'fin', '2026-09-14T20:00');
+      saisir(racine, 'titre', 'Natation');
+      fixture.detectChanges();
+      champ<HTMLButtonElement>(racine, 'enregistrer').click();
+
+      const envoi = httpMock.expectOne(`${BASE}/events/event-serie`);
+      expect(envoi.request.body).toEqual({ title: 'Natation' });
+      envoi.flush({ ...PISCINE, title: 'Natation' });
+      await relire(fixture, PISCINES);
+    });
+
+    it("laisse modifier les horaires d'un Événement qui n'a lieu qu'une fois", async () => {
+      const fixture = await monter();
+      const racine = element(fixture);
+
+      (
+        racine.querySelector('[data-test="modifier"]') as HTMLButtonElement
+      ).click();
+      fixture.detectChanges();
+
+      expect(champ<HTMLInputElement>(racine, 'debut').disabled).toBe(false);
+      expect(champ(racine, 'horaires-verrouilles')).toBeNull();
+    });
+
+    it("supprime la série depuis l'une de ses occurrences, puis relit le mois", async () => {
+      // Rangé par date : la piscine du 7, le dentiste du 14 au matin, puis la
+      // piscine du 14 au soir, deuxième occurrence de la série.
+      const fixture = await monter([...PISCINES, DENTISTE]);
+      const racine = element(fixture);
+
+      (
+        racine.querySelectorAll(
+          '[data-test="supprimer"]',
+        )[2] as HTMLButtonElement
+      ).click();
+      const envoi = httpMock.expectOne(`${BASE}/events/event-serie`);
+      expect(envoi.request.method).toBe('DELETE');
+      envoi.flush(null);
+      await relire(fixture, [DENTISTE]);
+
+      expect(racine.textContent).not.toContain('Piscine');
+      expect(racine.textContent).toContain('Dentiste');
+    });
+  });
+
   describe("L'Espace pré-choisi dans la TopBar", () => {
     /** Le parcours : « Foyer » choisi dans la TopBar, puis le Calendrier. */
     function preChoisir(id: string): void {
@@ -510,6 +658,37 @@ describe('Calendrier', () => {
       ]);
 
       expect(element(fixture).textContent).toContain('Dentiste (reporté)');
+    });
+
+    it("relit le mois après une modification, pour garder ce qu'une exception a changé", async () => {
+      // Le chantier n'a pas de règle, mais une exception prolonge sa fin au
+      // 15 : l'Événement que rend le PATCH ne le sait pas, la lecture si.
+      const chantier: Event = {
+        ...DENTISTE,
+        id: 'event-chantier',
+        title: 'Chantier',
+        startsAt: '2026-09-01T08:00:00.000Z',
+        category: 'OTHER',
+      };
+      const prolonge = occurrenceDe(chantier, {
+        endsAt: '2026-09-15T08:00:00.000Z',
+      });
+      const fixture = await monter([prolonge]);
+      const racine = element(fixture);
+
+      (
+        racine.querySelector('[data-test="modifier"]') as HTMLButtonElement
+      ).click();
+      fixture.detectChanges();
+      await choisirDansLeSelect(fixture, 'categorie', 'Rendez-vous');
+      champ<HTMLButtonElement>(racine, 'enregistrer').click();
+
+      const envoi = httpMock.expectOne(`${BASE}/events/event-chantier`);
+      expect(envoi.request.body).toEqual({ category: 'APPOINTMENT' });
+      envoi.flush({ ...chantier, category: 'APPOINTMENT' });
+      await relire(fixture, [{ ...prolonge, category: 'APPOINTMENT' }]);
+
+      expect(racine.textContent).toContain('15/09/2026');
     });
 
     it('rend le formulaire à la création quand on annule', async () => {

@@ -16,6 +16,18 @@ Cinq modules produisent des objets datés. Ce ne sont pas la même chose et ils 
 Une entrée du calendrier saisie pour elle-même — rendez-vous, anniversaire, échéance administrative. C'est le seul objet daté qui n'appartienne à aucun autre module.
 _Éviter_ : « rendez-vous », « tâche », et l'emploi d'« événement » comme mot générique pour tout ce qui a une date.
 
+**Récurrence** (`recurrence`) :
+La règle qui fait d'un **Événement** une série : une fréquence (jour, semaine, mois, année), un intervalle, éventuellement des jours de la semaine, et une fin par date ou par nombre. Les occurrences ne sont jamais enregistrées : elles se déduisent de la règle chaque fois qu'on les lit, si bien qu'une règle changée change aussitôt toute la série.
+_Éviter_ : « répétition », « événement récurrent » pour désigner une seule date de la série.
+
+**Occurrence** (`EventOccurrence`) :
+Une date d'un **Événement** : la seule d'un **Événement** sans **Récurrence**, l'une de celles qu'une **Récurrence** produit sinon. Elle est identifiée par l'instant où la règle la place, qui ne change pas quand on la déplace.
+_Éviter_ : « instance », « séance » (qui est un objet du Sport).
+
+**Exception** (`EventException`) :
+Ce qui écarte une **Occurrence** de sa règle sans toucher à la règle : elle la supprime, ou en change le titre et les bornes. Une **Exception** dont la règle ne produit plus l'**Occurrence** visée est sans effet.
+_Éviter_ : « dérogation », « modification » tout court.
+
 **Séance** (`TrainingSession`) :
 Une unité d'entraînement sportif, qui porte **à la fois** ce qui était prévu et ce qui a été réalisé, plus un statut. Une sortie non planifiée est une **Séance** créée déjà réalisée, sans prévu ; une séance manquée garde son prévu et reste sans réalisé. Il n'existe pas d'objet « résultat » distinct. Une **Séance** n'est pas un **Événement**.
 _Éviter_ : « entraînement » pour désigner une occurrence précise, « résultat », « performance ».
