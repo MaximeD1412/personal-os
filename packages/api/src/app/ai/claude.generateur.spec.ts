@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import { ErreurMetier } from '../erreurs/erreur-metier';
 import { ClaudeGenerateur } from './claude.generateur';
+import { PanneDuFournisseur } from './fournisseur-ia';
 
 const APPEL = {
   but: 'meal-plan.generate',
@@ -112,6 +113,31 @@ describe('ClaudeGenerateur', () => {
       .catch((e: unknown) => e);
 
     expect(erreur).toBeInstanceOf(ErreurMetier);
+    expect(erreur).toMatchObject({
+      code: 'ai.provider_unavailable',
+      status: 502,
+    });
+  });
+
+  it('traduit aussi un flux interrompu en 502 ai.provider_unavailable', async () => {
+    // Le vrai SDK, sur un fetch simulé : le flux ne porte qu'un ping, puis se
+    // ferme sans aucun message.
+    const client = new Anthropic({
+      apiKey: 'cle-de-test',
+      maxRetries: 0,
+      fetch: () =>
+        Promise.resolve(
+          new Response('event: ping\ndata: {"type": "ping"}\n\n', {
+            headers: { 'content-type': 'text/event-stream' },
+          }),
+        ),
+    });
+
+    const erreur = await new ClaudeGenerateur(client, 'claude-sonnet-5-5')
+      .appeler(APPEL)
+      .catch((e: unknown) => e);
+
+    expect(erreur).toBeInstanceOf(PanneDuFournisseur);
     expect(erreur).toMatchObject({
       code: 'ai.provider_unavailable',
       status: 502,

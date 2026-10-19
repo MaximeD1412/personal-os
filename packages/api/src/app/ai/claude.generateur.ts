@@ -48,7 +48,10 @@ export class ClaudeGenerateur extends FournisseurIA {
         })
         .finalMessage();
     } catch (erreur) {
-      if (erreur instanceof Anthropic.APIError) {
+      // Toute erreur du SDK est une panne du fournisseur : une réponse d'erreur
+      // de l'API (`APIError`) comme un flux interrompu avant son message, que
+      // le SDK lève en simple `AnthropicError`.
+      if (erreur instanceof Anthropic.AnthropicError) {
         journal.error(`${appel.but} : ${erreur.message}`, erreur.stack);
         throw new PanneDuFournisseur(erreur.message);
       }
