@@ -135,6 +135,16 @@ export class Calendrier {
   /** Change quand une écriture oblige à relire le mois : une série modifiée. */
   private readonly relecture = signal(0);
 
+  /**
+   * Les bornes d'une occurrence ne sont pas celles de sa série : les envoyer
+   * déplacerait le début de toute la série, ou en changerait la durée de
+   * chaque occurrence. Tant que l'écran ne sait pas modifier une occurrence
+   * seule (AGENDA-2), ses horaires restent hors de la modification.
+   */
+  protected readonly horairesVerrouilles = computed(
+    () => this.enEdition()?.isRecurring ?? false,
+  );
+
   protected readonly pretAEnregistrer = computed(() => {
     const { titre, debut, espaceId } = this.saisie();
     return titre.trim().length > 0 && debut.length > 0 && espaceId.length > 0;
@@ -390,11 +400,13 @@ export class Calendrier {
     if (voulu.title !== repris.title) {
       changements.title = voulu.title;
     }
-    if (!memeInstant(voulu.startsAt, repris.startsAt)) {
-      changements.startsAt = voulu.startsAt;
-    }
-    if (!memeInstant(voulu.endsAt ?? null, repris.endsAt)) {
-      changements.endsAt = voulu.endsAt ?? null;
+    if (!repris.isRecurring) {
+      if (!memeInstant(voulu.startsAt, repris.startsAt)) {
+        changements.startsAt = voulu.startsAt;
+      }
+      if (!memeInstant(voulu.endsAt ?? null, repris.endsAt)) {
+        changements.endsAt = voulu.endsAt ?? null;
+      }
     }
     if (voulu.category !== repris.category) {
       changements.category = voulu.category;

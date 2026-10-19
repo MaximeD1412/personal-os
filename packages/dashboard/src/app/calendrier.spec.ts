@@ -415,6 +415,48 @@ describe('Calendrier', () => {
       expect(racine.textContent).not.toContain('Piscine');
     });
 
+    it("verrouille les horaires d'une occurrence reprise, et n'envoie jamais ses bornes à la série", async () => {
+      // Le 14 septembre est la deuxième occurrence : ses bornes envoyées à la
+      // série déplaceraient son début, ou allongeraient chaque occurrence.
+      const fixture = await monter(PISCINES);
+      const racine = element(fixture);
+
+      (
+        racine.querySelectorAll(
+          '[data-test="modifier"]',
+        )[1] as HTMLButtonElement
+      ).click();
+      fixture.detectChanges();
+
+      expect(champ<HTMLInputElement>(racine, 'debut').disabled).toBe(true);
+      expect(champ<HTMLInputElement>(racine, 'fin').disabled).toBe(true);
+      expect(champ(racine, 'horaires-verrouilles')).not.toBeNull();
+
+      saisir(racine, 'fin', '2026-09-14T20:00');
+      saisir(racine, 'titre', 'Natation');
+      fixture.detectChanges();
+      champ<HTMLButtonElement>(racine, 'enregistrer').click();
+
+      const envoi = httpMock.expectOne(`${BASE}/events/event-serie`);
+      expect(envoi.request.body).toEqual({ title: 'Natation' });
+      envoi.flush({ ...PISCINE, title: 'Natation' });
+      await fixture.whenStable();
+      lecture().flush(PISCINES);
+    });
+
+    it("laisse modifier les horaires d'un Événement qui n'a lieu qu'une fois", async () => {
+      const fixture = await monter();
+      const racine = element(fixture);
+
+      (
+        racine.querySelector('[data-test="modifier"]') as HTMLButtonElement
+      ).click();
+      fixture.detectChanges();
+
+      expect(champ<HTMLInputElement>(racine, 'debut').disabled).toBe(false);
+      expect(champ(racine, 'horaires-verrouilles')).toBeNull();
+    });
+
     it('retire toutes les occurrences de la série supprimée', async () => {
       const fixture = await monter([...PISCINES, DENTISTE]);
       const racine = element(fixture);

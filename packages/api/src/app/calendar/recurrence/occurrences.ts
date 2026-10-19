@@ -130,12 +130,10 @@ function originesDansLaFenetre(
   const retenues: Occurrence[] = [premiere];
   let comptees = 1;
 
-  for (const jour of joursDeLaRegle(debut.jour, regle)) {
-    if (
-      jour > dernierJourUtile ||
-      jour > dernierJourDeLaRegle ||
-      (regle.count !== undefined && comptees >= regle.count)
-    ) {
+  const dernierJour = Math.min(dernierJourUtile, dernierJourDeLaRegle);
+
+  for (const jour of joursDeLaRegle(debut.jour, regle, dernierJour)) {
+    if (regle.count !== undefined && comptees >= regle.count) {
       break;
     }
     comptees += 1;
@@ -166,22 +164,29 @@ function originesDansLaFenetre(
 
 /**
  * Les jours civils de la règle qui suivent strictement le premier, dans
- * l'ordre. La suite est sans fin : c'est à qui la lit de s'arrêter.
+ * l'ordre, jusqu'au dernier inclus.
+ *
+ * La borne se vérifie sur chaque jour **parcouru**, et non sur chaque jour
+ * rendu : une règle valide peut ne plus jamais tomber sur un de ses jours
+ * (tous les sept jours depuis un lundi, mais le mardi), et un parcours qui
+ * attendrait un jour rendu pour s'arrêter ne s'arrêterait pas.
  */
 function* joursDeLaRegle(
   premier: JourCivil,
   regle: Recurrence,
+  dernier: JourCivil,
 ): Generator<JourCivil> {
   const pas = regle.interval;
 
   switch (regle.freq) {
     case 'DAILY': {
       const retenus = decalagesDesJours(regle.byWeekday);
-      for (let jour = premier + pas; ; jour += pas) {
+      for (let jour = premier + pas; jour <= dernier; jour += pas) {
         if (!retenus || retenus.has(jourDeLaSemaine(jour))) {
           yield jour;
         }
       }
+      return;
     }
     case 'WEEKLY': {
       const decalages = [
@@ -189,13 +194,18 @@ function* joursDeLaRegle(
           new Set([jourDeLaSemaine(premier)])),
       ].sort((a, b) => a - b);
       const lundi = premier - jourDeLaSemaine(premier);
-      for (let semaine = lundi; ; semaine += 7 * pas) {
+      for (let semaine = lundi; semaine <= dernier; semaine += 7 * pas) {
         for (const decalage of decalages) {
-          if (semaine + decalage > premier) {
-            yield semaine + decalage;
+          const jour = semaine + decalage;
+          if (jour > dernier) {
+            return;
+          }
+          if (jour > premier) {
+            yield jour;
           }
         }
       }
+      return;
     }
     case 'MONTHLY':
     case 'YEARLY': {
@@ -208,11 +218,15 @@ function* joursDeLaRegle(
         const candidat = new Date(
           Date.UTC(annee, mois + rang * moisParPas, quantieme),
         );
+        const jour = candidat.getTime() / JOUR;
+        if (jour > dernier) {
+          return;
+        }
         // Un 31 dans un mois de 30 jours, un 29 février hors année
         // bissextile : la date « déborde » sur le mois suivant, et ce mois-là
         // n'a pas d'occurrence.
         if (candidat.getUTCDate() === quantieme) {
-          yield candidat.getTime() / JOUR;
+          yield jour;
         }
       }
     }

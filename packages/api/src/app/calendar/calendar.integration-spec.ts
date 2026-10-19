@@ -673,6 +673,41 @@ describe('Calendrier', () => {
       ).toEqual(['2029-03-30T07:00:00.000Z']);
     });
 
+    it("rend l'occurrence dont une exception prolonge la seule fin jusque dans la période", async () => {
+      // Sans règle, l'Événement du 1er mars ne rencontre pas la période du
+      // 10 au 12 ; c'est l'exception, qui garde son début, qui l'y prolonge.
+      const prolonge = await creer(jeu.a, {
+        title: 'Chantier',
+        startsAt: '2029-03-01T10:00:00.000Z',
+        category: 'OTHER',
+        scopeId: jeu.a.espacePersonnel,
+      });
+      await poserDesExceptions(
+        app,
+        { id: jeu.a.espacePersonnel, kind: 'PERSONAL' },
+        [
+          {
+            eventId: prolonge.id,
+            originalStart: '2029-03-01T10:00:00.000Z',
+            kind: 'MODIFIED',
+            endsAt: '2029-03-15T10:00:00.000Z',
+          },
+        ],
+      );
+
+      expect(
+        await occurrencesDe(jeu.a, prolonge, {
+          from: '2029-03-10T00:00:00.000Z',
+          to: '2029-03-12T00:00:00.000Z',
+        }),
+      ).toEqual([
+        expect.objectContaining({
+          startsAt: '2029-03-01T10:00:00.000Z',
+          endsAt: '2029-03-15T10:00:00.000Z',
+        }),
+      ]);
+    });
+
     it('reflète aussitôt un changement de règle', async () => {
       const serie = await creer(jeu.a, {
         title: 'Une semaine sur deux, bientôt',

@@ -54,8 +54,11 @@ export class EventRepository {
    *   commence : des vacances entamées en juillet appartiennent bien à
    *   l'agenda du mois d'août) ;
    * - une série commencée avant sa fin, quelle que soit sa règle ;
-   * - une série dont une occurrence a été déplacée avant sa fin, au besoin
-   *   avant le début de la série elle-même.
+   * - un Événement dont une occurrence a été déplacée avant sa fin, au
+   *   besoin avant le début de la série elle-même ;
+   * - un Événement dont une occurrence a gardé son début mais a vu sa fin
+   *   prolongée jusque dans la période : sans règle (ou après qu'on la lui a
+   *   retirée), rien d'autre ne le ferait remonter.
    */
   async listerEntre(debut: Date, fin: Date): Promise<EventRecord[]> {
     const rangees = await this.prisma.event.findMany({
@@ -71,7 +74,17 @@ export class EventRepository {
           { recurrence: { not: DbNull }, startsAt: { lte: fin } },
           {
             exceptions: {
-              some: { kind: 'MODIFIED', startsAt: { lte: fin } },
+              some: {
+                kind: 'MODIFIED',
+                OR: [
+                  { startsAt: { lte: fin } },
+                  {
+                    startsAt: null,
+                    originalStart: { lte: fin },
+                    endsAt: { gte: debut },
+                  },
+                ],
+              },
             },
           },
         ],

@@ -149,6 +149,25 @@ describe('occurrences', () => {
       ]);
     });
 
+    it("s'arrête à la période quand aucun jour parcouru ne tombe sur ceux de la règle", () => {
+      // Tous les sept jours depuis un lundi : jamais un mardi. Le parcours
+      // doit s'arrêter à la fin de la période, et ne rendre que le début.
+      const jamaisUnMardi = evenement({
+        startsAt: '2026-09-14T07:00:00.000Z',
+        recurrence: regle({ freq: 'DAILY', interval: 7, byWeekday: ['TU'] }),
+      });
+
+      expect(
+        debuts(
+          occurrences(
+            jamaisUnMardi,
+            [],
+            periode('2026-09-01T00:00:00.000Z', '2027-09-30T00:00:00.000Z'),
+          ),
+        ),
+      ).toEqual(['2026-09-14T07:00:00.000Z']);
+    });
+
     it('répète un Événement hebdomadaire le jour de son début', () => {
       const chaqueLundi = evenement({
         startsAt: '2026-09-14T07:00:00.000Z',
