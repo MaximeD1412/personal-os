@@ -66,7 +66,11 @@ la main : un modèle nouveau est couvert sans que personne y pense. Dans une
   des deux côtés (`modeles.spec.ts` le vérifie) : Prisma tire donc l'**Espace**
   de la ligne de celui de son parent — et refuse qu'on le répète —, et la base
   rejette tout écart. Une ligne d'un **Événement** en suit la série quand
-  celle-ci change d'**Espace** ;
+  celle-ci change d'**Espace**. Sous une modification qui ne nomme pas
+  l'**Espace** de son parent, la garde ne le connaît pas : une ligne créée n'y
+  nomme donc aucun **Espace**, et la clé étrangère lui donne celui du parent.
+  Une ligne qui en nommerait un pourrait déplacer son parent — créée du côté
+  que vise sa clé étrangère, elle lui imposerait son `scopeId` ;
 - `connect`, `connectOrCreate`, `set`, `update`, `updateMany`, `upsert`,
   `delete`, `deleteMany` et `disconnect` vers un modèle cloisonné sont
   refusés : ces gestes se font au premier niveau, par le dépôt du modèle

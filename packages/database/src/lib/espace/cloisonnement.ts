@@ -214,10 +214,16 @@ function verifierLigne(
   }
 
   if (espaceDuParent === undefined) {
-    // Le parent est modifié sans nommer son Espace : la ligne est au moins
-    // bornée à ceux du compte, et la clé étrangère fait le reste.
-    verifierEspaceVise(sien, contexte.portee);
-  } else if (sien !== espaceDuParent) {
+    // Le parent est modifié sans nommer son Espace : la garde ne connaît pas
+    // le sien, et ne peut donc pas vérifier que la ligne est dans le même.
+    // Une ligne qui en nomme un pourrait déplacer son parent : créée du côté
+    // que vise sa clé étrangère, elle lui imposerait son `scopeId`.
+    throw new ErreurDEspace(
+      'imbrication',
+      `Une ligne imbriquée de ${model} nomme un Espace sous une modification qui ne nomme pas celui de son parent.`,
+    );
+  }
+  if (sien !== espaceDuParent) {
     throw new ErreurDEspace(
       'imbrication',
       `Une ligne imbriquée de ${model} nomme l'Espace ${String(sien)}, qui n'est pas celui de son parent.`,

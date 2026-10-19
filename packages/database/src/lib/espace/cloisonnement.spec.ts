@@ -567,9 +567,9 @@ describe('Cloisonnement par Espace', () => {
       ).toBe('imbrication');
     });
 
-    it("vérifie l'Espace d'une ligne créée sous une modification", () => {
-      // Le parent n'y nomme pas son Espace : la ligne est au moins bornée à
-      // ceux du compte, et la clé étrangère fait le reste.
+    it("refuse qu'une ligne créée sous une modification nomme un Espace", () => {
+      // Le parent n'y nomme pas le sien : la garde ne le connaît pas, et ne
+      // peut donc pas vérifier que la ligne est dans le même.
       const ajouter = (scopeId: string) => () =>
         garder(
           {
@@ -583,8 +583,71 @@ describe('Cloisonnement par Espace', () => {
           PORTEE_COMPLETE,
         );
 
-      expect(raisonDuRefus(ajouter(SIEN))).toBe('hors-portee');
-      expect(raisonDuRefus(ajouter(MIEN))).toBeUndefined();
+      expect(raisonDuRefus(ajouter(SIEN))).toBe('imbrication');
+      expect(raisonDuRefus(ajouter(MIEN))).toBe('imbrication');
+    });
+
+    it('refuse de déplacer une ligne en créant son parent sous une modification', () => {
+      // La clé étrangère de l'exception porte l'Espace : créer un Événement
+      // du foyer et l'y rattacher déplacerait l'exception personnelle.
+      expect(
+        raisonDuRefus(() =>
+          garder(
+            {
+              model: 'EventException',
+              operation: 'update',
+              args: {
+                where: { id: 'exception-personnelle' },
+                data: {
+                  event: { create: { title: 'Réunion', scopeId: FOYER } },
+                },
+              },
+            },
+            PORTEE_COMPLETE,
+          ),
+        ),
+      ).toBe('imbrication');
+    });
+
+    it("laisse créer sous une modification une ligne qui ne nomme pas d'Espace", () => {
+      // La clé étrangère la place dans l'Espace de son parent.
+      expect(
+        raisonDuRefus(() =>
+          garder(
+            {
+              model: 'Recipe',
+              operation: 'update',
+              args: {
+                where: { id: 'x' },
+                data: {
+                  lines: {
+                    create: ligne({ notes: { create: { text: 'fin' } } }),
+                  },
+                },
+              },
+            },
+            PORTEE_COMPLETE,
+          ),
+        ),
+      ).toBeUndefined();
+    });
+
+    it("compare les lignes à l'Espace vers lequel une modification déplace le parent", () => {
+      const deplacerEtAjouter = (scopeId: string) => () =>
+        garder(
+          {
+            model: 'Recipe',
+            operation: 'update',
+            args: {
+              where: { id: 'x' },
+              data: { scopeId: FOYER, lines: { create: ligne({ scopeId }) } },
+            },
+          },
+          PORTEE_COMPLETE,
+        );
+
+      expect(raisonDuRefus(deplacerEtAjouter(FOYER))).toBeUndefined();
+      expect(raisonDuRefus(deplacerEtAjouter(MIEN))).toBe('imbrication');
     });
 
     it("vérifie l'Espace nommé par la relation plutôt que par la clé", () => {

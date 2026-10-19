@@ -344,6 +344,41 @@ describe('Cloisonnement par Espace', () => {
       expect(await raisonDuRefus(ecriture)).toBe('imbrication');
     });
 
+    it("ne déplace pas une exception en créant un Événement d'un autre Espace", async () => {
+      const serie = await creerUneSerie({
+        create: {
+          originalStart: new Date('2026-10-12T08:00:00Z'),
+          kind: 'CANCELLED',
+        },
+      });
+      const exception = serie.exceptions[0];
+
+      const ecriture = sousPortee(portee, async () =>
+        prisma.eventException.update({
+          where: { id: exception.id },
+          data: {
+            event: {
+              create: {
+                title: 'Réunion du foyer',
+                startsAt: new Date('2026-10-05T08:00:00Z'),
+                category: 'OTHER',
+                scopeId: jeu.espaceFoyer,
+              },
+            },
+          } as never,
+        }),
+      );
+
+      expect(await raisonDuRefus(ecriture)).toBe('imbrication');
+      const relue = await sousPortee(portee, async () =>
+        prisma.eventException.findUnique({ where: { id: exception.id } }),
+      );
+      expect(relue).toMatchObject({
+        scopeId: jeu.a.espacePersonnel,
+        eventId: serie.id,
+      });
+    });
+
     it('répond 500 `scope.nested_write` : le défaut est celui du module', async () => {
       await request(app.getHttpServer())
         .post('/api/rattachement-imbrique')
