@@ -583,9 +583,49 @@ describe('Calendrier', () => {
 
       envoi.flush({ ...DENTISTE, title: 'Dentiste (reporté)' });
       await fixture.whenStable();
+      lecture().flush([
+        occurrenceDe({ ...DENTISTE, title: 'Dentiste (reporté)' }),
+        occurrenceDe(DECLARATION),
+      ]);
+      await fixture.whenStable();
       fixture.detectChanges();
 
       expect(element(fixture).textContent).toContain('Dentiste (reporté)');
+    });
+
+    it("relit le mois après une modification, pour garder ce qu'une exception a changé", async () => {
+      // Le chantier n'a pas de règle, mais une exception prolonge sa fin au
+      // 15 : l'Événement que rend le PATCH ne le sait pas, la lecture si.
+      const chantier: Event = {
+        ...DENTISTE,
+        id: 'event-chantier',
+        title: 'Chantier',
+        startsAt: '2026-09-01T08:00:00.000Z',
+        category: 'OTHER',
+      };
+      const prolonge = occurrenceDe(chantier, {
+        endsAt: '2026-09-15T08:00:00.000Z',
+      });
+      const fixture = await monter([prolonge]);
+      const racine = element(fixture);
+
+      (
+        racine.querySelector('[data-test="modifier"]') as HTMLButtonElement
+      ).click();
+      fixture.detectChanges();
+      await choisirDansLeSelect(fixture, 'categorie', 'Rendez-vous');
+      champ<HTMLButtonElement>(racine, 'enregistrer').click();
+
+      const envoi = httpMock.expectOne(`${BASE}/events/event-chantier`);
+      expect(envoi.request.body).toEqual({ category: 'APPOINTMENT' });
+      envoi.flush({ ...chantier, category: 'APPOINTMENT' });
+      await fixture.whenStable();
+
+      lecture().flush([{ ...prolonge, category: 'APPOINTMENT' }]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(racine.textContent).toContain('15/09/2026');
     });
 
     it('rend le formulaire à la création quand on annule', async () => {

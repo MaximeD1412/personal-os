@@ -168,6 +168,29 @@ describe('occurrences', () => {
       ).toEqual(['2026-09-14T07:00:00.000Z']);
     });
 
+    it.each([
+      ['annuel', regle({ freq: 'YEARLY', interval: 1_000_000 })],
+      ['mensuel', regle({ freq: 'MONTHLY', interval: 10_000_000 })],
+    ])(
+      "s'arrête quand un intervalle %s démesuré sort des dates représentables",
+      (_cas, demesuree) => {
+        const loin = evenement({
+          startsAt: '2026-09-14T07:00:00.000Z',
+          recurrence: demesuree,
+        });
+
+        expect(
+          debuts(
+            occurrences(
+              loin,
+              [],
+              periode('2026-09-01T00:00:00.000Z', '2026-09-30T00:00:00.000Z'),
+            ),
+          ),
+        ).toEqual(['2026-09-14T07:00:00.000Z']);
+      },
+    );
+
     it('répète un Événement hebdomadaire le jour de son début', () => {
       const chaqueLundi = evenement({
         startsAt: '2026-09-14T07:00:00.000Z',

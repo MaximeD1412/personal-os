@@ -219,7 +219,10 @@ function* joursDeLaRegle(
           Date.UTC(annee, mois + rang * moisParPas, quantieme),
         );
         const jour = candidat.getTime() / JOUR;
-        if (jour > dernier) {
+        // Un intervalle démesuré sort des dates représentables : `jour` vaut
+        // alors NaN, que ni la borne ni le quantième ne reconnaîtraient. Une
+        // date qu'on ne sait pas écrire est au-delà de toute période.
+        if (Number.isNaN(jour) || jour > dernier) {
           return;
         }
         // Un 31 dans un mois de 30 jours, un 29 février hors année

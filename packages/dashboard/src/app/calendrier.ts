@@ -132,7 +132,7 @@ export class Calendrier {
   private readonly espaceChoisiALaMain = signal(false);
   /** Le lien de l'Agenda ne vise un Événement qu'à l'arrivée sur l'écran. */
   private lienRepris = false;
-  /** Change quand une écriture oblige à relire le mois : une série modifiée. */
+  /** Change quand une écriture oblige à relire le mois. */
   private readonly relecture = signal(0);
 
   /**
@@ -366,8 +366,8 @@ export class Calendrier {
     }
 
     this.evenementsApi.modifier(repris.eventId, changements).subscribe({
-      next: (modifie) => {
-        this.integrer(modifie);
+      next: () => {
+        this.relireLeMois();
         this.annuler();
       },
       error: () => this.erreur.set("L'Événement n'a pas pu être modifié."),
@@ -375,13 +375,14 @@ export class Calendrier {
   }
 
   /**
-   * Un Événement écrit prend sa place dans la liste. Sans règle, il n'a
-   * qu'une occurrence, qu'on pose sans relire ; une série, elle, a des
-   * occurrences que seule l'API calcule : on relit le mois.
+   * Un Événement créé prend sa place dans la liste. Sans règle, il n'a
+   * qu'une occurrence, et aucune exception ne peut encore la changer : on la
+   * pose sans relire. Une série, elle, a des occurrences que seule l'API
+   * calcule : on relit le mois.
    */
   private integrer(evenement: Event): void {
     if (evenement.recurrence) {
-      this.relecture.update((fois) => fois + 1);
+      this.relireLeMois();
       return;
     }
 
@@ -391,6 +392,15 @@ export class Calendrier {
         seuleOccurrence(evenement),
       ]),
     );
+  }
+
+  /**
+   * Une modification se relit toujours : l'Événement que rend l'API est la
+   * série, sans ses exceptions, alors qu'une exception peut avoir changé le
+   * titre ou les bornes d'une occurrence, même sans règle.
+   */
+  private relireLeMois(): void {
+    this.relecture.update((fois) => fois + 1);
   }
 
   private changementsSur(repris: EventOccurrence): EventUpdate {
