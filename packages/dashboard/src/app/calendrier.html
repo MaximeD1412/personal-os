@@ -19,8 +19,17 @@
       />
     </label>
 
+    @if (ignores().length > 0) {
+    <p
+      class="border-border text-muted-foreground mb-4 rounded-md border px-3 py-2 text-sm"
+      data-test="ignores"
+    >
+      Ces valeurs n'ont pas pu être reprises : {{ ignores().join(', ') }}.
+    </p>
+    }
+
     <form
-      class="flex flex-wrap items-end gap-3"
+      class="flex flex-wrap items-start gap-3"
       (submit)="$event.preventDefault(); enregistrer()"
     >
       <label class="flex flex-col gap-1.5">
@@ -34,6 +43,11 @@
           [value]="saisie().titre"
           (input)="saisir('titre', $event)"
         />
+        @if (erreursDeChamp()['title']; as message) {
+        <span class="text-destructive text-xs" data-test="erreur-title"
+          >{{ message }}</span
+        >
+        }
       </label>
 
       <label class="flex flex-col gap-1.5">
@@ -45,6 +59,11 @@
           [value]="saisie().debut"
           (input)="saisir('debut', $event)"
         />
+        @if (erreursDeChamp()['startsAt']; as message) {
+        <span class="text-destructive text-xs" data-test="erreur-startsAt"
+          >{{ message }}</span
+        >
+        }
       </label>
 
       <label class="flex flex-col gap-1.5">
@@ -56,6 +75,11 @@
           [value]="saisie().fin"
           (input)="saisir('fin', $event)"
         />
+        @if (erreursDeChamp()['endsAt']; as message) {
+        <span class="text-destructive text-xs" data-test="erreur-endsAt"
+          >{{ message }}</span
+        >
+        }
       </label>
 
       <div class="flex flex-col gap-1.5">
@@ -77,6 +101,11 @@
             }
           </hlm-select-content>
         </hlm-select>
+        @if (erreursDeChamp()['category']; as message) {
+        <span class="text-destructive text-xs" data-test="erreur-category"
+          >{{ message }}</span
+        >
+        }
       </div>
 
       <div class="flex flex-col gap-1.5">
@@ -98,6 +127,11 @@
             }
           </hlm-select-content>
         </hlm-select>
+        @if (erreursDeChamp()['scopeId']; as message) {
+        <span class="text-destructive text-xs" data-test="erreur-scopeId"
+          >{{ message }}</span
+        >
+        }
       </div>
 
       <div class="flex flex-col gap-1.5">
@@ -120,16 +154,23 @@
             }
           </hlm-select-content>
         </hlm-select>
+        @if (erreursDeChamp()['reminderLeadMinutes']; as message) {
+        <span
+          class="text-destructive text-xs"
+          data-test="erreur-reminderLeadMinutes"
+          >{{ message }}</span
+        >
+        }
       </div>
 
-      <div class="flex gap-2">
+      <div class="flex gap-2 self-end">
         <button
           hlmBtn
           type="submit"
           data-test="enregistrer"
           [disabled]="!pretAEnregistrer()"
         >
-          {{ enEdition() ? 'Enregistrer' : 'Ajouter' }}
+          {{ enEdition() ? 'Enregistrer' : 'Créer' }}
         </button>
 
         @if (enEdition()) {
@@ -147,7 +188,9 @@
     </form>
 
     @if (erreur(); as message) {
-    <p class="text-destructive mt-3 text-sm">{{ message }}</p>
+    <p class="text-destructive mt-3 text-sm" data-test="erreur">
+      {{ message }}
+    </p>
     }
 
     <ul class="mt-4 divide-y">
@@ -165,9 +208,7 @@
         </span>
 
         @if (estUneEcheance(evenement)) {
-        <span hlmBadge tone="error" data-test="echeance"
-          >Échéance</span
-        >
+        <span hlmBadge tone="error" data-test="echeance">Échéance</span>
         } @else {
         <span hlmBadge variant="tag"
           >{{ nomDeLaCategorie(evenement.category) }}</span

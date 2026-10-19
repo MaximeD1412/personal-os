@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 /**
  * L'enveloppe de toute erreur de l'API (ADR 0030). `code` est stable, en
