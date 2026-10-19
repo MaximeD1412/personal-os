@@ -89,7 +89,7 @@ describe("L'OpenAPI, déduit des schémas (ADR 0030)", () => {
       const unEvenement = document.paths['/api/events/{id}'];
 
       expect(references(evenements.get?.responses)).toContain(
-        'EventDto_Output',
+        'EventOccurrenceDto_Output',
       );
       expect(references(evenements.post?.requestBody)).toEqual([
         'EventInputDto',

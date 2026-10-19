@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zInstant, zPeriod } from './valeurs';
+import { zDay, zInstant, zPeriod } from './valeurs';
 
 export const EVENT_CATEGORIES = [
   'APPOINTMENT',
@@ -27,6 +27,71 @@ export const CATEGORIE_ECHEANCE: EventCategory = 'DEADLINE';
  */
 const zReminderLeadMinutes = /* @__PURE__ */ z.int().min(0);
 
+export const FREQUENCES = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'] as const;
+
+/** Les jours de la semaine, du lundi au dimanche, aux noms d'iCalendar. */
+export const JOURS_DE_LA_SEMAINE = [
+  'MO',
+  'TU',
+  'WE',
+  'TH',
+  'FR',
+  'SA',
+  'SU',
+] as const;
+
+export const zWeekday = /* @__PURE__ */ z.enum(JOURS_DE_LA_SEMAINE);
+
+export type Weekday = z.infer<typeof zWeekday>;
+
+/** Les fréquences qui acceptent des jours de la semaine. */
+const AVEC_JOURS: readonly string[] = ['DAILY', 'WEEKLY'];
+
+/**
+ * La règle de récurrence d'un Événement, sur le modèle d'iCalendar et bornée à
+ * ce qu'on en sert : une fréquence, un intervalle, des jours de la semaine, et
+ * une fin par date **ou** par nombre. Les occurrences ne sont jamais
+ * stockées : elles se calculent à la lecture, en heure de Paris.
+ *
+ * Les jours de la semaine choisissent les jours d'une semaine
+ * (`WEEKLY`) ou filtrent les jours d'une série quotidienne (`DAILY`, « les
+ * jours ouvrés »). Sur un mois ou une année, iCalendar leur donne un sens
+ * (« tous les lundis du mois ») que personne ne demande : ils y sont refusés.
+ *
+ * `until` est le dernier jour civil où une occurrence peut commencer, inclus ;
+ * `count` compte toutes les occurrences de la série, la première comprise, et
+ * celles qu'une exception a supprimées aussi.
+ */
+export const zRecurrence = /* @__PURE__ */ z
+  .object({
+    freq: /* @__PURE__ */ z.enum(FREQUENCES),
+    interval: /* @__PURE__ */ z.int().min(1),
+    byWeekday: /* @__PURE__ */ z
+      .array(zWeekday)
+      .min(1)
+      .refine((jours) => new Set(jours).size === jours.length, {
+        error: 'Un jour de la semaine ne se nomme qu’une fois.',
+      })
+      .optional(),
+    until: /* @__PURE__ */ zDay.optional(),
+    count: /* @__PURE__ */ z.int().min(1).optional(),
+  })
+  .refine(({ until, count }) => until === undefined || count === undefined, {
+    path: ['count'],
+    error: 'Une récurrence finit par une date ou par un nombre, pas les deux.',
+  })
+  .refine(
+    ({ freq, byWeekday }) =>
+      byWeekday === undefined || AVEC_JOURS.includes(freq),
+    {
+      path: ['byWeekday'],
+      error:
+        'Les jours de la semaine ne valent que pour une récurrence quotidienne ou hebdomadaire.',
+    },
+  );
+
+export type Recurrence = z.infer<typeof zRecurrence>;
+
 /**
  * Une entrée du Calendrier : le seul objet daté qui n'appartienne à aucun
  * autre module. Une Séance et un Repas planifié n'en sont pas.
@@ -39,6 +104,8 @@ export const zEvent = /* @__PURE__ */ z.object({
   endsAt: /* @__PURE__ */ zInstant.nullable(),
   category: zEventCategory,
   reminderLeadMinutes: /* @__PURE__ */ zReminderLeadMinutes.nullable(),
+  /** Vide pour un Événement qui n'a lieu qu'une fois. */
+  recurrence: /* @__PURE__ */ zRecurrence.nullable(),
   scopeId: /* @__PURE__ */ z.string(),
   createdAt: zInstant,
 });
@@ -62,6 +129,7 @@ export const zEventInput = /* @__PURE__ */ z.object({
   reminderLeadMinutes: /* @__PURE__ */ zReminderLeadMinutes
     .nullable()
     .optional(),
+  recurrence: /* @__PURE__ */ zRecurrence.nullable().optional(),
   scopeId: /* @__PURE__ */ z.string().trim().min(1),
 });
 
@@ -78,8 +146,33 @@ export const zEventUpdate = /* @__PURE__ */ zEventInput.partial();
 export type EventUpdate = z.infer<typeof zEventUpdate>;
 
 /**
- * Les Événements se lisent sur une période obligatoire : ceux qui la
- * rencontrent, et non ceux qui y commencent (ADR 0030).
+ * Une occurrence d'un Événement, telle que la lecture d'une période la rend.
+ * Un Événement sans récurrence n'en a qu'une ; une série en a autant que sa
+ * règle en produit, moins celles qu'une exception supprime.
+ *
+ * Son identité est le couple (`eventId`, `originalStart`) : l'instant où la
+ * règle la place, qui ne bouge pas quand une exception la déplace. Le titre et
+ * les bornes sont ceux de l'occurrence, exception appliquée ; le reste est
+ * celui de la série.
+ */
+export const zEventOccurrence = /* @__PURE__ */ z.object({
+  eventId: /* @__PURE__ */ z.string(),
+  originalStart: zInstant,
+  isRecurring: /* @__PURE__ */ z.boolean(),
+  title: /* @__PURE__ */ z.string(),
+  startsAt: zInstant,
+  endsAt: /* @__PURE__ */ zInstant.nullable(),
+  category: zEventCategory,
+  reminderLeadMinutes: /* @__PURE__ */ zReminderLeadMinutes.nullable(),
+  recurrence: /* @__PURE__ */ zRecurrence.nullable(),
+  scopeId: /* @__PURE__ */ z.string(),
+});
+
+export type EventOccurrence = z.infer<typeof zEventOccurrence>;
+
+/**
+ * Les Événements se lisent sur une période obligatoire : les occurrences qui
+ * la rencontrent, et non celles qui y commencent (ADR 0030).
  */
 export const zEventListQuery = zPeriod;
 
@@ -90,8 +183,6 @@ export type EventListQuery = z.infer<typeof zEventListQuery>;
  * une ligne et vit ici seule, pour que l'API et le tableau de bord ne la
  * réécrivent pas chacun de leur côté.
  */
-export function estEcheance(evenement: {
-  category: EventCategory;
-}): boolean {
+export function estEcheance(evenement: { category: EventCategory }): boolean {
   return evenement.category === CATEGORIE_ECHEANCE;
 }

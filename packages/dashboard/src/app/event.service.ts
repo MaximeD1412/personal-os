@@ -4,6 +4,7 @@ import type {
   Event,
   EventInput,
   EventListQuery,
+  EventOccurrence,
   EventUpdate,
 } from '@personal-os/contracts';
 import type { Observable } from 'rxjs';
@@ -14,9 +15,12 @@ export class EventService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
-  /** Les Événements se demandent toujours bornés : ceux qui rencontrent la période. */
-  lister(periode: EventListQuery): Observable<Event[]> {
-    return this.http.get<Event[]>(`${this.baseUrl}/events`, {
+  /**
+   * Les Événements se demandent toujours bornés, et se lisent en occurrences :
+   * celles qui rencontrent la période.
+   */
+  lister(periode: EventListQuery): Observable<EventOccurrence[]> {
+    return this.http.get<EventOccurrence[]>(`${this.baseUrl}/events`, {
       params: new HttpParams().set('from', periode.from).set('to', periode.to),
     });
   }

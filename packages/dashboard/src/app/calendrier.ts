@@ -15,6 +15,7 @@ import {
   type Event,
   type EventCategory,
   type EventInput,
+  type EventOccurrence,
   type EventUpdate,
   type Scope,
 } from '@personal-os/contracts';
@@ -34,10 +35,7 @@ import { EspaceCourant } from './espace-courant';
 import { EspaceService } from './espace.service';
 import { EventService } from './event.service';
 import { estUnMois, moisCourant } from './mois';
-import {
-  PARAMETRE_DE_MOIS,
-  PARAMETRE_D_EVENEMENT,
-} from './modules-d-origine';
+import { PARAMETRE_DE_MOIS, PARAMETRE_D_EVENEMENT } from './modules-d-origine';
 
 /** Les catégories, dans l'ordre où l'écran les propose. */
 const CATEGORIES: readonly { valeur: EventCategory; libelle: string }[] = [
@@ -117,11 +115,16 @@ export class Calendrier {
   protected readonly mois = signal(this.moisDuLien() ?? moisCourant());
 
   protected readonly espaces = signal<Scope[]>([]);
-  protected readonly evenements = signal<Event[]>([]);
+  /** Les occurrences du mois : une série en a plusieurs, un Événement une. */
+  protected readonly evenements = signal<EventOccurrence[]>([]);
   protected readonly erreur = signal<string | null>(null);
 
-  /** L'Événement repris dans le formulaire, ou `null` quand on en crée un. */
-  protected readonly enEdition = signal<Event | null>(null);
+  /**
+   * L'occurrence reprise dans le formulaire, ou `null` quand on en crée un.
+   * La modifier modifie son Événement, donc toute la série : choisir entre
+   * l'occurrence et la série relève d'AGENDA-2.
+   */
+  protected readonly enEdition = signal<EventOccurrence | null>(null);
   protected readonly saisie = signal<Saisie>({ ...SAISIE_VIERGE });
 
   private readonly espaceCourant = inject(EspaceCourant);
@@ -129,6 +132,8 @@ export class Calendrier {
   private readonly espaceChoisiALaMain = signal(false);
   /** Le lien de l'Agenda ne vise un Événement qu'à l'arrivée sur l'écran. */
   private lienRepris = false;
+  /** Change quand une écriture oblige à relire le mois : une série modifiée. */
+  private readonly relecture = signal(0);
 
   protected readonly pretAEnregistrer = computed(() => {
     const { titre, debut, espaceId } = this.saisie();
@@ -156,6 +161,7 @@ export class Calendrier {
     // Changer de mois abandonne la lecture en cours : une réponse tardive du
     // mois quitté n'écrase jamais celle du mois affiché.
     effect((auNettoyage) => {
+      this.relecture();
       const lecture = this.relire(this.mois());
       auNettoyage(() => lecture.unsubscribe());
     });
@@ -202,7 +208,7 @@ export class Calendrier {
       return;
     }
 
-    const evenement = this.evenements().find(({ id }) => id === vise);
+    const evenement = this.evenements().find(({ eventId }) => eventId === vise);
     if (evenement) {
       this.reprendre(evenement);
     }
@@ -230,7 +236,7 @@ export class Calendrier {
     rappel ? `${this.libelleDuRappel(Number(rappel))} avant` : 'Sans rappel';
 
   /** Une Échéance est un Événement portant la catégorie dédiée, rien de plus. */
-  protected estUneEcheance(evenement: Event): boolean {
+  protected estUneEcheance(evenement: EventOccurrence): boolean {
     return estEcheance(evenement);
   }
 
@@ -280,7 +286,7 @@ export class Calendrier {
     this.saisie.update((saisie) => ({ ...saisie, [champ]: valeur ?? '' }));
   }
 
-  protected reprendre(evenement: Event): void {
+  protected reprendre(evenement: EventOccurrence): void {
     this.erreur.set(null);
     this.enEdition.set(evenement);
     this.saisie.set({
@@ -315,7 +321,7 @@ export class Calendrier {
 
     this.evenementsApi.creer(this.saisieCreee()).subscribe({
       next: (cree) => {
-        this.evenements.update((tous) => parDate([...tous, cree]));
+        this.integrer(cree);
         this.annuler();
       },
       error: () => this.erreur.set("L'Événement n'a pas pu être créé."),
@@ -326,9 +332,9 @@ export class Calendrier {
     this.evenementsApi.supprimer(id).subscribe({
       next: () => {
         this.evenements.update((tous) =>
-          tous.filter((evenement) => evenement.id !== id),
+          tous.filter(({ eventId }) => eventId !== id),
         );
-        if (this.enEdition()?.id === id) {
+        if (this.enEdition()?.eventId === id) {
           this.annuler();
         }
       },
@@ -341,7 +347,7 @@ export class Calendrier {
    * lorsqu'on déplace vraiment l'Événement — le répéter sans raison ferait
    * vérifier à la garde un déplacement qui n'a pas lieu (ADR 0028).
    */
-  private appliquer(repris: Event): void {
+  private appliquer(repris: EventOccurrence): void {
     const changements = this.changementsSur(repris);
 
     if (Object.keys(changements).length === 0) {
@@ -349,22 +355,35 @@ export class Calendrier {
       return;
     }
 
-    this.evenementsApi.modifier(repris.id, changements).subscribe({
+    this.evenementsApi.modifier(repris.eventId, changements).subscribe({
       next: (modifie) => {
-        this.evenements.update((tous) =>
-          parDate(
-            tous.map((evenement) =>
-              evenement.id === modifie.id ? modifie : evenement,
-            ),
-          ),
-        );
+        this.integrer(modifie);
         this.annuler();
       },
       error: () => this.erreur.set("L'Événement n'a pas pu être modifié."),
     });
   }
 
-  private changementsSur(repris: Event): EventUpdate {
+  /**
+   * Un Événement écrit prend sa place dans la liste. Sans règle, il n'a
+   * qu'une occurrence, qu'on pose sans relire ; une série, elle, a des
+   * occurrences que seule l'API calcule : on relit le mois.
+   */
+  private integrer(evenement: Event): void {
+    if (evenement.recurrence) {
+      this.relecture.update((fois) => fois + 1);
+      return;
+    }
+
+    this.evenements.update((tous) =>
+      parDate([
+        ...tous.filter(({ eventId }) => eventId !== evenement.id),
+        seuleOccurrence(evenement),
+      ]),
+    );
+  }
+
+  private changementsSur(repris: EventOccurrence): EventUpdate {
     const voulu = this.saisieCreee();
     const changements: EventUpdate = {};
 
@@ -405,7 +424,23 @@ export class Calendrier {
   }
 }
 
-function parDate(evenements: Event[]): Event[] {
+/** L'unique occurrence d'un Événement sans règle : lui-même, à son début. */
+function seuleOccurrence(evenement: Event): EventOccurrence {
+  return {
+    eventId: evenement.id,
+    originalStart: evenement.startsAt,
+    isRecurring: false,
+    title: evenement.title,
+    startsAt: evenement.startsAt,
+    endsAt: evenement.endsAt,
+    category: evenement.category,
+    reminderLeadMinutes: evenement.reminderLeadMinutes,
+    recurrence: null,
+    scopeId: evenement.scopeId,
+  };
+}
+
+function parDate(evenements: EventOccurrence[]): EventOccurrence[] {
   return [...evenements].sort((gauche, droite) =>
     gauche.startsAt.localeCompare(droite.startsAt),
   );

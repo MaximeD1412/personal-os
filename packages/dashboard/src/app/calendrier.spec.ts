@@ -8,7 +8,12 @@ import {
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { aujourdhui, type Event, type Scope } from '@personal-os/contracts';
+import {
+  aujourdhui,
+  type Event,
+  type EventOccurrence,
+  type Scope,
+} from '@personal-os/contracts';
 import {
   choisirDansLeSelect,
   optionsOffertes,
@@ -32,6 +37,7 @@ const DENTISTE: Event = {
   endsAt: null,
   category: 'APPOINTMENT',
   reminderLeadMinutes: null,
+  recurrence: null,
   scopeId: 'espace-a',
   createdAt: '2026-08-27T08:00:00.000Z',
 };
@@ -43,9 +49,47 @@ const DECLARATION: Event = {
   endsAt: null,
   category: 'DEADLINE',
   reminderLeadMinutes: 10_080,
+  recurrence: null,
   scopeId: 'espace-foyer',
   createdAt: '2026-08-27T08:00:00.000Z',
 };
+
+/** Une occurrence d'un Événement, telle que la lecture d'un mois la rend. */
+function occurrenceDe(
+  evenement: Event,
+  champs: Partial<EventOccurrence> = {},
+): EventOccurrence {
+  return {
+    eventId: evenement.id,
+    originalStart: evenement.startsAt,
+    isRecurring: evenement.recurrence !== null,
+    title: evenement.title,
+    startsAt: evenement.startsAt,
+    endsAt: evenement.endsAt,
+    category: evenement.category,
+    reminderLeadMinutes: evenement.reminderLeadMinutes,
+    recurrence: evenement.recurrence,
+    scopeId: evenement.scopeId,
+    ...champs,
+  };
+}
+
+/** Une série hebdomadaire, et deux de ses occurrences du mois. */
+const PISCINE: Event = {
+  ...DENTISTE,
+  id: 'event-serie',
+  title: 'Piscine',
+  startsAt: '2026-09-07T16:00:00.000Z',
+  category: 'OTHER',
+  recurrence: { freq: 'WEEKLY', interval: 1 },
+};
+const PISCINES: EventOccurrence[] = [
+  occurrenceDe(PISCINE),
+  occurrenceDe(PISCINE, {
+    originalStart: '2026-09-14T16:00:00.000Z',
+    startsAt: '2026-09-14T16:00:00.000Z',
+  }),
+];
 
 describe('Calendrier', () => {
   let httpMock: HttpTestingController;
@@ -79,7 +123,7 @@ describe('Calendrier', () => {
   afterEach(() => httpMock.verify());
 
   async function monter(
-    evenements: Event[] = [DENTISTE, DECLARATION],
+    evenements: (Event | EventOccurrence)[] = [DENTISTE, DECLARATION],
     depuisLAgenda: Record<string, string> = {},
   ) {
     parametres = depuisLAgenda;
@@ -88,7 +132,11 @@ describe('Calendrier', () => {
     fixture.detectChanges();
 
     httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
-    lecture().flush(evenements);
+    lecture().flush(
+      evenements.map((evenement) =>
+        'eventId' in evenement ? evenement : occurrenceDe(evenement),
+      ),
+    );
 
     await fixture.whenStable();
     fixture.detectChanges();
@@ -165,10 +213,16 @@ describe('Calendrier', () => {
       const to = new Date(demande.params.get('to') ?? '');
 
       // Minuit à Paris est 22 h ou 23 h UTC la veille, selon la saison.
-      expect(premier.getTime() - from.getTime()).toBeGreaterThanOrEqual(3_600_000);
+      expect(premier.getTime() - from.getTime()).toBeGreaterThanOrEqual(
+        3_600_000,
+      );
       expect(premier.getTime() - from.getTime()).toBeLessThanOrEqual(7_200_000);
-      expect(suivant.getTime() - to.getTime() - 1).toBeGreaterThanOrEqual(3_600_000);
-      expect(suivant.getTime() - to.getTime() - 1).toBeLessThanOrEqual(7_200_000);
+      expect(suivant.getTime() - to.getTime() - 1).toBeGreaterThanOrEqual(
+        3_600_000,
+      );
+      expect(suivant.getTime() - to.getTime() - 1).toBeLessThanOrEqual(
+        7_200_000,
+      );
     });
 
     it('ouvre le mois que le lien désigne', async () => {
@@ -205,7 +259,9 @@ describe('Calendrier', () => {
       await fixture.whenStable();
 
       const demande = lecture();
-      expect(demande.request.params.get('from')).toBe('2027-04-30T22:00:00.000Z');
+      expect(demande.request.params.get('from')).toBe(
+        '2027-04-30T22:00:00.000Z',
+      );
       expect(demande.request.params.get('to')).toBe('2027-05-31T21:59:59.999Z');
       demande.flush([DECLARATION]);
       await fixture.whenStable();
@@ -316,6 +372,62 @@ describe('Calendrier', () => {
       fixture.detectChanges();
 
       expect(element(fixture).textContent).toContain('Réunion');
+    });
+  });
+
+  describe('Les occurrences d’une série', () => {
+    it('liste chaque occurrence du mois, chacune à sa date', async () => {
+      const lignes = element(await monter(PISCINES)).querySelectorAll(
+        '[data-test="evenement"]',
+      );
+
+      expect(lignes).toHaveLength(2);
+      expect(lignes[0].textContent).toContain('07/09/2026');
+      expect(lignes[1].textContent).toContain('14/09/2026');
+    });
+
+    it('relit le mois quand la série a été modifiée, ses occurrences ne se calculant que côté API', async () => {
+      const fixture = await monter(PISCINES);
+      const racine = element(fixture);
+
+      (
+        racine.querySelector('[data-test="modifier"]') as HTMLButtonElement
+      ).click();
+      fixture.detectChanges();
+      saisir(racine, 'titre', 'Natation');
+      fixture.detectChanges();
+      champ<HTMLButtonElement>(racine, 'enregistrer').click();
+
+      const envoi = httpMock.expectOne(`${BASE}/events/event-serie`);
+      expect(envoi.request.body).toEqual({ title: 'Natation' });
+      envoi.flush({ ...PISCINE, title: 'Natation' });
+      await fixture.whenStable();
+
+      lecture().flush(
+        PISCINES.map((piscine) => ({ ...piscine, title: 'Natation' })),
+      );
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(racine.querySelectorAll('[data-test="evenement"]')).toHaveLength(
+        2,
+      );
+      expect(racine.textContent).not.toContain('Piscine');
+    });
+
+    it('retire toutes les occurrences de la série supprimée', async () => {
+      const fixture = await monter([...PISCINES, DENTISTE]);
+      const racine = element(fixture);
+
+      (
+        racine.querySelector('[data-test="supprimer"]') as HTMLButtonElement
+      ).click();
+      httpMock.expectOne(`${BASE}/events/event-serie`).flush(null);
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(racine.textContent).not.toContain('Piscine');
+      expect(racine.textContent).toContain('Dentiste');
     });
   });
 

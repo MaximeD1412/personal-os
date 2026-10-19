@@ -151,7 +151,8 @@
     }
 
     <ul class="mt-4 divide-y">
-      @for (evenement of evenements(); track evenement.id) {
+      @for (evenement of evenements(); track evenement.eventId +
+      evenement.originalStart) {
       <li
         data-test="evenement"
         class="flex flex-wrap items-baseline gap-3 py-2.5"
@@ -165,9 +166,7 @@
         </span>
 
         @if (estUneEcheance(evenement)) {
-        <span hlmBadge tone="error" data-test="echeance"
-          >Échéance</span
-        >
+        <span hlmBadge tone="error" data-test="echeance">Échéance</span>
         } @else {
         <span hlmBadge variant="tag"
           >{{ nomDeLaCategorie(evenement.category) }}</span
@@ -198,7 +197,7 @@
           size="sm"
           type="button"
           data-test="supprimer"
-          (click)="supprimer(evenement.id)"
+          (click)="supprimer(evenement.eventId)"
         >
           Supprimer
         </button>

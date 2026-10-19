@@ -16,7 +16,9 @@ export class PrismaService {
   constructor() {
     const connectionString = process.env['DATABASE_URL'];
     if (!connectionString) {
-      throw new Error("DATABASE_URL est requis pour ouvrir l'accès aux données.");
+      throw new Error(
+        "DATABASE_URL est requis pour ouvrir l'accès aux données.",
+      );
     }
     const client = new PrismaClient({
       adapter: new PrismaPg({ connectionString }),
@@ -64,6 +66,10 @@ export class PrismaService {
 
   get event() {
     return this.#client.event;
+  }
+
+  get eventException() {
+    return this.#client.eventException;
   }
 
   get session() {

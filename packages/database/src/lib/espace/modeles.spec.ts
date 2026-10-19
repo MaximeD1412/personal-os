@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   MODELES_HORS_ESPACE,
+  RELATIONS_CLOISONNEES,
   RELATIONS_VERS_ESPACE,
 } from './modeles';
 
@@ -20,7 +21,7 @@ describe('Modèles hors Espace', () => {
     }
   });
 
-  it("recense exactement les modèles qui ne portent pas de scopeId", () => {
+  it('recense exactement les modèles qui ne portent pas de scopeId', () => {
     const sansEspace = [...modeles.entries()]
       .filter(([, champs]) => !champs.some((champ) => champ.nom === 'scopeId'))
       .map(([nom]) => nom);
@@ -51,27 +52,61 @@ describe('Modèles hors Espace', () => {
       }
 
       expect(champs).toEqual(
-        expect.arrayContaining([{ nom: 'scopeId', type: 'String' }]),
+        expect.arrayContaining([
+          expect.objectContaining({ nom: 'scopeId', type: 'String' }),
+        ]),
       );
       expect(champs).toEqual(
-        expect.arrayContaining([{ nom: 'scope', type: 'Scope' }]),
+        expect.arrayContaining([
+          expect.objectContaining({ nom: 'scope', type: 'Scope' }),
+        ]),
       );
     }
   });
 
-  it("interdit qu'un modèle cloisonné en atteigne un autre", () => {
+  it('recense exactement les relations entre modèles cloisonnés', () => {
     // La garde vérifie l'Espace d'une charge écrite, pas celui des charges
-    // imbriquées qu'elle contiendrait. Le jour où une Recette portera ses
-    // Ingrédients, ce test échouera — et c'est là qu'il faudra étendre le
-    // mécanisme, délibérément, plutôt que de le découvrir en production.
+    // imbriquées qu'elle contiendrait. Une relation nouvelle entre modèles
+    // cloisonnés doit donc être déclarée, pour que la garde refuse de l'écrire
+    // par un chemin imbriqué (ADR 0028).
+    const reelles: Record<string, string[]> = {};
     for (const [nom, champs] of modeles) {
       if (nom in MODELES_HORS_ESPACE) {
         continue;
       }
+      const relations = champs
+        .filter(({ type }) => cloisonne(type, modeles))
+        .map((c) => c.nom);
+      if (relations.length > 0) {
+        reelles[nom] = relations.sort();
+      }
+    }
 
-      expect(
-        champs.filter(({ type }) => cloisonne(type, modeles)).map((c) => c.nom),
-      ).toEqual([]);
+    expect(reelles).toEqual(
+      Object.fromEntries(
+        Object.entries(RELATIONS_CLOISONNEES).map(([nom, relations]) => [
+          nom,
+          [...relations].sort(),
+        ]),
+      ),
+    );
+  });
+
+  it("fait porter l'Espace à la clé de chaque relation entre modèles cloisonnés", () => {
+    // Une exception ne peut viser que l'Événement de son propre Espace : la
+    // base le garantit, parce que la clé étrangère compare aussi scopeId.
+    for (const [nom, champs] of modeles) {
+      for (const { cle } of champs.filter(
+        ({ type, cle }) => cloisonne(type, modeles) && cle !== null,
+      )) {
+        expect({ nom, cle }).toEqual({
+          nom,
+          cle: {
+            fields: expect.arrayContaining(['scopeId']),
+            references: expect.arrayContaining(['scopeId']),
+          },
+        });
+      }
     }
   });
 });
@@ -79,6 +114,8 @@ describe('Modèles hors Espace', () => {
 interface ChampPrisma {
   nom: string;
   type: string;
+  /** La clé étrangère, du côté de la relation qui la porte. */
+  cle: { fields: string[]; references: string[] } | null;
 }
 
 function cloisonne(type: string, modeles: Map<string, ChampPrisma[]>): boolean {
@@ -102,7 +139,21 @@ function atteintUnEspace(
   }
 
   const suivantes = new Set(visites).add(type);
-  return champs.some((champ) => atteintUnEspace(champ.type, modeles, suivantes));
+  return champs.some((champ) =>
+    atteintUnEspace(champ.type, modeles, suivantes),
+  );
+}
+
+function lireLaCle(ligne: string): ChampPrisma['cle'] {
+  const liste = (attribut: string) =>
+    new RegExp(`${attribut}:\\s*\\[([^\\]]*)\\]`)
+      .exec(ligne)?.[1]
+      .split(',')
+      .map((nom) => nom.trim());
+  const fields = liste('fields');
+  const references = liste('references');
+
+  return fields && references ? { fields, references } : null;
 }
 
 function lireLesModeles(): Map<string, ChampPrisma[]> {
@@ -119,7 +170,7 @@ function lireLesModeles(): Map<string, ChampPrisma[]> {
     for (const ligne of corps.split('\n')) {
       const champ = /^\s{2}(\w+)\s+(\w+)/.exec(ligne);
       if (champ) {
-        champs.push({ nom: champ[1], type: champ[2] });
+        champs.push({ nom: champ[1], type: champ[2], cle: lireLaCle(ligne) });
       }
     }
     modeles.set(nom, champs);

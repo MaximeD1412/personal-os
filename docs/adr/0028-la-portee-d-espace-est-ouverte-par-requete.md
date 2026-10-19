@@ -55,6 +55,17 @@ pas confirmer l'existence de la rangée.
   **Ingrédients**, il faudra étendre l'inspection des charges d'un modèle
   cloisonné ; un test doit alors échouer avant la mise en production.
 
+  > **Complément — 19 octobre 2026 (#9).** Ce jour est venu avec les
+  > exceptions d'un **Événement** récurrent (`EventException`). Plutôt que
+  > d'inspecter les charges imbriquées, on les interdit : une relation entre
+  > deux modèles cloisonnés est déclarée dans `RELATIONS_CLOISONNEES`, et la
+  > garde refuse toute écriture qui passe par elle. Chaque modèle s'écrit seul,
+  > par ses clés, et la garde vérifie son **Espace**. La clé étrangère de ces
+  > relations porte `scopeId` des deux côtés : la base refuse une exception
+  > rattachée à l'**Événement** d'un autre **Espace**, et l'exception suit sa
+  > série quand celle-ci en change. `modeles.spec.ts` relit la liste contre le
+  > schéma et vérifie que chaque clé porte bien l'**Espace**.
+
 ## Options écartées
 
 - **Filtrer dans chaque service.** C'est exactement ce que l'ADR 0016 refuse :
