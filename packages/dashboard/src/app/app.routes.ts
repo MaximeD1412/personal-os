@@ -1,7 +1,6 @@
 import { Route } from '@angular/router';
 import { Agenda } from './agenda';
 import { Calendrier } from './calendrier';
-import { Traces } from './traces';
 
 export const appRoutes: Route[] = [
   { path: '', pathMatch: 'full', redirectTo: 'agenda' },
@@ -14,7 +13,4 @@ export const appRoutes: Route[] = [
     component: Calendrier,
     data: { creation: true },
   },
-  // Le fil traceur du cloisonnement (#6). Il quittera l'écran le jour où on
-  // retirera l'entité jouet qui le porte.
-  { path: 'fil-traceur', component: Traces },
 ];

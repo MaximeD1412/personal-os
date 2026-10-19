@@ -30,9 +30,8 @@ docker compose up --build
 | Authentik       | http://authentik:9000 |
 | Base            | `localhost:5432`      |
 
-Le tableau de bord affiche une valeur lue en base via l'API : c'est le fil
-traceur qui prouve que les quatre couches se parlent. Il est protégé — s'y
-rendre renvoie vers Authentik.
+Le tableau de bord s'ouvre sur l'Agenda, lu en base via l'API. Il est
+protégé — s'y rendre renvoie vers Authentik.
 
 ### Se connecter en local
 

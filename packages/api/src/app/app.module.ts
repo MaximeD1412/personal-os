@@ -11,7 +11,6 @@ import { ErreursFilter } from './erreurs/erreurs.filter';
 import { EspaceModule } from './espace/espace.module';
 import { HealthModule } from './health/health.module';
 import { HouseholdModule } from './household/household.module';
-import { TraceModule } from './traces/trace.module';
 
 @Module({
   imports: [
@@ -19,7 +18,6 @@ import { TraceModule } from './traces/trace.module';
     AuthModule,
     EspaceModule,
     HealthModule,
-    TraceModule,
     CalendarModule,
     AgendaModule,
     HouseholdModule,

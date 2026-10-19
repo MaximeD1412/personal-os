@@ -91,7 +91,7 @@ describe('appRoutes', () => {
 });
 
 describe('NAVIGATION', () => {
-  it('suit les groupes du master Sidebar, sans le fil traceur', () => {
+  it('suit les groupes du master Sidebar', () => {
     expect(NAVIGATION.map(({ label }) => label)).toEqual([
       'Organisation',
       'Cuisine & Nutrition',
@@ -99,8 +99,5 @@ describe('NAVIGATION', () => {
       'Professionnel',
       'Système',
     ]);
-    expect(
-      NAVIGATION.flatMap(({ entries }) => entries).map(({ label }) => label),
-    ).not.toContain('Fil traceur');
   });
 });
