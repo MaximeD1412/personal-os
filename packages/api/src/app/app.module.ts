@@ -3,6 +3,7 @@ import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { DatabaseModule } from '@personal-os/database';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AgendaModule } from './agenda/agenda.module';
+import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { ErreursFilter } from './erreurs/erreurs.filter';
@@ -21,6 +22,7 @@ import { TraceModule } from './traces/trace.module';
     CalendarModule,
     AgendaModule,
     HouseholdModule,
+    AiModule,
   ],
   providers: [
     // Tout body, query ou param typé par un DTO zod de `contracts` est validé

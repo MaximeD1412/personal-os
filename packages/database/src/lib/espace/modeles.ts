@@ -17,7 +17,7 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
     Session: [],
     LoginTransaction: [],
     Household: [],
-    Scope: ['traces', 'events', 'eventExceptions'],
+    Scope: ['traces', 'events', 'eventExceptions', 'aiTraces'],
   };
 
 /**
@@ -37,7 +37,14 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Session: ['user'],
   LoginTransaction: [],
   Household: ['members', 'scopes'],
-  Scope: ['household', 'holder', 'traces', 'events', 'eventExceptions'],
+  Scope: [
+    'household',
+    'holder',
+    'traces',
+    'events',
+    'eventExceptions',
+    'aiTraces',
+  ],
 };
 
 /**

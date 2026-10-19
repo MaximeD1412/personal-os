@@ -47,6 +47,7 @@ model Scope {
   traces          Trace[]
   events          Event[]
   eventExceptions EventException[]
+  aiTraces        AiTrace[]
 
   @@index([householdId])
 }
@@ -151,6 +152,38 @@ model EventException {
   @@unique([eventId, originalStart])
   @@index([scopeId])
   @@index([startsAt])
+}
+
+/// La trace d'un appel au modèle d'IA : ce qu'on lui a demandé, ce qu'il a
+/// répondu, et ce que cela a coûté. Un journal en ajout seul, dans l'Espace
+/// foyer, qui sert à comprendre une proposition étrange et à plafonner le coût
+/// du mois. Une réponse rejetée par son schéma, comme un appel resté sans
+/// réponse, est tracée comme les autres, avec sa raison dans `error`.
+model AiTrace {
+  id           String   @id @default(uuid())
+  scopeId      String
+  scope        Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  /// Le but de l'appel (`meal-plan.generate`…), qui dit quel module l'a fait.
+  purpose      String
+  /// Le modèle qui a répondu, tel que le fournisseur le nomme.
+  model        String
+  system       String
+  input        String
+  /// La réponse brute, avant toute validation ; vide quand le fournisseur n'a
+  /// pas répondu.
+  output       String?
+  /// Inconnus quand le fournisseur n'a pas répondu.
+  inputTokens  Int?
+  outputTokens Int?
+  /// Le coût estimé, arrondi au centime supérieur : le plafond ne se sous-estime jamais.
+  costCents    Int
+  /// Pourquoi l'appel n'a rien rendu d'utilisable (panne, sortie hors schéma) ;
+  /// vide pour une réponse retenue.
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@index([scopeId])
+  @@index([createdAt])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.
