@@ -146,7 +146,7 @@
               "ticket": "CMD-3"
             }
           ],
-          "desc": "L'application privée. Aujourd'hui : Agenda, Calendrier et le fil traceur. À venir : le design system DCCM, la coque, les écrans de chaque module, la barre de commande. Chaque formulaire se préremplit depuis l'URL.",
+          "desc": "L'application privée. Aujourd'hui : Agenda et Calendrier. À venir : le design system DCCM, la coque, les écrans de chaque module, la barre de commande. Chaque formulaire se préremplit depuis l'URL.",
           "tickets": [
             "SOCLE-4",
             "UI-1",
@@ -220,10 +220,6 @@
             {
               "texte": "récurrence",
               "ticket": "AGENDA-1"
-            },
-            {
-              "texte": "traces, entité jouet",
-              "etat": "retire"
             },
             {
               "texte": "food : la Cuisine",

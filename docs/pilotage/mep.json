@@ -66,6 +66,20 @@
       ],
       "commande": "sudo ./provision.sh --dry-run",
       "ajouteLe": "2026-10-18"
+    },
+    {
+      "id": "supprimer-table-trace",
+      "phase": "db",
+      "source": "#99",
+      "titre": "Supprimer la table Trace après la prochaine livraison",
+      "pourquoi": "#99 retire tout usage de Trace dans le code, mais la version encore déployée la lit toujours : la table ne peut disparaître qu'à la livraison suivante (ADR 0024). Le modèle reste dans schema.prisma d'ici là.",
+      "etapes": [
+        "Attendre que la livraison qui contient #99 soit en production (PR develop → main fusionnée et déployée).",
+        "Dans une PR vers develop : retirer le modèle Trace et la relation Scope.traces de packages/database/prisma/schema.prisma, retirer « traces » de MODELES_HORS_ESPACE et RELATIONS_VERS_ESPACE (packages/database/src/lib/espace/modeles.ts), puis générer la migration de suppression.",
+        "Vérifier que la migration ne contient que DROP TABLE \"Trace\" (et sa clé étrangère), puis livrer."
+      ],
+      "commande": "pnpm prisma:migrate --name supprimer_trace",
+      "ajouteLe": "2026-10-19"
     }
   ],
   "format": "élément = { id (stable), phase, source (#n), titre, pourquoi, etapes: [], commande (facultative), ajouteLe (YYYY-MM-DD) }"

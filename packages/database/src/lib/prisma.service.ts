@@ -60,10 +60,6 @@ export class PrismaService {
     return this.#client.user;
   }
 
-  get trace() {
-    return this.#client.trace;
-  }
-
   get event() {
     return this.#client.event;
   }

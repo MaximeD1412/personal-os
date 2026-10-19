@@ -68,9 +68,11 @@ model User {
   personalScope Scope?
 }
 
-/// Entité jouet du fil traceur de l'issue #6 : elle porte un Espace et ne sert
-/// qu'à démontrer le cloisonnement de bout en bout, jusque dans l'interface.
-/// Elle disparaîtra le jour où un vrai module portera un Espace.
+/// Entité jouet du fil traceur de l'issue #6, retirée du code par #99 : plus
+/// rien ne la lit. Le modèle reste tant que la table existe, et la table tant
+/// que la version précédente, encore déployée, la lit (ADR 0024). Les deux
+/// disparaissent par une migration de la livraison suivante (MEP
+/// `supprimer-table-trace`).
 model Trace {
   id        String   @id @default(uuid())
   label     String

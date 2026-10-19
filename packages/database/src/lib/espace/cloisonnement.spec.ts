@@ -17,7 +17,7 @@ describe('Cloisonnement par Espace', () => {
   it('refuse une écriture qui ne porte aucun Espace', () => {
     expect(() =>
       cloisonner(
-        { model: 'Trace', operation: 'create', args: { data: { label: 'x' } } },
+        { model: 'Event', operation: 'create', args: { data: { title: 'x' } } },
         PORTEE_COMPLETE,
       ),
     ).toThrow(/Espace/);
@@ -32,9 +32,9 @@ describe('Cloisonnement par Espace', () => {
     expect(() =>
       cloisonner(
         {
-          model: 'Trace',
+          model: 'Event',
           operation: 'create',
-          args: { data: { label: 'x', scopeId: MIEN } },
+          args: { data: { title: 'x', scopeId: MIEN } },
         },
         foyerSeul,
       ),
@@ -43,7 +43,7 @@ describe('Cloisonnement par Espace', () => {
 
   it('borne une lecture aux Espaces atteignables', () => {
     const args = cloisonner(
-      { model: 'Trace', operation: 'findMany', args: {} },
+      { model: 'Event', operation: 'findMany', args: {} },
       PORTEE_COMPLETE,
     );
 
@@ -55,22 +55,22 @@ describe('Cloisonnement par Espace', () => {
   it('laisse intact le filtre du module et lui ajoute le sien', () => {
     const args = cloisonner(
       {
-        model: 'Trace',
+        model: 'Event',
         operation: 'findMany',
-        args: { where: { label: 'x' } },
+        args: { where: { title: 'x' } },
       },
       PORTEE_COMPLETE,
     );
 
     expect(args['where']).toEqual({
-      label: 'x',
+      title: 'x',
       AND: [{ scopeId: { in: [MIEN, FOYER] } }],
     });
   });
 
   it("écarte de la lecture les Espaces que le module n'accepte pas", () => {
     const args = cloisonner(
-      { model: 'Trace', operation: 'findMany', args: {} },
+      { model: 'Event', operation: 'findMany', args: {} },
       { ...PORTEE_COMPLETE, typesAcceptes: ['HOUSEHOLD'] },
     );
 
@@ -80,7 +80,7 @@ describe('Cloisonnement par Espace', () => {
   it('borne aussi une lecture par identifiant, pour que deviner ne serve à rien', () => {
     const args = cloisonner(
       {
-        model: 'Trace',
+        model: 'Event',
         operation: 'findUnique',
         args: { where: { id: 'devine' } },
       },
@@ -97,7 +97,7 @@ describe('Cloisonnement par Espace', () => {
     for (const operation of ['update', 'delete', 'updateMany', 'deleteMany']) {
       const args = cloisonner(
         {
-          model: 'Trace',
+          model: 'Event',
           operation,
           args: { where: { id: 'devine' }, data: { scopeId: MIEN } },
         },
@@ -114,21 +114,21 @@ describe('Cloisonnement par Espace', () => {
   it("laisse modifier sans répéter l'Espace, que le filtre garantit déjà", () => {
     const args = cloisonner(
       {
-        model: 'Trace',
+        model: 'Event',
         operation: 'update',
-        args: { where: { id: 'x' }, data: { label: 'renommée' } },
+        args: { where: { id: 'x' }, data: { title: 'renommé' } },
       },
       PORTEE_COMPLETE,
     );
 
-    expect(args['data']).toEqual({ label: 'renommée' });
+    expect(args['data']).toEqual({ title: 'renommé' });
   });
 
   it("vérifie l'Espace d'une modification qui déplace l'enregistrement", () => {
     expect(() =>
       cloisonner(
         {
-          model: 'Trace',
+          model: 'Event',
           operation: 'update',
           args: { where: { id: 'x' }, data: { scopeId: SIEN } },
         },
@@ -140,9 +140,9 @@ describe('Cloisonnement par Espace', () => {
   it("n'invente pas de filtre là où l'opération n'en accepte aucun", () => {
     const args = cloisonner(
       {
-        model: 'Trace',
+        model: 'Event',
         operation: 'create',
-        args: { data: { label: 'x', scopeId: MIEN } },
+        args: { data: { title: 'x', scopeId: MIEN } },
       },
       PORTEE_COMPLETE,
     );
@@ -154,11 +154,11 @@ describe('Cloisonnement par Espace', () => {
     expect(() =>
       cloisonner(
         {
-          model: 'Trace',
+          model: 'Event',
           operation: 'upsert',
           args: {
             where: { id: 'x' },
-            create: { label: 'x', scopeId: MIEN },
+            create: { title: 'x', scopeId: MIEN },
             update: { scopeId: SIEN },
           },
         },
@@ -184,7 +184,7 @@ describe('Cloisonnement par Espace', () => {
           operation: 'update',
           args: {
             where: { id: FOYER },
-            data: { traces: { create: { label: 'contournement' } } },
+            data: { events: { create: { title: 'contournement' } } },
           },
         },
         PORTEE_COMPLETE,
@@ -203,7 +203,7 @@ describe('Cloisonnement par Espace', () => {
             data: {
               personalScope: {
                 update: {
-                  traces: { create: { label: 'contournement' } },
+                  events: { create: { title: 'contournement' } },
                 },
               },
             },
@@ -293,7 +293,7 @@ describe('Cloisonnement par Espace', () => {
 
   it('refuse une requête cloisonnée qui ne traverse aucune portée', () => {
     expect(() =>
-      cloisonner({ model: 'Trace', operation: 'findMany', args: {} }, null),
+      cloisonner({ model: 'Event', operation: 'findMany', args: {} }, null),
     ).toThrow(/portée/);
   });
 
@@ -307,9 +307,9 @@ describe('Cloisonnement par Espace', () => {
     expect(() =>
       cloisonner(
         {
-          model: 'Trace',
+          model: 'Event',
           operation: 'create',
-          args: { data: { label: 'x', scopeId: SIEN } },
+          args: { data: { title: 'x', scopeId: SIEN } },
         },
         PORTEE_COMPLETE,
       ),
