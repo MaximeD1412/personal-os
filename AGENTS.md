@@ -105,6 +105,7 @@ et lève `food.list_already_closed`.
 | Page de contenu                          | `PageContent`                                                    |
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 | Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
+| Commande non comprise                    | `UnresolvedCommand`                                              |
 
 Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
 `portfolio`, `dashboard`, `command-bar`, `ai`. Un terme absent de cette table se
