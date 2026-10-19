@@ -24,6 +24,7 @@ import {
 } from '../../../test/jeu-d-espaces';
 import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
+import { poserDesExceptions } from '../../../test/exceptions-d-occurrence';
 import { AppModule } from '../app.module';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
@@ -134,6 +135,62 @@ describe('Agenda', () => {
       expect((await lister(jeu.a)).map(({ sourceId }) => sourceId)).toContain(
         vacances.id,
       );
+    });
+
+    it("affiche chaque occurrence d'une série dans la période, exceptions appliquées", async () => {
+      // Commencée en février, la série a ses occurrences de mars ; celle du
+      // 13 est supprimée, celle du 3 avril avancée au 31 mars.
+      const piscine = await creerUnEvenement(jeu.a, {
+        title: 'Piscine',
+        startsAt: '2028-02-22T17:00:00.000Z', // mardi 18 h
+        category: 'OTHER',
+        recurrence: { freq: 'WEEKLY', interval: 3 },
+        scopeId: jeu.a.espacePersonnel,
+      });
+      await poserDesExceptions(
+        app,
+        { id: jeu.a.espacePersonnel, kind: 'PERSONAL' },
+        [
+          {
+            eventId: piscine.id,
+            originalStart: '2028-03-14T17:00:00.000Z',
+            kind: 'CANCELLED',
+          },
+          {
+            eventId: piscine.id,
+            originalStart: '2028-04-04T16:00:00.000Z', // heure d'été
+            kind: 'MODIFIED',
+            startsAt: '2028-03-31T16:00:00.000Z',
+            title: 'Piscine avancée',
+          },
+        ],
+      );
+
+      expect(
+        (await lister(jeu.a))
+          .filter(({ sourceId }) => sourceId === piscine.id)
+          .map(({ title, startsAt }) => [title, startsAt]),
+      ).toEqual([['Piscine avancée', '2028-03-31T16:00:00.000Z']]);
+    });
+
+    it("affiche les occurrences d'une série quotidienne, bornées à la période", async () => {
+      const rappel = await creerUnEvenement(jeu.a, {
+        title: 'Médicament',
+        startsAt: '2028-02-25T07:00:00.000Z',
+        category: 'OTHER',
+        recurrence: { freq: 'DAILY', interval: 1, until: '2028-03-03' },
+        scopeId: jeu.a.espacePersonnel,
+      });
+
+      expect(
+        (await lister(jeu.a))
+          .filter(({ sourceId }) => sourceId === rappel.id)
+          .map(({ startsAt }) => startsAt),
+      ).toEqual([
+        '2028-03-01T07:00:00.000Z',
+        '2028-03-02T07:00:00.000Z',
+        '2028-03-03T07:00:00.000Z',
+      ]);
     });
 
     it('refuse en 400 une demande sans période, sur les bornes manquantes', async () => {

@@ -52,7 +52,7 @@ describe('Cloisonnement par Espace', () => {
     });
   });
 
-  it("laisse intact le filtre du module et lui ajoute le sien", () => {
+  it('laisse intact le filtre du module et lui ajoute le sien', () => {
     const args = cloisonner(
       {
         model: 'Trace',
@@ -77,7 +77,7 @@ describe('Cloisonnement par Espace', () => {
     expect(args['where']).toEqual({ AND: [{ scopeId: { in: [FOYER] } }] });
   });
 
-  it("borne aussi une lecture par identifiant, pour que deviner ne serve à rien", () => {
+  it('borne aussi une lecture par identifiant, pour que deviner ne serve à rien', () => {
     const args = cloisonner(
       {
         model: 'Trace',
@@ -167,7 +167,7 @@ describe('Cloisonnement par Espace', () => {
     ).toThrow(/hors de portée/);
   });
 
-  it('laisse passer un modèle qui ne porte pas d\'Espace', () => {
+  it("laisse passer un modèle qui ne porte pas d'Espace", () => {
     const args = cloisonner(
       { model: 'User', operation: 'findMany', args: {} },
       PORTEE_COMPLETE,
@@ -192,7 +192,7 @@ describe('Cloisonnement par Espace', () => {
     ).toThrow(/imbriqu/);
   });
 
-  it("refuse aussi un chemin imbriqué qui traverse plusieurs modèles hors Espace", () => {
+  it('refuse aussi un chemin imbriqué qui traverse plusieurs modèles hors Espace', () => {
     expect(() =>
       cloisonner(
         {
@@ -212,6 +212,83 @@ describe('Cloisonnement par Espace', () => {
         PORTEE_COMPLETE,
       ),
     ).toThrow(/imbriqu/);
+  });
+
+  it("refuse une écriture imbriquée d'un modèle cloisonné vers un autre", () => {
+    // La garde ne vérifierait que l'Espace de l'Événement : l'exception
+    // imbriquée, elle, passerait sans contrôle.
+    expect(() =>
+      cloisonner(
+        {
+          model: 'Event',
+          operation: 'create',
+          args: {
+            data: {
+              title: 'Réunion',
+              scopeId: MIEN,
+              exceptions: { create: { scopeId: SIEN, kind: 'CANCELLED' } },
+            },
+          },
+        },
+        PORTEE_COMPLETE,
+      ),
+    ).toThrow(/imbriqu/);
+  });
+
+  it('refuse de rattacher un modèle cloisonné à un autre par sa relation', () => {
+    expect(() =>
+      cloisonner(
+        {
+          model: 'EventException',
+          operation: 'create',
+          args: {
+            data: {
+              scopeId: MIEN,
+              kind: 'CANCELLED',
+              event: { connect: { id: 'event-de-b' } },
+            },
+          },
+        },
+        PORTEE_COMPLETE,
+      ),
+    ).toThrow(/imbriqu/);
+  });
+
+  it("vérifie chaque rangée d'une écriture multiple sur un modèle relié", () => {
+    expect(() =>
+      cloisonner(
+        {
+          model: 'EventException',
+          operation: 'createMany',
+          args: {
+            data: [
+              { scopeId: MIEN, eventId: 'event-1', kind: 'CANCELLED' },
+              { scopeId: SIEN, eventId: 'event-2', kind: 'CANCELLED' },
+            ],
+          },
+        },
+        PORTEE_COMPLETE,
+      ),
+    ).toThrow(/hors de portée/);
+  });
+
+  it('laisse écrire un modèle relié par ses seules clés, que la base vérifie', () => {
+    const args = cloisonner(
+      {
+        model: 'EventException',
+        operation: 'create',
+        args: {
+          data: { scopeId: MIEN, eventId: 'event-1', kind: 'CANCELLED' },
+        },
+      },
+      PORTEE_COMPLETE,
+    );
+
+    expect(args['data']).toEqual({
+      scopeId: MIEN,
+      eventId: 'event-1',
+      kind: 'CANCELLED',
+    });
   });
 
   it('refuse une requête cloisonnée qui ne traverse aucune portée', () => {

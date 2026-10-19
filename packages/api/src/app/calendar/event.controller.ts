@@ -16,6 +16,7 @@ import {
   EventDto,
   EventInputDto,
   EventListQueryDto,
+  EventOccurrenceDto,
   EventUpdateDto,
 } from './event.dto';
 import { EventService } from './event.service';
@@ -34,8 +35,9 @@ import { EventService } from './event.service';
 export class EventController {
   constructor(private readonly evenements: EventService) {}
 
+  /** Les occurrences de la période, et non les Événements : une série en a plusieurs. */
   @Get()
-  @ZodResponse({ status: 200, type: [EventDto] })
+  @ZodResponse({ status: 200, type: [EventOccurrenceDto] })
   lister(@Query() periode: EventListQueryDto) {
     return this.evenements.lister(periode);
   }

@@ -4,7 +4,12 @@ import {
 } from '@personal-os/contracts';
 import { AgendaRegistry } from '../agenda-port/agenda.registry';
 import { EventAgendaContributor } from './event-agenda.contributor';
-import type { EventRecord, EventRepository } from './event.repository';
+import type {
+  EventExceptionRecord,
+  EventRecord,
+  EventRepository,
+} from './event.repository';
+import { EventService } from './event.service';
 
 const DENTISTE: EventRecord = {
   id: 'event-1',
@@ -13,6 +18,7 @@ const DENTISTE: EventRecord = {
   endsAt: null,
   category: 'APPOINTMENT',
   reminderLeadMinutes: 60,
+  recurrence: null,
   scopeId: 'espace-a',
   createdAt: new Date('2026-08-27T08:00:00.000Z'),
 };
@@ -31,16 +37,26 @@ describe("Le Calendrier, présenté à l'Agenda", () => {
   let registre: AgendaRegistry;
   let bornes: { debut: Date; fin: Date } | null;
 
-  const depot = (evenements: EventRecord[]) =>
+  const depot = (
+    evenements: EventRecord[],
+    exceptions: EventExceptionRecord[],
+  ) =>
     ({
       listerEntre: async (debut: Date, fin: Date) => {
         bornes = { debut, fin };
         return evenements;
       },
+      exceptionsDe: async () => exceptions,
     }) as unknown as EventRepository;
 
-  const contributeur = (evenements: EventRecord[]) =>
-    new EventAgendaContributor(depot(evenements), registre);
+  const contributeur = (
+    evenements: EventRecord[],
+    exceptions: EventExceptionRecord[] = [],
+  ) =>
+    new EventAgendaContributor(
+      new EventService(depot(evenements, exceptions)),
+      registre,
+    );
 
   beforeEach(() => {
     registre = new AgendaRegistry();
@@ -81,6 +97,40 @@ describe("Le Calendrier, présenté à l'Agenda", () => {
     });
 
     expect(entree.endsAt).toBe('2026-08-15T00:00:00.000Z');
+  });
+
+  it("rend chaque occurrence d'une série, exceptions appliquées, toutes vers l'Événement", async () => {
+    const chaqueLundi: EventRecord = {
+      ...DENTISTE,
+      id: 'event-3',
+      title: 'Piscine',
+      startsAt: new Date('2026-09-07T16:00:00.000Z'),
+      recurrence: { freq: 'WEEKLY', interval: 1 },
+    };
+
+    const entrees = await contributeur(
+      [chaqueLundi],
+      [
+        {
+          eventId: 'event-3',
+          originalStart: new Date('2026-09-21T16:00:00.000Z'),
+          kind: 'CANCELLED',
+          startsAt: null,
+          endsAt: null,
+          title: null,
+        },
+      ],
+    ).lister({
+      from: '2026-09-13T22:00:00.000Z',
+      to: '2026-09-30T21:59:59.999Z',
+    });
+
+    expect(
+      entrees.map(({ sourceId, startsAt }) => [sourceId, startsAt]),
+    ).toEqual([
+      ['event-3', '2026-09-14T16:00:00.000Z'],
+      ['event-3', '2026-09-28T16:00:00.000Z'],
+    ]);
   });
 
   it('ne demande au dépôt que la période reçue', async () => {

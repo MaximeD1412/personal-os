@@ -57,6 +57,7 @@
           type="datetime-local"
           data-test="debut"
           [value]="saisie().debut"
+          [disabled]="horairesVerrouilles()"
           (input)="saisir('debut', $event)"
         />
         @if (erreursDeChamp()['startsAt']; as message) {
@@ -73,6 +74,7 @@
           type="datetime-local"
           data-test="fin"
           [value]="saisie().fin"
+          [disabled]="horairesVerrouilles()"
           (input)="saisir('fin', $event)"
         />
         @if (erreursDeChamp()['endsAt']; as message) {
@@ -81,6 +83,16 @@
         >
         }
       </label>
+
+      @if (horairesVerrouilles()) {
+      <p
+        class="text-muted-foreground basis-full text-xs"
+        data-test="horaires-verrouilles"
+      >
+        Les horaires d’une série ne se modifient pas depuis l’une de ses
+        occurrences.
+      </p>
+      }
 
       <div class="flex flex-col gap-1.5">
         <label hlmLabel for="calendrier-categorie">Catégorie</label>
@@ -194,7 +206,8 @@
     }
 
     <ul class="mt-4 divide-y">
-      @for (evenement of evenements(); track evenement.id) {
+      @for (evenement of evenements(); track evenement.eventId +
+      evenement.originalStart) {
       <li
         data-test="evenement"
         class="flex flex-wrap items-baseline gap-3 py-2.5"
@@ -239,7 +252,7 @@
           size="sm"
           type="button"
           data-test="supprimer"
-          (click)="supprimer(evenement.id)"
+          (click)="supprimer(evenement.eventId)"
         >
           Supprimer
         </button>

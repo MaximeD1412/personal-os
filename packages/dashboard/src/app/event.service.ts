@@ -8,6 +8,7 @@ import type {
   Event,
   EventInput,
   EventListQuery,
+  EventOccurrence,
   EventUpdate,
 } from '@personal-os/contracts';
 import type { Observable } from 'rxjs';
@@ -19,12 +20,12 @@ export class EventService {
   private readonly baseUrl = inject(API_BASE_URL);
 
   /**
-   * Les Événements se demandent toujours bornés : ceux qui rencontrent la
-   * période. La lecture suit la période qu'on lui donne, et abandonne celle
-   * qu'une nouvelle période remplace.
+   * Les Événements se demandent toujours bornés, et se lisent en occurrences :
+   * celles qui rencontrent la période. La lecture suit la période qu'on lui
+   * donne, et abandonne celle qu'une nouvelle période remplace.
    */
-  lecture(periode: () => EventListQuery): HttpResourceRef<Event[]> {
-    return httpResource<Event[]>(
+  lecture(periode: () => EventListQuery): HttpResourceRef<EventOccurrence[]> {
+    return httpResource<EventOccurrence[]>(
       () => {
         const { from, to } = periode();
         return { url: `${this.baseUrl}/events`, params: { from, to } };

@@ -36,17 +36,18 @@ model Household {
 /// L'Espace, seule chose qui détermine qui voit une donnée. Il en existe trois :
 /// un Espace personnel par Compte, et l'Espace du Foyer.
 model Scope {
-  id          String    @id @default(uuid())
-  kind        ScopeKind
-  label       String
-  householdId String
-  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  id              String           @id @default(uuid())
+  kind            ScopeKind
+  label           String
+  householdId     String
+  household       Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
   /// Le Compte dont c'est l'Espace personnel ; vide pour l'Espace foyer.
-  holderId    String?   @unique
-  holder      User?     @relation(fields: [holderId], references: [id], onDelete: Cascade)
-  traces      Trace[]
-  events      Event[]
-  aiTraces    AiTrace[]
+  holderId        String?          @unique
+  holder          User?            @relation(fields: [holderId], references: [id], onDelete: Cascade)
+  traces          Trace[]
+  events          Event[]
+  eventExceptions EventException[]
+  aiTraces        AiTrace[]
 
   @@index([householdId])
 }
@@ -96,7 +97,7 @@ enum EventCategory {
 /// deux Espaces — un rendez-vous médical et des vacances communes ne relèvent
 /// pas de la même règle —, c'est donc à la création qu'on choisit.
 model Event {
-  id                  String        @id @default(uuid())
+  id                  String           @id @default(uuid())
   title               String
   startsAt            DateTime
   /// Vide quand l'Événement n'a pas de fin distincte de son début.
@@ -105,10 +106,50 @@ model Event {
   /// Le délai de rappel, en minutes avant le début. Un « rappel » est un
   /// délai, pas un objet : rien n'est planifié, rien n'est stocké en plus.
   reminderLeadMinutes Int?
+  /// La règle de récurrence (`zRecurrence` de `contracts`), vide pour un
+  /// Événement qui n'a lieu qu'une fois. Les occurrences ne sont jamais
+  /// stockées : elles se calculent à la lecture.
+  recurrence          Json?
   scopeId             String
-  scope               Scope         @relation(fields: [scopeId], references: [id], onDelete: Cascade)
-  createdAt           DateTime      @default(now())
+  scope               Scope            @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  exceptions          EventException[]
+  createdAt           DateTime         @default(now())
 
+  /// La cible de la clé étrangère des exceptions, qui porte l'Espace.
+  @@unique([id, scopeId])
+  @@index([scopeId])
+  @@index([startsAt])
+}
+
+/// Ce qu'une exception fait de l'occurrence qu'elle vise.
+enum EventExceptionKind {
+  CANCELLED
+  MODIFIED
+}
+
+/// Une exception à la règle d'un Événement récurrent : une occurrence
+/// supprimée, ou modifiée (titre, début, fin). Elle vise l'occurrence par
+/// l'instant où la règle la place, son identité.
+///
+/// La clé étrangère porte l'Espace avec l'Événement : une exception est
+/// toujours dans l'Espace de sa série, et le suit quand la série en change.
+/// C'est la base qui le garantit, pas la vigilance d'un service.
+model EventException {
+  id            String             @id @default(uuid())
+  scopeId       String
+  scope         Scope              @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  eventId       String
+  event         Event              @relation(fields: [eventId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  /// L'instant où la règle place l'occurrence visée.
+  originalStart DateTime
+  kind          EventExceptionKind
+  /// Vides quand l'exception garde la valeur de la série.
+  startsAt      DateTime?
+  endsAt        DateTime?
+  title         String?
+  createdAt     DateTime           @default(now())
+
+  @@unique([eventId, originalStart])
   @@index([scopeId])
   @@index([startsAt])
 }

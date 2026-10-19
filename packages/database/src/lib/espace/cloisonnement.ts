@@ -1,5 +1,9 @@
 import { ErreurDEspace } from './erreur-d-espace';
-import { porteUnEspace, relationsVersEspace } from './modeles';
+import {
+  porteUnEspace,
+  relationsCloisonnees,
+  relationsVersEspace,
+} from './modeles';
 import type { PorteeEspace } from './portee';
 
 /** Une opération Prisma, telle que l'extension la présente. */
@@ -52,6 +56,7 @@ export function cloisonner(
 
   for (const cle of CHARGES_ECRITES) {
     if (cle in args) {
+      refuserLesRelationsCloisonnees(operation.model ?? '', args[cle]);
       args[cle] = verifierEcriture(args[cle], portee, cree(operation, cle));
     }
   }
@@ -92,9 +97,34 @@ function refuserLesCheminsImbriques(
   return operation.args;
 }
 
+/**
+ * Un modèle cloisonné qui en porte un autre ne l'écrit pas par sa relation :
+ * la charge imbriquée échapperait à la garde. Il s'écrit par ses clés, sur
+ * son propre modèle, où la garde le vérifie.
+ */
+function refuserLesRelationsCloisonnees(model: string, charge: unknown): void {
+  const rangees = Array.isArray(charge) ? charge : [charge];
+
+  for (const rangee of rangees) {
+    if (!rangee || typeof rangee !== 'object') {
+      continue;
+    }
+    for (const relation of relationsCloisonnees(model)) {
+      if (relation in rangee) {
+        throw new ErreurDEspace(
+          'hors-portee',
+          `Écrire « ${relation} » par un chemin imbriqué échapperait à la garde d'Espace.`,
+        );
+      }
+    }
+  }
+}
+
 /** `upsert` porte les deux : sa clé `create` crée, sa clé `update` modifie. */
 function cree(operation: OperationPrisma, cle: string): boolean {
-  return cle === 'create' || (cle === 'data' && CREENT.has(operation.operation));
+  return (
+    cle === 'create' || (cle === 'data' && CREENT.has(operation.operation))
+  );
 }
 
 function verifierEcriture(
@@ -156,7 +186,9 @@ function bornerAuxEspacesLisibles(
     .map((espace) => espace.id);
 
   const filtre =
-    where && typeof where === 'object' ? (where as Record<string, unknown>) : {};
+    where && typeof where === 'object'
+      ? (where as Record<string, unknown>)
+      : {};
   const et = filtre['AND'];
 
   return {
