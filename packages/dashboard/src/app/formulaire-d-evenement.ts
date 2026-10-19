@@ -19,7 +19,12 @@ import {
   type EventUpdate,
 } from '@personal-os/contracts';
 import { HlmButton } from '@personal-os/ui/button';
-import { DccmConfirm, DccmFormPage } from '@personal-os/ui/dccm';
+import {
+  DccmConfirm,
+  DccmFormPage,
+  DccmState,
+  type DccmStateStatus,
+} from '@personal-os/ui/dccm';
 import { HlmFieldImports } from '@personal-os/ui/field';
 import { HlmInput } from '@personal-os/ui/input';
 import { HlmSelectImports } from '@personal-os/ui/select';
@@ -104,6 +109,7 @@ interface Cible {
     HlmSelectImports,
     HlmToggleGroupImports,
     DccmFormPage,
+    DccmState,
   ],
 })
 export class FormulaireDEvenement {
@@ -173,11 +179,28 @@ export class FormulaireDEvenement {
    * chaque occurrence. Tant que l'écran ne sait pas modifier une occurrence
    * seule (AGENDA-2), ses horaires restent hors de la modification.
    */
+  /**
+   * Une modification attend son Événement : tant que le mois n'est pas lu, ou
+   * s'il n'a pas pu l'être, rien ne se saisit ni ne s'enregistre.
+   */
+  protected readonly etatDeLaCible = computed((): DccmStateStatus => {
+    if (this.creation || this.enEdition()) {
+      return 'ready';
+    }
+    return this.calendrier.lecture.status() === 'error' ? 'error' : 'loading';
+  });
+  protected readonly erreurDeLecture = computed(() =>
+    this.calendrier.lecture.error(),
+  );
+
   protected readonly horairesVerrouilles = computed(
     () => this.enEdition()?.isRecurring ?? false,
   );
 
   protected readonly pretAEnregistrer = computed(() => {
+    if (this.etatDeLaCible() !== 'ready') {
+      return false;
+    }
     const { titre, debut, espaceId } = this.saisie();
     return titre.trim().length > 0 && debut.length > 0 && espaceId.length > 0;
   });
@@ -275,14 +298,22 @@ export class FormulaireDEvenement {
     void this.calendrier.fermer();
   }
 
+  protected relireLeMois(): void {
+    this.calendrier.lecture.reload();
+  }
+
   protected enregistrer(): void {
     if (!this.pretAEnregistrer() || this.envoi()) {
       return;
     }
 
-    const repris = this.enEdition();
-    if (repris) {
-      this.appliquer(repris);
+    // Seule la route de création crée : une modification sans Événement repris
+    // n'envoie rien.
+    if (!this.creation) {
+      const repris = this.enEdition();
+      if (repris) {
+        this.appliquer(repris);
+      }
       return;
     }
 

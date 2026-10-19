@@ -45,6 +45,16 @@ const VACANCES: AgendaItem = {
   status: 'PLANNED',
 };
 
+/** Commencé le jeudi d'avant : l'API la rend, car elle rencontre la semaine. */
+const DEMENAGEMENT: AgendaItem = {
+  source: 'calendar',
+  sourceId: 'event-3',
+  title: 'Déménagement',
+  startsAt: '2026-09-10T07:00:00.000Z',
+  endsAt: '2026-09-17T18:00:00.000Z',
+  status: 'PLANNED',
+};
+
 describe('Agenda', () => {
   let httpMock: HttpTestingController;
 
@@ -224,6 +234,19 @@ describe('Agenda', () => {
       expect(titres(jours[1])).toEqual(['Sortie longue 14 km']);
       expect(titres(jours[6])).toEqual(['Vacances']);
     });
+
+    it('montre le lundi, comme une suite, une entrée commencée avant la semaine', async () => {
+      const fixture = await monter([DEMENAGEMENT, DENTISTE]);
+      const [lundi] = tous(fixture, 'jour');
+      const [demenagement, dentiste] = tous(fixture, 'entree');
+
+      expect(lundi.textContent).toContain('2 entrées');
+      expect(demenagement.textContent).toContain('Déménagement');
+      expect(demenagement.querySelector('time')?.textContent).toBe(
+        'depuis le jeu. 10 sept.',
+      );
+      expect(dentiste.querySelector('time')?.textContent).toBe('11:30');
+    });
   });
 
   describe('Sous 768 px', () => {
@@ -237,6 +260,17 @@ describe('Agenda', () => {
         expect.stringContaining('mardi 15 septembre'),
         expect.stringContaining('dimanche 20 septembre'),
       ]);
+    });
+
+    it('ne laisse pas la semaine vide quand sa seule entrée a commencé avant', async () => {
+      const fixture = await monter([DEMENAGEMENT], 390);
+      const jours = tous(fixture, 'jour');
+
+      expect(jours).toHaveLength(1);
+      expect(jours[0].querySelector('h2')?.textContent).toContain(
+        'lundi 14 septembre',
+      );
+      expect(jours[0].textContent).toContain('Déménagement');
     });
   });
 

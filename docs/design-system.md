@@ -428,7 +428,10 @@ hlmAlertPrimaryAction`, qui prend la couleur de la tonalité. Les fonds :
 - **`DccmFormPage`** : l'écran de saisie. `presentation="page"` (défaut :
   `DccmPageHeader`, puis le formulaire en carte), `"panel"` (à droite d'une
   liste, titre et bouton « Fermer »), `"sheet"` (une feuille fixée en bas, pour
-  le mobile, actions collées en bas). La route reste la même. Il affiche les
+  le mobile, actions collées en bas). La route reste la même. En feuille, il
+  est modal (`role="dialog"`, `aria-modal`) : il prend le focus à son
+  ouverture, le piège (CDK), se ferme par Échap (`cancelled`) et rend le focus
+  à ce qui l'avait ; l'écran pose le voile qui bloque le pointeur derrière. Il affiche les
   paramètres écartés par `prefillDepuisRequete` (`[ignored]`) dans un `Banner`
   `warning`, et le refus de l'API (`[error]`) dans un `Banner` `error` quand il
   ne vise aucun champ. « Annuler » émet `cancelled`, l'envoi émet `submitted`,

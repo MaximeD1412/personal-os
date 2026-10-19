@@ -53,6 +53,9 @@ const TEINTES: Readonly<Record<TonDePilier, { filet: string; encre: string }>> =
 /** Une entrée telle que l'écran la montre. */
 interface VueDEntree {
   cle: string;
+  /** Le jour où l'entrée se montre : celui où elle commence, ou le lundi. */
+  jour: string;
+  /** L'heure de début, ou « depuis le … » pour une entrée déjà en cours. */
   heure: string;
   titre: string;
   /** La période, quand l'entrée a une fin : « 18:30 – 19:45 », « jusqu'au … ». */
@@ -111,19 +114,22 @@ export class Agenda {
 
   /**
    * Les sept jours de la semaine, chacun avec les entrées qui y commencent, à
-   * Paris. L'API rend déjà une suite triée : l'ordre se garde.
+   * Paris. L'API rend aussi celles qui ont commencé avant et sont encore en
+   * cours : elles ouvrent le lundi, comme une suite. L'API rend déjà une suite
+   * triée : l'ordre se garde.
    */
   protected readonly journees = computed((): Journee[] => {
-    const entrees = this.lecture.hasValue() ? this.lecture.value() : [];
+    const lundi = this.semaine();
+    const entrees = (this.lecture.hasValue() ? this.lecture.value() : []).map(
+      (entree) => vueDe(entree, lundi),
+    );
 
     return Array.from({ length: 7 }, (_, indice) => {
-      const jour = decaler(this.semaine(), indice);
+      const jour = decaler(lundi, indice);
       return {
         jour,
         estAujourdhui: jour === this.aujourdhui,
-        entrees: entrees
-          .filter((entree) => jourDe(entree.startsAt) === jour)
-          .map(vueDe),
+        entrees: entrees.filter((entree) => entree.jour === jour),
       };
     });
   });
@@ -162,12 +168,21 @@ export class Agenda {
   }
 }
 
-function vueDe(entree: AgendaItem): VueDEntree {
+function vueDe(entree: AgendaItem, lundi: string): VueDEntree {
   const module = moduleDOrigine(entree);
+  const debut = jourDe(entree.startsAt);
+  const enCours = debut < lundi;
 
   return {
     cle: `${entree.source}:${entree.sourceId}:${entree.startsAt}`,
-    heure: heureDe(entree.startsAt),
+    jour: enCours ? lundi : debut,
+    heure: enCours
+      ? `depuis le ${formaterJour(debut, {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        })}`
+      : heureDe(entree.startsAt),
     titre: entree.title,
     periode: periodeDe(entree),
     statut: STATUTS[entree.status],

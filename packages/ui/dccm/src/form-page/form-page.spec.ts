@@ -1,6 +1,18 @@
+import { InteractivityChecker } from '@angular/cdk/a11y';
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { DccmFormPage, type DccmFormPagePresentation } from './form-page';
+
+// jsdom ne calcule aucune mise en page : tout élément y paraît invisible, et
+// le piège de focus du CDK n'y trouverait rien à focaliser (voir confirm.spec).
+const atteignable = (element: HTMLElement) =>
+  element.tabIndex >= 0 && !(element as HTMLButtonElement).disabled;
+const toujoursFocalisable: Partial<InteractivityChecker> = {
+  isFocusable: atteignable,
+  isTabbable: atteignable,
+  isVisible: () => true,
+  isDisabled: (element) => (element as HTMLButtonElement).disabled,
+};
 
 @Component({
   imports: [DccmFormPage],
@@ -108,7 +120,9 @@ describe('DccmFormPage', () => {
       fixture.componentInstance.presentation.set(presentation);
       await fixture.whenStable();
 
-      const region = el.querySelector('[role="region"]') as HTMLElement;
+      const region = el.querySelector(
+        presentation === 'panel' ? '[role="region"]' : '[role="dialog"]',
+      ) as HTMLElement;
       const titre = document.getElementById(
         region.getAttribute('aria-labelledby') ?? '',
       );
@@ -118,5 +132,113 @@ describe('DccmFormPage', () => {
     }
     bouton('Annuler').click();
     expect(fixture.componentInstance.annulations).toBe(3);
+  });
+
+  describe('en feuille', () => {
+    @Component({
+      imports: [DccmFormPage],
+      template: `
+        <button data-test="declencheur" (click)="ouverte.set(true)">
+          Nouvel événement
+        </button>
+        @if (ouverte()) {
+          <dccm-form-page
+            heading="Nouvel événement"
+            submitLabel="Créer l'événement"
+            [presentation]="presentation()"
+            (cancelled)="ouverte.set(false)"
+          >
+            <input data-test="titre" name="titre" />
+          </dccm-form-page>
+        }
+      `,
+    })
+    class Ecran {
+      readonly ouverte = signal(false);
+      readonly presentation = signal<DccmFormPagePresentation>('sheet');
+    }
+
+    async function ouvrir(presentation: DccmFormPagePresentation = 'sheet') {
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: InteractivityChecker, useValue: toujoursFocalisable },
+        ],
+      });
+      const fixture = TestBed.createComponent(Ecran);
+      fixture.componentInstance.presentation.set(presentation);
+      const el = fixture.nativeElement as HTMLElement;
+      document.body.appendChild(el);
+      await fixture.whenStable();
+
+      const declencheur = el.querySelector(
+        '[data-test="declencheur"]',
+      ) as HTMLButtonElement;
+      declencheur.focus();
+      declencheur.click();
+      await fixture.whenStable();
+
+      const feuille = () =>
+        el.querySelector('dccm-form-page') as HTMLElement | null;
+      return { fixture, el, declencheur, feuille };
+    }
+
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('est un dialogue modal, nommé par son titre', async () => {
+      const { feuille } = await ouvrir();
+
+      expect(feuille()?.getAttribute('role')).toBe('dialog');
+      expect(feuille()?.getAttribute('aria-modal')).toBe('true');
+      expect(
+        document.getElementById(
+          feuille()?.getAttribute('aria-labelledby') ?? '',
+        )?.textContent,
+      ).toContain('Nouvel événement');
+    });
+
+    it('prend le focus à son ouverture, et le garde à la tabulation', async () => {
+      const { feuille } = await ouvrir();
+      const fermer = feuille()?.querySelector(
+        'button[aria-label="Fermer"]',
+      ) as HTMLButtonElement;
+      const creer = [...(feuille()?.querySelectorAll('button') ?? [])].find(
+        (bouton) => bouton.textContent?.trim() === "Créer l'événement",
+      ) as HTMLButtonElement;
+
+      expect(document.activeElement).toBe(fermer);
+
+      // Les ancres du piège, de part et d'autre de la feuille : la tabulation
+      // qui en sort y revient par l'autre bout.
+      const [avant, apres] = [
+        ...document.querySelectorAll<HTMLElement>('.cdk-focus-trap-anchor'),
+      ];
+      apres.focus();
+      expect(document.activeElement).toBe(fermer);
+      avant.focus();
+      expect(document.activeElement).toBe(creer);
+    });
+
+    it('se ferme par Échap, et rend le focus à son déclencheur', async () => {
+      const { fixture, declencheur, feuille } = await ouvrir();
+
+      feuille()?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      await fixture.whenStable();
+
+      expect(feuille()).toBeNull();
+      expect(document.activeElement).toBe(declencheur);
+    });
+
+    it("ne piège rien en panneau, à côté d'une liste qui reste utilisable", async () => {
+      const { feuille, declencheur } = await ouvrir('panel');
+
+      expect(feuille()?.getAttribute('role')).toBe('region');
+      expect(feuille()?.getAttribute('aria-modal')).toBeNull();
+      expect(document.activeElement).toBe(declencheur);
+      expect(document.querySelector('.cdk-focus-trap-anchor')).toBeNull();
+    });
   });
 });

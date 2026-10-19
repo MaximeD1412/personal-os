@@ -1,3 +1,4 @@
+import { InteractivityChecker } from '@angular/cdk/a11y';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
   HttpTestingController,
@@ -108,6 +109,17 @@ const PISCINES: EventOccurrence[] = [
 
 const MOIS: (Event | EventOccurrence)[] = [DENTISTE, IMPOTS, ...PISCINES];
 
+// jsdom ne calcule aucune mise en page : tout élément y paraît invisible, et
+// le piège de focus de la feuille n'y trouverait rien à focaliser.
+const atteignable = (element: HTMLElement) =>
+  element.tabIndex >= 0 && !(element as HTMLButtonElement).disabled;
+const toujoursFocalisable: Partial<InteractivityChecker> = {
+  isFocusable: atteignable,
+  isTabbable: atteignable,
+  isVisible: () => true,
+  isDisabled: (element) => (element as HTMLButtonElement).disabled,
+};
+
 describe('Calendrier', () => {
   let httpMock: HttpTestingController;
 
@@ -151,6 +163,7 @@ describe('Calendrier', () => {
         provideRouter(appRoutes),
         { provide: API_BASE_URL, useValue: BASE },
         fenetreDe(largeur),
+        { provide: InteractivityChecker, useValue: toujoursFocalisable },
       ],
     });
     httpMock = TestBed.inject(HttpTestingController);
@@ -542,6 +555,34 @@ describe('Calendrier', () => {
       expect(formulaire(harnais)).toBeNull();
     });
 
+    it('se tient au clavier en feuille : focus pris, Échap ferme, focus rendu', async () => {
+      const harnais = await ouvrir('/calendrier', { largeur: 1024 });
+      document.body.appendChild(racine(harnais));
+      const declencheur = champ<HTMLAnchorElement>(
+        harnais,
+        'nouvel-evenement',
+      );
+      declencheur.focus();
+
+      await cliquer(harnais, declencheur);
+      await harnais.fixture.whenStable();
+      const feuille = formulaire(harnais) as HTMLElement;
+      expect(feuille.getAttribute('role')).toBe('dialog');
+      expect(feuille.getAttribute('aria-modal')).toBe('true');
+      expect(feuille.contains(document.activeElement)).toBe(true);
+
+      feuille.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      await laisserFiler();
+      harnais.detectChanges();
+
+      expect(url()).toBe('/calendrier?mois=2026-09');
+      expect(formulaire(harnais)).toBeNull();
+      expect(document.activeElement).toBe(declencheur);
+      racine(harnais).remove();
+    });
+
     it('se préremplit depuis la requête, sans rien enregistrer', async () => {
       const startsAt = '2026-11-03T08:30:00.000Z';
       const endsAt = '2026-11-03T09:00:00.000Z';
@@ -817,6 +858,69 @@ describe('Calendrier', () => {
       });
       modification.flush({ ...PISCINE, title: 'Piscine municipale' });
       await relire(harnais);
+    });
+
+    it("attend l'Événement : rien ne se saisit ni ne s'enregistre pendant la lecture", async () => {
+      configurer(1280);
+      const harnais = await RouterTestingHarness.create();
+      await harnais.navigateByUrl(
+        '/calendrier/evenements/event-1?mois=2026-09',
+      );
+      await laisserFiler();
+      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+      harnais.detectChanges();
+
+      expect(
+        formulaire(harnais)
+          ?.querySelector('dccm-state')
+          ?.getAttribute('data-status'),
+      ).toBe('loading');
+      expect(champ(harnais, 'titre')).toBeNull();
+      expect(bouton(harnais, 'Enregistrer').disabled).toBe(true);
+
+      formulaire(harnais)?.querySelector('form')?.requestSubmit();
+      await laisserFiler();
+      httpMock.expectNone(({ method }) => method !== 'GET');
+
+      lecture().flush(MOIS.map(enOccurrence));
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Dentiste');
+    });
+
+    it("dit que l'Événement n'a pas pu être lu, sans jamais en créer un", async () => {
+      configurer(1280);
+      const harnais = await RouterTestingHarness.create();
+      await harnais.navigateByUrl(
+        '/calendrier/evenements/event-1?mois=2026-09',
+      );
+      await laisserFiler();
+      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+      lecture().flush(
+        {
+          status: 503,
+          code: 'database.unavailable',
+          message: 'La base de données ne répond pas.',
+        },
+        { status: 503, statusText: 'Service Unavailable' },
+      );
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
+
+      const panneau = formulaire(harnais) as HTMLElement;
+      expect(texte(panneau)).toContain('La base de données ne répond pas.');
+      expect(champ(harnais, 'titre')).toBeNull();
+      expect(bouton(harnais, 'Enregistrer').disabled).toBe(true);
+      panneau.querySelector('form')?.requestSubmit();
+      await laisserFiler();
+      httpMock.expectNone(({ method }) => method !== 'GET');
+
+      const reessayer = [...panneau.querySelectorAll('button')].find(
+        (candidat) => texte(candidat) === 'Réessayer',
+      ) as HTMLButtonElement;
+      await cliquer(harnais, reessayer);
+      await relire(harnais);
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Dentiste');
     });
 
     it("revient au mois, sans un mot, quand l'Événement désigné n'y est pas", async () => {

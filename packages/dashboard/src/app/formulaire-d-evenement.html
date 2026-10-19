@@ -10,153 +10,167 @@
   (submitted)="enregistrer()"
   (cancelled)="fermer()"
 >
-  <div hlmField>
-    <label hlmFieldLabel for="evenement-titre">Intitulé</label>
-    <input
-      hlmInput
-      id="evenement-titre"
-      type="text"
-      data-test="titre"
-      [forceInvalid]="!!erreurs()['title']"
-      [value]="saisie().titre"
-      (input)="saisir('titre', $event)"
-    />
-    @if (erreurs()['title']; as message) {
-    <hlm-field-error forceShow data-test="erreur-title">{{ message }}</hlm-field-error>
-    }
-  </div>
-
-  <div class="flex flex-col gap-gutter">
-    <div hlmField>
-      <label hlmFieldLabel for="evenement-debut">Début</label>
-      <input
-        hlmInput
-        id="evenement-debut"
-        type="datetime-local"
-        data-test="debut"
-        [forceInvalid]="!!erreurs()['startsAt']"
-        [value]="saisie().debut"
-        [disabled]="horairesVerrouilles()"
-        (input)="saisir('debut', $event)"
-      />
-      @if (erreurs()['startsAt']; as message) {
-      <hlm-field-error forceShow data-test="erreur-startsAt"
-        >{{ message }}</hlm-field-error
-      >
-      }
-    </div>
-
-    <div hlmField>
-      <label hlmFieldLabel for="evenement-fin">Fin</label>
-      <input
-        hlmInput
-        id="evenement-fin"
-        type="datetime-local"
-        data-test="fin"
-        [forceInvalid]="!!erreurs()['endsAt']"
-        [value]="saisie().fin"
-        [disabled]="horairesVerrouilles()"
-        (input)="saisir('fin', $event)"
-      />
-      @if (erreurs()['endsAt']; as message) {
-      <hlm-field-error forceShow data-test="erreur-endsAt"
-        >{{ message }}</hlm-field-error
-      >
-      }
-    </div>
-
-    @if (horairesVerrouilles()) {
-    <p
-      class="text-body-dense text-outline"
-      data-test="horaires-verrouilles"
-    >
-      Les horaires d'une série ne se modifient pas depuis l'une de ses
-      occurrences.
-    </p>
-    }
-  </div>
-
-  <div hlmField>
-    <span hlmFieldLabel id="evenement-categorie">Catégorie</span>
-    <hlm-toggle-group
-      size="md"
-      data-test="categorie"
-      aria-labelledby="evenement-categorie"
-      class="grid grid-cols-2"
-      [value]="saisie().categorie"
-      (valueChange)="choisir('categorie', $event)"
-    >
-      @for (categorie of categories; track categorie.valeur) {
-      <button hlmToggleGroupItem [value]="categorie.valeur">
-        <ng-icon
-          [svg]="categorie.icone"
-          [class]="categorie.encre"
-          aria-hidden="true"
+  <dccm-state
+    [status]="etatDeLaCible()"
+    [error]="erreurDeLecture()"
+    skeleton="detail"
+    [rows]="4"
+    errorHeading="L'Événement n'a pas pu être lu"
+    (retry)="relireLeMois()"
+  >
+    <div class="flex flex-col gap-gutter">
+      <div hlmField>
+        <label hlmFieldLabel for="evenement-titre">Intitulé</label>
+        <input
+          hlmInput
+          id="evenement-titre"
+          type="text"
+          data-test="titre"
+          [forceInvalid]="!!erreurs()['title']"
+          [value]="saisie().titre"
+          (input)="saisir('titre', $event)"
         />
-        {{ categorie.libelle }}
-      </button>
-      }
-    </hlm-toggle-group>
-    @if (erreurs()['category']; as message) {
-    <hlm-field-error forceShow data-test="erreur-category"
-      >{{ message }}</hlm-field-error
-    >
-    }
-  </div>
-
-  <div hlmField>
-    <span hlmFieldLabel id="evenement-espace">Espace</span>
-    @if (erreurDesEspaces(); as message) {
-    <p class="text-body-dense text-error" data-test="espaces-illisibles">
-      {{ message }}
-    </p>
-    } @else {
-    <hlm-toggle-group
-      size="md"
-      data-test="espace"
-      aria-labelledby="evenement-espace"
-      class="grid grid-cols-2"
-      [value]="saisie().espaceId"
-      (valueChange)="choisir('espaceId', $event)"
-    >
-      @for (espace of espaces(); track espace.id) {
-      <button hlmToggleGroupItem [value]="espace.id">{{ espace.label }}</button>
-      }
-    </hlm-toggle-group>
-    }
-    @if (erreurs()['scopeId']; as message) {
-    <hlm-field-error forceShow data-test="erreur-scopeId"
-      >{{ message }}</hlm-field-error
-    >
-    }
-  </div>
-
-  <div hlmField>
-    <label hlmFieldLabel for="evenement-rappel">Rappel</label>
-    <hlm-select
-      data-test="rappel"
-      [value]="saisie().rappel"
-      [itemToString]="nomDuRappel"
-      (valueChange)="choisir('rappel', $event)"
-    >
-      <hlm-select-trigger buttonId="evenement-rappel">
-        <hlm-select-value placeholder="Sans rappel" />
-      </hlm-select-trigger>
-      <hlm-select-content *hlmSelectPortal>
-        <hlm-select-item value="">Sans rappel</hlm-select-item>
-        @for (palier of paliersOfferts(); track palier.minutes) {
-        <hlm-select-item [value]="palier.minutes.toString()"
-          >{{ palier.libelle }} avant</hlm-select-item
+        @if (erreurs()['title']; as message) {
+        <hlm-field-error forceShow data-test="erreur-title"
+          >{{ message }}</hlm-field-error
         >
         }
-      </hlm-select-content>
-    </hlm-select>
-    @if (erreurs()['reminderLeadMinutes']; as message) {
-    <hlm-field-error forceShow data-test="erreur-reminderLeadMinutes"
-      >{{ message }}</hlm-field-error
-    >
-    }
-  </div>
+      </div>
+
+      <div class="flex flex-col gap-gutter">
+        <div hlmField>
+          <label hlmFieldLabel for="evenement-debut">Début</label>
+          <input
+            hlmInput
+            id="evenement-debut"
+            type="datetime-local"
+            data-test="debut"
+            [forceInvalid]="!!erreurs()['startsAt']"
+            [value]="saisie().debut"
+            [disabled]="horairesVerrouilles()"
+            (input)="saisir('debut', $event)"
+          />
+          @if (erreurs()['startsAt']; as message) {
+          <hlm-field-error forceShow data-test="erreur-startsAt"
+            >{{ message }}</hlm-field-error
+          >
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="evenement-fin">Fin</label>
+          <input
+            hlmInput
+            id="evenement-fin"
+            type="datetime-local"
+            data-test="fin"
+            [forceInvalid]="!!erreurs()['endsAt']"
+            [value]="saisie().fin"
+            [disabled]="horairesVerrouilles()"
+            (input)="saisir('fin', $event)"
+          />
+          @if (erreurs()['endsAt']; as message) {
+          <hlm-field-error forceShow data-test="erreur-endsAt"
+            >{{ message }}</hlm-field-error
+          >
+          }
+        </div>
+
+        @if (horairesVerrouilles()) {
+        <p
+          class="text-body-dense text-outline"
+          data-test="horaires-verrouilles"
+        >
+          Les horaires d'une série ne se modifient pas depuis l'une de ses
+          occurrences.
+        </p>
+        }
+      </div>
+
+      <div hlmField>
+        <span hlmFieldLabel id="evenement-categorie">Catégorie</span>
+        <hlm-toggle-group
+          size="md"
+          data-test="categorie"
+          aria-labelledby="evenement-categorie"
+          class="grid grid-cols-2"
+          [value]="saisie().categorie"
+          (valueChange)="choisir('categorie', $event)"
+        >
+          @for (categorie of categories; track categorie.valeur) {
+          <button hlmToggleGroupItem [value]="categorie.valeur">
+            <ng-icon
+              [svg]="categorie.icone"
+              [class]="categorie.encre"
+              aria-hidden="true"
+            />
+            {{ categorie.libelle }}
+          </button>
+          }
+        </hlm-toggle-group>
+        @if (erreurs()['category']; as message) {
+        <hlm-field-error forceShow data-test="erreur-category"
+          >{{ message }}</hlm-field-error
+        >
+        }
+      </div>
+
+      <div hlmField>
+        <span hlmFieldLabel id="evenement-espace">Espace</span>
+        @if (erreurDesEspaces(); as message) {
+        <p class="text-body-dense text-error" data-test="espaces-illisibles">
+          {{ message }}
+        </p>
+        } @else {
+        <hlm-toggle-group
+          size="md"
+          data-test="espace"
+          aria-labelledby="evenement-espace"
+          class="grid grid-cols-2"
+          [value]="saisie().espaceId"
+          (valueChange)="choisir('espaceId', $event)"
+        >
+          @for (espace of espaces(); track espace.id) {
+          <button hlmToggleGroupItem [value]="espace.id">
+            {{ espace.label }}
+          </button>
+          }
+        </hlm-toggle-group>
+        } @if (erreurs()['scopeId']; as message) {
+        <hlm-field-error forceShow data-test="erreur-scopeId"
+          >{{ message }}</hlm-field-error
+        >
+        }
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="evenement-rappel">Rappel</label>
+        <hlm-select
+          data-test="rappel"
+          [value]="saisie().rappel"
+          [itemToString]="nomDuRappel"
+          (valueChange)="choisir('rappel', $event)"
+        >
+          <hlm-select-trigger buttonId="evenement-rappel">
+            <hlm-select-value placeholder="Sans rappel" />
+          </hlm-select-trigger>
+          <hlm-select-content *hlmSelectPortal>
+            <hlm-select-item value="">Sans rappel</hlm-select-item>
+            @for (palier of paliersOfferts(); track palier.minutes) {
+            <hlm-select-item [value]="palier.minutes.toString()"
+              >{{ palier.libelle }} avant</hlm-select-item
+            >
+            }
+          </hlm-select-content>
+        </hlm-select>
+        @if (erreurs()['reminderLeadMinutes']; as message) {
+        <hlm-field-error forceShow data-test="erreur-reminderLeadMinutes"
+          >{{ message }}</hlm-field-error
+        >
+        }
+      </div>
+    </div>
+  </dccm-state>
 
   @if (!creation && enEdition()) {
   <button
