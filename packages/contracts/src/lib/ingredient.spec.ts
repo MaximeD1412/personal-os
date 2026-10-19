@@ -124,6 +124,34 @@ describe('zIngredientInput', () => {
       ),
     ).toEqual(['gramsPerPiece']);
   });
+
+  it.each([0.001, 55.555, 0.005])(
+    'refuse un poids à la pièce plus fin que le centième (%s), que la base arrondirait',
+    (gramsPerPiece) => {
+      expect(
+        cheminsRefuses(
+          zIngredientInput.safeParse({
+            displayName: 'Œuf',
+            canonicalUnit: 'PIECE',
+            gramsPerPiece,
+          }),
+        ),
+      ).toEqual(['gramsPerPiece']);
+    },
+  );
+
+  it.each([0.01, 0.1, 42.37, 55.5, 99_999.99, 100_000])(
+    'accepte un poids à la pièce au centième (%s)',
+    (gramsPerPiece) => {
+      expect(
+        zIngredientInput.parse({
+          displayName: 'Œuf',
+          canonicalUnit: 'PIECE',
+          gramsPerPiece,
+        }).gramsPerPiece,
+      ).toBe(gramsPerPiece);
+    },
+  );
 });
 
 describe('zIngredientUpdate', () => {

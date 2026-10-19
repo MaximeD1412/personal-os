@@ -99,16 +99,21 @@ function verifierLePoidsALaPiece(
     grammesParPiece !== null &&
     !UNITES_AVEC_POIDS_A_LA_PIECE.includes(unite)
   ) {
-    throw new ErreurMetier(
-      'food.grams_per_piece_not_applicable',
-      'Un poids à la pièce ne vaut que pour un Ingrédient compté en grammes ou en pièces.',
-    );
+    throw poidsNonApplicable();
   }
 }
 
+function poidsNonApplicable(): ErreurMetier {
+  return new ErreurMetier(
+    'food.grams_per_piece_not_applicable',
+    'Un poids à la pièce ne vaut que pour un Ingrédient compté en grammes ou en pièces.',
+  );
+}
+
 /**
- * Le nom normalisé est unique en base : c'est elle qui tranche, y compris
- * entre deux saisies simultanées. Son refus devient la règle du catalogue.
+ * Le nom normalisé est unique en base, et une contrainte y réserve le poids à
+ * la pièce aux grammes et aux pièces : c'est elle qui tranche entre deux
+ * saisies simultanées. Ses refus deviennent les règles du catalogue.
  */
 async function uniqueSinon(
   operation: Promise<IngredientRecord>,
@@ -121,6 +126,9 @@ async function uniqueSinon(
         'food.ingredient_duplicate',
         'Un Ingrédient du catalogue porte déjà ce nom.',
       );
+    }
+    if (violeLaContrainteDuPoids(erreur)) {
+      throw poidsNonApplicable();
     }
     if (codePrisma(erreur) === 'P2025') {
       throw new Introuvable(
@@ -154,6 +162,29 @@ function enChangements(saisie: IngredientUpdate): Partial<IngredientWrite> {
   }
 
   return changements;
+}
+
+/** Le refus de `Ingredient_gramsPerPiece_unit_check`, tel que Prisma le relaie. */
+function violeLaContrainteDuPoids(erreur: unknown): boolean {
+  if (codePrisma(erreur) !== 'P2039') {
+    return false;
+  }
+  const cause = (
+    erreur as {
+      meta?: {
+        driverAdapterError?: {
+          cause?: { originalCode?: string; originalMessage?: string };
+        };
+      };
+    }
+  ).meta?.driverAdapterError?.cause;
+
+  return (
+    cause?.originalCode === '23514' &&
+    (cause.originalMessage ?? '').includes(
+      'Ingredient_gramsPerPiece_unit_check',
+    )
+  );
 }
 
 function codePrisma(erreur: unknown): unknown {

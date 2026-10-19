@@ -121,6 +121,37 @@ describe('IngredientService', () => {
         gramsPerPiece: null,
       });
     });
+
+    it('traduit en règle le refus de la base quand une saisie simultanée a changé l’Ingrédient lu', async () => {
+      // Lu en grammes sans poids, l'Ingrédient est passé en millilitres
+      // entre la lecture et l'écriture : la contrainte de la base refuse.
+      const { service } = depot({
+        ...CITRON,
+        canonicalUnit: 'GRAM',
+        gramsPerPiece: null,
+      });
+      const refus = Object.assign(new Error('Database error'), {
+        code: 'P2039',
+        meta: {
+          driverAdapterError: {
+            cause: {
+              originalCode: '23514',
+              originalMessage:
+                'new row for relation "Ingredient" violates check constraint "Ingredient_gramsPerPiece_unit_check"',
+            },
+          },
+        },
+      });
+      (
+        service as unknown as {
+          repository: { modifier: () => Promise<never> };
+        }
+      ).repository.modifier = () => Promise.reject(refus);
+
+      await expect(
+        service.modifier(CITRON.id, { gramsPerPiece: 100 }),
+      ).rejects.toMatchObject(REGLE('food.grams_per_piece_not_applicable'));
+    });
   });
 
   it('refuse une modification vide, avant même de lire la base', async () => {

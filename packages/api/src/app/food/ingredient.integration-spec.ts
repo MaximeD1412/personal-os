@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { zIngredient, type Ingredient } from '@personal-os/contracts';
+import { PrismaService } from '@personal-os/database';
 import request from 'supertest';
 import * as z from 'zod';
 import {
@@ -39,6 +40,7 @@ describe("Catalogue d'Ingrédients", () => {
   let authentik: FauxAuthentik;
   let app: INestApplication;
   let jeu: JeuDEspaces;
+  let prisma: PrismaService;
 
   beforeAll(async () => {
     authentik = await demarrerFauxAuthentik();
@@ -57,6 +59,7 @@ describe("Catalogue d'Ingrédients", () => {
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
     await app.init();
+    prisma = app.get(PrismaService);
 
     jeu = await poserLeJeuDEspaces(app, authentik, [ADRESSE_A, ADRESSE_B]);
   });
@@ -100,6 +103,37 @@ describe("Catalogue d'Ingrédients", () => {
 
       expect(oeuf.gramsPerPiece).toBe(55.5);
       expect(oeuf.perishable).toBe(false);
+    });
+
+    it('rend à la relecture le poids à la pièce saisi, au centième près', async () => {
+      const figue = await creer(jeu.a, {
+        displayName: 'Figue fraîche',
+        canonicalUnit: 'PIECE',
+        gramsPerPiece: 42.37,
+      });
+
+      const relue = await request(app.getHttpServer())
+        .get(`/api/ingredients/${figue.id}`)
+        .set('Cookie', jeu.a.session)
+        .expect(200);
+
+      expect(figue.gramsPerPiece).toBe(42.37);
+      expect(relue.body.gramsPerPiece).toBe(42.37);
+    });
+
+    it('refuse en 400 un poids à la pièce plus fin que le centième, que la base arrondirait', async () => {
+      for (const gramsPerPiece of [0.001, 55.555]) {
+        await request(app.getHttpServer())
+          .post('/api/ingredients')
+          .set('Cookie', jeu.a.session)
+          .send({
+            displayName: 'Grain de poivre',
+            canonicalUnit: 'PIECE',
+            gramsPerPiece,
+          })
+          .expect(400)
+          .expect(champsEnErreur(['gramsPerPiece']));
+      }
     });
 
     it('refuse en 400 une saisie sans libellé ni unité, champ par champ', async () => {
@@ -336,6 +370,58 @@ describe("Catalogue d'Ingrédients", () => {
         .set('Cookie', jeu.a.session)
         .send({ canonicalUnit: 'MILLILITER', gramsPerPiece: null })
         .expect(200);
+    });
+
+    it('ne laisse pas deux modifications simultanées poser un poids à la pièce en millilitres', async () => {
+      const ingredients = await Promise.all(
+        [1, 2, 3, 4, 5].map((n) =>
+          creer(jeu.a, {
+            displayName: `Sirop concurrent ${n}`,
+            canonicalUnit: 'GRAM',
+          }),
+        ),
+      );
+
+      for (const { id } of ingredients) {
+        const [enMillilitres, avecUnPoids] = await Promise.all([
+          request(app.getHttpServer())
+            .patch(`/api/ingredients/${id}`)
+            .set('Cookie', jeu.a.session)
+            .send({ canonicalUnit: 'MILLILITER' }),
+          request(app.getHttpServer())
+            .patch(`/api/ingredients/${id}`)
+            .set('Cookie', jeu.b.session)
+            .send({ gramsPerPiece: 100 }),
+        ]);
+
+        // L'une passe, l'autre est refusée par la règle, jamais par une 500.
+        expect([enMillilitres.status, avecUnPoids.status].sort()).toEqual([
+          200, 422,
+        ]);
+        const refus =
+          enMillilitres.status === 422 ? enMillilitres : avecUnPoids;
+        expect(refus.body.code).toBe('food.grams_per_piece_not_applicable');
+
+        const final = await prisma.ingredient.findUniqueOrThrow({
+          where: { id },
+        });
+        expect(
+          final.canonicalUnit === 'MILLILITER' && final.gramsPerPiece !== null,
+        ).toBe(false);
+      }
+    });
+
+    it('a sa règle du poids à la pièce gardée par la base elle-même', async () => {
+      await expect(
+        prisma.ingredient.create({
+          data: {
+            name: 'creme liquide en direct',
+            displayName: 'Crème liquide en direct',
+            canonicalUnit: 'MILLILITER',
+            gramsPerPiece: 10,
+          },
+        }),
+      ).rejects.toThrow();
     });
 
     it('refuse en 422 une modification vide', async () => {

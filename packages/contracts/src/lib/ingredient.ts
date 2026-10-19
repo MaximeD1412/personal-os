@@ -113,7 +113,17 @@ const zDisplayName = /* @__PURE__ */ z
     error: 'Le libellé doit contenir au moins une lettre ou un chiffre.',
   });
 
-const zGramsPerPiece = /* @__PURE__ */ z.number().positive().max(100_000);
+/**
+ * La base garde le poids au centième de gramme (`Decimal(10,2)`) : un poids
+ * plus fin serait arrondi en silence, et 0,001 deviendrait 0.
+ */
+const zGramsPerPiece = /* @__PURE__ */ z
+  .number()
+  .positive()
+  .max(100_000)
+  .refine((grammes) => Math.round(grammes * 100) / 100 === grammes, {
+    error: 'Le poids à la pièce se donne au centième de gramme près.',
+  });
 
 const zAllergens = /* @__PURE__ */ z
   .array(zAllergen)
