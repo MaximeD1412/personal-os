@@ -2,6 +2,7 @@ import {
   aujourdhui,
   FUSEAU,
   lundiDe,
+  periodeDeLaSemaine,
   periodeDuMois,
   zCents,
   zDay,
@@ -238,5 +239,22 @@ describe('periodeDuMois', () => {
   it('refuse ce qui n’est pas un mois', () => {
     expect(() => periodeDuMois('2026-13')).toThrow();
     expect(() => periodeDuMois('octobre')).toThrow();
+  });
+});
+
+describe('periodeDeLaSemaine', () => {
+  it.each([
+    // Une semaine d’été, du lundi au dimanche.
+    ['2026-09-14', '2026-09-13T22:00:00.000Z', '2026-09-20T21:59:59.999Z'],
+    // La semaine du passage à l’heure d’hiver (dimanche 25 octobre).
+    ['2026-10-19', '2026-10-18T22:00:00.000Z', '2026-10-25T22:59:59.999Z'],
+    // Une semaine à cheval sur deux années.
+    ['2026-12-28', '2026-12-27T23:00:00.000Z', '2027-01-03T22:59:59.999Z'],
+  ])('borne la semaine du %s du lundi au dimanche, à Paris', (lundi, from, to) => {
+    expect(periodeDeLaSemaine(lundi)).toEqual({ from, to });
+  });
+
+  it('refuse un jour qui n’est pas un lundi', () => {
+    expect(() => periodeDeLaSemaine('2026-09-15')).toThrow();
   });
 });

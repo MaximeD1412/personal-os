@@ -68,8 +68,8 @@ export function periodeDuMois(
   const annee = Number(correspondance[1]);
   const indice = Number(correspondance[2]) - 1;
 
-  const debut = minuitDans(fuseau, annee, indice);
-  const suivant = minuitDans(fuseau, annee, indice + 1);
+  const debut = minuitDans(fuseau, annee, indice, 1);
+  const suivant = minuitDans(fuseau, annee, indice + 1, 1);
 
   return {
     from: debut.toISOString(),
@@ -78,11 +78,38 @@ export function periodeDuMois(
 }
 
 /**
- * Le premier jour d'un mois à minuit, heure du fuseau. Minuit ne tombe jamais
- * dans un changement d'heure à Paris : un seul décalage le désigne.
+ * La période d'une semaine (un `zWeek`, son lundi), du lundi à minuit au
+ * dimanche à 23:59:59.999, dans le fuseau donné.
  */
-function minuitDans(fuseau: string, annee: number, indice: number): Date {
-  const minuitUtc = Date.UTC(annee, indice, 1);
+export function periodeDeLaSemaine(
+  lundi: string,
+  fuseau = FUSEAU,
+): { from: string; to: string } {
+  const debut = enMinuitUtc(zWeek.parse(lundi));
+  const annee = debut.getUTCFullYear();
+  const indice = debut.getUTCMonth();
+  const jour = debut.getUTCDate();
+
+  const suivant = minuitDans(fuseau, annee, indice, jour + 7);
+
+  return {
+    from: minuitDans(fuseau, annee, indice, jour).toISOString(),
+    to: new Date(suivant.getTime() - 1).toISOString(),
+  };
+}
+
+/**
+ * Un jour à minuit, heure du fuseau (`Date.UTC` reporte un jour qui déborde
+ * du mois). Minuit ne tombe jamais dans un changement d'heure à Paris : un
+ * seul décalage le désigne.
+ */
+function minuitDans(
+  fuseau: string,
+  annee: number,
+  indice: number,
+  jour: number,
+): Date {
+  const minuitUtc = Date.UTC(annee, indice, jour);
   const premier = minuitUtc - decalage(fuseau, minuitUtc);
 
   return new Date(minuitUtc - decalage(fuseau, premier));
