@@ -2,26 +2,28 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
+  type TestRequest,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
 import {
-  aujourdhui,
+  periodeDuMois,
   type Event,
   type EventOccurrence,
   type Scope,
 } from '@personal-os/contracts';
-import {
-  choisirDansLeSelect,
-  optionsOffertes,
-  valeurAffichee,
-} from '../testing/hlm-select';
+import { fenetreDe } from '../testing/largeur';
+import { choisirDansLeSelect, valeurAffichee } from '../testing/hlm-select';
 import { API_BASE_URL } from './api-base-url';
 import { INTERCEPTEURS } from './app.config';
-import { Calendrier } from './calendrier';
+import { appRoutes } from './app.routes';
 import { EspaceCourant } from './espace-courant';
 
 const BASE = 'http://api.test/api';
+
+/** Mercredi 16 septembre 2026, à Paris. */
+const MAINTENANT = new Date('2026-09-16T10:00:00.000Z');
 
 const ESPACES: Scope[] = [
   { id: 'espace-foyer', kind: 'HOUSEHOLD', label: 'Foyer' },
@@ -40,16 +42,24 @@ const DENTISTE: Event = {
   createdAt: '2026-08-27T08:00:00.000Z',
 };
 
-const DECLARATION: Event = {
+/** Une Échéance, aujourd'hui, avec un rappel. */
+const IMPOTS: Event = {
   id: 'event-2',
-  title: 'Déclaration de revenus',
-  startsAt: '2027-05-20T00:00:00.000Z',
+  title: 'Taxe foncière',
+  startsAt: '2026-09-16T08:00:00.000Z',
   endsAt: null,
   category: 'DEADLINE',
   reminderLeadMinutes: 10_080,
   recurrence: null,
   scopeId: 'espace-foyer',
   createdAt: '2026-08-27T08:00:00.000Z',
+};
+
+const DECLARATION: Event = {
+  ...IMPOTS,
+  id: 'event-3',
+  title: 'Déclaration de revenus',
+  startsAt: '2027-05-20T00:00:00.000Z',
 };
 
 /** Une occurrence d'un Événement, telle que la lecture d'un mois la rend. */
@@ -83,6 +93,7 @@ const PISCINE: Event = {
   id: 'event-serie',
   title: 'Piscine',
   startsAt: '2026-09-07T16:00:00.000Z',
+  endsAt: '2026-09-07T17:00:00.000Z',
   category: 'OTHER',
   recurrence: { freq: 'WEEKLY', interval: 1 },
 };
@@ -91,702 +102,579 @@ const PISCINES: EventOccurrence[] = [
   occurrenceDe(PISCINE, {
     originalStart: '2026-09-14T16:00:00.000Z',
     startsAt: '2026-09-14T16:00:00.000Z',
+    endsAt: '2026-09-14T17:00:00.000Z',
   }),
 ];
 
+const MOIS: (Event | EventOccurrence)[] = [DENTISTE, IMPOTS, ...PISCINES];
+
 describe('Calendrier', () => {
   let httpMock: HttpTestingController;
-  let parametres: Record<string, string | string[]>;
-  let donnees: Record<string, unknown>;
 
-  beforeEach(async () => {
-    parametres = {};
-    donnees = {};
+  beforeEach(() => {
+    // Seule l'horloge est figée : les minuteries restent réelles, dont
+    // `whenStable` a besoin.
+    jest.useFakeTimers({
+      now: MAINTENANT,
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'clearTimeout',
+        'queueMicrotask',
+        'requestAnimationFrame',
+        'cancelAnimationFrame',
+        'requestIdleCallback',
+        'cancelIdleCallback',
+        'performance',
+        'hrtime',
+      ],
+    });
+  });
 
-    await TestBed.configureTestingModule({
-      imports: [Calendrier],
+  afterEach(() => {
+    httpMock.verify();
+    jest.useRealTimers();
+    document.body
+      .querySelectorAll('[role="alertdialog"]')
+      .forEach((dialogue) => dialogue.remove());
+  });
+
+  function configurer(largeur: number): void {
+    TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors(INTERCEPTEURS)),
         provideHttpClientTesting(),
-        {
-          provide: ActivatedRoute,
-          useValue: {
-            snapshot: {
-              get queryParamMap() {
-                return convertToParamMap(parametres);
-              },
-              get data() {
-                return donnees;
-              },
-            },
-          },
-        },
+        provideRouter(appRoutes),
         { provide: API_BASE_URL, useValue: BASE },
+        fenetreDe(largeur),
       ],
-    }).compileComponents();
-
+    });
     httpMock = TestBed.inject(HttpTestingController);
-  });
+  }
 
-  afterEach(() => httpMock.verify());
-
-  async function monter(
-    evenements: (Event | EventOccurrence)[] = [DENTISTE, DECLARATION],
-    depuisLAgenda: Record<string, string> = {},
-  ) {
-    parametres = depuisLAgenda;
-
-    const fixture = TestBed.createComponent(Calendrier);
-    fixture.detectChanges();
-
-    httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
-    lecture().flush(evenements.map(enOccurrence));
-
-    await fixture.whenStable();
-    fixture.detectChanges();
-    return fixture;
+  /**
+   * Laisse partir ce qui est en route (une navigation, une requête, la
+   * réponse servie), sans attendre la stabilité : une lecture en cours la
+   * retarderait jusqu'à sa propre réponse.
+   */
+  async function laisserFiler(): Promise<void> {
+    for (let tour = 0; tour < 3; tour++) {
+      await new Promise((fin) => setTimeout(fin));
+      TestBed.tick();
+    }
   }
 
   /** La lecture des Événements, quelle que soit sa période. */
-  const lecture = () =>
+  const lecture = (): TestRequest =>
     httpMock.expectOne(
       ({ method, url }) => method === 'GET' && url === `${BASE}/events`,
     );
 
-  /**
-   * Laisse une réponse servie atteindre l'écran, sans attendre la stabilité :
-   * la relecture qu'elle déclenche la retarderait jusqu'à sa propre réponse.
-   */
-  async function laisserRepondre(): Promise<void> {
-    await new Promise((fin) => setTimeout(fin));
-    TestBed.tick();
-  }
+  /** Ouvre une adresse sous `/calendrier`, et sert les Espaces puis le mois. */
+  async function ouvrir(
+    url: string,
+    { largeur = 1280, evenements = MOIS } = {},
+  ): Promise<RouterTestingHarness> {
+    configurer(largeur);
+    const harnais = await RouterTestingHarness.create();
+    await harnais.navigateByUrl(url);
+    await laisserFiler();
 
-  /** La relecture qui suit une écriture, servie avec ce que l'API renvoie. */
-  async function relire(
-    fixture: { whenStable(): Promise<unknown>; detectChanges(): void },
-    evenements: (Event | EventOccurrence)[],
-  ): Promise<void> {
-    await laisserRepondre();
+    httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
     lecture().flush(evenements.map(enOccurrence));
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await harnais.fixture.whenStable();
+    harnais.detectChanges();
+    return harnais;
   }
 
-  const element = (fixture: { nativeElement: unknown }) =>
-    fixture.nativeElement as HTMLElement;
+  /** La relecture du mois qui suit une écriture, servie avec ce que l'API renvoie. */
+  async function relire(
+    harnais: RouterTestingHarness,
+    evenements: (Event | EventOccurrence)[] = MOIS,
+  ): Promise<void> {
+    await laisserFiler();
+    lecture().flush(evenements.map(enOccurrence));
+    await harnais.fixture.whenStable();
+    harnais.detectChanges();
+  }
 
-  const champ = <T extends HTMLElement>(racine: HTMLElement, nom: string) =>
-    racine.querySelector(`[data-test="${nom}"]`) as T;
+  async function cliquer(
+    harnais: RouterTestingHarness,
+    cible: HTMLElement,
+  ): Promise<void> {
+    cible.click();
+    await laisserFiler();
+    harnais.detectChanges();
+  }
 
-  /** Les champs de saisie libre. Les selects passent par `hlm-select`. */
-  function saisir(racine: HTMLElement, nom: string, valeur: string): void {
-    const cible = champ<HTMLInputElement>(racine, nom);
+  const racine = (harnais: RouterTestingHarness) =>
+    harnais.fixture.nativeElement as HTMLElement;
+
+  const champ = <T extends HTMLElement>(
+    harnais: RouterTestingHarness,
+    nom: string,
+  ) => racine(harnais).querySelector(`[data-test="${nom}"]`) as T;
+
+  const tous = (harnais: RouterTestingHarness, nom: string) => [
+    ...racine(harnais).querySelectorAll<HTMLElement>(`[data-test="${nom}"]`),
+  ];
+
+  const texte = (element: Element | null) =>
+    element?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+
+  const url = () => TestBed.inject(Router).url;
+
+  /** Les champs de saisie libre. */
+  function saisir(
+    harnais: RouterTestingHarness,
+    nom: string,
+    valeur: string,
+  ): void {
+    const cible = champ<HTMLInputElement>(harnais, nom);
     cible.value = valeur;
-    cible.dispatchEvent(new Event('input'));
+    cible.dispatchEvent(new globalThis.Event('input'));
+    harnais.detectChanges();
   }
 
-  describe("L'écran de liste", () => {
-    it("nomme l'Espace de chaque Événement, jamais son seul identifiant", async () => {
-      const texte = element(await monter()).textContent ?? '';
+  /** Le segment choisi d'un contrôle segmenté. */
+  const segmentChoisi = (harnais: RouterTestingHarness, nom: string) =>
+    texte(
+      racine(harnais).querySelector(
+        `[data-test="${nom}"] [aria-pressed="true"]`,
+      ),
+    );
 
-      expect(texte).toContain('Dentiste');
-      expect(texte).toContain('Personne A');
-      expect(texte).toContain('Foyer');
-    });
+  async function choisirLeSegment(
+    harnais: RouterTestingHarness,
+    nom: string,
+    libelle: string,
+  ): Promise<void> {
+    const segment = [
+      ...racine(harnais).querySelectorAll<HTMLButtonElement>(
+        `[data-test="${nom}"] button`,
+      ),
+    ].find((bouton) => texte(bouton) === libelle);
+    if (!segment) {
+      throw new Error(`« ${libelle} » n'est pas un segment de « ${nom} ».`);
+    }
+    await cliquer(harnais, segment);
+  }
 
-    it('marque comme Échéance le seul Événement qui porte la catégorie dédiée', async () => {
-      const lignes = element(await monter()).querySelectorAll(
-        '[data-test="evenement"]',
-      );
+  const formulaire = (harnais: RouterTestingHarness) =>
+    racine(harnais).querySelector<HTMLElement>('dccm-form-page');
 
-      expect(lignes.length).toBe(2);
-      expect(lignes[0].querySelector('[data-test="echeance"]')).toBeNull();
-      expect(lignes[1].querySelector('[data-test="echeance"]')).not.toBeNull();
-    });
+  const bouton = (harnais: RouterTestingHarness, libelle: string) => {
+    const trouve = [
+      ...racine(harnais).querySelectorAll<HTMLButtonElement>('button'),
+    ].find((candidat) => texte(candidat) === libelle);
+    if (!trouve) {
+      throw new Error(`Aucun bouton « ${libelle} ».`);
+    }
+    return trouve;
+  };
 
-    it('affiche le délai de rappel quand il y en a un, et rien sinon', async () => {
-      const lignes = element(await monter()).querySelectorAll(
-        '[data-test="evenement"]',
-      );
+  const caseDu = (harnais: RouterTestingHarness, libelle: string) =>
+    tous(harnais, 'jour').find(
+      (cellule) => cellule.getAttribute('aria-label') === libelle,
+    ) as HTMLElement;
 
-      expect(lignes[0].querySelector('[data-test="rappel"]')).toBeNull();
-      expect(
-        lignes[1].querySelector('[data-test="rappel"]')?.textContent,
-      ).toContain('1 semaine');
-    });
+  describe('La période affichée', () => {
+    it('lit le mois en cours, du premier au dernier jour à Paris', async () => {
+      configurer(1280);
+      const harnais = await RouterTestingHarness.create();
+      await harnais.navigateByUrl('/calendrier');
+      await laisserFiler();
 
-    it("le dit quand aucun Événement n'est visible", async () => {
-      expect(element(await monter([])).textContent).toContain(
-        'Aucun Événement',
-      );
-    });
-  });
-
-  describe('Le mois affiché', () => {
-    it('demande les Événements du mois en cours, du premier au dernier jour à Paris', async () => {
-      const fixture = TestBed.createComponent(Calendrier);
-      fixture.detectChanges();
       httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+      const requete = lecture();
+      const { from, to } = periodeDuMois('2026-09');
+      expect(requete.request.params.get('from')).toBe(from);
+      expect(requete.request.params.get('to')).toBe(to);
+      requete.flush([]);
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
 
-      const demande = lecture().request;
-      const [annee, mois] = aujourdhui().split('-').map(Number);
-      const premier = new Date(Date.UTC(annee, mois - 1, 1));
-      const suivant = new Date(Date.UTC(annee, mois, 1));
-      const from = new Date(demande.params.get('from') ?? '');
-      const to = new Date(demande.params.get('to') ?? '');
-
-      // Minuit à Paris est 22 h ou 23 h UTC la veille, selon la saison.
-      expect(premier.getTime() - from.getTime()).toBeGreaterThanOrEqual(
-        3_600_000,
-      );
-      expect(premier.getTime() - from.getTime()).toBeLessThanOrEqual(7_200_000);
-      expect(suivant.getTime() - to.getTime() - 1).toBeGreaterThanOrEqual(
-        3_600_000,
-      );
-      expect(suivant.getTime() - to.getTime() - 1).toBeLessThanOrEqual(
-        7_200_000,
-      );
+      expect(texte(champ(harnais, 'titre-mois'))).toBe('septembre 2026');
     });
 
     it('ouvre le mois que le lien désigne', async () => {
-      parametres = { mois: '2026-10' };
-      const fixture = TestBed.createComponent(Calendrier);
-      fixture.detectChanges();
-      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+      const harnais = await ouvrir('/calendrier?mois=2027-05', {
+        evenements: [DECLARATION],
+      });
 
-      const demande = lecture().request;
-      expect(demande.params.get('from')).toBe('2026-09-30T22:00:00.000Z');
-      expect(demande.params.get('to')).toBe('2026-10-31T22:59:59.999Z');
-      expect(champ<HTMLInputElement>(element(fixture), 'mois').value).toBe(
-        '2026-10',
+      expect(texte(champ(harnais, 'titre-mois'))).toBe('mai 2027');
+      expect(texte(caseDu(harnais, 'jeudi 20 mai 2027'))).toContain(
+        'Déclaration de revenus',
       );
     });
 
     it("ignore un mois qui n'en est pas un, et ouvre le mois en cours", async () => {
-      parametres = { mois: 'octobre' };
-      const fixture = TestBed.createComponent(Calendrier);
-      fixture.detectChanges();
-      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+      const harnais = await ouvrir('/calendrier?mois=2026-13');
+
+      expect(texte(champ(harnais, 'titre-mois'))).toBe('septembre 2026');
+    });
+
+    it("change de mois par les flèches, l'écrit dans l'URL, et revient à aujourd'hui", async () => {
+      const harnais = await ouvrir('/calendrier');
+
+      await cliquer(harnais, champ(harnais, 'mois-suivant'));
+      expect(url()).toBe('/calendrier?mois=2026-10');
+      const octobre = lecture();
+      expect(octobre.request.params.get('from')).toBe(
+        periodeDuMois('2026-10').from,
+      );
+      octobre.flush([]);
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
+      expect(texte(champ(harnais, 'titre-mois'))).toBe('octobre 2026');
+
+      await cliquer(harnais, champ(harnais, 'mois-precedent'));
+      await relire(harnais);
+      await cliquer(harnais, champ(harnais, 'mois-precedent'));
+      expect(url()).toBe('/calendrier?mois=2026-08');
       lecture().flush([]);
+      await harnais.fixture.whenStable();
 
-      expect(champ<HTMLInputElement>(element(fixture), 'mois').value).toBe(
-        aujourdhui().slice(0, 7),
-      );
+      await cliquer(harnais, champ(harnais, 'aujourdhui'));
+      expect(url()).toBe('/calendrier?mois=2026-09');
+      await relire(harnais);
+      expect(texte(champ(harnais, 'titre-mois'))).toBe('septembre 2026');
     });
 
-    it('relit les Événements quand on change de mois', async () => {
-      const fixture = await monter();
-
-      saisir(element(fixture), 'mois', '2027-05');
-      // La lecture en vol garde l'application instable : on ne l'attend pas.
-      TestBed.tick();
-
-      const demande = lecture();
-      expect(demande.request.params.get('from')).toBe(
-        '2027-04-30T22:00:00.000Z',
+    it('affiche le message de la lecture refusée, et la relit sur demande', async () => {
+      configurer(1280);
+      const harnais = await RouterTestingHarness.create();
+      await harnais.navigateByUrl('/calendrier');
+      await laisserFiler();
+      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+      lecture().flush(
+        {
+          status: 503,
+          code: 'database.unavailable',
+          message: 'La base de données ne répond pas.',
+        },
+        { status: 503, statusText: 'Service Unavailable' },
       );
-      expect(demande.request.params.get('to')).toBe('2027-05-31T21:59:59.999Z');
-      demande.flush([DECLARATION]);
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
 
-      expect(element(fixture).textContent).not.toContain('Dentiste');
-      expect(element(fixture).textContent).toContain('Déclaration de revenus');
-    });
-
-    it("n'affiche que le dernier mois demandé, même si l'ancien répond après", async () => {
-      const fixture = await monter();
-
-      saisir(element(fixture), 'mois', '2027-05');
-      TestBed.tick();
-      saisir(element(fixture), 'mois', '2027-06');
-      TestBed.tick();
-
-      const [mai, juin] = httpMock.match(
-        ({ method, url }) => method === 'GET' && url === `${BASE}/events`,
+      expect(texte(racine(harnais))).toContain(
+        'La base de données ne répond pas.',
       );
-      expect(juin.request.params.get('from')).toBe('2027-05-31T22:00:00.000Z');
 
-      juin.flush([{ ...DENTISTE, id: 'event-juin', title: 'Fête de juin' }]);
-      // Une lecture abandonnée ne doit plus pouvoir écraser la liste.
-      if (!mai.cancelled) {
-        mai.flush([DECLARATION]);
-      }
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(element(fixture).textContent).toContain('Fête de juin');
-      expect(element(fixture).textContent).not.toContain(
-        'Déclaration de revenus',
+      await cliquer(harnais, bouton(harnais, 'Réessayer'));
+      await relire(harnais);
+      expect(texte(caseDu(harnais, 'lundi 14 septembre 2026'))).toContain(
+        'Dentiste',
       );
     });
   });
 
-  describe("L'écran de création", () => {
-    it("offre le choix de l'Espace, et n'en devine aucun sans pré-choix", async () => {
-      const fixture = await monter();
+  describe('La grille du mois, à partir de 768 px', () => {
+    it('couvre les semaines du mois, du lundi qui précède le 1er au dimanche qui suit le dernier', async () => {
+      const harnais = await ouvrir('/calendrier');
+      const cases = tous(harnais, 'jour');
 
-      // Aucune valeur par défaut : le déclencheur montre l'invite, pas un
-      // Espace qu'on n'aurait pas choisi (ADR 0014).
-      expect(valeurAffichee(fixture, 'espace')).toBe('Choisir un Espace');
-      expect(await optionsOffertes(fixture, 'espace')).toEqual([
-        'Foyer',
-        'Personne A',
-      ]);
-    });
-
-    it("laisse le bouton inerte tant que l'Espace n'est pas choisi", async () => {
-      const fixture = await monter();
-      const racine = element(fixture);
-
-      saisir(racine, 'titre', 'Réunion');
-      saisir(racine, 'debut', '2026-10-01T14:00');
-      fixture.detectChanges();
-
-      expect(champ<HTMLButtonElement>(racine, 'enregistrer').disabled).toBe(
-        true,
-      );
-
-      await choisirDansLeSelect(fixture, 'espace', 'Personne A');
-
-      expect(champ<HTMLButtonElement>(racine, 'enregistrer').disabled).toBe(
-        false,
+      expect(cases).toHaveLength(35);
+      expect(cases[0].getAttribute('aria-label')).toBe('lundi 31 août 2026');
+      expect(cases[0].hasAttribute('data-hors-mois')).toBe(true);
+      expect(cases[34].getAttribute('aria-label')).toBe(
+        'dimanche 4 octobre 2026',
       );
     });
 
-    it("crée l'Événement dans l'Espace choisi, et le fait apparaître", async () => {
-      const fixture = await monter();
-      const racine = element(fixture);
+    it('range chaque occurrence dans la case de son jour, à son heure de Paris', async () => {
+      const harnais = await ouvrir('/calendrier');
 
-      saisir(racine, 'titre', 'Réunion');
-      saisir(racine, 'debut', '2026-10-01T14:00');
-      fixture.detectChanges();
-
-      await choisirDansLeSelect(fixture, 'categorie', 'Autre');
-      await choisirDansLeSelect(fixture, 'espace', 'Personne A');
-      await choisirDansLeSelect(fixture, 'rappel', '1 heure avant');
-
-      champ<HTMLButtonElement>(racine, 'enregistrer').click();
-
-      const envoi = httpMock.expectOne(`${BASE}/events`);
-      expect(envoi.request.method).toBe('POST');
-      expect(envoi.request.body).toMatchObject({
-        title: 'Réunion',
-        endsAt: null,
-        category: 'OTHER',
-        reminderLeadMinutes: 60,
-        scopeId: 'espace-a',
-      });
-      // La saisie est en heure locale ; ce qui part sur le réseau est de
-      // l'ISO-8601. On compare des instants, pas des chaînes.
-      expect(new Date(envoi.request.body.startsAt).getTime()).toBe(
-        new Date('2026-10-01T14:00').getTime(),
-      );
-
-      envoi.flush({
-        ...DENTISTE,
-        id: 'event-3',
-        title: 'Réunion',
-        startsAt: new Date('2026-10-01T14:00').toISOString(),
-      });
-      await relire(fixture, [
-        DENTISTE,
-        DECLARATION,
-        { ...DENTISTE, id: 'event-3', title: 'Réunion' },
+      const lundi = caseDu(harnais, 'lundi 14 septembre 2026');
+      const pastilles = [
+        ...lundi.querySelectorAll('[data-test="evenement"]'),
+      ].map(texte);
+      expect(pastilles).toEqual([
+        expect.stringMatching(/^11:30\s*Dentiste/),
+        expect.stringMatching(/^18:00\s*Piscine/),
       ]);
+      expect(texte(caseDu(harnais, 'lundi 7 septembre 2026'))).toContain(
+        'Piscine',
+      );
+      expect(texte(caseDu(harnais, 'mardi 15 septembre 2026'))).not.toContain(
+        'Piscine',
+      );
+    });
 
-      expect(element(fixture).textContent).toContain('Réunion');
+    it("marque aujourd'hui, et l'Échéance qui y tombe", async () => {
+      const harnais = await ouvrir('/calendrier');
+
+      const aujourdhui = racine(harnais).querySelector(
+        '[data-test="jour"][aria-current="date"]',
+      );
+      expect(aujourdhui?.getAttribute('aria-label')).toBe(
+        'mercredi 16 septembre 2026',
+      );
+      expect(texte(aujourdhui)).toContain('Taxe foncière');
+      expect(tous(harnais, 'echeance').map(texte)).toEqual([', Échéance']);
+    });
+
+    it("lie chaque pastille au formulaire de son Événement, à l'occurrence près", async () => {
+      const harnais = await ouvrir('/calendrier');
+
+      const piscines = [
+        ...caseDu(harnais, 'lundi 14 septembre 2026').querySelectorAll('a'),
+      ];
+      expect(piscines[1].getAttribute('href')).toBe(
+        '/calendrier/evenements/event-serie?mois=2026-09&occurrence=2026-09-14T16:00:00.000Z',
+      );
     });
   });
 
-  /*
-   * Après une écriture, la liste est relue sur la période affichée : une
-   * réponse d'écriture ne remplace jamais une lecture par une liste partielle.
-   */
-  describe('Après une écriture', () => {
-    it('relit le mois affiché quand une création aboutit pendant sa lecture', async () => {
-      const fixture = await monter();
-      const racine = element(fixture);
+  describe('La semaine et le jour, sous 768 px', () => {
+    const ouvrirEnMobile = (adresse = '/calendrier') =>
+      ouvrir(adresse, { largeur: 390 });
 
-      saisir(racine, 'titre', 'Réunion');
-      saisir(racine, 'debut', '2026-10-01T14:00');
-      fixture.detectChanges();
-      await choisirDansLeSelect(fixture, 'espace', 'Personne A');
-      champ<HTMLButtonElement>(racine, 'enregistrer').click();
+    it("montre la semaine d'aujourd'hui, et ce qui y tombe aujourd'hui", async () => {
+      const harnais = await ouvrirEnMobile();
+
+      expect(tous(harnais, 'jour')).toHaveLength(0);
+      expect(tous(harnais, 'jour-du-bandeau')).toHaveLength(7);
+      expect(
+        racine(harnais)
+          .querySelector('[data-test="jour-du-bandeau"][aria-pressed="true"]')
+          ?.getAttribute('aria-label'),
+      ).toBe('mercredi 16 septembre 2026, 1 événement');
+
+      const liste = champ(harnais, 'liste-du-jour');
+      expect(texte(liste.querySelector('h3'))).toBe(
+        'mercredi 16 septembre 2026',
+      );
+      const [impots] = tous(harnais, 'evenement');
+      expect(texte(impots)).toContain('Taxe foncière');
+      expect(texte(impots)).toContain('Foyer');
+      expect(texte(impots.querySelector('[data-test="echeance"]'))).toBe(
+        'Échéance',
+      );
+      expect(texte(impots.querySelector('[data-test="rappel"]'))).toBe(
+        'Rappel 1 semaine avant',
+      );
+    });
+
+    it('groupe par jour : un autre jour de la semaine montre les siens, ou le dit vide', async () => {
+      const harnais = await ouvrirEnMobile();
+      const jour = (libelle: string) =>
+        tous(harnais, 'jour-du-bandeau').find((bouton) =>
+          bouton.getAttribute('aria-label')?.startsWith(libelle),
+        ) as HTMLElement;
+
+      await cliquer(harnais, jour('lundi 14 septembre'));
+      const cartes = tous(harnais, 'evenement');
+      expect(cartes.map((carte) => texte(carte.querySelector('h4')))).toEqual([
+        'Dentiste',
+        'Piscine',
+      ]);
+      expect(texte(cartes[0])).toContain('Personne A');
+      expect(cartes[0].querySelector('[data-test="rappel"]')).toBeNull();
+      expect(texte(cartes[1].querySelector('[data-test="horaire"]'))).toBe(
+        '18:00 – 19:00',
+      );
+
+      await cliquer(harnais, jour('mardi 15 septembre'));
+      expect(tous(harnais, 'evenement')).toHaveLength(0);
+      expect(texte(champ(harnais, 'liste-du-jour'))).toContain(
+        'Aucun Événement ce jour-là',
+      );
+    });
+
+    it('change de semaine, et de mois quand la semaine en sort', async () => {
+      const harnais = await ouvrirEnMobile();
+
+      await cliquer(harnais, champ(harnais, 'semaine-precedente'));
+      expect(texte(champ(harnais, 'liste-du-jour').querySelector('h3'))).toBe(
+        'mercredi 9 septembre 2026',
+      );
+
+      await cliquer(harnais, champ(harnais, 'semaine-suivante'));
+      await cliquer(harnais, champ(harnais, 'semaine-suivante'));
+      await cliquer(harnais, champ(harnais, 'semaine-suivante'));
+      // Le 30 septembre : la semaine reste dans le mois affiché.
+      expect(url()).toBe('/calendrier');
+      await cliquer(harnais, champ(harnais, 'semaine-suivante'));
+
+      expect(url()).toBe('/calendrier?mois=2026-10');
+      lecture().flush([]);
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
+      expect(texte(champ(harnais, 'liste-du-jour').querySelector('h3'))).toBe(
+        'mercredi 7 octobre 2026',
+      );
+    });
+  });
+
+  describe('Le formulaire de création', () => {
+    it("s'ouvre à sa route, en panneau à côté du mois à partir de 1280 px", async () => {
+      const harnais = await ouvrir('/calendrier');
+
+      await cliquer(harnais, champ(harnais, 'nouvel-evenement'));
+
+      expect(url()).toBe('/calendrier/evenements/nouveau?mois=2026-09');
+      expect(formulaire(harnais)?.getAttribute('data-presentation')).toBe(
+        'panel',
+      );
+      expect(tous(harnais, 'jour')).toHaveLength(35);
+    });
+
+    it("s'ouvre en feuille sous 1280 px, et se referme par « Annuler »", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/nouveau?mois=2026-09',
+        {
+          largeur: 1024,
+        },
+      );
+
+      expect(formulaire(harnais)?.getAttribute('data-presentation')).toBe(
+        'sheet',
+      );
+
+      await cliquer(harnais, bouton(harnais, 'Annuler'));
+      expect(url()).toBe('/calendrier?mois=2026-09');
+      expect(formulaire(harnais)).toBeNull();
+    });
+
+    it('se préremplit depuis la requête, sans rien enregistrer', async () => {
+      const startsAt = '2026-11-03T08:30:00.000Z';
+      const endsAt = '2026-11-03T09:00:00.000Z';
+      const harnais = await ouvrir(
+        `/calendrier/evenements/nouveau?title=Vaccin&category=BIRTHDAY&startsAt=${startsAt}` +
+          `&endsAt=${endsAt}&reminderLeadMinutes=60&scopeId=espace-foyer`,
+      );
+
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Vaccin');
+      expect(segmentChoisi(harnais, 'categorie')).toBe('Anniversaire');
+      expect(segmentChoisi(harnais, 'espace')).toBe('Foyer');
+      expect(valeurAffichee(harnais.fixture, 'rappel')).toBe('1 heure avant');
+      // Les champs saisissent en heure locale.
+      expect(
+        new Date(champ<HTMLInputElement>(harnais, 'debut').value).getTime(),
+      ).toBe(new Date(startsAt).getTime());
+      expect(
+        new Date(champ<HTMLInputElement>(harnais, 'fin').value).getTime(),
+      ).toBe(new Date(endsAt).getTime());
+      expect(champ(harnais, 'ignores')).toBeNull();
+    });
+
+    it('signale ce que la requête apportait sans pouvoir le reprendre', async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/nouveau?title=Vaccin&category=FOO',
+      );
+
+      expect(texte(champ(harnais, 'ignores'))).toContain('category=FOO');
+      expect(segmentChoisi(harnais, 'categorie')).toBe('Rendez-vous');
+    });
+
+    it("n'enregistre pas sans Espace : aucun n'est deviné sans pré-choix", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/nouveau?title=Vaccin&startsAt=2026-11-03T08:30:00.000Z',
+      );
+
+      expect(segmentChoisi(harnais, 'espace')).toBe('');
+      expect(bouton(harnais, "Créer l'événement").disabled).toBe(true);
+
+      await choisirLeSegment(harnais, 'espace', 'Personne A');
+      expect(bouton(harnais, "Créer l'événement").disabled).toBe(false);
+    });
+
+    it("reprend l'Espace pré-choisi dans la TopBar et le suit, jusqu'à un choix fait à la main", async () => {
+      configurer(1280);
+      const courant = TestBed.inject(EspaceCourant);
+      courant.espaces.set(ESPACES);
+      courant.choisir('espace-foyer');
+      const harnais = await RouterTestingHarness.create();
+      await harnais.navigateByUrl('/calendrier/evenements/nouveau');
+      await laisserFiler();
+      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+      lecture().flush(MOIS.map(enOccurrence));
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
+
+      expect(segmentChoisi(harnais, 'espace')).toBe('Foyer');
+
+      courant.choisir('espace-a');
+      await laisserFiler();
+      harnais.detectChanges();
+      expect(segmentChoisi(harnais, 'espace')).toBe('Personne A');
+
+      await choisirLeSegment(harnais, 'espace', 'Foyer');
+      courant.choisir('espace-a');
+      await laisserFiler();
+      harnais.detectChanges();
+      expect(segmentChoisi(harnais, 'espace')).toBe('Foyer');
+    });
+
+    it("crée l'Événement, relit le mois et referme le formulaire", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/nouveau?mois=2026-09&title=Vaccin' +
+          '&startsAt=2026-09-18T08:30:00.000Z&scopeId=espace-a',
+      );
+
+      await choisirDansLeSelect(harnais.fixture, 'rappel', '1 jour avant');
+      await cliquer(harnais, bouton(harnais, "Créer l'événement"));
+
       const creation = httpMock.expectOne(
         ({ method, url }) => method === 'POST' && url === `${BASE}/events`,
       );
-
-      saisir(racine, 'mois', '2027-05');
-      TestBed.tick();
-      const mai = lecture();
-
-      creation.flush({ ...DENTISTE, id: 'event-3', title: 'Réunion' });
-      TestBed.tick();
-      // La lecture de mai n'est pas abandonnée au profit d'une liste partielle…
-      expect(mai.cancelled).toBe(false);
-      mai.flush([DECLARATION]);
-      await laisserRepondre();
-
-      // … et, partie avant que la création n'aboutisse, elle est relue.
-      const relecture = lecture();
-      expect(relecture.request.params.get('from')).toBe(
-        '2027-04-30T22:00:00.000Z',
-      );
-      relecture.flush([DECLARATION]);
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(racine.textContent).toContain('Déclaration de revenus');
-      expect(racine.textContent).not.toContain('Réunion');
-    });
-  });
-
-  describe('Les occurrences d’une série', () => {
-    it('liste chaque occurrence du mois, chacune à sa date', async () => {
-      const lignes = element(await monter(PISCINES)).querySelectorAll(
-        '[data-test="evenement"]',
-      );
-
-      expect(lignes).toHaveLength(2);
-      expect(lignes[0].textContent).toContain('07/09/2026');
-      expect(lignes[1].textContent).toContain('14/09/2026');
-    });
-
-    it('relit le mois quand la série a été modifiée, ses occurrences ne se calculant que côté API', async () => {
-      const fixture = await monter(PISCINES);
-      const racine = element(fixture);
-
-      (
-        racine.querySelector('[data-test="modifier"]') as HTMLButtonElement
-      ).click();
-      fixture.detectChanges();
-      saisir(racine, 'titre', 'Natation');
-      fixture.detectChanges();
-      champ<HTMLButtonElement>(racine, 'enregistrer').click();
-
-      const envoi = httpMock.expectOne(`${BASE}/events/event-serie`);
-      expect(envoi.request.body).toEqual({ title: 'Natation' });
-      envoi.flush({ ...PISCINE, title: 'Natation' });
-      await relire(
-        fixture,
-        PISCINES.map((piscine) => ({ ...piscine, title: 'Natation' })),
-      );
-
-      expect(racine.querySelectorAll('[data-test="evenement"]')).toHaveLength(
-        2,
-      );
-      expect(racine.textContent).not.toContain('Piscine');
-    });
-
-    it("verrouille les horaires d'une occurrence reprise, et n'envoie jamais ses bornes à la série", async () => {
-      // Le 14 septembre est la deuxième occurrence : ses bornes envoyées à la
-      // série déplaceraient son début, ou allongeraient chaque occurrence.
-      const fixture = await monter(PISCINES);
-      const racine = element(fixture);
-
-      (
-        racine.querySelectorAll(
-          '[data-test="modifier"]',
-        )[1] as HTMLButtonElement
-      ).click();
-      fixture.detectChanges();
-
-      expect(champ<HTMLInputElement>(racine, 'debut').disabled).toBe(true);
-      expect(champ<HTMLInputElement>(racine, 'fin').disabled).toBe(true);
-      expect(champ(racine, 'horaires-verrouilles')).not.toBeNull();
-
-      saisir(racine, 'fin', '2026-09-14T20:00');
-      saisir(racine, 'titre', 'Natation');
-      fixture.detectChanges();
-      champ<HTMLButtonElement>(racine, 'enregistrer').click();
-
-      const envoi = httpMock.expectOne(`${BASE}/events/event-serie`);
-      expect(envoi.request.body).toEqual({ title: 'Natation' });
-      envoi.flush({ ...PISCINE, title: 'Natation' });
-      await relire(fixture, PISCINES);
-    });
-
-    it("laisse modifier les horaires d'un Événement qui n'a lieu qu'une fois", async () => {
-      const fixture = await monter();
-      const racine = element(fixture);
-
-      (
-        racine.querySelector('[data-test="modifier"]') as HTMLButtonElement
-      ).click();
-      fixture.detectChanges();
-
-      expect(champ<HTMLInputElement>(racine, 'debut').disabled).toBe(false);
-      expect(champ(racine, 'horaires-verrouilles')).toBeNull();
-    });
-
-    it("supprime la série depuis l'une de ses occurrences, puis relit le mois", async () => {
-      // Rangé par date : la piscine du 7, le dentiste du 14 au matin, puis la
-      // piscine du 14 au soir, deuxième occurrence de la série.
-      const fixture = await monter([...PISCINES, DENTISTE]);
-      const racine = element(fixture);
-
-      (
-        racine.querySelectorAll(
-          '[data-test="supprimer"]',
-        )[2] as HTMLButtonElement
-      ).click();
-      const envoi = httpMock.expectOne(`${BASE}/events/event-serie`);
-      expect(envoi.request.method).toBe('DELETE');
-      envoi.flush(null);
-      await relire(fixture, [DENTISTE]);
-
-      expect(racine.textContent).not.toContain('Piscine');
-      expect(racine.textContent).toContain('Dentiste');
-    });
-  });
-
-  describe("L'Espace pré-choisi dans la TopBar", () => {
-    /** Le parcours : « Foyer » choisi dans la TopBar, puis le Calendrier. */
-    function preChoisir(id: string): void {
-      const courant = TestBed.inject(EspaceCourant);
-      courant.espaces.set(ESPACES);
-      courant.choisir(id);
-    }
-
-    it("préremplit l'Espace d'une nouvelle saisie, sans le figer", async () => {
-      preChoisir('espace-foyer');
-      const fixture = await monter();
-
-      expect(valeurAffichee(fixture, 'espace')).toBe('Foyer');
-
-      await choisirDansLeSelect(fixture, 'espace', 'Personne A');
-      expect(valeurAffichee(fixture, 'espace')).toBe('Personne A');
-    });
-
-    it("suit le sélecteur tant que l'Espace n'a pas été choisi à la main", async () => {
-      preChoisir('espace-foyer');
-      const fixture = await monter();
-
-      preChoisir('espace-a');
-      await fixture.whenStable();
-      expect(valeurAffichee(fixture, 'espace')).toBe('Personne A');
-
-      await choisirDansLeSelect(fixture, 'espace', 'Foyer');
-      preChoisir('espace-a');
-      await fixture.whenStable();
-      expect(valeurAffichee(fixture, 'espace')).toBe('Foyer');
-    });
-
-    it("n'écrase pas l'Espace d'un Événement en modification", async () => {
-      preChoisir('espace-foyer');
-      const fixture = await monter();
-      const racine = element(fixture);
-
-      // Le Dentiste est dans l'Espace de Personne A.
-      (
-        racine.querySelectorAll(
-          '[data-test="modifier"]',
-        )[0] as HTMLButtonElement
-      ).click();
-      await fixture.whenStable();
-      expect(valeurAffichee(fixture, 'espace')).toBe('Personne A');
-
-      champ<HTMLButtonElement>(racine, 'annuler').click();
-      await fixture.whenStable();
-      expect(valeurAffichee(fixture, 'espace')).toBe('Foyer');
-    });
-
-    it("crée l'Événement dans l'Espace pré-choisi", async () => {
-      preChoisir('espace-foyer');
-      const fixture = await monter();
-      const racine = element(fixture);
-
-      saisir(racine, 'titre', 'Réunion de copropriété');
-      saisir(racine, 'debut', '2026-11-03T18:30');
-      await fixture.whenStable();
-      champ<HTMLButtonElement>(racine, 'enregistrer').click();
-
-      const creation = httpMock.expectOne(`${BASE}/events`);
-      expect(creation.request.body).toMatchObject({ scopeId: 'espace-foyer' });
-      creation.flush({ ...DECLARATION, id: 'event-3' });
-      await relire(fixture, [DENTISTE, DECLARATION]);
-    });
-  });
-
-  describe("L'écran d'édition", () => {
-    it("reprend l'Événement choisi dans le formulaire", async () => {
-      const fixture = await monter();
-      const racine = element(fixture);
-
-      (
-        racine.querySelectorAll(
-          '[data-test="modifier"]',
-        )[1] as HTMLButtonElement
-      ).click();
-      fixture.detectChanges();
-
-      expect(champ<HTMLInputElement>(racine, 'titre').value).toBe(
-        'Déclaration de revenus',
-      );
-      // Les selects n'ont plus de `.value` à lire : ce qui compte est ce que
-      // le déclencheur montre, puisque c'est ce que la personne voit.
-      expect(valeurAffichee(fixture, 'categorie')).toBe('Échéance');
-      expect(valeurAffichee(fixture, 'espace')).toBe('Foyer');
-      expect(valeurAffichee(fixture, 'rappel')).toBe('1 semaine avant');
-    });
-
-    it("n'envoie que les champs modifiés", async () => {
-      const fixture = await monter();
-      const racine = element(fixture);
-
-      (
-        racine.querySelectorAll(
-          '[data-test="modifier"]',
-        )[0] as HTMLButtonElement
-      ).click();
-      fixture.detectChanges();
-
-      saisir(racine, 'titre', 'Dentiste (reporté)');
-      fixture.detectChanges();
-      champ<HTMLButtonElement>(racine, 'enregistrer').click();
-
-      const envoi = httpMock.expectOne(`${BASE}/events/event-1`);
-      expect(envoi.request.method).toBe('PATCH');
-      expect(envoi.request.body).toEqual({ title: 'Dentiste (reporté)' });
-
-      envoi.flush({ ...DENTISTE, title: 'Dentiste (reporté)' });
-      await relire(fixture, [
-        { ...DENTISTE, title: 'Dentiste (reporté)' },
-        DECLARATION,
-      ]);
-
-      expect(element(fixture).textContent).toContain('Dentiste (reporté)');
-    });
-
-    it("relit le mois après une modification, pour garder ce qu'une exception a changé", async () => {
-      // Le chantier n'a pas de règle, mais une exception prolonge sa fin au
-      // 15 : l'Événement que rend le PATCH ne le sait pas, la lecture si.
-      const chantier: Event = {
+      expect(creation.request.body).toEqual({
+        title: 'Vaccin',
+        startsAt: '2026-09-18T08:30:00.000Z',
+        endsAt: null,
+        category: 'APPOINTMENT',
+        reminderLeadMinutes: 1_440,
+        scopeId: 'espace-a',
+      });
+      const vaccin: Event = {
         ...DENTISTE,
-        id: 'event-chantier',
-        title: 'Chantier',
-        startsAt: '2026-09-01T08:00:00.000Z',
-        category: 'OTHER',
+        id: 'event-4',
+        title: 'Vaccin',
+        startsAt: '2026-09-18T08:30:00.000Z',
       };
-      const prolonge = occurrenceDe(chantier, {
-        endsAt: '2026-09-15T08:00:00.000Z',
-      });
-      const fixture = await monter([prolonge]);
-      const racine = element(fixture);
+      creation.flush(vaccin);
+      await relire(harnais, [...MOIS, vaccin]);
 
-      (
-        racine.querySelector('[data-test="modifier"]') as HTMLButtonElement
-      ).click();
-      fixture.detectChanges();
-      await choisirDansLeSelect(fixture, 'categorie', 'Rendez-vous');
-      champ<HTMLButtonElement>(racine, 'enregistrer').click();
-
-      const envoi = httpMock.expectOne(`${BASE}/events/event-chantier`);
-      expect(envoi.request.body).toEqual({ category: 'APPOINTMENT' });
-      envoi.flush({ ...chantier, category: 'APPOINTMENT' });
-      await relire(fixture, [{ ...prolonge, category: 'APPOINTMENT' }]);
-
-      expect(racine.textContent).toContain('15/09/2026');
-    });
-
-    it('rend le formulaire à la création quand on annule', async () => {
-      const fixture = await monter();
-      const racine = element(fixture);
-
-      (
-        racine.querySelectorAll(
-          '[data-test="modifier"]',
-        )[0] as HTMLButtonElement
-      ).click();
-      fixture.detectChanges();
-      champ<HTMLButtonElement>(racine, 'annuler').click();
-      fixture.detectChanges();
-
-      expect(champ<HTMLInputElement>(racine, 'titre').value).toBe('');
-      expect(champ<HTMLButtonElement>(racine, 'annuler')).toBeNull();
-    });
-
-    it("retire l'Événement supprimé de la liste", async () => {
-      const fixture = await monter();
-
-      (
-        element(fixture).querySelector(
-          '[data-test="supprimer"]',
-        ) as HTMLButtonElement
-      ).click();
-
-      httpMock.expectOne(`${BASE}/events/event-1`).flush(null);
-      await relire(fixture, [DECLARATION]);
-
-      expect(element(fixture).textContent).not.toContain('Dentiste');
-    });
-  });
-
-  /*
-   * L'Agenda est en lecture seule et renvoie ici. Atterrir sur l'écran sans
-   * atterrir sur l'objet ferait recommencer la recherche à la main : le
-   * paramètre que porte le lien ouvre directement l'Événement visé.
-   */
-  describe("Arriver depuis l'Agenda", () => {
-    it("reprend l'Événement que le lien désigne", async () => {
-      const fixture = await monter([DENTISTE, DECLARATION], {
-        evenement: 'event-2',
-      });
-
-      expect(champ<HTMLInputElement>(element(fixture), 'titre').value).toBe(
-        'Déclaration de revenus',
+      expect(url()).toBe('/calendrier?mois=2026-09');
+      expect(formulaire(harnais)).toBeNull();
+      expect(texte(caseDu(harnais, 'vendredi 18 septembre 2026'))).toContain(
+        'Vaccin',
       );
     });
-
-    it("laisse le formulaire vierge quand l'Événement désigné n'est pas là", async () => {
-      const fixture = await monter([DENTISTE], { evenement: 'event-inconnu' });
-
-      expect(champ<HTMLInputElement>(element(fixture), 'titre').value).toBe('');
-    });
-
-    it('laisse le formulaire vierge quand le lien ne désigne rien', async () => {
-      const fixture = await monter();
-
-      expect(champ<HTMLInputElement>(element(fixture), 'titre').value).toBe('');
-    });
   });
 
-  /*
-   * L'écran affiche le `message` de l'API, jamais un message de remplacement,
-   * et chaque erreur de champ sous le champ qu'elle vise (ADR 0030).
-   */
-  describe("Une erreur de l'API", () => {
-    async function creerReunion() {
-      const fixture = await monter();
-      const racine = element(fixture);
-
-      saisir(racine, 'titre', 'Réunion');
-      saisir(racine, 'debut', '2026-10-01T14:00');
-      fixture.detectChanges();
-      await choisirDansLeSelect(fixture, 'espace', 'Personne A');
-      champ<HTMLButtonElement>(racine, 'enregistrer').click();
-
-      return fixture;
+  describe("Les erreurs de l'API", () => {
+    async function creerVaccin() {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/nouveau?title=Vaccin' +
+          '&startsAt=2026-09-18T08:30:00.000Z&scopeId=espace-a',
+      );
+      await cliquer(harnais, bouton(harnais, "Créer l'événement"));
+      return harnais;
     }
 
     async function refuser(
-      fixture: Awaited<ReturnType<typeof creerReunion>>,
+      harnais: RouterTestingHarness,
       corps: unknown,
       status: number,
-    ) {
+    ): Promise<void> {
       httpMock
         .expectOne(`${BASE}/events`)
         .flush(corps, { status, statusText: 'Refus' });
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
     }
 
-    it("affiche le message d'une création refusée, et l'erreur sous le champ fautif", async () => {
-      const fixture = await creerReunion();
+    it("affiche l'erreur sous le champ qu'elle vise, et garde la saisie", async () => {
+      const harnais = await creerVaccin();
       await refuser(
-        fixture,
+        harnais,
         {
           status: 400,
           code: 'request.invalid',
@@ -801,23 +689,22 @@ describe('Calendrier', () => {
         },
         400,
       );
-      const racine = element(fixture);
 
-      expect(champ(racine, 'erreur').textContent).toContain(
-        'La requête ne respecte pas le schéma attendu.',
-      );
-      expect(champ(racine, 'erreur-startsAt').textContent).toContain(
+      expect(texte(champ(harnais, 'erreur-startsAt'))).toBe(
         'Le début doit être un instant ISO-8601.',
       );
-      expect(champ(racine, 'erreur-title')).toBeNull();
-      // La saisie reste là, pour être corrigée.
-      expect(champ<HTMLInputElement>(racine, 'titre').value).toBe('Réunion');
+      expect(champ(harnais, 'debut').getAttribute('aria-invalid')).toBe('true');
+      expect(champ(harnais, 'erreur-title')).toBeNull();
+      // Une erreur de champ n'a pas de bandeau : elle est sous son champ.
+      expect(champ(harnais, 'refus')).toBeNull();
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Vaccin');
+      expect(url()).toContain('/calendrier/evenements/nouveau');
     });
 
-    it("affiche le message d'une règle métier", async () => {
-      const fixture = await creerReunion();
+    it("affiche en bandeau le message d'une règle métier", async () => {
+      const harnais = await creerVaccin();
       await refuser(
-        fixture,
+        harnais,
         {
           status: 422,
           code: 'event.period_reversed',
@@ -826,156 +713,182 @@ describe('Calendrier', () => {
         422,
       );
 
-      expect(champ(element(fixture), 'erreur').textContent).toContain(
+      expect(texte(champ(harnais, 'refus'))).toContain(
         'La fin ne peut pas précéder le début.',
-      );
-    });
-
-    it("efface l'erreur quand l'envoi suivant réussit", async () => {
-      const fixture = await creerReunion();
-      await refuser(
-        fixture,
-        {
-          status: 400,
-          code: 'request.invalid',
-          message: 'La requête ne respecte pas le schéma attendu.',
-        },
-        400,
-      );
-
-      champ<HTMLButtonElement>(element(fixture), 'enregistrer').click();
-      httpMock
-        .expectOne(`${BASE}/events`)
-        .flush({ ...DENTISTE, id: 'event-3', title: 'Réunion' });
-      await relire(fixture, [
-        DENTISTE,
-        DECLARATION,
-        { ...DENTISTE, id: 'event-3', title: 'Réunion' },
-      ]);
-
-      expect(champ(element(fixture), 'erreur')).toBeNull();
-    });
-
-    it("affiche le message d'une lecture refusée", async () => {
-      const fixture = TestBed.createComponent(Calendrier);
-      fixture.detectChanges();
-      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
-      lecture().flush(
-        {
-          status: 503,
-          code: 'database.unavailable',
-          message: 'La base de données ne répond pas.',
-        },
-        { status: 503, statusText: 'Service Unavailable' },
-      );
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(champ(element(fixture), 'erreur').textContent).toContain(
-        'La base de données ne répond pas.',
       );
     });
   });
 
-  /*
-   * `/calendrier/evenements/nouveau` : le formulaire de création, prérempli
-   * par les paramètres de la requête, validés par le contrat (ADR 0030).
-   * Rien n'est enregistré sans clic : `httpMock.verify()` le garantit.
-   */
-  describe("Le formulaire prérempli par l'URL", () => {
-    const monterLaCreation = (requete: Record<string, string | string[]>) => {
-      donnees = { creation: true };
-      return monter([DENTISTE, DECLARATION], requete);
-    };
+  describe('Le formulaire de modification', () => {
+    it("s'ouvre depuis la pastille, sur l'Événement qu'elle désigne", async () => {
+      const harnais = await ouvrir('/calendrier');
 
-    it('reprend les valeurs de la requête, sans rien enregistrer', async () => {
-      const fixture = await monterLaCreation({
-        title: 'Dentiste',
-        category: 'BIRTHDAY',
-      });
-      const racine = element(fixture);
+      const [dentiste] = caseDu(
+        harnais,
+        'lundi 14 septembre 2026',
+      ).querySelectorAll<HTMLElement>('a');
+      await cliquer(harnais, dentiste);
 
-      expect(champ<HTMLInputElement>(racine, 'titre').value).toBe('Dentiste');
-      expect(valeurAffichee(fixture, 'categorie')).toBe('Anniversaire');
-      expect(champ(racine, 'ignores')).toBeNull();
+      expect(url()).toBe(
+        '/calendrier/evenements/event-1?mois=2026-09&occurrence=2026-09-14T09:30:00.000Z',
+      );
+      expect(texte(formulaire(harnais)?.querySelector('h2') ?? null)).toBe(
+        "Modifier l'événement",
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Dentiste');
+      expect(segmentChoisi(harnais, 'espace')).toBe('Personne A');
+      expect(segmentChoisi(harnais, 'categorie')).toBe('Rendez-vous');
+      expect(valeurAffichee(harnais.fixture, 'rappel')).toBe('Sans rappel');
     });
 
-    it("reprend le début, la fin, le rappel et l'Espace", async () => {
-      const startsAt = '2026-11-03T08:30:00.000Z';
-      const endsAt = '2026-11-03T09:00:00.000Z';
-      const fixture = await monterLaCreation({
-        startsAt,
-        endsAt,
-        reminderLeadMinutes: '60',
-        scopeId: 'espace-foyer',
-      });
-      const racine = element(fixture);
-
-      // Les champs saisissent en heure locale.
-      expect(
-        new Date(champ<HTMLInputElement>(racine, 'debut').value).getTime(),
-      ).toBe(new Date(startsAt).getTime());
-      expect(
-        new Date(champ<HTMLInputElement>(racine, 'fin').value).getTime(),
-      ).toBe(new Date(endsAt).getTime());
-      expect(valeurAffichee(fixture, 'rappel')).toBe('1 heure avant');
-      expect(valeurAffichee(fixture, 'espace')).toBe('Foyer');
-    });
-
-    it("garde l'Espace de la requête plutôt que celui de la TopBar", async () => {
+    it("garde l'Espace de l'Événement, quel que soit le pré-choix de la TopBar", async () => {
+      configurer(1280);
       const courant = TestBed.inject(EspaceCourant);
       courant.espaces.set(ESPACES);
-      courant.choisir('espace-a');
-
-      const fixture = await monterLaCreation({ scopeId: 'espace-foyer' });
-
-      expect(valeurAffichee(fixture, 'espace')).toBe('Foyer');
-    });
-
-    it('ignore et signale un paramètre invalide', async () => {
-      const fixture = await monterLaCreation({
-        title: 'Dentiste',
-        category: ['APPOINTMENT', 'FOO'],
-      });
-      const racine = element(fixture);
-
-      expect(champ(racine, 'ignores').textContent).toContain(
-        "Ces valeurs n'ont pas pu être reprises : category=FOO",
+      courant.choisir('espace-foyer');
+      const harnais = await RouterTestingHarness.create();
+      await harnais.navigateByUrl(
+        '/calendrier/evenements/event-1?mois=2026-09',
       );
-      expect(champ<HTMLInputElement>(racine, 'titre').value).toBe('Dentiste');
-      expect(valeurAffichee(fixture, 'categorie')).toBe('Rendez-vous');
+      await laisserFiler();
+      httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+      lecture().flush(MOIS.map(enOccurrence));
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
+
+      expect(segmentChoisi(harnais, 'espace')).toBe('Personne A');
     });
 
-    it('crée l’Événement prérempli au clic sur « Créer »', async () => {
-      const fixture = await monterLaCreation({
-        title: 'Dentiste',
-        startsAt: '2026-11-03T08:30:00.000Z',
-        scopeId: 'espace-a',
-        category: 'FOO',
-      });
-      const racine = element(fixture);
-      const bouton = champ<HTMLButtonElement>(racine, 'enregistrer');
+    it("n'envoie que les champs modifiés, puis relit le mois", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-1?mois=2026-09&occurrence=2026-09-14T09:30:00.000Z',
+      );
 
-      expect(bouton.textContent).toContain('Créer');
-      bouton.click();
+      saisir(harnais, 'titre', 'Détartrage');
+      await choisirLeSegment(harnais, 'categorie', 'Autre');
+      await cliquer(harnais, bouton(harnais, 'Enregistrer'));
 
-      const envoi = httpMock.expectOne(`${BASE}/events`);
-      expect(envoi.request.body).toMatchObject({
-        title: 'Dentiste',
-        startsAt: '2026-11-03T08:30:00.000Z',
-        category: 'APPOINTMENT',
-        scopeId: 'espace-a',
+      const modification = httpMock.expectOne(
+        ({ method, url }) =>
+          method === 'PATCH' && url === `${BASE}/events/event-1`,
+      );
+      expect(modification.request.body).toEqual({
+        title: 'Détartrage',
+        category: 'OTHER',
       });
-      envoi.flush({
+      modification.flush({
         ...DENTISTE,
-        id: 'event-3',
-        startsAt: '2026-11-03T08:30:00.000Z',
+        title: 'Détartrage',
+        category: 'OTHER',
       });
-      await relire(fixture, [DENTISTE, DECLARATION]);
+      await relire(harnais);
 
-      // La saisie est faite : le bandeau ne parle plus d'elle.
-      expect(champ(racine, 'ignores')).toBeNull();
-      expect(champ<HTMLInputElement>(racine, 'titre').value).toBe('');
+      expect(url()).toBe('/calendrier?mois=2026-09');
+    });
+
+    it("se referme sans rien envoyer quand rien n'a changé", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-1?mois=2026-09',
+      );
+
+      await cliquer(harnais, bouton(harnais, 'Enregistrer'));
+
+      expect(url()).toBe('/calendrier?mois=2026-09');
+    });
+
+    it("verrouille les horaires d'une occurrence de série, et ne les envoie jamais", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-serie?mois=2026-09&occurrence=2026-09-14T16:00:00.000Z',
+      );
+
+      const debut = champ<HTMLInputElement>(harnais, 'debut');
+      expect(debut.disabled).toBe(true);
+      expect(new Date(debut.value).getTime()).toBe(
+        new Date('2026-09-14T16:00:00.000Z').getTime(),
+      );
+      expect(champ(harnais, 'horaires-verrouilles')).not.toBeNull();
+
+      saisir(harnais, 'titre', 'Piscine municipale');
+      await cliquer(harnais, bouton(harnais, 'Enregistrer'));
+
+      const modification = httpMock.expectOne(`${BASE}/events/event-serie`);
+      expect(modification.request.body).toEqual({
+        title: 'Piscine municipale',
+      });
+      modification.flush({ ...PISCINE, title: 'Piscine municipale' });
+      await relire(harnais);
+    });
+
+    it("revient au mois, sans un mot, quand l'Événement désigné n'y est pas", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/inconnu?mois=2026-09',
+      );
+      await laisserFiler();
+      harnais.detectChanges();
+
+      expect(url()).toBe('/calendrier?mois=2026-09');
+      expect(formulaire(harnais)).toBeNull();
+    });
+  });
+
+  describe('La suppression', () => {
+    const dialogue = () =>
+      document.body.querySelector<HTMLElement>('[role="alertdialog"]');
+
+    const boutonDuDialogue = (libelle: string) =>
+      [
+        ...(dialogue()?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+      ].find((candidat) => texte(candidat) === libelle) as HTMLButtonElement;
+
+    async function demanderLaSuppression(harnais: RouterTestingHarness) {
+      await cliquer(harnais, champ(harnais, 'supprimer'));
+      await harnais.fixture.whenStable();
+    }
+
+    it("n'est offerte qu'en modification", async () => {
+      const harnais = await ouvrir('/calendrier/evenements/nouveau');
+
+      expect(champ(harnais, 'supprimer')).toBeNull();
+    });
+
+    it("demande confirmation, et n'envoie rien quand on annule", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-1?mois=2026-09',
+      );
+
+      await demanderLaSuppression(harnais);
+      expect(texte(dialogue())).toContain("Supprimer l'événement ?");
+      expect(texte(dialogue())).toContain(
+        '« Dentiste » sera supprimé du Calendrier.',
+      );
+
+      await cliquer(harnais, boutonDuDialogue('Annuler'));
+      await harnais.fixture.whenStable();
+
+      expect(url()).toBe('/calendrier/evenements/event-1?mois=2026-09');
+    });
+
+    it('supprime la série entière, une fois confirmée, puis relit le mois', async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-serie?mois=2026-09&occurrence=2026-09-14T16:00:00.000Z',
+      );
+
+      await demanderLaSuppression(harnais);
+      expect(texte(dialogue())).toContain(
+        '« Piscine » est une série : toutes ses occurrences seront supprimées.',
+      );
+      await cliquer(harnais, boutonDuDialogue("Supprimer l'événement"));
+
+      httpMock
+        .expectOne(
+          ({ method, url }) =>
+            method === 'DELETE' && url === `${BASE}/events/event-serie`,
+        )
+        .flush(null);
+      await relire(harnais, [DENTISTE, IMPOTS]);
+
+      expect(url()).toBe('/calendrier?mois=2026-09');
+      expect(texte(racine(harnais))).not.toContain('Piscine');
     });
   });
 });

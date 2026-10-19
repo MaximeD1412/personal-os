@@ -1,16 +1,23 @@
 import { Route } from '@angular/router';
 import { Agenda } from './agenda';
 import { Calendrier } from './calendrier';
+import { FormulaireDEvenement } from './formulaire-d-evenement';
 
 export const appRoutes: Route[] = [
   { path: '', pathMatch: 'full', redirectTo: 'agenda' },
   { path: 'agenda', component: Agenda },
-  { path: 'calendrier', component: Calendrier },
-  // Le formulaire de création, adressable et prérempli par sa requête
-  // (ADR 0030). C'est le même écran, qui lit alors la requête.
   {
-    path: 'calendrier/evenements/nouveau',
+    path: 'calendrier',
     component: Calendrier,
-    data: { creation: true },
+    // Le formulaire d'un Événement, adressable et prérempli par sa requête
+    // (ADR 0030), s'ouvre dans le Calendrier : le mois reste visible à côté.
+    children: [
+      {
+        path: 'evenements/nouveau',
+        component: FormulaireDEvenement,
+        data: { creation: true },
+      },
+      { path: 'evenements/:id', component: FormulaireDEvenement },
+    ],
   },
 ];
