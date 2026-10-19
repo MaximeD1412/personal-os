@@ -17,6 +17,9 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
     Session: [],
     LoginTransaction: [],
     Household: [],
+    // Le catalogue d'Ingrédients est global : les deux Comptes du Foyer le
+    // partagent (CUISINE-1).
+    Ingredient: [],
     Scope: [
       'traces',
       'events',
@@ -43,6 +46,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Session: ['user'],
   LoginTransaction: [],
   Household: ['members', 'scopes'],
+  Ingredient: [],
   Scope: [
     'household',
     'holder',

@@ -450,7 +450,10 @@ hlmAlertPrimaryAction`, qui prend la couleur de la tonalité. Les fonds :
   `error` (le `message` de l'erreur tel quel, « Réessayer » émet `retry`),
   `ready` (le contenu). `stateOf(resource, estVide)` le déduit du `status()`
   d'une `httpResource` : le premier chargement reste `loading` même avec une
-  `defaultValue`, un rechargement garde la valeur affichée.
+  `defaultValue`, un rechargement garde la valeur affichée. Le contenu
+  projeté est instancié quel que soit l'état : il lit la valeur par un
+  `computed` gardé par `hasValue()`, car `value()` lève sur une lecture en
+  erreur (le catalogue d'Ingrédients, CUISINE-1).
 - **`HlmDialogService.open()`** rend un composant ou un `ng-template` ; le
   modèle reçoit la référence du dialogue (`<ng-template let-ref>`,
   `ref.close(résultat)`).
@@ -483,7 +486,9 @@ Chaque formulaire a sa route, en français : `/<module>/<ressource>/nouveau`
 une modification ; une occurrence se modifie en
 `/calendrier/evenements/:id/occurrences/:originalStart` (AGENDA-2). Il se
 préremplit par sa requête, dont les paramètres portent **les noms des champs
-du contrat** (`/calendrier/evenements/nouveau?title=Dentiste&category=APPOINTMENT&startsAt=2026-11-03T08:30:00.000Z`) :
+du contrat** (`/calendrier/evenements/nouveau?title=Dentiste&category=APPOINTMENT&startsAt=2026-11-03T08:30:00.000Z`) ;
+un nombre s'y écrit en chiffres, un booléen `true` ou `false`
+(`/repas/ingredients/nouveau?displayName=Poireau&perishable=true`) :
 
 ```ts
 readonly prefill = prefillDepuisRequete(zEventInput, inject(ActivatedRoute).snapshot.queryParamMap);

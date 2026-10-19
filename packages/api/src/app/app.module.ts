@@ -9,6 +9,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { CommandBarModule } from './command-bar/command-bar.module';
 import { ErreursFilter } from './erreurs/erreurs.filter';
 import { EspaceModule } from './espace/espace.module';
+import { FoodModule } from './food/food.module';
 import { HealthModule } from './health/health.module';
 import { HouseholdModule } from './household/household.module';
 
@@ -23,6 +24,7 @@ import { HouseholdModule } from './household/household.module';
     HouseholdModule,
     AiModule,
     CommandBarModule,
+    FoodModule,
   ],
   providers: [
     // Tout body, query ou param typé par un DTO zod de `contracts` est validé

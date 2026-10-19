@@ -14,6 +14,7 @@ import {
   type DccmStatus,
 } from '@personal-os/ui/dccm';
 import { HlmSheetImports } from '@personal-os/ui/sheet';
+import { HlmToaster } from '@personal-os/ui/sonner';
 import { HlmToggleGroupImports } from '@personal-os/ui/toggle-group';
 import { NgIcon } from '@ng-icons/core';
 import { matLogoutOutline } from '@ng-icons/material-symbols/outline';
@@ -43,6 +44,7 @@ const NOMS_D_ESPACE: Readonly<Record<Scope['kind'], string>> = {
     HlmButton,
     HlmSheetImports,
     HlmToggleGroupImports,
+    HlmToaster,
     DccmMobileHeader,
     DccmShell,
     DccmSidebar,
