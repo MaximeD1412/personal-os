@@ -36,18 +36,19 @@ model Household {
 /// L'Espace, seule chose qui détermine qui voit une donnée. Il en existe trois :
 /// un Espace personnel par Compte, et l'Espace du Foyer.
 model Scope {
-  id              String           @id @default(uuid())
-  kind            ScopeKind
-  label           String
-  householdId     String
-  household       Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  id                 String              @id @default(uuid())
+  kind               ScopeKind
+  label              String
+  householdId        String
+  household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
   /// Le Compte dont c'est l'Espace personnel ; vide pour l'Espace foyer.
-  holderId        String?          @unique
-  holder          User?            @relation(fields: [holderId], references: [id], onDelete: Cascade)
-  traces          Trace[]
-  events          Event[]
-  eventExceptions EventException[]
-  aiTraces        AiTrace[]
+  holderId           String?             @unique
+  holder             User?               @relation(fields: [holderId], references: [id], onDelete: Cascade)
+  traces             Trace[]
+  events             Event[]
+  eventExceptions    EventException[]
+  aiTraces           AiTrace[]
+  unresolvedCommands UnresolvedCommand[]
 
   @@index([householdId])
 }
@@ -184,6 +185,19 @@ model AiTrace {
 
   @@index([scopeId])
   @@index([createdAt])
+}
+
+/// Une commande que la barre n'a pas comprise, écrite mot pour mot. Un journal
+/// en ajout seul, dans l'Espace personnel de son auteur : c'est la file de
+/// travail du catalogue d'actions (ADR 0018).
+model UnresolvedCommand {
+  id        String   @id @default(uuid())
+  scopeId   String
+  scope     Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([scopeId, createdAt])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.

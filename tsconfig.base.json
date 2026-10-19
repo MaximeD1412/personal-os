@@ -19,6 +19,9 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@personal-os/contracts": ["./packages/contracts/src/index.ts"],
+      "@personal-os/contracts/command-catalog.json": [
+        "./packages/contracts/src/generated/command-catalog.json"
+      ],
       "@personal-os/database": ["./packages/database/src/index.ts"],
       "@personal-os/ui/button": ["./packages/ui/button/src/index.ts"],
       "@personal-os/ui/utils": ["./packages/ui/utils/src/index.ts"],

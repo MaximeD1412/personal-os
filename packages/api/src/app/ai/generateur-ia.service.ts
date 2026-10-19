@@ -70,7 +70,7 @@ export class GenerateurIAService extends GenerateurIA {
     await this.verifierLePlafond();
 
     const commun = {
-      scopeId: ID_ESPACE_FOYER,
+      scopeId: demande.scopeId ?? ID_ESPACE_FOYER,
       purpose: demande.but,
       system: demande.systeme,
       input: demande.message,
@@ -110,7 +110,8 @@ export class GenerateurIAService extends GenerateurIA {
   /**
    * Avant chaque appel, nouvelle tentative comprise. Le coût n'est connu
    * qu'après coup, et les appels passent un par un : le mois peut dépasser le
-   * plafond d'un appel, jamais de deux.
+   * plafond d'un appel, jamais de deux. Le plafond vaut pour tous les Espaces
+   * ensemble (`coutDepuis`).
    */
   private async verifierLePlafond(): Promise<void> {
     const depense = await this.traces.coutDepuis(debutDuMoisCivil());
