@@ -28,7 +28,7 @@ Les deux écrans existants deviennent les premiers écrans composés avec le des
 - **Agenda** (`/agenda`) :
   - semaine courante par défaut ; semaine précédente, suivante et « Aujourd'hui » ;
   - ≥ 768 px : sept colonnes, une par jour (en-tête jour, date, nombre d'entrées), le jour courant mis en avant ; < 768 px : liste des jours ;
-  - une entrée : heure, icône et couleur du pilier de sa source, titre, ligne de détail, `HlmBadge` `variant="tag"` de l'Espace, lien « Ouvrir dans <module> » ;
+  - une entrée : heure, icône et couleur du pilier de sa source, titre, ligne de détail (la période : « 18:30 – 19:45 », ou « jusqu'au … » sur plusieurs jours ; absente sans `endsAt`), `HlmBadge` du statut (« Prévu », « Réalisé », « Manqué », libellés actuels de `agenda.ts`), lien « Ouvrir dans <module> » ;
   - légende des sources ; `DccmState` pour chargement, vide et erreur.
 - **Calendrier** (`/calendrier`) :
   - ≥ 768 px : grille du mois (lundi en premier, jours hors mois atténués, jour courant mis en avant, Événements en pastilles avec heure et catégorie) ; < 768 px : bandeau de la semaine et liste du jour, comme `calendrier-390.png` ;
@@ -40,6 +40,7 @@ Les deux écrans existants deviennent les premiers écrans composés avec le des
 ## Décisions déjà prises
 
 - L'Agenda reste en lecture seule : une entrée renvoie vers l'écran de son module (ADR 0011).
+- L'entrée d'Agenda ne montre que ce que porte `AgendaItem` (ADR 0011) : ni tag d'Espace, ni lieu, allure ou ingrédients comme dans la maquette. Le badge de la maquette desktop devient le statut, comme sur la maquette mobile.
 - Les catégories d'Événement sont celles du contrat (`Rendez-vous`, `Anniversaire`, `Échéance`, `Autre`), pas celles de la maquette mobile (Pro, Personnel, Santé).
 - Hors périmètre malgré la maquette : vue « Mois » de l'Agenda, filtres par Espace et par catégorie, recherche, synthèse de la semaine, état de synchronisation des sources, notification de rappel. Ils feront l'objet de tickets s'ils sont voulus.
 - Les textes de la maquette ne sont pas repris : seuls les libellés d'interface (boutons, titres de section, en-têtes) le sont.
