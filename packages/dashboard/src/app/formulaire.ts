@@ -42,12 +42,16 @@ export function prefillDepuisRequete<S extends z.ZodObject>(
 
 /**
  * Une requête ne porte que des chaînes : un champ numérique du contrat reçoit
- * le nombre que la chaîne écrit. `undefined` quand le champ refuse les deux.
+ * le nombre que la chaîne écrit, un champ booléen `true` ou `false`.
+ * `undefined` quand le champ refuse toutes ces lectures.
  */
 function lire(champ: z.ZodType, brut: string): unknown {
   const candidats: unknown[] = [brut];
   if (/^-?\d+(\.\d+)?$/.test(brut)) {
     candidats.push(Number(brut));
+  }
+  if (brut === 'true' || brut === 'false') {
+    candidats.push(brut === 'true');
   }
 
   for (const candidat of candidats) {

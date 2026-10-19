@@ -79,6 +79,10 @@ export class PrismaService {
     return this.#client.unresolvedCommand;
   }
 
+  get ingredient() {
+    return this.#client.ingredient;
+  }
+
   get session() {
     return this.#client.session;
   }

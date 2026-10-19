@@ -1,0 +1,125 @@
+<dccm-state
+  [status]="etatDeLaLecture()"
+  [error]="actuel.error()"
+  skeleton="detail"
+  (retry)="actuel.reload()"
+>
+  <dccm-form-page
+    [heading]="titre"
+    subtitle="Deux libellés qui ne diffèrent que par la casse ou les accents désignent le même Ingrédient."
+    [breadcrumb]="fil()"
+    [submitLabel]="action"
+    [ignored]="prefill.ignores"
+    [error]="refus()"
+    [pending]="envoi()"
+    (submitted)="enregistrer()"
+    (cancelled)="fermer()"
+  >
+    <div class="grid gap-gutter md:grid-cols-2">
+      <div hlmField>
+        <label hlmFieldLabel for="ingredient-libelle">Libellé</label>
+        <input
+          hlmInput
+          id="ingredient-libelle"
+          data-test="libelle"
+          autocomplete="off"
+          placeholder="Poireau, farine de blé…"
+          [value]="libelle()"
+          [forceInvalid]="!!erreurs()['displayName']"
+          (input)="saisirLeLibelle($event)"
+        />
+        @if (erreurs()['displayName']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        }
+      </div>
+
+      <div hlmField>
+        <span hlmFieldLabel id="ingredient-unite">Unité canonique</span>
+        <hlm-toggle-group
+          size="md"
+          data-test="unite"
+          aria-labelledby="ingredient-unite"
+          [value]="unite()"
+          (valueChange)="choisirLUnite($event)"
+        >
+          @for (unite of unites; track unite.valeur) {
+          <button
+            hlmToggleGroupItem
+            [value]="unite.valeur"
+            [attr.data-unite]="unite.valeur"
+          >
+            {{ unite.libelle }}
+          </button>
+          }
+        </hlm-toggle-group>
+        @if (erreurs()['canonicalUnit']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        } @else {
+        <p hlmFieldDescription>
+          Toute quantité de l'Ingrédient se ramène à cette unité.
+        </p>
+        }
+      </div>
+
+      @if (avecPoidsALaPiece()) {
+      <div hlmField>
+        <label hlmFieldLabel for="ingredient-poids">Poids à la pièce (g)</label>
+        <input
+          hlmInput
+          id="ingredient-poids"
+          data-test="poids"
+          type="number"
+          inputmode="decimal"
+          min="0"
+          step="any"
+          class="tabular-nums"
+          [value]="poidsALaPiece() ?? ''"
+          [forceInvalid]="!!erreurs()['gramsPerPiece']"
+          (input)="saisirLePoids($event)"
+        />
+        @if (erreurs()['gramsPerPiece']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        } @else {
+        <p hlmFieldDescription>Facultatif : le poids moyen d'une pièce.</p>
+        }
+      </div>
+      }
+
+      <div hlmField orientation="horizontal" class="self-center">
+        <hlm-switch
+          inputId="ingredient-perissable"
+          data-test="perissable"
+          [checked]="perissable()"
+          (checkedChange)="perissable.set($event)"
+        />
+        <label hlmFieldLabel for="ingredient-perissable">Périssable</label>
+      </div>
+    </div>
+
+    <fieldset class="flex flex-col gap-space-sm" data-test="allergenes">
+      <legend
+        class="mb-space-sm text-label-regular font-semibold text-on-surface"
+      >
+        Allergènes déclarés
+      </legend>
+      <div class="grid grid-cols-2 gap-x-gutter gap-y-space-sm md:grid-cols-4">
+        @for (famille of familles; track famille.valeur) {
+        <div hlmField orientation="horizontal">
+          <hlm-checkbox
+            [inputId]="'allergene-' + famille.valeur"
+            [attr.data-allergene]="famille.valeur"
+            [checked]="allergenes().includes(famille.valeur)"
+            (checkedChange)="declarer(famille.valeur, $event)"
+          />
+          <label hlmFieldLabel [for]="'allergene-' + famille.valeur"
+            >{{ famille.libelle }}</label
+          >
+        </div>
+        }
+      </div>
+      @if (erreurs()['allergens']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </fieldset>
+  </dccm-form-page>
+</dccm-state>

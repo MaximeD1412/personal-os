@@ -1,0 +1,70 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    heading="Ingrédients"
+    subtitle="Le catalogue du Foyer : l'unité canonique, les allergènes et la conservation de chaque Ingrédient."
+    [breadcrumb]="fil"
+  >
+    <a hlmBtn routerLink="/repas/ingredients/nouveau" data-test="nouveau">
+      <ng-icon name="matAddOutline" aria-hidden="true" />
+      Nouvel ingrédient
+    </a>
+  </dccm-page-header>
+
+  <div hlmInputGroup class="md:max-w-md">
+    <ng-icon name="matSearchOutline" aria-hidden="true" />
+    <input
+      hlmInput
+      type="search"
+      data-test="recherche"
+      aria-label="Rechercher un ingrédient"
+      placeholder="Rechercher un ingrédient"
+      [value]="recherche()"
+      (input)="chercher($event)"
+    />
+  </div>
+
+  <dccm-state
+    [status]="etat()"
+    [error]="catalogue.error()"
+    [emptyHeading]="titreVide()"
+    [emptyIcon]="iconeVide"
+    loadingLabel="Chargement du catalogue…"
+    (retry)="catalogue.reload()"
+  >
+    @if (cherche()) {
+    <a
+      dccmStateEmpty
+      hlmBtn
+      routerLink="/repas/ingredients/nouveau"
+      [queryParams]="{ displayName: cherche() }"
+      data-test="creer-cherche"
+      >Créer « {{ cherche() }} »</a
+    >
+    } @else {
+    <a dccmStateEmpty hlmBtn routerLink="/repas/ingredients/nouveau"
+      >Nouvel ingrédient</a
+    >
+    }
+
+    <section hlmCard class="p-space-sm md:p-space-sm">
+      <ul class="flex flex-col" aria-label="Ingrédients du catalogue">
+        @for (ingredient of ingredients(); track ingredient.id) {
+        <li>
+          <a
+            dccmListRow
+            chevron
+            data-test="ingredient"
+            [label]="ingredient.displayName"
+            [meta]="meta(ingredient)"
+            [routerLink]="['/repas/ingredients', ingredient.id]"
+          >
+            @if (ingredient.perishable) {
+            <span hlmBadge tone="warning" dot>Périssable</span>
+            }
+          </a>
+        </li>
+        }
+      </ul>
+    </section>
+  </dccm-state>
+</div>
