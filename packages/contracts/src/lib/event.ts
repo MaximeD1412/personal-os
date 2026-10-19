@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { zDay, zInstant, zPeriod } from './valeurs';
 
 export const EVENT_CATEGORIES = [

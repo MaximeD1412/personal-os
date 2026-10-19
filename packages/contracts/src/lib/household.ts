@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 /**
  * Un Compte du Foyer, tel qu'on le choisit comme Participant. Il ne porte que

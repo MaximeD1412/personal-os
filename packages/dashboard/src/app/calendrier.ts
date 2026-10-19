@@ -7,17 +7,17 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import type { HttpResourceRef } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
-import type { Subscription } from 'rxjs';
 import {
   estEcheance,
   periodeDuMois,
-  type Event,
+  zEventInput,
+  type ApiError,
   type EventCategory,
   type EventInput,
   type EventOccurrence,
   type EventUpdate,
-  type Scope,
 } from '@personal-os/contracts';
 import { HlmBadge } from '@personal-os/ui/badge';
 import { HlmButton } from '@personal-os/ui/button';
@@ -34,6 +34,7 @@ import { HlmSelectImports } from '@personal-os/ui/select';
 import { EspaceCourant } from './espace-courant';
 import { EspaceService } from './espace.service';
 import { EventService } from './event.service';
+import { erreursDeChamp, prefillDepuisRequete } from './formulaire';
 import { estUnMois, moisCourant } from './mois';
 import { PARAMETRE_DE_MOIS, PARAMETRE_D_EVENEMENT } from './modules-d-origine';
 
@@ -82,6 +83,12 @@ const SAISIE_VIERGE: Saisie = {
  * Le mois va du premier au dernier jour, à Paris. C'est le mois en cours, ou
  * celui que le lien désigne (`?mois=YYYY-MM`).
  *
+ * À `/calendrier/evenements/nouveau`, le formulaire se préremplit depuis la
+ * requête (ADR 0030) : `title`, `startsAt`, `endsAt`, `category`,
+ * `reminderLeadMinutes`, `scopeId`, validés par le contrat de l'entrée. Ce
+ * qui n'a pas pu être repris est signalé dans un bandeau, et rien n'est
+ * enregistré sans clic.
+ *
  * L'Espace est toujours explicite — le Calendrier acceptant les deux, rien ne
  * permettrait de le deviner (ADR 0014). Une nouvelle saisie reprend l'Espace
  * pré-choisi dans la TopBar (`EspaceCourant`), visible et modifiable dans le
@@ -114,10 +121,35 @@ export class Calendrier {
 
   protected readonly mois = signal(this.moisDuLien() ?? moisCourant());
 
-  protected readonly espaces = signal<Scope[]>([]);
-  /** Les occurrences du mois : une série en a plusieurs, un Événement une. */
-  protected readonly evenements = signal<EventOccurrence[]>([]);
-  protected readonly erreur = signal<string | null>(null);
+  private readonly lectureDesEspaces = this.espacesApi.lecture();
+  private readonly lectureDuMois = this.evenementsApi.lecture(() =>
+    periodeDuMois(this.mois()),
+  );
+
+  protected readonly espaces = computed(() => valeurDe(this.lectureDesEspaces));
+  protected readonly evenements = computed(() =>
+    parDate(valeurDe(this.lectureDuMois)),
+  );
+
+  /** Le dernier refus d'une écriture, tel que l'API l'a formulé. */
+  private readonly refus = signal<ApiError | null>(null);
+  /** Ce que l'écran affiche d'une erreur : toujours le `message` de l'API. */
+  protected readonly erreur = computed(
+    () =>
+      this.refus()?.message ??
+      this.lectureDuMois.error()?.message ??
+      this.lectureDesEspaces.error()?.message ??
+      null,
+  );
+  /** Les messages de l'API, rangés sous le champ qu'ils visent. */
+  protected readonly erreursDeChamp = computed(() =>
+    erreursDeChamp(this.refus()),
+  );
+
+  /** Les paramètres de la requête que le formulaire n'a pas pu reprendre. */
+  protected readonly ignores = signal<string[]>([]);
+  /** Ce que la requête a prérempli. */
+  private readonly prerempli = signal<Partial<EventInput>>({});
 
   /**
    * L'occurrence reprise dans le formulaire, ou `null` quand on en crée un.
@@ -132,8 +164,8 @@ export class Calendrier {
   private readonly espaceChoisiALaMain = signal(false);
   /** Le lien de l'Agenda ne vise un Événement qu'à l'arrivée sur l'écran. */
   private lienRepris = false;
-  /** Change quand une écriture oblige à relire le mois. */
-  private readonly relecture = signal(0);
+  /** Une écriture a abouti pendant une lecture, peut-être partie avant elle. */
+  private relectureDue = false;
 
   /**
    * Les bornes d'une occurrence ne sont pas celles de sa série : les envoyer
@@ -163,18 +195,41 @@ export class Calendrier {
       );
     });
 
-    this.espacesApi.mesEspaces().subscribe({
-      next: (espaces) => this.espaces.set(espaces),
-      error: () => this.erreur.set("Les Espaces n'ont pas pu être lus."),
+    if (this.route.snapshot.data['creation']) {
+      this.preremplir();
+      this.lienRepris = true;
+    }
+
+    // Le lien de l'Agenda vise un Événement du mois qu'il ouvre : on le
+    // cherche dans la première lecture qui aboutit.
+    effect(() => {
+      if (this.lectureDuMois.status() !== 'resolved' || this.lienRepris) {
+        return;
+      }
+      this.lienRepris = true;
+      untracked(() => this.reprendreCeluiDuLien());
     });
 
-    // Changer de mois abandonne la lecture en cours : une réponse tardive du
-    // mois quitté n'écrase jamais celle du mois affiché.
-    effect((auNettoyage) => {
-      this.relecture();
-      const lecture = this.relire(this.mois());
-      auNettoyage(() => lecture.unsubscribe());
+    // La lecture en cours au moment d'une écriture est relue à son terme.
+    effect(() => {
+      const statut = this.lectureDuMois.status();
+      if (this.relectureDue && (statut === 'resolved' || statut === 'error')) {
+        this.relectureDue = false;
+        untracked(() => this.lectureDuMois.reload());
+      }
     });
+  }
+
+  /**
+   * Une écriture a abouti : la liste est relue sur la période affichée, et non
+   * retouchée sur place. Une liste retouchée pendant une lecture remplacerait
+   * cette lecture par une liste partielle, et l'Événement écrit n'est pas
+   * forcément du mois affiché.
+   */
+  private relireLeMois(): void {
+    if (!this.lectureDuMois.reload()) {
+      this.relectureDue = true;
+    }
   }
 
   protected afficherLeMois(evenement: globalThis.Event): void {
@@ -184,16 +239,26 @@ export class Calendrier {
     }
   }
 
-  private relire(mois: string): Subscription {
-    return this.evenementsApi.lister(periodeDuMois(mois)).subscribe({
-      next: (evenements) => {
-        this.evenements.set(parDate(evenements));
-        if (!this.lienRepris) {
-          this.lienRepris = true;
-          this.reprendreCeluiDuLien();
-        }
-      },
-      error: () => this.erreur.set("Les Événements n'ont pas pu être lus."),
+  /**
+   * La requête, lue par le contrat de l'entrée. Un Espace qu'elle nomme est un
+   * choix : le sélecteur de la TopBar ne le remplace pas.
+   */
+  private preremplir(): void {
+    const { valeurs, ignores } = prefillDepuisRequete(
+      zEventInput,
+      this.route.snapshot.queryParamMap,
+    );
+
+    this.prerempli.set(valeurs);
+    this.ignores.set(ignores);
+    this.espaceChoisiALaMain.set(valeurs.scopeId !== undefined);
+    this.saisie.set({
+      titre: valeurs.title ?? SAISIE_VIERGE.titre,
+      debut: valeurs.startsAt ? versChampLocal(valeurs.startsAt) : '',
+      fin: valeurs.endsAt ? versChampLocal(valeurs.endsAt) : '',
+      categorie: valeurs.category ?? SAISIE_VIERGE.categorie,
+      espaceId: valeurs.scopeId ?? SAISIE_VIERGE.espaceId,
+      rappel: valeurs.reminderLeadMinutes?.toString() ?? '',
     });
   }
 
@@ -258,11 +323,15 @@ export class Calendrier {
   }
 
   /**
-   * Les paliers offerts, plus celui que porte l'Événement repris s'il n'en est
-   * pas un : sans cela, l'ouvrir puis l'enregistrer effacerait son rappel.
+   * Les paliers offerts, plus celui que porte l'Événement repris (ou la
+   * requête) s'il n'en est pas un : sans cela, l'ouvrir puis l'enregistrer
+   * effacerait son rappel.
    */
   protected readonly paliersOfferts = computed(() => {
-    const pose = this.enEdition()?.reminderLeadMinutes;
+    const repris = this.enEdition();
+    const pose = repris
+      ? repris.reminderLeadMinutes
+      : this.prerempli().reminderLeadMinutes;
     if (pose === null || pose === undefined) {
       return PALIERS_DE_RAPPEL;
     }
@@ -297,7 +366,7 @@ export class Calendrier {
   }
 
   protected reprendre(evenement: EventOccurrence): void {
-    this.erreur.set(null);
+    this.refus.set(null);
     this.enEdition.set(evenement);
     this.saisie.set({
       titre: evenement.title,
@@ -310,6 +379,9 @@ export class Calendrier {
   }
 
   protected annuler(): void {
+    this.refus.set(null);
+    this.ignores.set([]);
+    this.prerempli.set({});
     this.enEdition.set(null);
     this.espaceChoisiALaMain.set(false);
     this.saisie.set({
@@ -330,25 +402,24 @@ export class Calendrier {
     }
 
     this.evenementsApi.creer(this.saisieCreee()).subscribe({
-      next: (cree) => {
-        this.integrer(cree);
+      next: () => {
+        this.relireLeMois();
         this.annuler();
       },
-      error: () => this.erreur.set("L'Événement n'a pas pu être créé."),
+      error: (refus: ApiError) => this.refus.set(refus),
     });
   }
 
   protected supprimer(id: string): void {
     this.evenementsApi.supprimer(id).subscribe({
       next: () => {
-        this.evenements.update((tous) =>
-          tous.filter(({ eventId }) => eventId !== id),
-        );
+        this.refus.set(null);
+        this.relireLeMois();
         if (this.enEdition()?.eventId === id) {
           this.annuler();
         }
       },
-      error: () => this.erreur.set("L'Événement n'a pas pu être supprimé."),
+      error: (refus: ApiError) => this.refus.set(refus),
     });
   }
 
@@ -370,37 +441,8 @@ export class Calendrier {
         this.relireLeMois();
         this.annuler();
       },
-      error: () => this.erreur.set("L'Événement n'a pas pu être modifié."),
+      error: (refus: ApiError) => this.refus.set(refus),
     });
-  }
-
-  /**
-   * Un Événement créé prend sa place dans la liste. Sans règle, il n'a
-   * qu'une occurrence, et aucune exception ne peut encore la changer : on la
-   * pose sans relire. Une série, elle, a des occurrences que seule l'API
-   * calcule : on relit le mois.
-   */
-  private integrer(evenement: Event): void {
-    if (evenement.recurrence) {
-      this.relireLeMois();
-      return;
-    }
-
-    this.evenements.update((tous) =>
-      parDate([
-        ...tous.filter(({ eventId }) => eventId !== evenement.id),
-        seuleOccurrence(evenement),
-      ]),
-    );
-  }
-
-  /**
-   * Une modification se relit toujours : l'Événement que rend l'API est la
-   * série, sans ses exceptions, alors qu'une exception peut avoir changé le
-   * titre ou les bornes d'une occurrence, même sans règle.
-   */
-  private relireLeMois(): void {
-    this.relecture.update((fois) => fois + 1);
   }
 
   private changementsSur(repris: EventOccurrence): EventUpdate {
@@ -446,22 +488,15 @@ export class Calendrier {
   }
 }
 
-/** L'unique occurrence d'un Événement sans règle : lui-même, à son début. */
-function seuleOccurrence(evenement: Event): EventOccurrence {
-  return {
-    eventId: evenement.id,
-    originalStart: evenement.startsAt,
-    isRecurring: false,
-    title: evenement.title,
-    startsAt: evenement.startsAt,
-    endsAt: evenement.endsAt,
-    category: evenement.category,
-    reminderLeadMinutes: evenement.reminderLeadMinutes,
-    recurrence: null,
-    scopeId: evenement.scopeId,
-  };
+/**
+ * Ce qu'une lecture a rendu, ou rien : une lecture en échec n'a pas de valeur
+ * à lire, et son erreur s'affiche à part.
+ */
+function valeurDe<T>(lecture: HttpResourceRef<T[]>): T[] {
+  return lecture.hasValue() ? lecture.value() : [];
 }
 
+/** Les occurrences du mois : une série en a plusieurs, un Événement une. */
 function parDate(evenements: EventOccurrence[]): EventOccurrence[] {
   return [...evenements].sort((gauche, droite) =>
     gauche.startsAt.localeCompare(droite.startsAt),
