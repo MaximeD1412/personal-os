@@ -50,8 +50,10 @@ const ENVIRONNEMENT_IA = {
  * la machine. La route d'essai tient la place des modules qui appelleront le
  * modèle ; les traces se lisent par les routes de production.
  *
- * Le module n'accepte que l'Espace foyer, le seul que les deux Comptes
- * partagent : il n'y a pas d'objet personnel dont prouver le 404 (ADR 0030).
+ * La route d'essai trace dans l'Espace foyer, que les deux Comptes partagent.
+ * Le 404 d'une trace rangée dans l'Espace personnel de l'autre Compte, et le
+ * plafond qui la compte quand même, se prouvent avec la barre de commande
+ * (`command-bar.integration-spec.ts`).
  */
 describe('Traces IA', () => {
   let authentik: FauxAuthentik;

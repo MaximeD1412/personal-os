@@ -16,6 +16,14 @@ export interface DemandeStructuree<T> {
   schema: ZodType<T>;
   /** Le plafond de jetons de la réponse. */
   maxTokens: number;
+  /**
+   * L'Espace où ranger la trace de l'appel, qui garde la demande en clair :
+   * l'Espace foyer par défaut, celui des modules qui servent le Foyer entier.
+   * Une demande qui porte une donnée personnelle (la phrase tapée dans la
+   * barre de commande) nomme l'Espace personnel de son auteur, pour que
+   * l'autre Compte ne puisse pas la relire dans le journal des traces.
+   */
+  scopeId?: string;
 }
 
 /** Une réponse validée, et la trace de l'appel qui l'a produite. */

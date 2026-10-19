@@ -96,6 +96,20 @@ describe('GenerateurIAService', () => {
     });
   });
 
+  it("trace l'appel dans l'Espace que la demande nomme", async () => {
+    fournisseur.programmer('command-bar.resolve', { plat: 'Gratin' });
+
+    await generateur.genererStructure({
+      ...demande,
+      but: 'command-bar.resolve',
+      scopeId: 'espace-personnel-de-a',
+    });
+
+    expect(journal.traces[0]).toMatchObject({
+      scopeId: 'espace-personnel-de-a',
+    });
+  });
+
   it('estime le coût à partir des jetons et du tarif, au centime supérieur', async () => {
     fournisseur.programmer(
       'meal-plan.generate',

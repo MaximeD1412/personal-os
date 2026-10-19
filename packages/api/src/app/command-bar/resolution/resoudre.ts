@@ -15,16 +15,13 @@ import type { GenerateurIA } from '../../ai/generateur-ia';
  *
  * Une seule forme d'objet plutôt qu'une union : la sortie structurée du
  * fournisseur ne connaît que des objets fermés. Les paramètres sont donc une
- * liste de paires plutôt qu'un dictionnaire, et leurs valeurs des scalaires.
+ * liste de paires plutôt qu'un dictionnaire, et chaque valeur y est écrite en
+ * JSON, dans un texte : un objet ou une liste (une Récurrence) passe ainsi
+ * comme un nombre ou un texte.
  */
 const zSortieDuModele = z.object({
   actionId: z.string().nullable(),
-  params: z.array(
-    z.object({
-      name: z.string(),
-      value: z.union([z.string(), z.number(), z.boolean()]),
-    }),
-  ),
+  params: z.array(z.object({ name: z.string(), value: z.string() })),
   plusProche: z.string().nullable(),
 });
 
@@ -34,6 +31,8 @@ export interface ContexteDeResolution {
   catalogue: CommandCatalog;
   generateur: GenerateurIA;
   maintenant: Date;
+  /** L'Espace personnel de l'auteur, où la trace de l'appel garde sa phrase. */
+  scopeId: string;
 }
 
 /** Le but des appels au modèle, qui nomme leurs traces. */
@@ -47,7 +46,7 @@ const CONSIGNE = [
   "Tu traduis une commande, écrite en français par l'utilisateur d'une application personnelle, en une action de son catalogue.",
   "Tu ne choisis jamais une action absente du catalogue, et tu ne réponds jamais à la commande : l'action ouvre un formulaire prérempli que l'utilisateur relit et confirme. Une question se traduit par l'action qui ouvre l'écran portant la réponse, si le catalogue en a une.",
   'Tu ne remplis un paramètre que si la commande le donne. Une ambiguïté (cette occurrence ou toute la série, quel jour) ne se devine pas : laisse le paramètre vide, le formulaire posera la question.',
-  "Un paramètre respecte le schéma JSON que le catalogue lui donne. Un jour s'écrit YYYY-MM-DD. Un instant s'écrit en UTC, au format ISO-8601 terminé par Z : l'heure dite par l'utilisateur est celle de Paris, dont le décalage du moment est donné.",
+  "Un paramètre respecte le schéma JSON que le catalogue lui donne, et sa valeur s'écrit en JSON : un texte entre guillemets, un nombre, un booléen, un objet ou une liste. Un jour s'écrit YYYY-MM-DD. Un instant s'écrit en UTC, au format ISO-8601 terminé par Z : l'heure dite par l'utilisateur est celle de Paris, dont le décalage du moment est donné.",
   "Si aucune action ne correspond, actionId est vide ; plusProche nomme alors l'action la plus proche, ou reste vide si aucune ne l'est.",
 ].join('\n\n');
 
@@ -61,7 +60,7 @@ const CONSIGNE = [
  */
 export async function resoudre(
   phrase: string,
-  { catalogue, generateur, maintenant }: ContexteDeResolution,
+  { catalogue, generateur, maintenant, scopeId }: ContexteDeResolution,
 ): Promise<CommandResolution> {
   const { valeur: sortie } = await generateur.genererStructure({
     but: BUT_RESOLUTION,
@@ -69,6 +68,7 @@ export async function resoudre(
     message: demande(phrase, catalogue, maintenant),
     schema: zSortieDuModele,
     maxTokens: 1000,
+    scopeId,
   });
 
   const trouver = (id: string | null) =>
@@ -138,11 +138,12 @@ function preremplir(
     const champ = Object.prototype.hasOwnProperty.call(action.params, name)
       ? action.params[name]
       : undefined;
-    if (!champ || query.has(name) || !respecte(champ.schema, value)) {
+    const valeur = champ && !query.has(name) && lire(champ.schema, value);
+    if (!valeur) {
       ignored.push(name);
       continue;
     }
-    query.set(name, String(value));
+    query.set(name, enParametre(valeur.lue));
   }
 
   const requisAbsent = Object.entries(action.params).some(
@@ -158,6 +159,37 @@ function preremplir(
     url: requete ? `${action.screen}?${requete}` : action.screen,
     ignored,
   };
+}
+
+/**
+ * La valeur que le schéma accepte, lue d'abord comme du JSON. Quand le JSON
+ * n'y lit pas un texte, le texte brut est essayé ensuite : un titre fait de
+ * chiffres (`1984`) ou un texte que le modèle a oublié de mettre entre
+ * guillemets reste un texte. Un texte JSON (`""`), lui, est pris tel quel.
+ * Rien, si le schéma refuse toutes les lectures.
+ */
+function lire(schema: JsonSchema, texte: string): { lue: unknown } | null {
+  const lectures: unknown[] = [];
+  try {
+    lectures.push(JSON.parse(texte));
+  } catch {
+    // Pas du JSON : seul le texte brut reste à essayer.
+  }
+  if (typeof lectures[0] !== 'string') {
+    lectures.push(texte);
+  }
+
+  const lue = lectures.find((lecture) => respecte(schema, lecture));
+  return lue === undefined ? null : { lue };
+}
+
+/**
+ * La valeur dans l'URL du formulaire : un texte tel quel, tout le reste en
+ * JSON (`3`, `true`, `{"freq":"WEEKLY",…}`). Le formulaire la relit par le
+ * schéma de son entrée (ADR 0030).
+ */
+function enParametre(valeur: unknown): string {
+  return typeof valeur === 'string' ? valeur : JSON.stringify(valeur);
 }
 
 /** Un schéma que zod ne sait pas lire refuse la valeur : rien n'est appliqué au hasard. */

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '@personal-os/database';
+import { PrismaService, sousPortee } from '@personal-os/database';
 
 export interface AiTraceRecord {
   id: string;
@@ -23,8 +23,9 @@ export type AiTraceWrite = Omit<AiTraceRecord, 'id' | 'createdAt'>;
 
 /**
  * Aucun filtre par Espace n'apparaît ici, et c'est la preuve que le mécanisme
- * central fonctionne : la garde ajoute le sien à toutes ces requêtes, la somme
- * du plafond comprise (ADR 0016).
+ * central fonctionne : la garde ajoute le sien à toutes ces requêtes
+ * (ADR 0016). La somme du plafond est la seule à s'ouvrir à tous les Espaces,
+ * pour un nombre et rien d'autre.
  */
 @Injectable()
 export class AiTraceRepository {
@@ -51,12 +52,28 @@ export class AiTraceRepository {
     return this.prisma.aiTrace.findUnique({ where: { id } });
   }
 
-  /** La somme des coûts des traces posées depuis cet instant, en centimes. */
+  /**
+   * La somme des coûts des traces posées depuis cet instant, en centimes,
+   * dans **tous** les Espaces : le plafond est celui du Foyer, et une trace
+   * rangée dans l'Espace personnel de l'autre Compte (une commande de sa
+   * barre) a coûté autant qu'une autre. La portée s'élargit le temps de cette
+   * somme, qui ne rend qu'un nombre, jamais le contenu d'une trace.
+   */
   async coutDepuis(debut: Date): Promise<number> {
-    const somme = await this.prisma.aiTrace.aggregate({
-      _sum: { costCents: true },
-      where: { createdAt: { gte: debut } },
+    const espaces = await this.prisma.scope.findMany({
+      select: { id: true, kind: true },
     });
+
+    const somme = await sousPortee(
+      { espaces, typesAcceptes: ['PERSONAL', 'HOUSEHOLD'] },
+      // Attendue ici : une requête Prisma ne part qu'à son premier `then`, et
+      // partirait sinon hors de cette portée.
+      async () =>
+        await this.prisma.aiTrace.aggregate({
+          _sum: { costCents: true },
+          where: { createdAt: { gte: debut } },
+        }),
+    );
     return somme._sum.costCents ?? 0;
   }
 }

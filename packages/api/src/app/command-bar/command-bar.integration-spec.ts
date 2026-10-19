@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import {
+  type AiTracePage,
   zCommandResolution,
   zUnresolvedCommand,
   zUnresolvedCommandPage,
@@ -10,7 +11,7 @@ import {
 import { PrismaService, sousPortee } from '@personal-os/database';
 import request from 'supertest';
 import { z } from 'zod';
-import { champsEnErreur } from '../../../test/code-d-erreur';
+import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
 import {
   demarrerFauxAuthentik,
@@ -69,9 +70,9 @@ const CATALOGUE: CommandCatalog = {
 const DENTISTE: SortieDuModele = {
   actionId: 'EventController_creer',
   params: [
-    { name: 'title', value: 'Dentiste' },
-    { name: 'startsAt', value: '2026-10-22T08:00:00Z' },
-    { name: 'scopeId', value: 'un-espace-choisi-par-le-modele' },
+    { name: 'title', value: '"Dentiste"' },
+    { name: 'startsAt', value: '"2026-10-22T08:00:00Z"' },
+    { name: 'scopeId', value: '"un-espace-choisi-par-le-modele"' },
   ],
   plusProche: null,
 };
@@ -81,6 +82,29 @@ const AUCUNE: SortieDuModele = {
   params: [],
   plusProche: 'EventController_creer',
 };
+
+/**
+ * Un appel coûte 1 centime pour 10 000 jetons d'entrée annoncés par le
+ * double, et le plafond du mois est de 500 centimes. Les appels qui n'en
+ * annoncent pas sont gratuits.
+ */
+const ENVIRONNEMENT_IA = {
+  AI_MONTHLY_BUDGET_CENTS: '500',
+  AI_PRICE_INPUT_PER_MTOK_CENTS: '100',
+  AI_PRICE_OUTPUT_PER_MTOK_CENTS: '0',
+};
+
+/** Tous les Espaces : de quoi relire et nettoyer la base, hors de toute requête. */
+function toutesLesPortees(jeu: JeuDEspaces) {
+  return {
+    espaces: [
+      { id: jeu.a.espacePersonnel, kind: 'PERSONAL' as const },
+      { id: jeu.b.espacePersonnel, kind: 'PERSONAL' as const },
+      { id: jeu.espaceFoyer, kind: 'HOUSEHOLD' as const },
+    ],
+    typesAcceptes: ['PERSONAL' as const, 'HOUSEHOLD' as const],
+  };
+}
 
 /**
  * La barre de commande de bout en bout, sur le double du modèle : aucun appel
@@ -103,6 +127,7 @@ describe('Barre de commande', () => {
     process.env['OIDC_REDIRECT_URI'] = REDIRECT_URI;
     process.env['DASHBOARD_URL'] = DASHBOARD_URL;
     process.env['AUTH_ALLOWED_EMAILS'] = `${ADRESSE_A},${ADRESSE_B}`;
+    Object.assign(process.env, ENVIRONNEMENT_IA);
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
@@ -141,22 +166,12 @@ describe('Barre de commande', () => {
 
   /** Tout ce que la base contient, dans les trois Espaces. */
   function compter() {
-    return sousPortee(
-      {
-        espaces: [
-          { id: jeu.a.espacePersonnel, kind: 'PERSONAL' },
-          { id: jeu.b.espacePersonnel, kind: 'PERSONAL' },
-          { id: jeu.espaceFoyer, kind: 'HOUSEHOLD' },
-        ],
-        typesAcceptes: ['PERSONAL', 'HOUSEHOLD'],
-      },
-      async () => ({
-        evenements: await prisma.event.count(),
-        exceptions: await prisma.eventException.count(),
-        traces: await prisma.trace.count(),
-        nonComprises: await prisma.unresolvedCommand.count(),
-      }),
-    );
+    return sousPortee(toutesLesPortees(jeu), async () => ({
+      evenements: await prisma.event.count(),
+      exceptions: await prisma.eventException.count(),
+      traces: await prisma.trace.count(),
+      nonComprises: await prisma.unresolvedCommand.count(),
+    }));
   }
 
   describe('POST /command-bar/resolve', () => {
@@ -227,6 +242,61 @@ describe('Barre de commande', () => {
         .post('/api/command-bar/resolve')
         .send({ text: 'ajoute dentiste' })
         .expect(401);
+    });
+  });
+
+  describe("La trace de l'appel au modèle", () => {
+    function traces(compte: CompteDeTest) {
+      return request(app.getHttpServer())
+        .get('/api/ai-traces')
+        .set('Cookie', compte.session);
+    }
+
+    it("garde la phrase dans l'Espace personnel de son auteur : l'autre Compte ne la relit pas", async () => {
+      const phrase = 'rendez-vous chez la gynécologue mardi';
+      fournisseur.programmer(BUT_RESOLUTION, AUCUNE);
+      await resoudre(jeu.a, phrase).expect(200);
+
+      const deA = (await traces(jeu.a).expect(200)).body as AiTracePage;
+      const trace = deA.items.find(({ purpose }) => purpose === BUT_RESOLUTION);
+      expect(trace?.scopeId).toBe(jeu.a.espacePersonnel);
+
+      const lue = await request(app.getHttpServer())
+        .get(`/api/ai-traces/${trace?.id}`)
+        .set('Cookie', jeu.a.session)
+        .expect(200);
+      expect(lue.body.input).toContain(phrase);
+
+      const deB = (await traces(jeu.b).expect(200)).body as AiTracePage;
+      expect(deB.items.map(({ id }) => id)).not.toContain(trace?.id);
+      await request(app.getHttpServer())
+        .get(`/api/ai-traces/${trace?.id}`)
+        .set('Cookie', jeu.b.session)
+        .expect(404)
+        .expect(codeDErreur('ai.trace_not_found'));
+    });
+
+    it("compte dans le plafond du mois le coût d'une résolution rangée dans un Espace personnel", async () => {
+      try {
+        // 10 000 000 jetons : 1 000 centimes, le double du plafond.
+        fournisseur.programmer(BUT_RESOLUTION, AUCUNE, {
+          jetonsEntree: 10_000_000,
+        });
+        await resoudre(jeu.a, 'une commande très chère').expect(200);
+
+        await resoudre(jeu.b, 'une commande de trop')
+          .expect(422)
+          .expect(codeDErreur('ai.budget_exceeded'));
+      } finally {
+        // Le plafond vaut pour le mois : le reste de la campagne doit le retrouver ouvert.
+        await sousPortee(
+          toutesLesPortees(jeu),
+          async () =>
+            await prisma.aiTrace.deleteMany({
+              where: { costCents: { gt: 0 } },
+            }),
+        );
+      }
     });
   });
 

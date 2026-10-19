@@ -23,6 +23,28 @@ const CATALOGUE: CommandCatalog = {
           required: false,
           schema: { type: 'string', enum: ['APPOINTMENT', 'DEADLINE'] },
         },
+        recurrence: {
+          required: false,
+          schema: {
+            anyOf: [
+              {
+                type: 'object',
+                properties: {
+                  freq: { type: 'string', enum: ['DAILY', 'WEEKLY'] },
+                  interval: { type: 'integer', minimum: 1 },
+                  byWeekday: {
+                    type: 'array',
+                    items: { type: 'string', enum: ['MO', 'TU', 'WE'] },
+                    minItems: 1,
+                  },
+                },
+                required: ['freq', 'interval'],
+                additionalProperties: false,
+              },
+              { type: 'null' },
+            ],
+          },
+        },
       },
     },
     {
@@ -63,6 +85,7 @@ function resoudreAvec(sortie: SortieDuModele, phrase = 'une phrase') {
     catalogue: CATALOGUE,
     generateur: modele,
     maintenant: MAINTENANT,
+    scopeId: 'espace-personnel-de-l-auteur',
   });
   return { modele, resolution };
 }
@@ -72,9 +95,9 @@ describe("La résolution d'une commande (ADR 0018)", () => {
     const { resolution } = resoudreAvec({
       actionId: 'EventController_creer',
       params: [
-        { name: 'title', value: 'Dentiste' },
-        { name: 'startsAt', value: '2026-10-22T08:00:00Z' },
-        { name: 'category', value: 'APPOINTMENT' },
+        { name: 'title', value: '"Dentiste"' },
+        { name: 'startsAt', value: '"2026-10-22T08:00:00Z"' },
+        { name: 'category', value: '"APPOINTMENT"' },
       ],
       plusProche: null,
     });
@@ -82,6 +105,74 @@ describe("La résolution d'une commande (ADR 0018)", () => {
     await expect(resolution).resolves.toEqual({
       kind: 'action',
       url: '/calendrier/evenements/nouveau?title=Dentiste&startsAt=2026-10-22T08%3A00%3A00Z&category=APPOINTMENT',
+      ignored: [],
+    });
+  });
+
+  it("préremplit une valeur structurée que le schéma accepte, écrite en JSON dans l'URL", async () => {
+    const recurrence = { freq: 'WEEKLY', interval: 1, byWeekday: ['MO'] };
+    const { resolution } = resoudreAvec({
+      actionId: 'EventController_creer',
+      params: [
+        { name: 'title', value: '"Yoga"' },
+        { name: 'recurrence', value: JSON.stringify(recurrence) },
+      ],
+      plusProche: null,
+    });
+
+    const url = new URL(
+      ((await resolution) as { url: string }).url,
+      'http://app.test',
+    );
+    expect(url.pathname).toBe('/calendrier/evenements/nouveau');
+    expect(url.searchParams.get('title')).toBe('Yoga');
+    expect(JSON.parse(url.searchParams.get('recurrence') ?? '')).toEqual(
+      recurrence,
+    );
+  });
+
+  it('écarte une valeur structurée que le schéma refuse', async () => {
+    const { resolution } = resoudreAvec({
+      actionId: 'EventController_creer',
+      params: [
+        { name: 'title', value: '"Yoga"' },
+        { name: 'recurrence', value: '{"freq":"WEEKLY","interval":0}' },
+      ],
+      plusProche: null,
+    });
+
+    await expect(resolution).resolves.toEqual({
+      kind: 'action',
+      url: '/calendrier/evenements/nouveau?title=Yoga',
+      ignored: ['recurrence'],
+    });
+  });
+
+  it('lit comme un texte une valeur que le modèle a oublié de mettre entre guillemets', async () => {
+    const { resolution } = resoudreAvec({
+      actionId: 'EventController_creer',
+      params: [
+        { name: 'title', value: 'Dentiste' },
+        { name: 'startsAt', value: '2026-10-22T08:00:00Z' },
+      ],
+      plusProche: null,
+    });
+
+    await expect(resolution).resolves.toMatchObject({
+      url: '/calendrier/evenements/nouveau?title=Dentiste&startsAt=2026-10-22T08%3A00%3A00Z',
+      ignored: [],
+    });
+  });
+
+  it('garde en texte un titre fait de chiffres, que le JSON lirait comme un nombre', async () => {
+    const { resolution } = resoudreAvec({
+      actionId: 'EventController_creer',
+      params: [{ name: 'title', value: '1984' }],
+      plusProche: null,
+    });
+
+    await expect(resolution).resolves.toMatchObject({
+      url: '/calendrier/evenements/nouveau?title=1984',
       ignored: [],
     });
   });
@@ -136,7 +227,7 @@ describe("La résolution d'une commande (ADR 0018)", () => {
   it('ne propose pas une action sans un paramètre requis : elle devient la plus proche', async () => {
     const { resolution } = resoudreAvec({
       actionId: 'EventController_creer',
-      params: [{ name: 'title', value: '' }],
+      params: [{ name: 'title', value: '""' }],
       plusProche: null,
     });
 
@@ -188,6 +279,8 @@ describe("La résolution d'une commande (ADR 0018)", () => {
 
     const [demande] = modele.demandes;
     expect(demande.but).toBe('command-bar.resolve');
+    // La phrase est personnelle : sa trace l'est aussi.
+    expect(demande.scopeId).toBe('espace-personnel-de-l-auteur');
     expect(demande.message).toContain('2026-10-20');
     expect(demande.message).toContain('mardi');
     expect(demande.message).toContain('ajoute  dentiste jeudi 10h');

@@ -11,10 +11,9 @@ import { CommandBarService } from './command-bar.service';
 
 /**
  * La barre de commande (ADR 0018). La résolution ne crée aucune ressource :
- * elle répond 200. Elle atteint l'Espace personnel de l'auteur, où une
- * commande non comprise se journalise, et l'Espace foyer, où le port IA trace
- * son appel. Le journal se lit par curseur (ADR 0030), dans l'Espace
- * personnel seul.
+ * elle répond 200. Elle n'écrit que dans l'Espace personnel de l'auteur : la
+ * trace de l'appel au modèle, et la commande si elle n'est pas comprise. Le
+ * journal se lit par curseur (ADR 0030).
  */
 @Controller('command-bar')
 export class CommandBarController {
@@ -22,7 +21,7 @@ export class CommandBarController {
 
   @Post('resolve')
   @HttpCode(200)
-  @Espaces('PERSONAL', 'HOUSEHOLD')
+  @Espaces('PERSONAL')
   @ZodResponse({ status: 200, type: CommandResolutionDto })
   resoudre(@Body() { text }: CommandResolveInputDto) {
     return this.barre.resoudre(text);

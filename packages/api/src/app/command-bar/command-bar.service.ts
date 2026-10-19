@@ -26,14 +26,16 @@ export class CommandBarService {
   ) {}
 
   async resoudre(text: string): Promise<CommandResolution> {
+    const scopeId = espacePersonnel();
     const resolution = await resoudre(text, {
       catalogue: this.catalogue,
       generateur: this.generateur,
       maintenant: new Date(),
+      scopeId,
     });
 
     if (resolution.kind === 'none') {
-      await this.journal.creer({ scopeId: espacePersonnel(), text });
+      await this.journal.creer({ scopeId, text });
     }
     return resolution;
   }
@@ -60,9 +62,10 @@ export class CommandBarService {
 }
 
 /**
- * Le journal vit dans l'Espace personnel de l'auteur de la commande : le
- * module le pose lui-même, comme un module à Espace unique (ADR 0030). C'est
- * le seul Espace personnel que la portée de la requête atteint.
+ * Le journal, comme la trace de l'appel au modèle, vit dans l'Espace
+ * personnel de l'auteur de la commande : le module le pose lui-même, comme un
+ * module à Espace unique (ADR 0030). C'est le seul Espace personnel que la
+ * portée de la requête atteint.
  */
 function espacePersonnel(): string {
   const espace = porteeCourante()?.espaces.find(
