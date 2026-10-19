@@ -16,7 +16,7 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> = 
   Session: [],
   LoginTransaction: [],
   Household: [],
-  Scope: ['traces', 'events'],
+  Scope: ['traces', 'events', 'aiTraces'],
 };
 
 /**
@@ -36,7 +36,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Session: ['user'],
   LoginTransaction: [],
   Household: ['members', 'scopes'],
-  Scope: ['household', 'holder', 'traces', 'events'],
+  Scope: ['household', 'holder', 'traces', 'events', 'aiTraces'],
 };
 
 export function porteUnEspace(model: string | undefined): boolean {

@@ -66,6 +66,10 @@ export class PrismaService {
     return this.#client.event;
   }
 
+  get aiTrace() {
+    return this.#client.aiTrace;
+  }
+
   get session() {
     return this.#client.session;
   }

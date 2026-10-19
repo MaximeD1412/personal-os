@@ -46,6 +46,7 @@ model Scope {
   holder      User?     @relation(fields: [holderId], references: [id], onDelete: Cascade)
   traces      Trace[]
   events      Event[]
+  aiTraces    AiTrace[]
 
   @@index([householdId])
 }
@@ -110,6 +111,32 @@ model Event {
 
   @@index([scopeId])
   @@index([startsAt])
+}
+
+/// La trace d'un appel au modèle d'IA : ce qu'on lui a demandé, ce qu'il a
+/// répondu, et ce que cela a coûté. Un journal en ajout seul, dans l'Espace
+/// foyer, qui sert à comprendre une proposition étrange et à plafonner le coût
+/// du mois. Une réponse rejetée par son schéma est tracée comme les autres.
+model AiTrace {
+  id           String   @id @default(uuid())
+  scopeId      String
+  scope        Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  /// Le but de l'appel (`meal-plan.generate`…), qui dit quel module l'a fait.
+  purpose      String
+  /// Le modèle qui a répondu, tel que le fournisseur le nomme.
+  model        String
+  system       String
+  input        String
+  /// La réponse brute, avant toute validation.
+  output       String
+  inputTokens  Int
+  outputTokens Int
+  /// Le coût estimé, arrondi au centime supérieur : le plafond ne se sous-estime jamais.
+  costCents    Int
+  createdAt    DateTime @default(now())
+
+  @@index([scopeId])
+  @@index([createdAt])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.
