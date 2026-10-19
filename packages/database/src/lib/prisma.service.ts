@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { cloisonner } from './espace/cloisonnement';
+import { lireLeModeleDeDonnees, lireLeSchema } from './espace/modeles';
 import { porteeCourante } from './espace/portee';
 import { PrismaClient } from '../generated/prisma/client';
 
@@ -23,6 +24,7 @@ export class PrismaService {
     const client = new PrismaClient({
       adapter: new PrismaPg({ connectionString }),
     });
+    const schema = lireLeSchema(lireLeModeleDeDonnees(client));
 
     // `$extends` rend un nouveau client plutôt que de modifier celui-ci : c'est
     // lui que l'on conserve derrière la façade. L'extension ne change aucun
@@ -35,6 +37,7 @@ export class PrismaService {
               cloisonner(
                 { model, operation, args: args as Record<string, unknown> },
                 porteeCourante(),
+                schema,
               ),
             );
           },

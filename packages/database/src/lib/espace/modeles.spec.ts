@@ -1,8 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../../generated/prisma/client';
 import {
+  lireLeModeleDeDonnees,
+  lireLeSchema,
   MODELES_HORS_ESPACE,
-  RELATIONS_CLOISONNEES,
   RELATIONS_VERS_ESPACE,
 } from './modeles';
 
@@ -64,37 +67,35 @@ describe('Modèles hors Espace', () => {
     }
   });
 
-  it('recense exactement les relations entre modèles cloisonnés', () => {
-    // La garde vérifie l'Espace d'une charge écrite, pas celui des charges
-    // imbriquées qu'elle contiendrait. Une relation nouvelle entre modèles
-    // cloisonnés doit donc être déclarée, pour que la garde refuse de l'écrire
-    // par un chemin imbriqué (ADR 0028).
-    const reelles: Record<string, string[]> = {};
-    for (const [nom, champs] of modeles) {
-      if (nom in MODELES_HORS_ESPACE) {
-        continue;
-      }
-      const relations = champs
-        .filter(({ type }) => cloisonne(type, modeles))
-        .map((c) => c.nom);
-      if (relations.length > 0) {
-        reelles[nom] = relations.sort();
-      }
-    }
+  it('lit du client Prisma les relations exactes du schéma', () => {
+    // La garde suit les écritures imbriquées le long des relations que le
+    // client déclare à l'exécution (ADR 0028) : elles doivent être celles du
+    // schéma, toutes, sans liste tenue à la main.
+    const client = new PrismaClient({
+      adapter: new PrismaPg({
+        connectionString: 'postgresql://jamais/ouverte',
+      }),
+    });
+    const { relations } = lireLeSchema(lireLeModeleDeDonnees(client));
 
-    expect(reelles).toEqual(
-      Object.fromEntries(
-        Object.entries(RELATIONS_CLOISONNEES).map(([nom, relations]) => [
-          nom,
-          [...relations].sort(),
-        ]),
-      ),
+    const attendues = Object.fromEntries(
+      [...modeles].map(([nom, champs]) => [
+        nom,
+        Object.fromEntries(
+          champs
+            .filter(({ type }) => modeles.has(type))
+            .map(({ nom: champ, type }) => [champ, type]),
+        ),
+      ]),
     );
+    expect(relations).toEqual(attendues);
   });
 
   it("fait porter l'Espace à la clé de chaque relation entre modèles cloisonnés", () => {
     // Une exception ne peut viser que l'Événement de son propre Espace : la
-    // base le garantit, parce que la clé étrangère compare aussi scopeId.
+    // base le garantit, parce que la clé étrangère compare aussi scopeId. Une
+    // ligne créée par son parent en tire donc l'Espace, que la garde n'a pas
+    // à poser (ADR 0028).
     for (const [nom, champs] of modeles) {
       for (const { cle } of champs.filter(
         ({ type, cle }) => cloisonne(type, modeles) && cle !== null,

@@ -40,35 +40,89 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Scope: ['household', 'holder', 'traces', 'events', 'eventExceptions'],
 };
 
+/** Le modèle qui porte les Espaces : une relation vers lui nomme un Espace. */
+export const MODELE_ESPACE = 'Scope';
+
 /**
- * Les relations entre deux modèles cloisonnés : un Événement et ses
- * exceptions.
- *
- * La garde vérifie l'Espace d'une charge écrite, pas celui des charges
- * qu'elle contiendrait (ADR 0028). Ces relations ne s'écrivent donc jamais par
- * un chemin imbriqué : chaque modèle s'écrit seul, par ses clés, et la garde
- * vérifie son Espace. Leur clé étrangère porte l'Espace des deux côtés, si
- * bien que la base refuse elle-même une exception rattachée à l'Événement
- * d'un autre Espace.
- *
- * `modeles.spec.ts` relit cette liste contre le schéma, et vérifie que chaque
- * clé porte bien `scopeId`.
+ * Le modèle de données que Prisma embarque dans son client : la part du DMMF
+ * qu'il garde pour l'exécution. Il nomme chaque champ, et pour une relation,
+ * le modèle qu'elle vise.
  */
-export const RELATIONS_CLOISONNEES: Readonly<
-  Record<string, readonly string[]>
-> = {
-  Event: ['exceptions'],
-  EventException: ['event'],
-};
-
-export function porteUnEspace(model: string | undefined): boolean {
-  return model !== undefined && !(model in MODELES_HORS_ESPACE);
+export interface ModeleDeDonnees {
+  models: Readonly<
+    Record<
+      string,
+      { fields: readonly { name: string; kind: string; type: string }[] }
+    >
+  >;
 }
 
-export function relationsVersEspace(model: string): readonly string[] {
-  return RELATIONS_VERS_ESPACE[model] ?? [];
+/** Ce que la garde sait du schéma. */
+export interface SchemaDEspace {
+  /** Pour chaque modèle, ses relations et le modèle que chacune vise. */
+  relations: Readonly<Record<string, Readonly<Record<string, string>>>>;
+  /**
+   * Les modèles hors Espace, et pour chacun ses relations vers une donnée
+   * cloisonnée. Tout modèle absent d'ici est cloisonné.
+   */
+  horsEspace: Readonly<Record<string, readonly string[]>>;
 }
 
-export function relationsCloisonnees(model: string): readonly string[] {
-  return RELATIONS_CLOISONNEES[model] ?? [];
+/**
+ * Les relations se lisent du schéma, à l'exécution, et non d'une liste tenue à
+ * la main : un modèle nouveau, et ses lignes imbriquées, sont couverts sans que
+ * personne y pense (ADR 0028).
+ */
+export function lireLeSchema(
+  donnees: ModeleDeDonnees,
+  horsEspace: SchemaDEspace['horsEspace'] = RELATIONS_VERS_ESPACE,
+): SchemaDEspace {
+  const relations = Object.fromEntries(
+    Object.entries(donnees.models).map(([nom, { fields }]) => [
+      nom,
+      Object.fromEntries(
+        fields
+          .filter(({ kind }) => kind === 'object')
+          .map(({ name, type }) => [name, type]),
+      ),
+    ]),
+  );
+
+  return { relations, horsEspace };
+}
+
+/**
+ * Le client Prisma ne publie pas son modèle de données : il le garde sous un
+ * nom interne. Mieux vaut refuser de démarrer que de garder sans le connaître.
+ */
+export function lireLeModeleDeDonnees(client: object): ModeleDeDonnees {
+  const donnees = (client as { _runtimeDataModel?: ModeleDeDonnees })
+    ._runtimeDataModel;
+  if (!donnees?.models) {
+    throw new Error(
+      "Le client Prisma n'expose plus son modèle de données : la garde d'Espace ne peut pas lire les relations du schéma.",
+    );
+  }
+  return donnees;
+}
+
+export function porteUnEspace(
+  model: string | undefined,
+  schema: SchemaDEspace,
+): boolean {
+  return model !== undefined && !(model in schema.horsEspace);
+}
+
+export function relationsVersEspace(
+  model: string,
+  schema: SchemaDEspace,
+): readonly string[] {
+  return schema.horsEspace[model] ?? [];
+}
+
+export function relationsDe(
+  model: string,
+  schema: SchemaDEspace,
+): Readonly<Record<string, string>> {
+  return schema.relations[model] ?? {};
 }

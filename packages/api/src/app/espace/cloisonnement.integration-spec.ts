@@ -1,6 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { Scope, Trace } from '@personal-os/contracts';
+import {
+  ErreurDEspace,
+  PrismaService,
+  sousPortee,
+  type PorteeEspace,
+} from '@personal-os/database';
 import request from 'supertest';
 import {
   demarrerFauxAuthentik,
@@ -224,6 +230,127 @@ describe('Cloisonnement par Espace', () => {
         .set('Cookie', jeu.a.session)
         .send({ label: 'sans espace' })
         .expect(400);
+    });
+  });
+
+  describe('Les écritures imbriquées', () => {
+    // La garde se vérifie ici sur la base réelle, avec le seul couple de
+    // modèles cloisonnés que porte le schéma : un Événement et ses exceptions.
+    // Les deux niveaux d'imbrication sont couverts par cloisonnement.spec.ts,
+    // sur un schéma de test.
+    let prisma: PrismaService;
+    let portee: PorteeEspace;
+
+    beforeAll(() => {
+      prisma = app.get(PrismaService);
+      portee = {
+        espaces: [
+          { id: jeu.a.espacePersonnel, kind: 'PERSONAL' },
+          { id: jeu.espaceFoyer, kind: 'HOUSEHOLD' },
+        ],
+        typesAcceptes: ['PERSONAL', 'HOUSEHOLD'],
+      };
+    });
+
+    function creerUneSerie(exceptions: Record<string, unknown>) {
+      // Une requête Prisma ne part qu'à son `await` : il doit avoir lieu sous
+      // la portée.
+      return sousPortee(portee, async () =>
+        prisma.event.create({
+          data: {
+            title: 'Réunion',
+            startsAt: new Date('2026-10-05T08:00:00Z'),
+            category: 'OTHER',
+            // Par sa relation plutôt que par sa clé : Prisma n'accepte une
+            // ligne rattachée à l'Espace que sous un parent écrit de même.
+            scope: { connect: { id: jeu.a.espacePersonnel } },
+            exceptions: exceptions as never,
+          },
+          include: { exceptions: true },
+        }),
+      );
+    }
+
+    async function raisonDuRefus(
+      ecriture: Promise<unknown>,
+    ): Promise<string | undefined> {
+      try {
+        await ecriture;
+      } catch (erreur) {
+        if (erreur instanceof ErreurDEspace) {
+          return erreur.raison;
+        }
+        throw erreur;
+      }
+      return undefined;
+    }
+
+    it("donne à chaque ligne créée l'Espace de son parent", async () => {
+      const serie = await creerUneSerie({
+        create: [
+          {
+            originalStart: new Date('2026-10-12T08:00:00Z'),
+            kind: 'CANCELLED',
+          },
+          {
+            originalStart: new Date('2026-10-19T08:00:00Z'),
+            kind: 'CANCELLED',
+          },
+        ],
+      });
+
+      expect(serie.exceptions.map(({ scopeId }) => scopeId)).toEqual([
+        jeu.a.espacePersonnel,
+        jeu.a.espacePersonnel,
+      ]);
+    });
+
+    it('laisse une ligne rattacher par connect un modèle hors Espace', async () => {
+      const serie = await creerUneSerie({
+        create: {
+          originalStart: new Date('2026-10-12T08:00:00Z'),
+          kind: 'CANCELLED',
+          scope: { connect: { id: jeu.a.espacePersonnel } },
+        },
+      });
+
+      expect(serie.exceptions[0].scopeId).toBe(jeu.a.espacePersonnel);
+    });
+
+    it('refuse une ligne qui nomme un autre Espace que son parent', async () => {
+      const ecriture = creerUneSerie({
+        create: {
+          originalStart: new Date('2026-10-12T08:00:00Z'),
+          kind: 'CANCELLED',
+          scope: { connect: { id: jeu.espaceFoyer } },
+        },
+      });
+
+      expect(await raisonDuRefus(ecriture)).toBe('imbrication');
+    });
+
+    it('refuse de rattacher par connect un modèle cloisonné', async () => {
+      const autre = await creerUneSerie({
+        create: {
+          originalStart: new Date('2026-10-12T08:00:00Z'),
+          kind: 'CANCELLED',
+        },
+      });
+
+      const ecriture = creerUneSerie({
+        connect: { id: autre.exceptions[0].id },
+      });
+
+      expect(await raisonDuRefus(ecriture)).toBe('imbrication');
+    });
+
+    it('répond 500 `scope.nested_write` : le défaut est celui du module', async () => {
+      await request(app.getHttpServer())
+        .post('/api/rattachement-imbrique')
+        .set('Cookie', jeu.a.session)
+        .send({ scopeId: jeu.a.espacePersonnel })
+        .expect(500)
+        .expect(codeDErreur('scope.nested_write'));
     });
   });
 
