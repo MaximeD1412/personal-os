@@ -144,6 +144,14 @@ services:
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:?OIDC_REDIRECT_URI manquant}
       DASHBOARD_URL: ${DASHBOARD_URL:?DASHBOARD_URL manquant}
       AUTH_ALLOWED_EMAILS: ${AUTH_ALLOWED_EMAILS:?AUTH_ALLOWED_EMAILS manquant}
+      # Le port IA. La production exige `claude` et refuse de démarrer sur le
+      # double de test ; le staging pose `factice` dans son propre fichier.
+      AI_PROVIDER: ${AI_PROVIDER:?AI_PROVIDER manquant}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_PRICE_INPUT_PER_MTOK_CENTS: ${AI_PRICE_INPUT_PER_MTOK_CENTS:-}
+      AI_PRICE_OUTPUT_PER_MTOK_CENTS: ${AI_PRICE_OUTPUT_PER_MTOK_CENTS:-}
+      AI_MONTHLY_BUDGET_CENTS: ${AI_MONTHLY_BUDGET_CENTS:-}
     ports:
       - '127.0.0.1:${API_PORT:-3001}:3000'
 

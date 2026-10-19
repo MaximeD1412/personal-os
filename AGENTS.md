@@ -76,30 +76,31 @@ et lève `food.list_already_closed`.
 
 ### Du domaine au code
 
-| Domaine (`CONTEXT.md`)                 | Code                                                             |
-| -------------------------------------- | ---------------------------------------------------------------- |
-| Espace, Espace personnel, Espace foyer | `Scope`, `PERSONAL`, `HOUSEHOLD`                                 |
-| Foyer, Compte                          | `Household`, `User`                                              |
-| Participant, Invités                   | `participantIds` (des `User`), `guestCount`                      |
-| Événement, Échéance                    | `Event`, catégorie `DEADLINE`                                    |
-| Récurrence, Occurrence, Exception      | `recurrence` (`Recurrence`), `EventOccurrence`, `EventException` |
-| Agenda                                 | `agenda`, port `AgendaContributor`                               |
-| Période (d'une lecture datée)          | `zPeriod` (`from`, `to`)                                         |
-| Séance, Objectif                       | `TrainingSession`, `TrainingGoal`                                |
-| Ingrédient, Alias, Unité canonique     | `Ingredient`, `IngredientAlias`, `canonicalUnit`                 |
-| Recette                                | `Recipe`                                                         |
-| Planning de repas, Repas planifié      | `MealPlan`, `MealPlanEntry`                                      |
-| Tour de génération, Souhait            | `GenerationRound`, `MealWish`                                    |
-| Préférence alimentaire, Allergène      | `FoodPreference`, `Allergen`                                     |
-| Liste de courses, Article de courses   | `ShoppingList`, `ShoppingListItem`                               |
-| Produit, Produit préféré               | `Product`, `preferredProduct`                                    |
-| Stock domestique                       | `PantryItem`                                                     |
-| Repas cuisiné                          | `CookedMeal`                                                     |
-| Projet, Présentation publique          | `Project`, `PublicPresentation`                                  |
-| Page de contenu                        | `PageContent`                                                    |
+| Domaine (`CONTEXT.md`)                   | Code                                                             |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| Espace, Espace personnel, Espace foyer   | `Scope`, `PERSONAL`, `HOUSEHOLD`                                 |
+| Foyer, Compte                            | `Household`, `User`                                              |
+| Participant, Invités                     | `participantIds` (des `User`), `guestCount`                      |
+| Événement, Échéance                      | `Event`, catégorie `DEADLINE`                                    |
+| Récurrence, Occurrence, Exception        | `recurrence` (`Recurrence`), `EventOccurrence`, `EventException` |
+| Agenda                                   | `agenda`, port `AgendaContributor`                               |
+| Période (d'une lecture datée)            | `zPeriod` (`from`, `to`)                                         |
+| Séance, Objectif                         | `TrainingSession`, `TrainingGoal`                                |
+| Ingrédient, Alias, Unité canonique       | `Ingredient`, `IngredientAlias`, `canonicalUnit`                 |
+| Recette                                  | `Recipe`                                                         |
+| Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |
+| Tour de génération, Souhait              | `GenerationRound`, `MealWish`                                    |
+| Préférence alimentaire, Allergène        | `FoodPreference`, `Allergen`                                     |
+| Liste de courses, Article de courses     | `ShoppingList`, `ShoppingListItem`                               |
+| Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
+| Stock domestique                         | `PantryItem`                                                     |
+| Repas cuisiné                            | `CookedMeal`                                                     |
+| Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
+| Page de contenu                          | `PageContent`                                                    |
+| Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 
 Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
-`portfolio`, `dashboard`, `command-bar`. Un terme absent de cette table se
+`portfolio`, `dashboard`, `command-bar`, `ai`. Un terme absent de cette table se
 traduit en restant au plus près du glossaire, et la traduction s'ajoute ici
 dans la même PR.
 
