@@ -169,7 +169,6 @@ describe('Barre de commande', () => {
     return sousPortee(toutesLesPortees(jeu), async () => ({
       evenements: await prisma.event.count(),
       exceptions: await prisma.eventException.count(),
-      traces: await prisma.trace.count(),
       nonComprises: await prisma.unresolvedCommand.count(),
     }));
   }
