@@ -70,7 +70,9 @@ export class HlmFieldError implements OnDestroy {
 				if (!a11y) return;
 
 				const id = this.id();
-				const hasError = this._hasError();
+				// Une erreur montrée d'office (le refus de l'API, `forceShow`) décrit
+				// aussi le contrôle, comme une erreur de validation.
+				const hasError = this._hasError() || (this._hasParentField && this.forceShow());
 
 				if (this._registeredId && (this._registeredId !== id || !hasError)) {
 					a11y.unregisterError(this._registeredId);

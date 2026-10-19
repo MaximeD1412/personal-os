@@ -1,0 +1,13 @@
+{
+  "name": "@personal-os/ui/alert",
+  "version": "0.0.1",
+  "peerDependencies": {
+    "@angular/core": "^22.0.0",
+    "@personal-os/ui/button": "0.0.1",
+    "@personal-os/ui/utils": "0.0.1",
+    "@ng-icons/core": ">=32.0.0 <34.0.0",
+    "@ng-icons/material-symbols": "^33.4.0",
+    "class-variance-authority": "^0.7.1"
+  },
+  "sideEffects": false
+}

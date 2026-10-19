@@ -18,7 +18,13 @@
     "@angular/router": "~22.0.4",
     "@personal-os/ui/tooltip": "0.0.1",
     "@personal-os/ui/avatar": "0.0.1",
-    "@personal-os/ui/toggle-group": "0.0.1"
+    "@personal-os/ui/toggle-group": "0.0.1",
+    "@personal-os/ui/alert-dialog": "0.0.1",
+    "@personal-os/ui/dialog": "0.0.1",
+    "@spartan-ng/brain": "^1.3.2",
+    "rxjs": "^7.8.0",
+    "@personal-os/ui/alert": "0.0.1",
+    "@personal-os/ui/skeleton": "0.0.1"
   },
   "sideEffects": false
 }

@@ -42,7 +42,8 @@ Storybook charge les polices puis `packages/dashboard/src/styles.css` : il voit
 exactement les jetons de l'application. Il a les addons docs (une page
 `Documentation` par composant, ses entrées lues par compodoc), controls et a11y.
 Les catégories, dans l'ordre des planches pen.dev : `Foundations`, `Actions`,
-`Forms`, `Data Display`, `Navigation`, `Feedback`, `Layout`. Le titre d'une
+`Forms`, `Data Display`, `Navigation`, `Feedback`, `Layout`, puis `Patterns`
+pour les motifs d'écran qui composent plusieurs briques (UI-3). Le titre d'une
 story est `<Catégorie>/<Composant>` (`Actions/Button`).
 
 Le cache de `build-storybook` suit ce qu'il affiche : `dccm` dépend
@@ -232,11 +233,11 @@ remplit dans la PR qui l'implémente.
 | 04 Navigation   | `Breadcrumb`           | `PVPne`  | UI-2 (#60)  | `HlmBreadcrumb`, `HlmBreadcrumbList`                                                                                 |
 | 04 Navigation   | `MobileHeader`         | `LNnJM`  | UI-2 (#60)  | `DccmMobileHeader`, bouton de commande projeté `[dccmMobileHeaderCommand]`                                           |
 | 04 Navigation   | `PageHeader`           | `xMGff`  | UI-2 (#60)  | `DccmPageHeader`                                                                                                     |
-| 05 Feedback     | `Banner`               | `L9HFJ`  | UI-3 (#62)  |                                                                                                                      |
-| 05 Feedback     | `Toast`                | `bESqe`  | UI-3 (#62)  |                                                                                                                      |
-| 05 Feedback     | `Skeleton`             | `kNtnJ`  | UI-3 (#62)  |                                                                                                                      |
-| 05 Feedback     | `Modal`                | `CX7L8`  | UI-3 (#62)  |                                                                                                                      |
-| 05 Feedback     | `EmptyState`           | `QLVDE`  | UI-3 (#62)  |                                                                                                                      |
+| 05 Feedback     | `Banner`               | `L9HFJ`  | UI-3 (#62)  | `HlmAlert` (`@personal-os/ui/alert`), `tone`, et ses parties `hlm-alert-icon`, `hlmAlertContent`, `hlmAlertTitle`…   |
+| 05 Feedback     | `Toast`                | `bESqe`  | UI-3 (#62)  | `HlmToast` par `showToast()`, dans `HlmToaster` (`@personal-os/ui/sonner`)                                           |
+| 05 Feedback     | `Skeleton`             | `kNtnJ`  | UI-3 (#62)  | `HlmSkeleton` (`@personal-os/ui/skeleton`)                                                                           |
+| 05 Feedback     | `Modal`                | `CX7L8`  | UI-3 (#62)  | `HlmAlertDialog` (`@personal-os/ui/alert-dialog`), `HlmDialog` (`@personal-os/ui/dialog`)                            |
+| 05 Feedback     | `EmptyState`           | `QLVDE`  | UI-3 (#62)  | `DccmEmptyState` (`@personal-os/ui/dccm`), `variant="empty"` et `"error"`                                            |
 | 06 Layout       | `AppShell/Desktop`     | `ZVeDP`  | UI-2 (#60)  | `DccmShell` (`@personal-os/ui/dccm`), à partir de 1280 px                                                            |
 | 06 Layout       | `AppShell/Tablet`      | `izfng`  | UI-2 (#60)  | `DccmShell`, de 768 à 1279 px                                                                                        |
 | 06 Layout       | `AppShell/Mobile`      | `jvzeX`  | UI-2 (#60)  | `DccmShell`, sous 768 px                                                                                             |
@@ -382,6 +383,155 @@ Les planches 04 Navigation et 06 Layout, leurs stories sous `Navigation/*` et
   tant qu'on n'y a pas choisi un Espace à la main ; un objet en modification
   garde le sien (le Calendrier le fait).
 
+## Retours et motifs d'écran (UI-3)
+
+La planche 05 Feedback, ses stories sous `Feedback/*`, et les motifs qui la
+composent, sous `Patterns/*`. Ce que la traduction a tranché :
+
+### Les briques
+
+- **`Banner`** : `<div hlmAlert tone="warning">`, puis `<hlm-alert-icon />`
+  (pastille 40, icône 24 de la tonalité ; `[icon]` la remplace),
+  `hlmAlertContent` qui porte `hlmAlertTitle` (15/700, un `hlmBadge` peut le
+  suivre) et `hlmAlertDescription`, et `hlmAlertAction` : un `hlmBtn
+variant="secondary" size="sm"`, puis l'action principale `hlmBtn size="sm"
+hlmAlertPrimaryAction`, qui prend la couleur de la tonalité. Les fonds :
+  `info` `primary-10`, `success` `secondary-10`, `warning` `tertiary-20`,
+  `error` `error-20`. `warning` et `error` ont le rôle `alert`, `info` et
+  `success` le rôle `status`.
+- **`Toast`** : `showToast({ tone, message, action })` rend `hlm-toast` dans le
+  `hlm-toaster` posé une fois par l'application (en bas à droite, Alt+T y
+  mène). `success` sur `secondary-container`, `error` sur `error-container`,
+  `neutral` sur `surface-container-high` bordé. L'action est une icône
+  (`{ icon, label, onClick }`, son libellé lu) ; sans action, l'icône ferme le
+  toast. sonner ne gère que la pile, la durée et le balayage.
+- **`Modal`** : `hlm-alert-dialog` pour une question (rôle `alertdialog`, un
+  clic dehors ne la ferme pas), `hlm-dialog` pour un contenu (bouton de
+  fermeture, clic dehors). Les deux partagent les classes du master
+  (`hlmModal*Class`, `@personal-os/ui/dialog`) : 520 de large,
+  `surface-container-high`, bordure `outline-variant`, `shadow-popover`,
+  en-tête bordé, contenu `hlmDialogBody` à 20, pied `surface-container-lowest`,
+  voile `surface-container-lowest-80`. Le générateur pose `hlmAlertDialogCancel`
+  et `hlmAlertDialogAction` en directives hôtes de `HlmButton`, devenu un
+  composant (UI-5) : ce sont ici des marqueurs à poser sur un `hlmBtn`.
+- **`EmptyState`** : `dccm-empty-state`, pastille ronde 56 et icône 32, titre
+  `title-sm`, description `body-dense` `outline`, une action projetée ;
+  `variant="error"` passe la pastille en `error-20`.
+- **`Skeleton`** : `hlm-skeleton`, un os `surface-container-highest` au rayon 4
+  que traverse un reflet (`animate-shimmer`, arrêté sous
+  `prefers-reduced-motion`) ; l'écran lui donne la taille du contenu attendu.
+- **Les icônes de ces composants** s'y passent en SVG (`[icon]="matFitnessCenterOutline"`) :
+  chacun a une icône par défaut, que l'écran remplace sans `provideIcons`.
+
+### Les motifs
+
+- **`DccmFormPage`** : l'écran de saisie. `presentation="page"` (défaut :
+  `DccmPageHeader`, puis le formulaire en carte), `"panel"` (à droite d'une
+  liste, titre et bouton « Fermer »), `"sheet"` (une feuille fixée en bas, pour
+  le mobile, actions collées en bas). La route reste la même. Il affiche les
+  paramètres écartés par `prefillDepuisRequete` (`[ignored]`) dans un `Banner`
+  `warning`, et le refus de l'API (`[error]`) dans un `Banner` `error` quand il
+  ne vise aucun champ. « Annuler » émet `cancelled`, l'envoi émet `submitted`,
+  jamais pendant un envoi : `[pending]` passe l'action principale en `loading`.
+  Un statut s'ajoute devant les actions par `[dccmFormPageStatus]`.
+- **Les erreurs de champ** : sous chaque `hlmField`, l'erreur que
+  `erreursDeChamp(refus)` tire du `fields` de l'API. `forceInvalid` sur le
+  champ le passe en erreur (et pose `aria-invalid`), `forceShow` sur
+  `hlm-field-error` l'affiche et le lie au champ par `aria-describedby`.
+- **`DccmConfirm`** : `confirm({ title, description, confirmLabel, destructive })`
+  renvoie `true`, ou `null` à l'annulation (bouton, Échap) ;
+  `chooseScope({ title, confirmLabel, occurrenceDescription, seriesDescription })`
+  renvoie `'occurrence'`, `'series'` ou `null`. Le choix de portée n'a pas
+  d'option par défaut : l'action principale reste inactive tant qu'il n'est
+  pas fait. Le dialogue piège le focus et le rend au déclencheur.
+- **`DccmState`** : autour du contenu d'une lecture, `status` `loading`
+  (squelette `skeleton="list"`, `"cards"` ou `"detail"`, dans une zone
+  `aria-busy`), `empty` (`DccmEmptyState`, action en `[dccmStateEmpty]`),
+  `error` (le `message` de l'erreur tel quel, « Réessayer » émet `retry`),
+  `ready` (le contenu). `stateOf(resource, estVide)` le déduit du `status()`
+  d'une `httpResource` : le premier chargement reste `loading` même avec une
+  `defaultValue`, un rechargement garde la valeur affichée.
+- **`HlmDialogService.open()`** rend un composant ou un `ng-template` ; le
+  modèle reçoit la référence du dialogue (`<ng-template let-ref>`,
+  `ref.close(résultat)`).
+
+## Composer un écran
+
+Un écran se compose avec les briques et les motifs ci-dessus ; il n'invente ni
+bandeau, ni dialogue, ni état. Les textes viennent de l'API (`message`) ou du
+domaine, jamais d'un message générique de remplacement (ADR 0030).
+
+### Une liste
+
+`DccmPageHeader` (fil d'Ariane, titre, action « Nouveau … » qui mène au
+formulaire par son URL), puis `dccm-state` autour de la liste
+(`dccm-list-row`, tableau, cartes) :
+
+```html
+<dccm-state [status]="etat()" [error]="seances.error()" emptyHeading="Aucune séance cette semaine" (retry)="seances.reload()">
+  <a dccmStateEmpty hlmBtn routerLink="/sport/seances/nouvelle">Nouvelle séance</a>
+  @for (seance of seances.value(); track seance.id) { … }
+</dccm-state>
+```
+
+avec `etat = computed(() => stateOf(this.seances, (v) => v.length === 0))`.
+
+### Un formulaire
+
+Chaque formulaire a sa route, en français : `/<module>/<ressource>/nouveau`
+(ou `nouvelle`) pour une création, `/<module>/<ressource>/:id/modifier` pour
+une modification ; une occurrence se modifie en
+`/calendrier/evenements/:id/occurrences/:originalStart` (AGENDA-2). Il se
+préremplit par sa requête, dont les paramètres portent **les noms des champs
+du contrat** (`/calendrier/evenements/nouveau?title=Dentiste&category=APPOINTMENT&startsAt=2026-11-03T08:30:00.000Z`) :
+
+```ts
+readonly prefill = prefillDepuisRequete(zEventInput, inject(ActivatedRoute).snapshot.queryParamMap);
+readonly refus = signal<ErreurApi | null>(null);
+readonly erreurs = computed(() => erreursDeChamp(this.refus()));
+```
+
+```html
+<dccm-form-page heading="Nouvel événement" submitLabel="Créer l'événement" [presentation]="presentation()" [ignored]="prefill.ignores" [error]="refus()" [pending]="envoi()" (submitted)="enregistrer()" (cancelled)="fermer()">
+  <div hlmField>
+    <label hlmFieldLabel for="titre">Intitulé</label>
+    <input hlmInput id="titre" [forceInvalid]="!!erreurs()['title']" … />
+    @if (erreurs()['title']; as message) {
+    <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+    }
+  </div>
+</dccm-form-page>
+```
+
+`presentation` suit la largeur : `panel` à côté de la liste à partir de
+1280 px, `sheet` sous 768 px, `page` sinon ou quand le formulaire est ouvert
+seul. Le formulaire n'enregistre rien de lui-même : `enregistrer()` envoie, puis
+confirme par `showToast()` et revient à la liste.
+
+### Un détail
+
+`DccmPageHeader` (titre, actions de l'objet), puis `dccm-state
+skeleton="detail"` autour de cartes (`hlmCard`). « Modifier » mène au
+formulaire de modification ; une transition passe par `DccmConfirm`.
+
+### Ce qui exige `DccmConfirm`
+
+- **Toute transition métier** : clôturer (une liste de courses), arrêter,
+  déclarer, publier, fusionner, et toute suppression (`destructive: true`).
+  L'action principale est nommée par le verbe (« Clôturer la liste »), jamais
+  « OK » ni « Confirmer ».
+- **Une action sur une occurrence d'une série** : `chooseScope()`, sans option
+  par défaut (AGENDA-2).
+- **Pas** une création ni une modification simple : le formulaire est déjà la
+  confirmation (ADR 0018).
+
+### Les retours
+
+- Une action réussie se confirme par un `Toast` (`showToast()`).
+- Une erreur qui empêche d'avancer est une erreur de champ ou un `Banner`
+  `error`, **jamais un toast seul**.
+- Une lecture qui échoue est l'état `error` de `dccm-state`, avec « Réessayer ».
+
 ## Audit
 
 Fait le 18 octobre 2026 (UI-1, #59), sur `personalos.lib.pen` v2.21.
@@ -412,7 +562,7 @@ Le `.pen` l'emporte ; `tokens.css` et les composants suivent sa colonne.
 | Interligne                  | dans le frontmatter                                                                                                                               | absent du `.pen` : `tokens.css` prend celui du frontmatter                                                                                                                  |
 | Pistes teintées             | 5 (`DESIGN.md`)                                                                                                                                   | 8 (Foundations, `design-system.json`) : en plus `secondary-20` (`secondary-container` 20 %), `tertiary-20` (`tertiary-container` 20 %), `error-30` (`error-container` 30 %) |
 | Ombre de popover            | `0 12px 32px -4px rgba(0,0,0,0.65)`                                                                                                               | `0 12px 32px` sans étalement, `#000000a6`                                                                                                                                   |
-| Fond de `Modal`             | `surface-container-high` (et la Foundations, « Modale / popover »)                                                                                | le master `Modal` est en `surface-container` ; à trancher par UI-3 sur le master                                                                                            |
+| Fond de `Modal`             | `surface-container-high` (et la Foundations, « Modale / popover »)                                                                                | le master `Modal` est en `surface-container` ; UI-3 retient `surface-container-high` (le ticket, la Foundations)                                                            |
 | `Tag`                       | fond `surface-container-highest` (`DESIGN.md`, UI-6)                                                                                              | `surface-container-high`                                                                                                                                                    |
 | Badge `success`             | `secondary` 15 % (`DESIGN.md`)                                                                                                                    | `secondary-container` 20 % (`secondary-20`) ; UI-6 suit le `.pen`                                                                                                           |
 | `Badge`                     | hauteur 22, padding 2/10                                                                                                                          | padding 2/8, hauteur à l'auto ; icône 14                                                                                                                                    |
@@ -439,6 +589,16 @@ Le `.pen` l'emporte ; `tokens.css` et les composants suivent sa colonne.
   `FormField` passent par les générateurs spartan `kbd` et `field` (spartan
   1.3 n'a plus de `form-field`), selon la règle « le générateur d'abord ».
   La taille d'icône 14 devient le jeton `--icon-2xs`.
+- **Retours (UI-3, #62).** La `Modal` prend `surface-container-high` (la
+  Foundations et le ticket) et son en-tête une bordure
+  `surface-container-highest`, la bordure `surface-container-high` du master
+  disparaissant sur ce fond. L'`EmptyState` porte une icône 32 dans une
+  pastille de 56 (le ticket ; le master dessine 24 dans 48), et l'`ErrorState`
+  garde le titre `on-surface` du master, pas le rouge de la capture. Le
+  `Banner` d'un formulaire prérempli n'a pas d'action : la croix et « En savoir
+  plus » de la capture ne sont pas au ticket. Les textes des captures
+  (SQLite, « HTTP 422 », ECONNREFUSED) ne sont pas repris : l'écran affiche le
+  `message` de l'API.
 
 ### Valeurs alpha hors des pistes teintées
 
@@ -450,8 +610,8 @@ pas. Chacune s'ajoutera à `tokens.css` dans la PR du composant qui la consomme
 | ------------------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `#ffb4ab4d`              | `error` 30 %                    | bordure de `Button/Destructive` : `--error-stroke-30` (UI-5 ; `error-30` désigne déjà `error-container`)                                                                      |
 | `#adc6ff66`              | `primary` 40 %                  | anneau de focus des galeries `Button` et `Input` : non retenu, UI-5 suit `DESIGN.md` (`primary-20`) ; bordure de ligne sélectionnée (`DESIGN.md`) : **`--primary-40`** (UI-6) |
-| `#ffb95f33`              | `tertiary` 20 %                 | fond d'icône de `Banner` (UI-3)                                                                                                                                               |
-| `#4edea31a`              | `secondary` 10 %                | galeries                                                                                                                                                                      |
+| `#ffb95f33`              | `tertiary` 20 %                 | fond d'icône de `Banner` avertissement : **`--tertiary-fill-20`** (UI-3 ; `tertiary-20` désigne déjà `tertiary-container`)                                                    |
+| `#4edea31a`              | `secondary` 10 %                | fond de `Banner` succès : **`--secondary-10`** (UI-3)                                                                                                                         |
 | `#93000a66`              | `error-container` 40 %          | `Button/Destructive` pressé : `--error-40` (UI-5)                                                                                                                             |
 | `#0a0e14e6`              | `surface-container-lowest` 90 % | fond de `TopBar` : **`--surface-container-lowest-90`** (UI-2)                                                                                                                 |
 | `#10141ae6`              | `surface` 90 %                  | fond de `MobileTabBar` et `MobileHeader` : **`--surface-90`** (UI-2)                                                                                                          |

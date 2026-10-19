@@ -1,5 +1,5 @@
-import { Directive, inject, input } from '@angular/core';
-import { BrnFieldControlDescribedBy } from '@spartan-ng/brain/field';
+import { computed, Directive, inject, input } from '@angular/core';
+import { BrnFieldControl, BrnFieldControlDescribedBy } from '@spartan-ng/brain/field';
 import { BrnInput } from '@spartan-ng/brain/input';
 import { classes } from '@personal-os/ui/utils';
 import { inputBoxClasses, type InputSize, inputSizeClasses } from './hlm-input-box';
@@ -12,10 +12,19 @@ import { HlmInputGroup } from './hlm-input-group';
 @Directive({
 	selector: '[hlmInput]',
 	hostDirectives: [{ directive: BrnInput, inputs: ['id', 'forceInvalid'] }, BrnFieldControlDescribedBy],
-	host: { 'data-slot': 'input' },
+	host: {
+		'data-slot': 'input',
+		// `forceInvalid` (le refus de l'API sur ce champ) l'annonce aussi : spartan
+		// ne pose `aria-invalid` que d'après l'état du contrôle de formulaire.
+		'[attr.aria-invalid]': '_invalide() ? "true" : null',
+	},
 })
 export class HlmInput {
 	private readonly _groupe = inject(HlmInputGroup, { optional: true });
+	private readonly _brnInput = inject(BrnInput);
+	private readonly _controle = inject(BrnFieldControl, { optional: true });
+
+	protected readonly _invalide = computed(() => this._brnInput.forceInvalid() || !!this._controle?.invalid());
 
 	public readonly size = input<InputSize>('md');
 
