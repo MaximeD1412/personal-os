@@ -103,6 +103,7 @@ et lève `food.list_already_closed`.
 | Stock domestique                         | `PantryItem`                                                     |
 | Repas cuisiné                            | `CookedMeal`                                                     |
 | Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
+| Dépense de projet, Lien de projet        | `ProjectExpense`, `links` (`ProjectLink`)                        |
 | Page de contenu                          | `PageContent`                                                    |
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 | Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |

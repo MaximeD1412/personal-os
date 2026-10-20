@@ -1,0 +1,73 @@
+<dccm-state
+  [status]="etat()"
+  [error]="lecture.error()"
+  skeleton="detail"
+  (retry)="lecture.reload()"
+>
+  <dccm-form-page
+    heading="Nouvelle dépense"
+    subtitle="Elle s'ajoute au total du projet."
+    [breadcrumb]="fil()"
+    submitLabel="Ajouter la dépense"
+    [ignored]="prefill.ignores"
+    [error]="refus()"
+    [pending]="envoi()"
+    (submitted)="enregistrer()"
+    (cancelled)="fermer()"
+  >
+    <div hlmField>
+      <label hlmFieldLabel for="depense-libelle">Libellé</label>
+      <input
+        hlmInput
+        id="depense-libelle"
+        data-test="libelle"
+        autocomplete="off"
+        placeholder="Presse à relier, nom de domaine…"
+        [value]="libelle()"
+        [forceInvalid]="!!erreurs()['label']"
+        (input)="libelle.set(valeur($event))"
+      />
+      @if (erreurs()['label']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+
+    <div class="grid gap-gutter md:grid-cols-2">
+      <div hlmField>
+        <label hlmFieldLabel for="depense-montant">Montant (€)</label>
+        <input
+          hlmInput
+          id="depense-montant"
+          data-test="montant"
+          inputmode="decimal"
+          autocomplete="off"
+          placeholder="12,50"
+          class="font-mono tabular-nums"
+          [value]="montant()"
+          [forceInvalid]="!!erreurs()['amount.cents'] || !!erreurs()['amount']"
+          (input)="montant.set(valeur($event))"
+        />
+        @if (erreurs()['amount.cents'] ?? erreurs()['amount']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        }
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="depense-jour">Date</label>
+        <input
+          hlmInput
+          id="depense-jour"
+          type="date"
+          data-test="jour"
+          class="tabular-nums"
+          [value]="jour()"
+          [forceInvalid]="!!erreurs()['spentOn']"
+          (input)="jour.set(valeur($event))"
+        />
+        @if (erreurs()['spentOn']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        }
+      </div>
+    </div>
+  </dccm-form-page>
+</dccm-state>
