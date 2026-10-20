@@ -99,6 +99,14 @@ export class PrismaService {
     return this.#client.recipeLine;
   }
 
+  get mealPlan() {
+    return this.#client.mealPlan;
+  }
+
+  get mealPlanEntry() {
+    return this.#client.mealPlanEntry;
+  }
+
   get session() {
     return this.#client.session;
   }

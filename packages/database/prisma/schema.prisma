@@ -52,6 +52,8 @@ model Scope {
   foodPreferences    FoodPreference[]
   recipes            Recipe[]
   recipeLines        RecipeLine[]
+  mealPlans          MealPlan[]
+  mealPlanEntries    MealPlanEntry[]
 
   @@index([householdId])
 }
@@ -290,19 +292,21 @@ enum RecipeSource {
 /// référence. Elle ne connaît que des Ingrédients, jamais des Produits. Elle
 /// vit dans l'Espace foyer, que la Cuisine pose elle-même.
 model Recipe {
-  id        String       @id @default(uuid())
-  scopeId   String
-  scope     Scope        @relation(fields: [scopeId], references: [id], onDelete: Cascade)
-  title     String
+  id              String          @id @default(uuid())
+  scopeId         String
+  scope           Scope           @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  title           String
   /// Les portions de référence, au moins une.
-  servings  Int
+  servings        Int
   /// Les étapes, dans leur ordre.
-  steps     String[]
-  source    RecipeSource @default(MANUAL)
-  lines     RecipeLine[]
+  steps           String[]
+  source          RecipeSource    @default(MANUAL)
+  lines           RecipeLine[]
+  /// Les Repas planifiés qui la cuisinent.
+  mealPlanEntries MealPlanEntry[]
   /// Des instants (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
-  createdAt DateTime     @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime     @updatedAt @db.Timestamptz(3)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(3)
 
   /// La cible de la clé étrangère des lignes, qui porte l'Espace.
   @@unique([id, scopeId])
@@ -364,6 +368,73 @@ model FoodPreference {
   @@unique([userId, kind, allergen, ingredientId])
   @@index([scopeId])
   @@index([ingredientId])
+}
+
+enum MealPlanStatus {
+  OPEN
+  STOPPED
+}
+
+enum MealMoment {
+  LUNCH
+  DINNER
+}
+
+enum MealPlanEntryDecision {
+  APPROVED
+  PROPOSED
+  REFUSED
+}
+
+/// Le Planning de repas d'une semaine : un par semaine et par Espace (le
+/// Foyer). Arrêté, il refuse toute modification de ses repas (CUISINE-7).
+model MealPlan {
+  id        String          @id @default(uuid())
+  scopeId   String
+  scope     Scope           @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  /// Le lundi de la semaine (`zWeek`), un jour civil sans fuseau.
+  week      DateTime        @db.Date
+  status    MealPlanStatus  @default(OPEN)
+  entries   MealPlanEntry[]
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@unique([scopeId, week])
+  /// La cible de la clé étrangère des repas, qui porte l'Espace.
+  @@unique([id, scopeId])
+}
+
+/// Un Repas planifié : une Recette ou un intitulé libre, jamais les deux ni
+/// aucun (une contrainte CHECK de la migration le garde), pour des
+/// Participants du Foyer et des Invités. La clé étrangère porte l'Espace avec
+/// le planning : un repas est toujours dans l'Espace de son planning (ADR
+/// 0028).
+model MealPlanEntry {
+  id             String                @id @default(uuid())
+  scopeId        String
+  scope          Scope                 @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  mealPlanId     String
+  mealPlan       MealPlan              @relation(fields: [mealPlanId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  /// Un jour civil (`zDay`) de la semaine du planning.
+  day            DateTime              @db.Date
+  moment         MealMoment
+  /// Une Recette cuisinée par un repas à venir ne se supprime pas ; celle
+  /// d'un repas passé laisse son titre à sa place (CUISINE-7).
+  recipeId       String?
+  recipe         Recipe?               @relation(fields: [recipeId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  title          String?
+  /// Des Comptes du Foyer, au moins un.
+  participantIds String[]
+  /// Au moins zéro.
+  guestCount     Int                   @default(0)
+  decision       MealPlanEntryDecision
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt      DateTime              @default(now()) @db.Timestamptz(3)
+
+  @@index([scopeId])
+  @@index([mealPlanId])
+  @@index([recipeId])
+  @@index([day])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.

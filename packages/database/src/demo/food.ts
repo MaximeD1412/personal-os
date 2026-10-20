@@ -1,7 +1,11 @@
 import {
+  aujourdhui,
+  FUSEAU,
+  lundiDe,
   normaliserLibelle,
   type Allergen,
   type CanonicalUnit,
+  type MealMoment,
   type RecipeUnit,
 } from '@personal-os/contracts';
 import { ID_ESPACE_FOYER, ID_FOYER } from '../lib/espace/foyer';
@@ -496,4 +500,119 @@ export async function semerLesPreferences(
       }
     }
   });
+}
+
+/** Un Repas planifié de démo : son jour (0 pour le lundi), une recette ou un intitulé. */
+export interface RepasDeDemo {
+  jour: number;
+  moment: MealMoment;
+  recette?: string;
+  intitule?: string;
+  /** Le seul premier Compte ; les deux sinon. */
+  seul?: boolean;
+  invites?: number;
+}
+
+/**
+ * La semaine de démo, remplie à moitié : de quoi voir des recettes, un
+ * intitulé libre, un repas à un seul Participant et des Invités, et des cases
+ * encore vides à remplir.
+ */
+export const REPAS_DE_DEMO: readonly RepasDeDemo[] = [
+  { jour: 0, moment: 'LUNCH', intitule: 'Salade composée', seul: true },
+  { jour: 0, moment: 'DINNER', recette: 'Dahl de lentilles corail' },
+  { jour: 1, moment: 'DINNER', recette: 'Poulet sauté aux courgettes' },
+  { jour: 2, moment: 'LUNCH', intitule: 'Restes du dahl', seul: true },
+  { jour: 3, moment: 'DINNER', recette: 'Saumon, riz basmati et citron' },
+  { jour: 5, moment: 'DINNER', recette: 'Gratin dauphinois', invites: 2 },
+  { jour: 6, moment: 'LUNCH', recette: 'Crêpes' },
+];
+
+/**
+ * Le Planning de repas de la semaine en cours, rempli de `REPAS_DE_DEMO`. Il
+ * passe après `semerLaCuisine`, dont il lit les recettes. Sans Compte, il n'y
+ * a personne à faire manger : le semeur ne fait rien.
+ *
+ * Un planning qui a déjà des repas n'est pas touché : deux semis de suite
+ * donnent le même planning, et ce qu'on y a saisi entre-temps reste.
+ */
+export async function semerLePlanning(
+  prisma: PrismaService,
+  maintenant = new Date(),
+): Promise<void> {
+  const [premier, second = premier] = await prisma.user.findMany({
+    where: { householdId: ID_FOYER },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: { id: true },
+  });
+  if (!premier) {
+    return;
+  }
+  const lundi = lundiDe(aujourdhui(FUSEAU, maintenant));
+
+  // Une requête Prisma ne part qu'à l'`await` : il se fait sous la portée.
+  await sousPortee(ESPACE_FOYER, async () => {
+    const planning = await prisma.mealPlan.upsert({
+      where: {
+        scopeId_week: { scopeId: ID_ESPACE_FOYER, week: enDate(lundi) },
+      },
+      create: { scopeId: ID_ESPACE_FOYER, week: enDate(lundi) },
+      update: {},
+      select: { id: true, _count: { select: { entries: true } } },
+    });
+    if (planning._count.entries > 0) {
+      return;
+    }
+
+    const recettes = new Map(
+      (
+        await prisma.recipe.findMany({
+          where: {
+            title: {
+              in: REPAS_DE_DEMO.flatMap(({ recette }) => recette ?? []),
+            },
+          },
+          select: { id: true, title: true },
+        })
+      ).map(({ id, title }) => [title, id]),
+    );
+
+    await prisma.mealPlanEntry.createMany({
+      data: REPAS_DE_DEMO.map((repas) => ({
+        scopeId: ID_ESPACE_FOYER,
+        mealPlanId: planning.id,
+        day: enDate(jourApres(lundi, repas.jour)),
+        moment: repas.moment,
+        recipeId: repas.recette ? recetteDe(repas.recette, recettes) : null,
+        title: repas.intitule ?? null,
+        participantIds: repas.seul
+          ? [premier.id]
+          : [...new Set([premier.id, second.id])],
+        guestCount: repas.invites ?? 0,
+        decision: 'APPROVED' as const,
+      })),
+    });
+  });
+}
+
+function recetteDe(titre: string, ids: ReadonlyMap<string, string>): string {
+  const id = ids.get(titre);
+  if (!id) {
+    throw new Error(
+      `${titre} manque aux recettes : semerLaCuisine passe avant le planning.`,
+    );
+  }
+  return id;
+}
+
+// Un jour civil s'écrit à minuit UTC dans une colonne `date`, qui n'a pas de
+// fuseau : il en ressort tel qu'il est entré.
+function enDate(jour: string): Date {
+  return new Date(`${jour}T00:00:00Z`);
+}
+
+function jourApres(lundi: string, decalage: number): string {
+  const jour = enDate(lundi);
+  jour.setUTCDate(jour.getUTCDate() + decalage);
+  return jour.toISOString().slice(0, 10);
 }

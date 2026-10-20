@@ -32,6 +32,8 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
       'foodPreferences',
       'recipes',
       'recipeLines',
+      'mealPlans',
+      'mealPlanEntries',
     ],
   };
 
@@ -68,6 +70,8 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'foodPreferences',
     'recipes',
     'recipeLines',
+    'mealPlans',
+    'mealPlanEntries',
   ],
 };
 
