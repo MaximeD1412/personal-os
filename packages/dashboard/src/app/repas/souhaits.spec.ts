@@ -318,6 +318,49 @@ describe('Les Souhaits de la semaine', () => {
     expect(trouver(el(), 'ignores').textContent).toContain('recipeId=inconnue');
   });
 
+  it('dit pourquoi la Recette du lien n’a pas pu être lue, et relance sa lecture', async () => {
+    const ouvert = await ouvrirLePlanning(
+      `/repas/planning?semaine=${LUNDI}&recipeId=${OMELETTE.id}`,
+    );
+    const { el, http, harness } = ouvert;
+    http.expectOne(`${BASE}/household`).flush(FOYER);
+    http
+      .expectOne((requete) => requete.url === `${BASE}/meal-plans`)
+      .flush(PLANNING);
+    souhaitsDe(ouvert, LUNDI).flush(SOUHAITS);
+    TestBed.tick();
+    http.expectOne(`${BASE}/recipes/${OMELETTE.id}`).flush(
+      {
+        status: 503,
+        code: 'service.unavailable',
+        message: 'Le service est momentanément indisponible.',
+      },
+      { status: 503, statusText: 'Service Unavailable' },
+    );
+    http
+      .expectOne((requete) => requete.url === `${BASE}/recipes`)
+      .flush([DAHL, OMELETTE]);
+    await harness.fixture.whenStable();
+
+    expect(trouver(el(), 'ignores')).toBeNull();
+    const proposee = trouver(el(), 'proposee');
+    expect(proposee.textContent).toContain(
+      'Le service est momentanément indisponible.',
+    );
+
+    const reessayer = [...proposee.querySelectorAll('button')].find((bouton) =>
+      bouton.textContent?.includes('Réessayer'),
+    );
+    reessayer?.click();
+    TestBed.tick();
+    http.expectOne(`${BASE}/recipes/${OMELETTE.id}`).flush(OMELETTE);
+    await harness.fixture.whenStable();
+
+    expect(trouver(el(), 'recette-proposee').textContent).toContain(
+      OMELETTE.title,
+    );
+  });
+
   it('ne dépose pas une envie vide', async () => {
     const { el, http } = await ouvrir();
 

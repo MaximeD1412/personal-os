@@ -34,7 +34,7 @@ import { HlmInputImports } from '@personal-os/ui/input';
 import { showToast } from '@personal-os/ui/sonner';
 import { HlmToggleGroupImports } from '@personal-os/ui/toggle-group';
 import * as z from 'zod';
-import type { ErreurApi } from '../erreur-api.interceptor';
+import { ErreurApi } from '../erreur-api.interceptor';
 import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { MealWishService } from './meal-wish.service';
 import { RecipeService } from './recipe.service';
@@ -146,8 +146,8 @@ export class SouhaitsDeLaSemaine {
     this.catalogue.hasValue() ? this.catalogue.value() : [],
   );
   /** La Recette que le lien propose, lue pour la nommer ; déposée, elle part. */
-  private readonly idProposee = signal(this.prefill.valeurs.recipeId ?? null);
-  private readonly lectureDeLaProposee = this.recettes.recette(() =>
+  protected readonly idProposee = signal(this.prefill.valeurs.recipeId ?? null);
+  protected readonly lectureDeLaProposee = this.recettes.recette(() =>
     this.idProposee(),
   );
   protected readonly proposee = computed(() =>
@@ -155,12 +155,21 @@ export class SouhaitsDeLaSemaine {
       ? (this.lectureDeLaProposee.value() ?? null)
       : null,
   );
+  /**
+   * Seul un 404 dit que la Recette du lien n'existe pas : une autre erreur
+   * s'affiche telle quelle, et sa lecture se relance.
+   */
+  protected readonly proposeeInconnue = computed(() => {
+    const erreur = this.lectureDeLaProposee.error();
+    return erreur instanceof ErreurApi && erreur.status === 404;
+  });
+  protected readonly etatDeLaProposee = computed(() =>
+    stateOf(this.lectureDeLaProposee, () => false),
+  );
   /** Les valeurs du lien écartées : par le contrat, ou une Recette inconnue. */
   protected readonly ignores = computed(() => [
     ...this.prefill.ignores,
-    ...(this.lectureDeLaProposee.error()
-      ? [`recipeId=${this.idProposee()}`]
-      : []),
+    ...(this.proposeeInconnue() ? [`recipeId=${this.idProposee()}`] : []),
   ]);
   /** Les Recettes déjà souhaitées pour la semaine : on ne les redemande pas. */
   protected readonly dejaSouhaitees = computed(

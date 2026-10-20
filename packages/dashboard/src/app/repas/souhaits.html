@@ -81,29 +81,41 @@
           <ng-icon name="matAddOutline" aria-hidden="true" />
         </button>
       </form>
-      } @else { @if (proposee(); as recette) {
-      <button
-        dccmListRow
-        type="button"
-        data-test="recette-proposee"
-        selected
-        [label]="recette.title"
-        [meta]="
+      } @else { @if (idProposee() && !proposeeInconnue()) {
+      <dccm-state
+        data-test="proposee"
+        [status]="etatDeLaProposee()"
+        [error]="lectureDeLaProposee.error()"
+        [rows]="1"
+        loadingLabel="Lecture de la recette proposée…"
+        errorHeading="La recette proposée n'a pas pu être lue"
+        (retry)="lectureDeLaProposee.reload()"
+      >
+        @if (proposee(); as recette) {
+        <button
+          dccmListRow
+          type="button"
+          data-test="recette-proposee"
+          selected
+          [label]="recette.title"
+          [meta]="
           dejaSouhaitees().has(recette.id)
             ? 'Déjà souhaitée cette semaine'
             : 'Proposée par le lien : souhaiter cette recette'
         "
-        [disabled]="envoi() || dejaSouhaitees().has(recette.id)"
-        (click)="deposerLaRecette(recette.id)"
-      >
-        @if (!dejaSouhaitees().has(recette.id)) {
-        <ng-icon
-          name="matAddOutline"
-          class="icon-sm text-primary"
-          aria-hidden="true"
-        />
+          [disabled]="envoi() || dejaSouhaitees().has(recette.id)"
+          (click)="deposerLaRecette(recette.id)"
+        >
+          @if (!dejaSouhaitees().has(recette.id)) {
+          <ng-icon
+            name="matAddOutline"
+            class="icon-sm text-primary"
+            aria-hidden="true"
+          />
+          }
+        </button>
         }
-      </button>
+      </dccm-state>
       }
       <div hlmInputGroup>
         <ng-icon name="matSearchOutline" aria-hidden="true" />
