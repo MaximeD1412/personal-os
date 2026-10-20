@@ -14,7 +14,10 @@ const ECRANS = [
   'categories-d-evenement.ts',
   'formulaire-d-evenement.ts',
   'formulaire-d-evenement.html',
+  'formulaire-d-occurrence.ts',
+  'formulaire-d-occurrence.html',
   'modules-d-origine.ts',
+  'saisie-de-recurrence.ts',
 ];
 
 const INTERDITS: [string, RegExp][] = [

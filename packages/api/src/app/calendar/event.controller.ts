@@ -17,6 +17,8 @@ import {
   EventInputDto,
   EventListQueryDto,
   EventOccurrenceDto,
+  EventOccurrenceRefDto,
+  EventOccurrenceUpdateDto,
   EventUpdateDto,
 } from './event.dto';
 import { EventService } from './event.service';
@@ -42,6 +44,13 @@ export class EventController {
     return this.evenements.lister(periode);
   }
 
+  /** L'Événement lui-même : pour une série, sa règle et ses valeurs, sans exception. */
+  @Get(':id')
+  @ZodResponse({ status: 200, type: EventDto })
+  lire(@Param('id') id: string) {
+    return this.evenements.lire(id);
+  }
+
   @Post()
   @ZodResponse({ status: 201, type: EventDto })
   creer(@Body() saisie: EventInputDto) {
@@ -59,5 +68,28 @@ export class EventController {
   @ApiNoContentResponse()
   supprimer(@Param('id') id: string): Promise<void> {
     return this.evenements.supprimer(id);
+  }
+
+  /**
+   * Une seule occurrence d'une série : une exception la modifie, et la règle
+   * ne change pas. `PATCH /events/:id` agit, lui, sur toute la série.
+   */
+  @Patch(':id/occurrences/:originalStart')
+  @ZodResponse({ status: 200, type: EventOccurrenceDto })
+  modifierLOccurrence(
+    @Param() occurrence: EventOccurrenceRefDto,
+    @Body() saisie: EventOccurrenceUpdateDto,
+  ) {
+    return this.evenements.modifierLOccurrence(occurrence, saisie);
+  }
+
+  /** Une seule occurrence d'une série : une exception la supprime. */
+  @Delete(':id/occurrences/:originalStart')
+  @HttpCode(204)
+  @ApiNoContentResponse()
+  supprimerLOccurrence(
+    @Param() occurrence: EventOccurrenceRefDto,
+  ): Promise<void> {
+    return this.evenements.supprimerLOccurrence(occurrence);
   }
 }

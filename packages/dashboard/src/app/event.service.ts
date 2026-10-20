@@ -9,6 +9,8 @@ import type {
   EventInput,
   EventListQuery,
   EventOccurrence,
+  EventOccurrenceRef,
+  EventOccurrenceUpdate,
   EventUpdate,
 } from '@personal-os/contracts';
 import type { Observable } from 'rxjs';
@@ -34,6 +36,17 @@ export class EventService {
     );
   }
 
+  /**
+   * Un Événement lui-même : pour une série, ses valeurs et sa règle, sans les
+   * exceptions de ses occurrences. Rien n'est lu tant qu'aucun n'est visé.
+   */
+  evenement(id: () => string | null): HttpResourceRef<Event | undefined> {
+    return httpResource<Event>(() => {
+      const vise = id();
+      return vise ? `${this.baseUrl}/events/${vise}` : undefined;
+    });
+  }
+
   creer(saisie: EventInput): Observable<Event> {
     return this.http.post<Event>(`${this.baseUrl}/events`, saisie);
   }
@@ -44,5 +57,25 @@ export class EventService {
 
   supprimer(id: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/events/${id}`);
+  }
+
+  /** Une seule occurrence d'une série : la règle ne change pas. */
+  modifierLOccurrence(
+    { id, originalStart }: EventOccurrenceRef,
+    changements: EventOccurrenceUpdate,
+  ): Observable<EventOccurrence> {
+    return this.http.patch<EventOccurrence>(
+      `${this.baseUrl}/events/${id}/occurrences/${originalStart}`,
+      changements,
+    );
+  }
+
+  supprimerLOccurrence({
+    id,
+    originalStart,
+  }: EventOccurrenceRef): Observable<void> {
+    return this.http.delete<void>(
+      `${this.baseUrl}/events/${id}/occurrences/${originalStart}`,
+    );
   }
 }

@@ -54,13 +54,24 @@ export interface DccmScopeOptions {
   seriesDescription?: string;
 }
 
-interface DccmScopeOption {
-  value: DccmScope;
+/** Une option d'un choix : sa valeur, son nom, et ce qu'elle entraîne. */
+export interface DccmChoice<T extends string> {
+  value: T;
   label: string;
   description: string;
 }
 
-type Contexte = DccmConfirmOptions & { scopes?: DccmScopeOption[] };
+/** Un choix parmi plusieurs options, posé avant d'aller plus loin. */
+export interface DccmChooseOptions<T extends string> extends DccmConfirmOptions {
+  /** Le nom du groupe d'options, pour les lecteurs d'écran. */
+  choicesLabel: string;
+  choices: readonly DccmChoice<T>[];
+}
+
+type Contexte = DccmConfirmOptions & {
+  choicesLabel?: string;
+  choices?: readonly DccmChoice<string>[];
+};
 
 /** Le dialogue que `DccmConfirm` ouvre : une modale, rôle `alertdialog`. */
 @Component({
@@ -85,9 +96,9 @@ type Contexte = DccmConfirmOptions & { scopes?: DccmScopeOption[] };
         <p hlmAlertDialogDescription>{{ _options.description }}</p>
       }
     </hlm-alert-dialog-header>
-    @if (_options.scopes; as scopes) {
-      <div hlmDialogBody role="radiogroup" aria-label="Portée de l'action">
-        @for (option of scopes; track option.value) {
+    @if (_options.choices; as choices) {
+      <div hlmDialogBody role="radiogroup" [attr.aria-label]="_options.choicesLabel">
+        @for (option of choices; track option.value) {
           <label
             class="flex cursor-pointer items-start gap-space-sm rounded border border-surface-container-highest p-space-md has-checked:border-primary-40 has-checked:bg-primary-10 has-focus-visible:border-primary has-focus-visible:ring-2 has-focus-visible:ring-primary-20"
           >
@@ -96,7 +107,7 @@ type Contexte = DccmConfirmOptions & { scopes?: DccmScopeOption[] };
               name="dccm-confirm-portee"
               class="mt-0.5 size-4 shrink-0 accent-primary outline-none"
               [value]="option.value"
-              (change)="_portee.set(option.value)"
+              (change)="_choix.set(option.value)"
             />
             <span class="flex flex-col gap-0.5">
               <span class="text-title-sm text-on-surface">{{ option.label }}</span>
@@ -125,12 +136,12 @@ type Contexte = DccmConfirmOptions & { scopes?: DccmScopeOption[] };
   `,
 })
 export class DccmConfirmDialog {
-  protected readonly _ref = inject<BrnDialogRef<true | DccmScope>>(BrnDialogRef);
+  protected readonly _ref = inject<BrnDialogRef<true | string>>(BrnDialogRef);
   protected readonly _options = injectBrnDialogContext<Contexte>();
-  /** Le choix de portée : aucun par défaut, l'utilisateur choisit toujours. */
-  protected readonly _portee = signal<DccmScope | null>(null);
+  /** L'option choisie : aucune par défaut, l'utilisateur choisit toujours. */
+  protected readonly _choix = signal<string | null>(null);
   protected readonly _pret = computed(
-    () => !this._options.scopes || this._portee() !== null,
+    () => !this._options.choices || this._choix() !== null,
   );
 
   constructor() {
@@ -138,9 +149,9 @@ export class DccmConfirmDialog {
   }
 
   protected _confirmer(): void {
-    const portee = this._portee();
-    if (this._options.scopes) {
-      if (portee) this._ref.close(portee);
+    const choix = this._choix();
+    if (this._options.choices) {
+      if (choix) this._ref.close(choix);
     } else {
       this._ref.close(true);
     }
@@ -165,6 +176,15 @@ export class DccmConfirm {
   }
 
   /**
+   * Un choix parmi plusieurs options, sans option par défaut : l'action
+   * principale reste inactive tant qu'il n'est pas fait. Renvoie la valeur
+   * choisie, ou `null` à l'annulation.
+   */
+  choose<T extends string>(options: DccmChooseOptions<T>): Promise<T | null> {
+    return this._ouvrir<T>(options);
+  }
+
+  /**
    * Le choix « Cette occurrence uniquement » / « Toute la série », sans option
    * par défaut : l'action principale reste inactive tant qu'il n'est pas fait.
    */
@@ -174,9 +194,10 @@ export class DccmConfirm {
       seriesDescription = 'Toutes les occurrences de la série changent.',
       ...question
     } = options;
-    return this._ouvrir<DccmScope>({
+    return this.choose<DccmScope>({
       ...question,
-      scopes: [
+      choicesLabel: "Portée de l'action",
+      choices: [
         {
           value: 'occurrence',
           label: 'Cette occurrence uniquement',
