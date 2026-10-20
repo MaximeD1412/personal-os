@@ -380,7 +380,7 @@
       "gravite": "moyenne",
       "titre": "Une conversion approximative fausse la liste de courses",
       "statut": "implémenté",
-      "statutDepuis": "2026-10-19",
+      "statutDepuis": "2026-10-20",
       "solutions": [
         {
           "texte": "Le convertisseur échoue explicitement plutôt que d'approximer",
