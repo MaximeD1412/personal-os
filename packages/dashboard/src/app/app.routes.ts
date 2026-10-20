@@ -5,10 +5,6 @@ import { FormulaireDEvenement } from './formulaire-d-evenement';
 import { FormulaireDOccurrence } from './formulaire-d-occurrence';
 import { FormulaireDePreference } from './foyer/preference-form';
 import { Preferences } from './foyer/preferences';
-import { FormulaireDeDepense } from './projets/expense-form';
-import { FicheDeProjet } from './projets/project-detail';
-import { FormulaireDeProjet } from './projets/project-form';
-import { Projets } from './projets/projects';
 import { FicheDIngredient } from './repas/ingredient-detail';
 import { FormulaireDIngredient } from './repas/ingredient-form';
 import { Ingredients } from './repas/ingredients';
@@ -56,12 +52,32 @@ export const appRoutes: Route[] = [
   // prérempli par sa requête (ADR 0030).
   { path: 'foyer/preferences', component: Preferences },
   { path: 'foyer/preferences/nouvelle', component: FormulaireDePreference },
-  // Les Projets de l'Espace personnel. Les formulaires sont adressables et
-  // préremplis par leur requête (ADR 0030) ; « nouveau » passe avant
-  // l'identifiant.
-  { path: 'projets', component: Projets },
-  { path: 'projets/nouveau', component: FormulaireDeProjet },
-  { path: 'projets/:id', component: FicheDeProjet },
-  { path: 'projets/:id/modifier', component: FormulaireDeProjet },
-  { path: 'projets/:id/depenses/nouvelle', component: FormulaireDeDepense },
+  // Les Projets de l'Espace personnel, chargés à la demande : le rendu du
+  // markdown n'alourdit pas le bundle initial. Les formulaires sont
+  // adressables et préremplis par leur requête (ADR 0030) ; « nouveau »
+  // passe avant l'identifiant.
+  {
+    path: 'projets',
+    loadComponent: async () => (await import('./projets/projects')).Projets,
+  },
+  {
+    path: 'projets/nouveau',
+    loadComponent: async () =>
+      (await import('./projets/project-form')).FormulaireDeProjet,
+  },
+  {
+    path: 'projets/:id',
+    loadComponent: async () =>
+      (await import('./projets/project-detail')).FicheDeProjet,
+  },
+  {
+    path: 'projets/:id/modifier',
+    loadComponent: async () =>
+      (await import('./projets/project-form')).FormulaireDeProjet,
+  },
+  {
+    path: 'projets/:id/depenses/nouvelle',
+    loadComponent: async () =>
+      (await import('./projets/expense-form')).FormulaireDeDepense,
+  },
 ];
