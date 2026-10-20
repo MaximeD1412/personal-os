@@ -78,7 +78,7 @@ describe('La Présentation publique d’un Projet', () => {
   });
 
   it('enregistre un texte sans le publier, puis le marque prêt', async () => {
-    const { harness, http, el } = await ouvrir(
+    const { harness, http, el, confirmations } = await ouvrir(
       '/projets/projet-1/presentation',
       [],
     );
@@ -112,6 +112,9 @@ describe('La Présentation publique d’un Projet', () => {
     (partie(en, 'marquer-pret') as HTMLButtonElement).click();
     await harness.fixture.whenStable();
 
+    expect(confirmations.map(({ title }) => title)).toEqual([
+      'Marquer le texte en anglais prêt à publier ?',
+    ]);
     const pret = http.expectOne(`${PRESENTATIONS}/EN/ready`);
     expect(pret.request.method).toBe('POST');
     pret.flush({
@@ -165,6 +168,65 @@ describe('La Présentation publique d’un Projet', () => {
       title: 'Dépublier le texte en français ?',
       destructive: true,
     });
+  });
+
+  it('ne marque rien prêt ni ne repasse rien en non publié sans confirmation', async () => {
+    const { harness, el, confirmations } = await ouvrir(
+      '/projets/projet-1/presentation',
+      [
+        { ...RELIURE_EN_LIGNE, publicationState: 'READY', publishedAt: null },
+        {
+          ...RELIURE_EN_LIGNE,
+          id: 'presentation-en',
+          lang: 'EN',
+          publicationState: 'UNPUBLISHED',
+          publishedAt: null,
+        },
+      ],
+      { confirme: false },
+    );
+
+    (
+      partie(carte(el(), 'FR'), 'repasser-en-non-publie') as HTMLButtonElement
+    ).click();
+    await harness.fixture.whenStable();
+    (partie(carte(el(), 'EN'), 'marquer-pret') as HTMLButtonElement).click();
+    await harness.fixture.whenStable();
+
+    // Aucune requête ne part : `verify()` le vérifie après le test.
+    expect(confirmations.map(({ title }) => title)).toEqual([
+      'Repasser le texte en français en non publié ?',
+      'Marquer le texte en anglais prêt à publier ?',
+    ]);
+  });
+
+  it('garde ce qu’on écrit pendant l’enregistrement', async () => {
+    const { harness, http, el } = await ouvrir(
+      '/projets/projet-1/presentation',
+      [RELIURE_EN_LIGNE],
+    );
+    const fr = carte(el(), 'FR');
+
+    saisir(fr, 'texte', 'Un texte relu.');
+    await harness.fixture.whenStable();
+    (partie(fr, 'enregistrer') as HTMLButtonElement).click();
+    const redaction = http.expectOne(`${PRESENTATIONS}/FR`);
+
+    // La réponse tarde, et l'on continue d'écrire.
+    saisir(fr, 'texte', 'Un texte relu, puis complété.');
+    redaction.flush({
+      ...RELIURE_EN_LIGNE,
+      body: 'Un texte relu.',
+      publicationState: 'READY',
+      publishedAt: null,
+    } satisfies PublicPresentation);
+    await harness.fixture.whenStable();
+
+    expect((partie(fr, 'texte') as HTMLTextAreaElement).value).toBe(
+      'Un texte relu, puis complété.',
+    );
+    expect(partie(fr, 'a-enregistrer')).not.toBeNull();
+    expect(texte(partie(fr, 'etat'))).toBe('Prêt à publier');
   });
 
   it('ne propose aucune transition tant que le texte modifié n’est pas enregistré', async () => {

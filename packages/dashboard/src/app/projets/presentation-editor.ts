@@ -57,7 +57,7 @@ const EN_TOUTES_LETTRES: Readonly<Record<Lang, string>> = {
  * La Présentation publique d'un Projet dans une langue : son texte, son État
  * de publication et les transitions qu'il accepte. « Enregistrer » ne change
  * jamais l'état, sauf pour retirer du portfolio un texte publié qu'on
- * modifie ; publier ou dépublier se confirme. Une transition n'est offerte
+ * modifie ; chaque transition se confirme. Une transition n'est offerte
  * qu'une fois le texte enregistré : on ne publie jamais autre chose que ce
  * qu'on lit.
  */
@@ -165,14 +165,24 @@ export class EditeurDePresentation {
 
   protected enregistrer(): void {
     const avant = this.presentation()?.publicationState;
+    const envoye: PublicPresentationInput = {
+      title: this.titre(),
+      summary: this.accroche(),
+      body: this.texte(),
+    };
     this.envoyer(
-      this.service.rediger(this.projectId(), this.lang(), {
-        title: this.titre(),
-        summary: this.accroche(),
-        body: this.texte(),
-      }),
+      this.service.rediger(this.projectId(), this.lang(), envoye),
       (presentation) => {
-        this.remplir(presentation);
+        // Le texte rendu (rogné par l'API) ne remplace que les champs restés
+        // tels qu'envoyés : ce qu'on a écrit pendant l'envoi reste à enregistrer.
+        this.remplir({
+          title: this.titre() === envoye.title ? presentation.title : undefined,
+          summary:
+            this.accroche() === envoye.summary
+              ? presentation.summary
+              : undefined,
+          body: this.texte() === envoye.body ? presentation.body : undefined,
+        });
         showToast({
           message:
             avant === 'PUBLISHED' && presentation.publicationState === 'READY'
@@ -196,8 +206,16 @@ export class EditeurDePresentation {
     );
   }
 
-  /** Publier et dépublier changent ce que voit Internet : ils se confirment. */
+  /** Toute transition se confirme ; dépublier un texte en ligne est destructif. */
   private async confirmer(transition: PublicationTransition): Promise<boolean> {
+    if (transition === 'ready') {
+      return !!(await this.confirmation.confirm({
+        title: `Marquer le texte ${this.enLettres()} prêt à publier ?`,
+        description:
+          'Il pourra être publié sur le portfolio. Rien n’y apparaît encore.',
+        confirmLabel: 'Marquer prêt',
+      }));
+    }
     if (transition === 'publish') {
       return !!(await this.confirmation.confirm({
         title: `Publier le texte ${this.enLettres()} ?`,
@@ -215,7 +233,12 @@ export class EditeurDePresentation {
         destructive: true,
       }));
     }
-    return true;
+    return !!(await this.confirmation.confirm({
+      title: `Repasser le texte ${this.enLettres()} en non publié ?`,
+      description:
+        'Il ne pourra être publié qu’une fois de nouveau marqué prêt.',
+      confirmLabel: 'Repasser en non publié',
+    }));
   }
 
   private envoyer(

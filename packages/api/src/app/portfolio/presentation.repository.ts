@@ -55,25 +55,28 @@ export class PresentationRepository {
   }
 
   /**
-   * Une présentation nouvelle part de « non publié ». Deux premières
-   * rédactions simultanées ne font qu'une présentation : la seconde modifie le
-   * texte de la première.
+   * Une présentation nouvelle part de « non publié ». Si une rédaction
+   * concurrente l'a créée entre-temps, rien ne s'écrit et rien ne se rend :
+   * le texte passe alors par `modifier`, qui tient compte de son état.
    */
   async creer(
     projet: { id: string; scopeId: string },
     lang: Lang,
     texte: PresentationText,
-  ): Promise<PresentationRecord> {
-    return this.prisma.publicPresentation.upsert({
-      where: { projectId_lang: { projectId: projet.id, lang } },
-      create: {
-        scopeId: projet.scopeId,
-        projectId: projet.id,
-        lang,
-        ...texte,
-      },
-      update: texte,
-    });
+  ): Promise<PresentationRecord | null> {
+    try {
+      return await this.prisma.publicPresentation.create({
+        data: {
+          scopeId: projet.scopeId,
+          projectId: projet.id,
+          lang,
+          ...texte,
+        },
+      });
+    } catch (erreur) {
+      if (codePrisma(erreur) === 'P2002') return null;
+      throw erreur;
+    }
   }
 
   /**
@@ -99,4 +102,14 @@ export class PresentationRepository {
       ? this.prisma.publicPresentation.findUnique({ where: { id } })
       : null;
   }
+}
+
+/** Le code d'une erreur connue de Prisma, s'il en a un. */
+export function codePrisma(erreur: unknown): string | undefined {
+  return typeof erreur === 'object' &&
+    erreur !== null &&
+    'code' in erreur &&
+    typeof erreur.code === 'string'
+    ? erreur.code
+    : undefined;
 }

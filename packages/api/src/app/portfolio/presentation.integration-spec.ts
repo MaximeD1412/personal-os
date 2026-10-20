@@ -20,6 +20,7 @@ import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
 import { accepterLesCorpsJson } from '../../corps';
 import { AppModule } from '../app.module';
+import { PresentationRepository } from './presentation.repository';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
 const DASHBOARD_URL = 'http://app.exemple.test/';
@@ -147,6 +148,31 @@ describe('Présentations publiques', () => {
 
       const republiee = await transition(jeu.a, projet.id, 'FR', 'publish');
       expect(republiee.publicationState).toBe('PUBLISHED');
+    });
+
+    it('retire du portfolio le texte publié entre-temps par une première rédaction concurrente', async () => {
+      const projet = await creerUnProjet(
+        jeu.a,
+        'Rédaction : création concurrente',
+      );
+      await rediger(jeu.a, projet.id, 'FR');
+      await transition(jeu.a, projet.id, 'FR', 'ready');
+      await transition(jeu.a, projet.id, 'FR', 'publish');
+      // Cette rédaction a lu la langue vide, avant que l'autre la crée et la
+      // publie : elle écrit après coup.
+      jest
+        .spyOn(app.get(PresentationRepository), 'lire')
+        .mockResolvedValueOnce(null);
+
+      const ecrite = await rediger(jeu.a, projet.id, 'FR', {
+        body: 'Un texte écrit en même temps.',
+      });
+
+      expect(ecrite).toMatchObject({
+        body: 'Un texte écrit en même temps.',
+        publicationState: 'READY',
+        publishedAt: null,
+      });
     });
 
     it('laisse en ligne une présentation publiée renvoyée à l’identique', async () => {
@@ -384,6 +410,31 @@ describe('Présentations publiques', () => {
       });
     });
 
+    it('refuse en 422 une présentation déjà publiée, sans la redater', async () => {
+      const projet = await creerUnProjet(jeu.a, 'Publication : déjà publiée');
+      await rediger(jeu.a, projet.id, 'FR');
+      await transition(jeu.a, projet.id, 'FR', 'ready');
+      const publiee = await transition(jeu.a, projet.id, 'FR', 'publish');
+
+      await request(app.getHttpServer())
+        .post(`/api/projects/${projet.id}/presentations/FR/publish`)
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('portfolio.not_ready'));
+
+      expect((await lister(jeu.a, projet.id))[0]).toEqual(publiee);
+    });
+
+    it('refuse en 400 une langue inconnue', async () => {
+      const projet = await creerUnProjet(jeu.a, 'Publication : langue');
+
+      await request(app.getHttpServer())
+        .post(`/api/projects/${projet.id}/presentations/de/publish`)
+        .set('Cookie', jeu.a.session)
+        .expect(400)
+        .expect(champsEnErreur(['lang']));
+    });
+
     it("rend 404 sur la présentation de l'autre Compte, et ne la publie pas", async () => {
       const deB = await creerUnProjet(jeu.b, 'Publication : Projet de B');
       await rediger(jeu.b, deB.id, 'FR');
@@ -434,6 +485,16 @@ describe('Présentations publiques', () => {
         .set('Cookie', jeu.a.session)
         .expect(422)
         .expect(codeDErreur('portfolio.already_unpublished'));
+    });
+
+    it('refuse en 400 une langue inconnue', async () => {
+      const projet = await creerUnProjet(jeu.a, 'Dépublication : langue');
+
+      await request(app.getHttpServer())
+        .post(`/api/projects/${projet.id}/presentations/EN-us/unpublish`)
+        .set('Cookie', jeu.a.session)
+        .expect(400)
+        .expect(champsEnErreur(['lang']));
     });
 
     it("rend 404 sur la présentation de l'autre Compte, et la laisse en ligne", async () => {

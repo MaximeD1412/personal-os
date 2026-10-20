@@ -10,6 +10,7 @@ import {
 } from '@personal-os/contracts';
 import { ErreurMetier, Introuvable } from '../erreurs/erreur-metier';
 import {
+  codePrisma,
   PresentationRepository,
   type PresentationRecord,
   type PresentationText,
@@ -58,11 +59,11 @@ export class PresentationService {
 
     const actuelle = await this.repository.lire(projectId, lang);
     if (!actuelle) {
-      return exposer(
-        await projetIntrouvableSinon(
-          this.repository.creer(projet, lang, texte),
-        ),
+      const creee = await projetIntrouvableSinon(
+        this.repository.creer(projet, lang, texte),
       );
+      // Créée entre-temps par une autre rédaction : on reprend sur son état.
+      return creee ? exposer(creee) : this.rediger(projectId, lang, saisie);
     }
     if (memeTexte(actuelle, texte)) {
       return exposer(actuelle);
@@ -142,12 +143,7 @@ async function projetIntrouvableSinon<T>(operation: Promise<T>): Promise<T> {
   try {
     return await operation;
   } catch (erreur) {
-    if (
-      typeof erreur === 'object' &&
-      erreur !== null &&
-      'code' in erreur &&
-      erreur.code === 'P2003'
-    ) {
+    if (codePrisma(erreur) === 'P2003') {
       throw projetIntrouvable();
     }
     throw erreur;
