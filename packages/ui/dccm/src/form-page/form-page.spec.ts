@@ -149,6 +149,9 @@ describe('DccmFormPage', () => {
             (cancelled)="ouverte.set(false)"
           >
             <input data-test="titre" name="titre" />
+            <button type="button" data-test="liste" aria-expanded="true">
+              Rappel
+            </button>
           </dccm-form-page>
         }
       `,
@@ -230,6 +233,20 @@ describe('DccmFormPage', () => {
 
       expect(feuille()).toBeNull();
       expect(document.activeElement).toBe(declencheur);
+    });
+
+    it("laisse Échap à la liste ouverte qu'elle contient", async () => {
+      const { fixture, feuille } = await ouvrir();
+      const liste = feuille()?.querySelector(
+        '[data-test="liste"]',
+      ) as HTMLElement;
+
+      liste.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      await fixture.whenStable();
+
+      expect(feuille()).not.toBeNull();
     });
 
     it("ne piège rien en panneau, à côté d'une liste qui reste utilisable", async () => {

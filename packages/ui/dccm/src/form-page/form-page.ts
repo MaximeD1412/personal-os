@@ -68,7 +68,7 @@ let prochainId = 0;
     '[attr.role]': '_role()',
     '[attr.aria-modal]': "presentation() === 'sheet' ? 'true' : null",
     '[attr.aria-labelledby]': "presentation() === 'page' ? null : _idTitre",
-    '(keydown.escape)': '_echap()',
+    '(keydown.escape)': '_echap($event)',
   },
   template: `
     @if (presentation() === 'page') {
@@ -237,10 +237,19 @@ export class DccmFormPage {
     });
   }
 
-  protected _echap(): void {
-    if (this.presentation() === 'sheet') {
-      this.cancelled.emit();
+  /**
+   * Échap ferme la feuille, sauf quand il revient d'abord à ce qu'elle
+   * contient d'ouvert : la liste d'un `hlm-select` garde le focus sur son
+   * déclencheur (`aria-expanded="true"`) et se ferme par la surcouche du CDK,
+   * à l'écoute sur le `body`, donc après la feuille.
+   */
+  protected _echap(evenement: Event): void {
+    if (this.presentation() !== 'sheet' || evenement.defaultPrevented) return;
+    const cible = evenement.target;
+    if (cible instanceof Element && cible.closest('[aria-expanded="true"]')) {
+      return;
     }
+    this.cancelled.emit();
   }
 
   private _pieger(): void {

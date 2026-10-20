@@ -15,7 +15,11 @@ import {
   type Scope,
 } from '@personal-os/contracts';
 import { fenetreDe } from '../testing/largeur';
-import { choisirDansLeSelect, valeurAffichee } from '../testing/hlm-select';
+import {
+  choisirDansLeSelect,
+  ouvrirLeSelect,
+  valeurAffichee,
+} from '../testing/hlm-select';
 import { API_BASE_URL } from './api-base-url';
 import { INTERCEPTEURS } from './app.config';
 import { appRoutes } from './app.routes';
@@ -580,6 +584,33 @@ describe('Calendrier', () => {
       expect(url()).toBe('/calendrier?mois=2026-09');
       expect(formulaire(harnais)).toBeNull();
       expect(document.activeElement).toBe(declencheur);
+      racine(harnais).remove();
+    });
+
+    it('laisse Échap fermer la liste du rappel avant la feuille, saisie gardée', async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/nouveau?mois=2026-09',
+        { largeur: 1024 },
+      );
+      document.body.appendChild(racine(harnais));
+      saisir(harnais, 'titre', 'Vaccin');
+
+      expect(await ouvrirLeSelect(harnais.fixture, 'rappel')).not.toEqual([]);
+      const declencheurDuRappel = champ(harnais, 'rappel').querySelector(
+        '[data-slot="select-trigger"]',
+      ) as HTMLElement;
+      declencheurDuRappel.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      await laisserFiler();
+      harnais.detectChanges();
+
+      expect(document.querySelectorAll('[data-slot="select-item"]')).toHaveLength(
+        0,
+      );
+      expect(url()).toBe('/calendrier/evenements/nouveau?mois=2026-09');
+      expect(formulaire(harnais)).not.toBeNull();
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Vaccin');
       racine(harnais).remove();
     });
 
