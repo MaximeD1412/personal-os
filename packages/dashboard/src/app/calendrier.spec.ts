@@ -1089,6 +1089,33 @@ describe('Calendrier', () => {
       expect(url()).toBe('/calendrier?mois=2026-09');
       expect(formulaire(harnais)).toBeNull();
     });
+
+    it("ne garde rien de l'Événement précédent quand le suivant n'a pas pu être lu", async () => {
+      const harnais = await ouvrir('/calendrier/evenements/event-1?mois=2026-09');
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Dentiste');
+
+      await harnais.navigateByUrl('/calendrier/evenements/event-2?mois=2026-09');
+      await laisserFiler();
+      lectureDeLEvenement('event-2').flush(
+        {
+          status: 503,
+          code: 'database.unavailable',
+          message: 'La base de données ne répond pas.',
+        },
+        { status: 503, statusText: 'Service Unavailable' },
+      );
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
+
+      const panneau = formulaire(harnais) as HTMLElement;
+      expect(texte(panneau)).toContain('La base de données ne répond pas.');
+      expect(champ(harnais, 'titre')).toBeNull();
+      expect(champ(harnais, 'supprimer')).toBeNull();
+      expect(bouton(harnais, 'Enregistrer').disabled).toBe(true);
+      panneau.querySelector('form')?.requestSubmit();
+      await laisserFiler();
+      httpMock.expectNone(({ method }) => method !== 'GET');
+    });
   });
 
   describe("Le choix de portée, sur l'occurrence d'une série", () => {
@@ -1257,6 +1284,85 @@ describe('Calendrier', () => {
 
       expect(dialogue()).toBeNull();
       expect(url()).toBe('/calendrier?mois=2026-09');
+    });
+
+    it('reprend l’occurrence par son identité, quand une autre a été déplacée au même instant', async () => {
+      // Celle du 14, déplacée sur l'horaire de celle du 7.
+      const deplacee = occurrenceDe(PISCINE, {
+        originalStart: '2026-09-14T16:00:00.000Z',
+        title: 'Piscine déplacée',
+      });
+      const harnais = await ouvrir('/calendrier', {
+        evenements: [PISCINES[0], deplacee],
+      });
+
+      const pastille = [
+        ...caseDu(harnais, 'lundi 7 septembre 2026').querySelectorAll('a'),
+      ].find((lien) => texte(lien).includes('Piscine déplacée')) as HTMLElement;
+      await suivre(harnais, pastille);
+
+      expect(texte(dialogue())).toContain('Modifier « Piscine déplacée » ?');
+      await choisirLaPortee(harnais, 'Cette occurrence uniquement', 'Modifier');
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09',
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe(
+        'Piscine déplacée',
+      );
+    });
+
+    it("retrouve depuis l'Agenda l'occurrence par son début, seul connu de l'Agenda", async () => {
+      await ouvrir(
+        '/calendrier/evenements/event-serie?mois=2026-09&debut=2026-09-14T16:00:00.000Z',
+      );
+
+      expect(texte(dialogue())).toContain(
+        "Seule l'occurrence du lundi 14 septembre change",
+      );
+    });
+
+    it('garde le préremplissage du lien, quel que soit le choix', async () => {
+      const lien =
+        '/calendrier/evenements/event-serie?mois=2026-09&occurrence=2026-09-14T16:00:00.000Z&title=Aquagym';
+
+      let harnais = await ouvrir(`${lien}&category=SPORT`);
+      await choisirLaPortee(harnais, 'Cette occurrence uniquement', 'Modifier');
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09&title=Aquagym&category=SPORT',
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Aquagym');
+      // La catégorie est celle de la série : l'occurrence le dit, sans l'oublier.
+      expect(texte(champ(harnais, 'ignores'))).toContain('category=SPORT');
+
+      TestBed.resetTestingModule();
+      harnais = await ouvrir(lien);
+      await choisirLaPortee(harnais, 'Toute la série', 'Modifier');
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie?mois=2026-09&title=Aquagym',
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Aquagym');
+      expect(httpMock.match(() => true)).toEqual([]);
+    });
+
+    it("efface la fin propre d'une occurrence : elle reprend la durée de la série", async () => {
+      const longue = { ...PISCINES[1], endsAt: '2026-09-14T18:30:00.000Z' };
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09',
+        { evenements: [PISCINES[0], longue] },
+      );
+
+      saisir(harnais, 'fin', '');
+      await cliquer(harnais, bouton(harnais, 'Enregistrer'));
+
+      const exception = httpMock.expectOne(
+        ({ method, url }) =>
+          method === 'PATCH' &&
+          url ===
+            `${BASE}/events/event-serie/occurrences/2026-09-14T16:00:00.000Z`,
+      );
+      expect(exception.request.body).toEqual({ endsAt: null });
+      exception.flush(PISCINES[1]);
+      await relire(harnais);
     });
   });
 

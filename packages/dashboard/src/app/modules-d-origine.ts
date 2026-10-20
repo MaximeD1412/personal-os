@@ -31,11 +31,21 @@ export interface ModuleDOrigine {
 export const PARAMETRE_DE_MOIS = 'mois';
 
 /**
- * L'occurrence visée d'une série, par son début : le Calendrier la reprend
- * plutôt que la première du mois. Il est nommé ici plutôt que dans le
- * Calendrier, pour que le lien et l'écran qui le lit ne puissent pas diverger.
+ * L'occurrence visée d'une série, par son identité : l'instant où la règle la
+ * place (`originalStart`), qui ne bouge pas quand une exception la déplace.
+ * C'est ce que portent les pastilles du Calendrier. Il est nommé ici plutôt
+ * que dans le Calendrier, pour que le lien et l'écran qui le lit ne puissent
+ * pas diverger.
  */
 export const PARAMETRE_D_OCCURRENCE = 'occurrence';
+
+/**
+ * L'occurrence visée par son seul début affiché, faute de mieux : c'est tout
+ * ce que l'Agenda en connaît, son contrat ne portant que la période d'une
+ * entrée (ADR 0011). Deux occurrences d'une série au même instant y sont
+ * indiscernables ; c'est la première que le mois montre qui est reprise.
+ */
+export const PARAMETRE_DE_DEBUT = 'debut';
 
 /**
  * Le registre du tableau de bord : par où l'on retourne au module qui possède
@@ -52,7 +62,7 @@ const MODULES: Readonly<Record<string, ModuleDOrigine>> = {
       chemin: `/calendrier/evenements/${entree.sourceId}`,
       parametres: {
         [PARAMETRE_DE_MOIS]: moisDe(entree.startsAt),
-        [PARAMETRE_D_OCCURRENCE]: entree.startsAt,
+        [PARAMETRE_DE_DEBUT]: entree.startsAt,
       },
     }),
   },

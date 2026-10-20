@@ -42,6 +42,7 @@ import { erreursDeChamp, prefillDepuisRequete } from './formulaire';
 import { BUREAU, Largeur } from './largeur';
 import { MoisDuCalendrier } from './mois-du-calendrier';
 import {
+  PARAMETRE_DE_DEBUT,
   PARAMETRE_DE_MOIS,
   PARAMETRE_D_OCCURRENCE,
 } from './modules-d-origine';
@@ -95,10 +96,27 @@ const SAISIE_VIERGE: Saisie = {
   rappel: '',
 };
 
-/** L'Événement visé par l'URL : son identifiant, et l'occurrence ouverte. */
+/**
+ * L'Événement visé par l'URL : son identifiant, et l'occurrence ouverte —
+ * par son identité (`originalStart`, depuis le Calendrier) ou, faute de
+ * mieux, par son début (depuis l'Agenda).
+ */
 interface Cible {
   id: string | null;
   occurrence: string | null;
+  debut: string | null;
+}
+
+function designeUneOccurrence(cible: Cible): boolean {
+  return cible.occurrence !== null || cible.debut !== null;
+}
+
+function memeCible(gauche: Cible | null, droite: Cible): boolean {
+  return (
+    gauche?.id === droite.id &&
+    gauche.occurrence === droite.occurrence &&
+    gauche.debut === droite.debut
+  );
 }
 
 /**
@@ -107,10 +125,11 @@ interface Cible {
  * entière, quand l'Événement en est une. Il s'ouvre dans le Calendrier, en
  * panneau à partir de 1280 px et en feuille en dessous.
  *
- * Ouvert sur l'occurrence d'une série (`?occurrence=`, le lien d'une pastille
- * ou de l'Agenda), il demande d'abord ce que la modification touche, sans
- * choix par défaut : cette occurrence, que modifie son propre formulaire
- * (`FormulaireDOccurrence`), ou toute la série (AGENDA-2).
+ * Ouvert sur l'occurrence d'une série (`?occurrence=`, le lien d'une
+ * pastille, ou `?debut=`, celui de l'Agenda), il demande d'abord ce que la
+ * modification touche, sans choix par défaut : cette occurrence, que modifie
+ * son propre formulaire (`FormulaireDOccurrence`), ou toute la série
+ * (AGENDA-2). Le préremplissage suit le choix, d'un formulaire à l'autre.
  *
  * Il se préremplit depuis la requête (ADR 0030) : `title`, `startsAt`,
  * `endsAt`, `category`, `reminderLeadMinutes`, `scopeId`, validés par le
@@ -173,6 +192,7 @@ export class FormulaireDEvenement {
         ([parametres, requete]): Cible => ({
           id: parametres.get('id'),
           occurrence: requete.get(PARAMETRE_D_OCCURRENCE),
+          debut: requete.get(PARAMETRE_DE_DEBUT),
         }),
       ),
     ),
@@ -209,7 +229,16 @@ export class FormulaireDEvenement {
   private readonly prerempli = signal<Partial<EventInput>>({});
 
   /** L'Événement repris dans le formulaire, ou `null` quand on en crée un. */
-  protected readonly enEdition = signal<Event | null>(null);
+  private readonly enEdition = signal<Event | null>(null);
+  /**
+   * L'Événement repris, tant qu'il est celui que l'URL désigne. Le composant
+   * sert d'une pastille à l'autre : jusqu'à la lecture du suivant, le
+   * précédent ne se montre plus et ne reçoit aucune écriture.
+   */
+  protected readonly repris = computed(() => {
+    const evenement = this.enEdition();
+    return evenement && evenement.id === this.cible().id ? evenement : null;
+  });
   protected readonly saisie = signal<Saisie>({ ...SAISIE_VIERGE });
   protected readonly repetition = signal<SaisieDeRecurrence>(SANS_REPETITION);
 
@@ -224,7 +253,7 @@ export class FormulaireDEvenement {
   protected readonly choixAttendu = computed(() => {
     if (
       this.creation ||
-      this.cible().occurrence === null ||
+      !designeUneOccurrence(this.cible()) ||
       this.erreurDeLecture()
     ) {
       return false;
@@ -237,7 +266,7 @@ export class FormulaireDEvenement {
    * n'a pas pu l'être, rien ne se saisit ni ne s'enregistre.
    */
   protected readonly etatDeLaCible = computed((): DccmStateStatus => {
-    if (this.creation || this.enEdition()) {
+    if (this.creation || this.repris()) {
       return 'ready';
     }
     return this.erreurDeLecture() ? 'error' : 'loading';
@@ -252,7 +281,7 @@ export class FormulaireDEvenement {
     if (erreur && !estIntrouvable(erreur)) {
       return erreur;
     }
-    return this.cible().occurrence !== null
+    return designeUneOccurrence(this.cible())
       ? (this.calendrier.lecture.error() ?? null)
       : null;
   });
@@ -261,7 +290,7 @@ export class FormulaireDEvenement {
     if (this.creation) {
       return 'Nouvel événement';
     }
-    return this.enEdition()?.recurrence
+    return this.repris()?.recurrence
       ? 'Modifier la série'
       : "Modifier l'événement";
   });
@@ -319,18 +348,21 @@ export class FormulaireDEvenement {
 
     effect(() => {
       const cible = this.cible();
+      if (memeCible(this.repriseDe, cible)) {
+        return;
+      }
+      // Une autre cible : ce qui était repris ne vaut plus pour elle, même
+      // quand c'est le même Événement, ouvert cette fois sur une occurrence.
+      untracked(() => this.enEdition.set(null));
+
       const evenement =
         this.lu.status() === 'resolved' ? this.lu.value() : undefined;
-      if (
-        !evenement ||
-        evenement.id !== cible.id ||
-        (this.repriseDe?.id === cible.id &&
-          this.repriseDe.occurrence === cible.occurrence)
-      ) {
+      if (!evenement || evenement.id !== cible.id) {
         return;
       }
 
-      const portee = evenement.recurrence !== null && cible.occurrence !== null;
+      const portee =
+        evenement.recurrence !== null && designeUneOccurrence(cible);
       // L'occurrence se retrouve dans le mois lu, que le lien désigne.
       if (portee && this.calendrier.lecture.status() !== 'resolved') {
         return;
@@ -339,7 +371,7 @@ export class FormulaireDEvenement {
       this.repriseDe = cible;
       untracked(() =>
         portee
-          ? void this.demanderLaPortee(evenement, cible.occurrence as string)
+          ? void this.demanderLaPortee(evenement, cible)
           : this.reprendre(evenement),
       );
     });
@@ -377,7 +409,7 @@ export class FormulaireDEvenement {
 
   private readonly saisieInitiale = computed(
     (): Partial<EventInput> => ({
-      ...(this.enEdition() ?? {}),
+      ...(this.repris() ?? {}),
       ...this.prerempli(),
     }),
   );
@@ -454,7 +486,7 @@ export class FormulaireDEvenement {
     // Seule la route de création crée : une modification sans Événement repris
     // n'envoie rien.
     if (!this.creation) {
-      const repris = this.enEdition();
+      const repris = this.repris();
       if (repris) {
         this.appliquer(repris);
       }
@@ -465,7 +497,7 @@ export class FormulaireDEvenement {
   }
 
   protected async supprimer(): Promise<void> {
-    const repris = this.enEdition();
+    const repris = this.repris();
     if (!repris || this.envoi()) {
       return;
     }
@@ -545,16 +577,19 @@ export class FormulaireDEvenement {
    * Le lien désigne une occurrence de la série : on demande ce que la
    * modification touche, à chaque fois. Une occurrence que le mois ne montre
    * pas (déjà supprimée, ou d'un autre mois) ramène au mois, sans un mot.
+   *
+   * Elle se retrouve par son identité quand le lien la porte : une exception
+   * peut en avoir déplacé une autre au même instant.
    */
-  private async demanderLaPortee(
-    serie: Event,
-    debut: string,
-  ): Promise<void> {
+  private async demanderLaPortee(serie: Event, cible: Cible): Promise<void> {
     const occurrence = this.calendrier
       .occurrences()
       .find(
-        ({ eventId, startsAt }) =>
-          eventId === serie.id && memeInstant(startsAt, debut),
+        ({ eventId, originalStart, startsAt }) =>
+          eventId === serie.id &&
+          (cible.occurrence !== null
+            ? memeInstant(originalStart, cible.occurrence)
+            : memeInstant(startsAt, cible.debut)),
       );
     if (!occurrence) {
       await this.fermer();
@@ -568,7 +603,14 @@ export class FormulaireDEvenement {
       occurrenceDescription: `Seule l'occurrence du ${dateDe(occurrence)} change ; les autres restent intactes.`,
     });
 
-    const mois = { [PARAMETRE_DE_MOIS]: this.calendrier.mois() };
+    // Le formulaire choisi reprend le préremplissage du lien ; seule la
+    // désignation de l'occurrence s'arrête ici.
+    const requete = {
+      ...this.route.snapshot.queryParams,
+      [PARAMETRE_DE_MOIS]: this.calendrier.mois(),
+      [PARAMETRE_D_OCCURRENCE]: null,
+      [PARAMETRE_DE_DEBUT]: null,
+    };
     if (portee === 'occurrence') {
       await this.router.navigate(
         [
@@ -577,11 +619,11 @@ export class FormulaireDEvenement {
           'occurrences',
           occurrence.originalStart,
         ],
-        { queryParams: mois, replaceUrl: true },
+        { queryParams: requete, replaceUrl: true },
       );
     } else if (portee === 'series') {
       await this.router.navigate(['/calendrier/evenements', serie.id], {
-        queryParams: mois,
+        queryParams: requete,
         replaceUrl: true,
       });
     } else {

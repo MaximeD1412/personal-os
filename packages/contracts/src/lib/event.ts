@@ -159,13 +159,14 @@ export type EventOccurrenceRef = z.infer<typeof zEventOccurrenceRef>;
 /**
  * Ce qu'on change d'une seule occurrence : son titre et ses bornes, les seuls
  * champs qu'une exception porte. Le reste appartient à la série. Un champ
- * absent garde la valeur de la série ; une occurrence déplacée sans fin
- * propre garde la durée des autres.
+ * absent garde ce que l'occurrence portait déjà ; une occurrence déplacée
+ * sans fin propre garde la durée des autres.
  */
 export const zEventOccurrenceUpdate = /* @__PURE__ */ z.object({
   title: /* @__PURE__ */ z.string().trim().min(1).optional(),
   startsAt: /* @__PURE__ */ zInstant.optional(),
-  endsAt: /* @__PURE__ */ zInstant.optional(),
+  /** `null` retire la fin propre : l'occurrence reprend la durée de la série. */
+  endsAt: /* @__PURE__ */ zInstant.nullable().optional(),
 });
 
 export type EventOccurrenceUpdate = z.infer<typeof zEventOccurrenceUpdate>;

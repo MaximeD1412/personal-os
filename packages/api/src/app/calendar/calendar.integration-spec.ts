@@ -1072,6 +1072,40 @@ describe('Calendrier', () => {
       ).toBe(1);
     });
 
+    it('retire la fin propre sur un endsAt à null : la durée de la série revient', async () => {
+      const serie = await creerLaSerie(jeu.a);
+      const occurrence = `/api/events/${serie.id}/occurrences/${LUNDI_8}`;
+
+      await request(app.getHttpServer())
+        .patch(occurrence)
+        .set('Cookie', jeu.a.session)
+        .send({
+          startsAt: '2027-03-08T13:00:00.000Z',
+          endsAt: '2027-03-08T16:00:00.000Z',
+        })
+        .expect(200);
+      const reprise = await request(app.getHttpServer())
+        .patch(occurrence)
+        .set('Cookie', jeu.a.session)
+        .send({ endsAt: null })
+        .expect(200)
+        .expect(conformeA(zEventOccurrence.strict()));
+
+      // Le début déplacé reste ; la fin suit, une heure après, comme les autres.
+      expect(reprise.body).toMatchObject({
+        startsAt: '2027-03-08T13:00:00.000Z',
+        endsAt: '2027-03-08T14:00:00.000Z',
+      });
+      const relue = (await lister(jeu.a)).find(
+        ({ eventId, originalStart }) =>
+          eventId === serie.id && originalStart === LUNDI_8,
+      );
+      expect(relue).toMatchObject({
+        startsAt: '2027-03-08T13:00:00.000Z',
+        endsAt: '2027-03-08T14:00:00.000Z',
+      });
+    });
+
     it('refuse en 400 une modification hors contrat, ou une occurrence mal désignée', async () => {
       const serie = await creerLaSerie(jeu.a);
 

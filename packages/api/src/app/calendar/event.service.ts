@@ -126,9 +126,13 @@ export class EventService {
       startsAt: saisie.startsAt
         ? new Date(saisie.startsAt)
         : (exception?.startsAt ?? null),
-      endsAt: saisie.endsAt
-        ? new Date(saisie.endsAt)
-        : (exception?.endsAt ?? null),
+      // `null` retire la fin propre ; l'absence garde celle de l'exception.
+      endsAt:
+        saisie.endsAt === undefined
+          ? (exception?.endsAt ?? null)
+          : saisie.endsAt === null
+            ? null
+            : new Date(saisie.endsAt),
     };
     // La règle place l'occurrence : avec son exception, elle existe encore.
     const modifiee = occurrenceVisee(

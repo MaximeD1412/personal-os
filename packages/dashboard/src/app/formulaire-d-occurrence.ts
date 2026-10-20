@@ -10,11 +10,13 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import { matDeleteOutline } from '@ng-icons/material-symbols/outline';
-import type {
-  ApiError,
-  EventOccurrence,
-  EventOccurrenceRef,
-  EventOccurrenceUpdate,
+import {
+  zEventInput,
+  zEventOccurrenceUpdate,
+  type ApiError,
+  type EventOccurrence,
+  type EventOccurrenceRef,
+  type EventOccurrenceUpdate,
 } from '@personal-os/contracts';
 import { HlmButton } from '@personal-os/ui/button';
 import {
@@ -28,7 +30,7 @@ import { HlmInput } from '@personal-os/ui/input';
 import { showToast } from '@personal-os/ui/sonner';
 import { map, type Observable } from 'rxjs';
 import { EventService } from './event.service';
-import { erreursDeChamp } from './formulaire';
+import { erreursDeChamp, prefillDepuisRequete } from './formulaire';
 import {
   dateDe,
   memeInstant,
@@ -53,6 +55,11 @@ interface Saisie {
  * reste (catégorie, Espace, rappel, règle) appartient à la série, et se
  * modifie avec elle. L'enregistrer pose une exception ; la règle ne change
  * pas.
+ *
+ * Il se préremplit depuis la requête (ADR 0030) : `title`, `startsAt`,
+ * `endsAt`, validés par le contrat de l'occurrence. Un champ de l'Événement
+ * qu'une occurrence ne porte pas (`category`, `scopeId`…) est signalé comme
+ * non repris, et non oublié en silence.
  */
 @Component({
   selector: 'pos-formulaire-d-occurrence',
@@ -91,15 +98,30 @@ export class FormulaireDOccurrence {
   );
   private repriseDe: EventOccurrenceRef | null = null;
 
-  protected readonly enEdition = signal<EventOccurrence | null>(null);
+  private readonly enEdition = signal<EventOccurrence | null>(null);
+  /**
+   * L'occurrence reprise, tant qu'elle est celle que l'URL désigne : d'une
+   * occurrence à l'autre, la précédente ne reçoit plus aucune écriture.
+   */
+  protected readonly repris = computed(() => {
+    const occurrence = this.enEdition();
+    const { id, originalStart } = this.cible();
+    return occurrence &&
+      occurrence.eventId === id &&
+      memeInstant(occurrence.originalStart, originalStart)
+      ? occurrence
+      : null;
+  });
   protected readonly saisie = signal<Saisie>({ titre: '', debut: '', fin: '' });
 
   protected readonly refus = signal<ApiError | null>(null);
   protected readonly erreurs = computed(() => erreursDeChamp(this.refus()));
   protected readonly envoi = signal(false);
+  /** Les paramètres de la requête que le formulaire n'a pas pu reprendre. */
+  protected readonly ignores = signal<string[]>([]);
 
   protected readonly etatDeLaCible = computed((): DccmStateStatus => {
-    if (this.enEdition()) {
+    if (this.repris()) {
       return 'ready';
     }
     return this.calendrier.lecture.status() === 'error' ? 'error' : 'loading';
@@ -109,7 +131,7 @@ export class FormulaireDOccurrence {
   );
 
   protected readonly sousTitre = computed(() => {
-    const occurrence = this.enEdition();
+    const occurrence = this.repris();
     return occurrence
       ? `Occurrence du ${dateDe(occurrence)}`
       : 'Calendrier';
@@ -133,10 +155,13 @@ export class FormulaireDOccurrence {
     effect(() => {
       const cible = this.cible();
       if (
-        this.calendrier.lecture.status() !== 'resolved' ||
-        (this.repriseDe?.id === cible.id &&
-          this.repriseDe.originalStart === cible.originalStart)
+        this.repriseDe?.id === cible.id &&
+        this.repriseDe.originalStart === cible.originalStart
       ) {
+        return;
+      }
+      untracked(() => this.enEdition.set(null));
+      if (this.calendrier.lecture.status() !== 'resolved') {
         return;
       }
       this.repriseDe = cible;
@@ -159,11 +184,11 @@ export class FormulaireDOccurrence {
   }
 
   /**
-   * Seul ce qui change part. Une fin effacée ne part pas : sans fin propre,
-   * l'occurrence garde la durée des autres.
+   * Seul ce qui change part. Une fin effacée part à `null` : l'occurrence
+   * perd sa fin propre et reprend la durée des autres.
    */
   protected enregistrer(): void {
-    const occurrence = this.enEdition();
+    const occurrence = this.repris();
     if (!occurrence || !this.pretAEnregistrer() || this.envoi()) {
       return;
     }
@@ -176,8 +201,9 @@ export class FormulaireDOccurrence {
     if (!memeInstant(versIso(debut), occurrence.startsAt)) {
       changements.startsAt = versIso(debut);
     }
-    if (fin && !memeInstant(versIso(fin), occurrence.endsAt)) {
-      changements.endsAt = versIso(fin);
+    const finVoulue = fin ? versIso(fin) : null;
+    if (!memeInstant(finVoulue, occurrence.endsAt)) {
+      changements.endsAt = finVoulue;
     }
 
     if (Object.keys(changements).length === 0) {
@@ -193,7 +219,7 @@ export class FormulaireDOccurrence {
 
   /** Supprimer demande, lui aussi, ce qu'il touche : rien n'est choisi d'avance. */
   protected async supprimer(): Promise<void> {
-    const occurrence = this.enEdition();
+    const occurrence = this.repris();
     if (!occurrence || this.envoi()) {
       return;
     }
@@ -231,12 +257,23 @@ export class FormulaireDOccurrence {
       return;
     }
 
+    const requete = this.route.snapshot.queryParamMap;
+    const { valeurs, ignores } = prefillDepuisRequete(
+      zEventOccurrenceUpdate,
+      requete,
+    );
+    const horsDeLOccurrence = Object.keys(zEventInput.shape)
+      .filter((nom) => !(nom in zEventOccurrenceUpdate.shape))
+      .flatMap((nom) => requete.getAll(nom).map((brut) => `${nom}=${brut}`));
+
     this.refus.set(null);
+    this.ignores.set([...ignores, ...horsDeLOccurrence]);
     this.enEdition.set(occurrence);
+    const fin = valeurs.endsAt ?? occurrence.endsAt;
     this.saisie.set({
-      titre: occurrence.title,
-      debut: versChampLocal(occurrence.startsAt),
-      fin: occurrence.endsAt ? versChampLocal(occurrence.endsAt) : '',
+      titre: valeurs.title ?? occurrence.title,
+      debut: versChampLocal(valeurs.startsAt ?? occurrence.startsAt),
+      fin: fin ? versChampLocal(fin) : '',
     });
   }
 

@@ -3,6 +3,7 @@
   [subtitle]="sousTitre()"
   [presentation]="presentation()"
   submitLabel="Enregistrer"
+  [ignored]="ignores()"
   [error]="refus()"
   [pending]="envoi()"
   [submitDisabled]="!pretAEnregistrer()"
@@ -79,7 +80,7 @@
     </div>
   </dccm-state>
 
-  @if (enEdition()) {
+  @if (repris()) {
   <button
     dccmFormPageStatus
     hlmBtn
