@@ -18,6 +18,21 @@
 
   <div hlmCardContent class="grid items-start gap-gutter lg:grid-cols-2">
     <div class="flex min-w-0 flex-col gap-space-sm">
+      @if (ignores().length > 0) {
+      <div hlmAlert tone="warning" data-test="ignores">
+        <hlm-alert-icon />
+        <div hlmAlertContent>
+          <p hlmAlertTitle>
+            Certaines valeurs du lien n'ont pas été reprises : {{
+            ignores().join(', ') }}
+          </p>
+          <p hlmAlertDescription>
+            Elles ne correspondent à aucune valeur admise : le Souhait garde les
+            siennes.
+          </p>
+        </div>
+      </div>
+      }
       <!-- Le groupe garde sa largeur : le champ n'étire pas ses enfants ici. -->
       <div>
         <hlm-toggle-group
@@ -66,7 +81,30 @@
           <ng-icon name="matAddOutline" aria-hidden="true" />
         </button>
       </form>
-      } @else {
+      } @else { @if (proposee(); as recette) {
+      <button
+        dccmListRow
+        type="button"
+        data-test="recette-proposee"
+        selected
+        [label]="recette.title"
+        [meta]="
+          dejaSouhaitees().has(recette.id)
+            ? 'Déjà souhaitée cette semaine'
+            : 'Proposée par le lien : souhaiter cette recette'
+        "
+        [disabled]="envoi() || dejaSouhaitees().has(recette.id)"
+        (click)="deposerLaRecette(recette.id)"
+      >
+        @if (!dejaSouhaitees().has(recette.id)) {
+        <ng-icon
+          name="matAddOutline"
+          class="icon-sm text-primary"
+          aria-hidden="true"
+        />
+        }
+      </button>
+      }
       <div hlmInputGroup>
         <ng-icon name="matSearchOutline" aria-hidden="true" />
         <input

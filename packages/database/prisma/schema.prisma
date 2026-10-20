@@ -493,7 +493,8 @@ model MealWish {
   /// Le lundi de la semaine (`zWeek`), un jour civil sans fuseau.
   week      DateTime @db.Date
   /// Une Recette souhaitée laisse son titre au Souhait quand on la supprime
-  /// (CUISINE-18).
+  /// (CUISINE-18) : un déclencheur de la migration s'en charge, pour que la
+  /// version précédente de l'API puisse encore supprimer (ADR 0024).
   recipeId  String?
   recipe    Recipe?  @relation(fields: [recipeId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
   text      String?

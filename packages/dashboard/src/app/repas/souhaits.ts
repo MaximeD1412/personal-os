@@ -6,6 +6,7 @@ import {
   linkedSignal,
   signal,
 } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   matAddOutline,
@@ -13,7 +14,11 @@ import {
   matLightbulbOutline,
   matSearchOutline,
 } from '@ng-icons/material-symbols/outline';
-import type { MealWish, MealWishInput } from '@personal-os/contracts';
+import {
+  zMealWishInput,
+  type MealWish,
+  type MealWishInput,
+} from '@personal-os/contracts';
 import { HlmAlertImports } from '@personal-os/ui/alert';
 import { HlmBadge } from '@personal-os/ui/badge';
 import { HlmButton } from '@personal-os/ui/button';
@@ -28,8 +33,9 @@ import { HlmFieldImports } from '@personal-os/ui/field';
 import { HlmInputImports } from '@personal-os/ui/input';
 import { showToast } from '@personal-os/ui/sonner';
 import { HlmToggleGroupImports } from '@personal-os/ui/toggle-group';
+import * as z from 'zod';
 import type { ErreurApi } from '../erreur-api.interceptor';
-import { erreursDeChamp } from '../formulaire';
+import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { MealWishService } from './meal-wish.service';
 import { RecipeService } from './recipe.service';
 
@@ -40,6 +46,15 @@ const MODES: readonly { valeur: Mode; libelle: string }[] = [
   { valeur: 'envie', libelle: 'Une envie' },
   { valeur: 'recette', libelle: 'Une recette' },
 ];
+
+/**
+ * Ce que le lien peut préremplir : la recette ou l'envie. La semaine est
+ * celle que l'écran affiche (`semaine`).
+ */
+const zSouhaitDuLien = /* @__PURE__ */ z.object({
+  recipeId: zMealWishInput.shape.recipeId,
+  text: zMealWishInput.shape.text,
+});
 
 /** Ce qu'un Souhait demande, en clair. */
 function intitule(souhait: MealWish): string {
@@ -52,7 +67,9 @@ function intitule(souhait: MealWish): string {
  * des deux Comptes en dépose et en retire, les siens comme ceux de l'autre.
  *
  * Une envie part au clic sur « + », une Recette au clic sur son titre : rien
- * ne s'enregistre sans geste. Un retrait se confirme.
+ * ne s'enregistre sans geste. Un retrait se confirme. Le lien de l'écran
+ * préremplit l'envie (`text`) ou propose une Recette (`recipeId`), sans
+ * rien déposer (ADR 0030).
  */
 @Component({
   selector: 'pos-souhaits-de-la-semaine',
@@ -88,6 +105,11 @@ export class SouhaitsDeLaSemaine {
   /** Le nom de chaque Compte du Foyer, par son identifiant. */
   readonly noms = input<ReadonlyMap<string, string>>(new Map());
 
+  protected readonly prefill = prefillDepuisRequete(
+    zSouhaitDuLien,
+    inject(ActivatedRoute).snapshot.queryParamMap,
+  );
+
   protected readonly lecture = this.service.souhaits(() => this.semaine());
   protected readonly etat = computed(() =>
     stateOf(this.lecture, (souhaits) => souhaits.length === 0),
@@ -107,8 +129,10 @@ export class SouhaitsDeLaSemaine {
   });
 
   protected readonly modes = MODES;
-  protected readonly mode = signal<Mode>('envie');
-  protected readonly envie = signal('');
+  protected readonly mode = signal<Mode>(
+    this.prefill.valeurs.recipeId === undefined ? 'envie' : 'recette',
+  );
+  protected readonly envie = signal(this.prefill.valeurs.text ?? '');
 
   /** La recherche de recettes, lue seulement quand on cherche une Recette. */
   protected readonly recherche = signal('');
@@ -121,6 +145,23 @@ export class SouhaitsDeLaSemaine {
   protected readonly trouvees = computed(() =>
     this.catalogue.hasValue() ? this.catalogue.value() : [],
   );
+  /** La Recette que le lien propose, lue pour la nommer ; déposée, elle part. */
+  private readonly idProposee = signal(this.prefill.valeurs.recipeId ?? null);
+  private readonly lectureDeLaProposee = this.recettes.recette(() =>
+    this.idProposee(),
+  );
+  protected readonly proposee = computed(() =>
+    this.lectureDeLaProposee.hasValue()
+      ? (this.lectureDeLaProposee.value() ?? null)
+      : null,
+  );
+  /** Les valeurs du lien écartées : par le contrat, ou une Recette inconnue. */
+  protected readonly ignores = computed(() => [
+    ...this.prefill.ignores,
+    ...(this.lectureDeLaProposee.error()
+      ? [`recipeId=${this.idProposee()}`]
+      : []),
+  ]);
   /** Les Recettes déjà souhaitées pour la semaine : on ne les redemande pas. */
   protected readonly dejaSouhaitees = computed(
     () =>
@@ -169,13 +210,20 @@ export class SouhaitsDeLaSemaine {
   protected deposerLEnvie(): void {
     const texte = this.envie().trim();
     if (!texte) return;
-    this.deposer({ week: this.semaine(), text: texte }, () =>
-      this.envie.set(''),
-    );
+    const semaine = this.semaine();
+    // La réponse peut arriver après une autre saisie, ou sur une autre
+    // semaine : le champ ne se vide que s'il porte encore cette envie.
+    this.deposer({ week: semaine, text: texte }, () => {
+      if (this.semaine() === semaine && this.envie().trim() === texte) {
+        this.envie.set('');
+      }
+    });
   }
 
   protected deposerLaRecette(id: string): void {
-    this.deposer({ week: this.semaine(), recipeId: id });
+    this.deposer({ week: this.semaine(), recipeId: id }, () => {
+      if (this.idProposee() === id) this.idProposee.set(null);
+    });
   }
 
   protected async retirer(id: string, libelle: string): Promise<void> {

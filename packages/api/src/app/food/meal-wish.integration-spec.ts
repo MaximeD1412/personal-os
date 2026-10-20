@@ -287,6 +287,33 @@ describe('Souhaits', () => {
     });
   });
 
+  describe('la base, seule', () => {
+    // La version précédente de l'API supprime une recette sans connaître les
+    // Souhaits (ADR 0024) : c'est la base qui leur laisse son titre.
+    it('laisse son titre au Souhait quand la recette part sans le détacher', async () => {
+      const recette = await creerUneRecette('Couscous des souhaits');
+      const souhait = await deposer(jeu.b, {
+        week: '2029-04-09',
+        recipeId: recette.id,
+      });
+
+      await dansLeFoyer(
+        async () => await prisma.recipe.delete({ where: { id: recette.id } }),
+      );
+
+      const lu = await dansLeFoyer(
+        async () =>
+          await prisma.mealWish.findUniqueOrThrow({
+            where: { id: souhait.id },
+          }),
+      );
+      expect(lu).toMatchObject({
+        recipeId: null,
+        text: 'Couscous des souhaits',
+      });
+    });
+  });
+
   async function deposer(
     compte: CompteDeTest,
     saisie: Record<string, unknown>,

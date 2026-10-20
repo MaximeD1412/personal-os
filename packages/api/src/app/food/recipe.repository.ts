@@ -162,10 +162,11 @@ export class RecipeRepository {
 
   /**
    * Les lignes suivent leur recette (`onDelete: Cascade`). Un Repas planifié
-   * passé (avant `aujourdhui`) et un Souhait gardent le titre de la recette à
-   * sa place, dans la même transaction ; un repas à venir la retient
-   * (`onDelete: NoAction`), et la suppression échoue tout entière, sur une clé
-   * étrangère.
+   * passé (avant `aujourdhui`) garde le titre de la recette à sa place, dans
+   * la même transaction ; un repas à venir la retient (`onDelete: NoAction`),
+   * et la suppression échoue tout entière, sur une clé étrangère. Un Souhait
+   * garde lui aussi son titre, par un déclencheur de la base (migration
+   * `souhaits`).
    */
   async supprimer(id: string, aujourdhui: string): Promise<void> {
     const recette = await this.prisma.recipe.findUniqueOrThrow({
@@ -180,10 +181,6 @@ export class RecipeRepository {
           day: { lt: new Date(`${aujourdhui}T00:00:00Z`) },
         },
         data: { recipeId: null, title: recette.title },
-      }),
-      this.prisma.mealWish.updateMany({
-        where: { recipeId: id },
-        data: { recipeId: null, text: recette.title },
       }),
       this.prisma.recipe.delete({ where: { id } }),
     ]);

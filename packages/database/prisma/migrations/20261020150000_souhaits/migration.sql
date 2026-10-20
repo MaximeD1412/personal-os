@@ -10,8 +10,11 @@
 -- contrainte CHECK, elle ne vit qu'ici.
 --
 -- La clé étrangère vers la Recette porte l'Espace avec elle (ADR 0028). Elle
--- est en `NO ACTION` : la suppression d'une recette remplace d'abord, dans la
--- même transaction, la recette de ses Souhaits par son titre.
+-- est en `NO ACTION`, mais un déclencheur remplace d'abord, avant la
+-- suppression d'une recette, la recette de ses Souhaits par son titre. La
+-- règle vit dans la base, et non dans l'API : la version précédente, qui
+-- supprime une recette sans connaître les Souhaits, continue de le faire
+-- (ADR 0024).
 
 -- CreateTable
 CREATE TABLE "MealWish" (
@@ -44,3 +47,18 @@ ALTER TABLE "MealWish" ADD CONSTRAINT "MealWish_recipeId_scopeId_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "MealWish" ADD CONSTRAINT "MealWish_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Une recette supprimée laisse son titre à ses Souhaits.
+CREATE FUNCTION "meal_wish_garde_le_titre"() RETURNS TRIGGER
+LANGUAGE plpgsql AS $$
+BEGIN
+    UPDATE "MealWish"
+    SET "recipeId" = NULL, "text" = OLD."title"
+    WHERE "recipeId" = OLD."id";
+    RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER "Recipe_meal_wish_garde_le_titre"
+BEFORE DELETE ON "Recipe"
+FOR EACH ROW EXECUTE FUNCTION "meal_wish_garde_le_titre"();

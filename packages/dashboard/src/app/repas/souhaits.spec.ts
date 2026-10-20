@@ -33,10 +33,12 @@ function souhaitsDe(ouvert: Ouvert, semaine: string): TestRequest {
 async function ouvrir({
   souhaits = SOUHAITS,
   confirme = true,
+  lien = '',
 } = {}): Promise<Ouvert> {
-  const ouvert = await ouvrirLePlanning(`/repas/planning?semaine=${LUNDI}`, {
-    confirme,
-  });
+  const ouvert = await ouvrirLePlanning(
+    `/repas/planning?semaine=${LUNDI}${lien}`,
+    { confirme },
+  );
   ouvert.http.expectOne(`${BASE}/household`).flush(FOYER);
   ouvert.http
     .expectOne((requete) => requete.url === `${BASE}/meal-plans`)
@@ -161,6 +163,159 @@ describe('Les Souhaits de la semaine', () => {
       expect.stringContaining('Des pâtes fraîches'),
     ]);
     expect(trouver<HTMLInputElement>(el(), 'envie').value).toBe('');
+  });
+
+  it('garde la saisie reprise pendant l’envoi de l’envie précédente', async () => {
+    const ouvert = await ouvrir({ souhaits: [] });
+    const { el, http, harness } = ouvert;
+
+    saisir(el(), 'Des pâtes fraîches');
+    soumettre(el());
+    const depot = http.expectOne(
+      (requete) =>
+        requete.method === 'POST' && requete.url === `${BASE}/meal-wishes`,
+    );
+    saisir(el(), 'Un gratin');
+    TestBed.tick();
+    depot.flush({
+      ...ENVIE_DE_POISSON,
+      id: 'souhait-3',
+      text: 'Des pâtes fraîches',
+    } satisfies MealWish);
+    TestBed.tick();
+    souhaitsDe(ouvert, LUNDI).flush([]);
+    await harness.fixture.whenStable();
+
+    expect(trouver<HTMLInputElement>(el(), 'envie').value).toBe('Un gratin');
+  });
+
+  it('garde l’envie quand la semaine change avant la réponse', async () => {
+    const ouvert = await ouvrir({ souhaits: [] });
+    const { el, http, router, harness } = ouvert;
+
+    saisir(el(), 'Des pâtes fraîches');
+    soumettre(el());
+    const depot = http.expectOne(
+      (requete) =>
+        requete.method === 'POST' && requete.url === `${BASE}/meal-wishes`,
+    );
+    const suivante = arrivee(router);
+    (
+      el().querySelector('[data-test="semaine-suivante"]') as HTMLButtonElement
+    ).click();
+    await suivante;
+    TestBed.tick();
+    http
+      .expectOne((requete) => requete.url === `${BASE}/meal-plans`)
+      .flush({
+        ...PLANNING,
+        id: 'planning-2',
+        week: '2026-10-26',
+        entries: [],
+      } satisfies MealPlan);
+    souhaitsDe(ouvert, '2026-10-26').flush([]);
+    await harness.fixture.whenStable();
+
+    depot.flush({
+      ...ENVIE_DE_POISSON,
+      id: 'souhait-3',
+      text: 'Des pâtes fraîches',
+    } satisfies MealWish);
+    TestBed.tick();
+    souhaitsDe(ouvert, '2026-10-26').flush([]);
+    await harness.fixture.whenStable();
+
+    expect(trouver<HTMLInputElement>(el(), 'envie').value).toBe(
+      'Des pâtes fraîches',
+    );
+  });
+
+  it('préremplit l’envie depuis le lien, sans rien déposer', async () => {
+    const { el, http } = await ouvrir({ lien: '&text=Des%20cr%C3%AApes' });
+
+    expect(trouver<HTMLInputElement>(el(), 'envie').value).toBe('Des crêpes');
+    expect(trouver(el(), 'ignores')).toBeNull();
+    http.expectNone(
+      (requete) =>
+        requete.method === 'POST' && requete.url === `${BASE}/meal-wishes`,
+    );
+  });
+
+  it('propose la Recette du lien, et la dépose sur un geste', async () => {
+    const ouvert = await ouvrirLePlanning(
+      `/repas/planning?semaine=${LUNDI}&recipeId=${OMELETTE.id}`,
+    );
+    const { el, http, harness } = ouvert;
+    http.expectOne(`${BASE}/household`).flush(FOYER);
+    http
+      .expectOne((requete) => requete.url === `${BASE}/meal-plans`)
+      .flush(PLANNING);
+    souhaitsDe(ouvert, LUNDI).flush(SOUHAITS);
+    TestBed.tick();
+    http.expectOne(`${BASE}/recipes/${OMELETTE.id}`).flush(OMELETTE);
+    http
+      .expectOne((requete) => requete.url === `${BASE}/recipes`)
+      .flush([DAHL, OMELETTE]);
+    await harness.fixture.whenStable();
+
+    const proposee = trouver<HTMLButtonElement>(el(), 'recette-proposee');
+    expect(proposee.textContent).toContain(OMELETTE.title);
+    http.expectNone(
+      (requete) =>
+        requete.method === 'POST' && requete.url === `${BASE}/meal-wishes`,
+    );
+
+    proposee.click();
+    TestBed.tick();
+    const depot = http.expectOne(
+      (requete) =>
+        requete.method === 'POST' && requete.url === `${BASE}/meal-wishes`,
+    );
+    expect(depot.request.body).toEqual({ week: LUNDI, recipeId: OMELETTE.id });
+    depot.flush({
+      ...DAHL_SOUHAITE,
+      id: 'souhait-3',
+      recipe: { id: OMELETTE.id, title: OMELETTE.title },
+    } satisfies MealWish);
+    TestBed.tick();
+    souhaitsDe(ouvert, LUNDI).flush(SOUHAITS);
+    await harness.fixture.whenStable();
+  });
+
+  it('signale une valeur du lien qu’il ne reprend pas', async () => {
+    const trop = 'x'.repeat(161);
+    const { el } = await ouvrir({ lien: `&text=${trop}` });
+
+    expect(trouver<HTMLInputElement>(el(), 'envie').value).toBe('');
+    expect(trouver(el(), 'ignores').textContent).toContain(`text=${trop}`);
+  });
+
+  it('signale une Recette du lien qui n’existe pas', async () => {
+    const ouvert = await ouvrirLePlanning(
+      `/repas/planning?semaine=${LUNDI}&recipeId=inconnue`,
+    );
+    const { el, http, harness } = ouvert;
+    http.expectOne(`${BASE}/household`).flush(FOYER);
+    http
+      .expectOne((requete) => requete.url === `${BASE}/meal-plans`)
+      .flush(PLANNING);
+    souhaitsDe(ouvert, LUNDI).flush(SOUHAITS);
+    TestBed.tick();
+    http.expectOne(`${BASE}/recipes/inconnue`).flush(
+      {
+        status: 404,
+        code: 'food.recipe_not_found',
+        message: "Cette recette n'existe pas.",
+      },
+      { status: 404, statusText: 'Not Found' },
+    );
+    http
+      .expectOne((requete) => requete.url === `${BASE}/recipes`)
+      .flush([DAHL, OMELETTE]);
+    await harness.fixture.whenStable();
+
+    expect(trouver(el(), 'recette-proposee')).toBeNull();
+    expect(trouver(el(), 'ignores').textContent).toContain('recipeId=inconnue');
   });
 
   it('ne dépose pas une envie vide', async () => {
