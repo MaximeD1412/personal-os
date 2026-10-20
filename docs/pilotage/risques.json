@@ -379,18 +379,18 @@
       "categorie": "cui",
       "gravite": "moyenne",
       "titre": "Une conversion approximative fausse la liste de courses",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-10-20",
       "solutions": [
         {
           "texte": "Le convertisseur échoue explicitement plutôt que d'approximer",
           "ref": "PRD #1",
-          "fait": false
+          "fait": true
         },
         {
           "texte": "Facteur pièce/poids validé une fois par Ingrédient",
           "ref": "PRD #1",
-          "fait": false
+          "fait": true
         }
       ],
       "tickets": ["CUISINE-2", "CUISINE-9"]
