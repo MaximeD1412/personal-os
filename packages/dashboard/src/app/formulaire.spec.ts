@@ -1,5 +1,5 @@
 import { convertToParamMap } from '@angular/router';
-import { zEventInput } from '@personal-os/contracts';
+import { zEventInput, zIngredientInput } from '@personal-os/contracts';
 import { erreursDeChamp, prefillDepuisRequete } from './formulaire';
 
 describe('prefillDepuisRequete', () => {
@@ -38,6 +38,32 @@ describe('prefillDepuisRequete', () => {
     });
     expect(prefill({ reminderLeadMinutes: '-5' }).ignores).toEqual([
       'reminderLeadMinutes=-5',
+    ]);
+  });
+
+  it('lit un booléen dans la chaîne de la requête', () => {
+    const ingredient = (parametres: Record<string, string>) =>
+      prefillDepuisRequete(zIngredientInput, convertToParamMap(parametres));
+
+    expect(
+      ingredient({
+        displayName: 'Poireau',
+        canonicalUnit: 'GRAM',
+        perishable: 'true',
+      }),
+    ).toEqual({
+      valeurs: {
+        displayName: 'Poireau',
+        canonicalUnit: 'GRAM',
+        perishable: true,
+      },
+      ignores: [],
+    });
+    expect(ingredient({ perishable: 'false' }).valeurs).toEqual({
+      perishable: false,
+    });
+    expect(ingredient({ perishable: 'oui' }).ignores).toEqual([
+      'perishable=oui',
     ]);
   });
 

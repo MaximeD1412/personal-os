@@ -1,0 +1,77 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header [heading]="titre()" [breadcrumb]="fil()">
+    @if (lecture.hasValue()) {
+    <a
+      hlmBtn
+      variant="secondary"
+      data-test="modifier"
+      [routerLink]="['/repas/ingredients', id, 'modifier']"
+    >
+      <ng-icon name="matEditOutline" aria-hidden="true" />
+      Modifier
+    </a>
+    }
+  </dccm-page-header>
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="detail"
+    loadingLabel="Chargement de l'ingrédient…"
+    (retry)="lecture.reload()"
+  >
+    @if (ingredient(); as ingredient) {
+    <section hlmCard class="md:max-w-2xl">
+      <div hlmCardHeader>
+        <h2 hlmCardTitle>Fiche de l'ingrédient</h2>
+        <p hlmCardDescription>
+          Catalogue du Foyer, partagé par les deux Comptes.
+        </p>
+      </div>
+      <dl hlmCardContent class="grid gap-gutter sm:grid-cols-2">
+        <div class="flex flex-col gap-1" data-test="unite">
+          <dt class="text-label-regular text-outline">Unité canonique</dt>
+          <dd class="text-body-default font-semibold text-on-surface">
+            {{ unite() }}
+          </dd>
+        </div>
+
+        <div class="flex flex-col gap-1" data-test="conservation">
+          <dt class="text-label-regular text-outline">Conservation</dt>
+          <dd class="text-body-default font-semibold text-on-surface">
+            {{ ingredient.perishable ? 'Périssable' : 'Non périssable' }}
+          </dd>
+        </div>
+
+        @if (ingredient.gramsPerPiece !== null) {
+        <div class="flex flex-col gap-1" data-test="poids">
+          <dt class="text-label-regular text-outline">Poids à la pièce</dt>
+          <dd
+            class="text-body-default font-semibold tabular-nums text-on-surface"
+          >
+            {{ ingredient.gramsPerPiece }} g
+          </dd>
+        </div>
+        }
+
+        <div class="flex flex-col gap-1 sm:col-span-2" data-test="allergenes">
+          <dt class="text-label-regular text-outline">Allergènes déclarés</dt>
+          <dd>
+            @if (allergenes().length) {
+            <ul class="flex flex-wrap gap-space-sm">
+              @for (allergene of allergenes(); track allergene) {
+              <li><span hlmBadge tone="warning">{{ allergene }}</span></li>
+              }
+            </ul>
+            } @else {
+            <span class="text-body-default font-semibold text-secondary"
+              >Aucun parmi les 14 familles de l'UE</span
+            >
+            }
+          </dd>
+        </div>
+      </dl>
+    </section>
+    }
+  </dccm-state>
+</div>

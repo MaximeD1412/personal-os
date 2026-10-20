@@ -202,6 +202,49 @@ model UnresolvedCommand {
   @@index([scopeId, createdAt])
 }
 
+/// L'Unité canonique d'un Ingrédient : celle dans laquelle toute quantité se
+/// ramène.
+enum CanonicalUnit {
+  GRAM
+  MILLILITER
+  PIECE
+}
+
+/// Les quatorze familles d'Allergènes à déclaration obligatoire de l'UE.
+enum Allergen {
+  GLUTEN
+  CRUSTACEANS
+  EGGS
+  FISH
+  PEANUTS
+  SOY
+  MILK
+  TREE_NUTS
+  CELERY
+  MUSTARD
+  SESAME
+  SULPHITES
+  LUPIN
+  MOLLUSCS
+}
+
+/// Un Ingrédient : une entrée canonique du catalogue. Le catalogue est global,
+/// hors Espace : les deux Comptes du Foyer le partagent. Deux libellés qui ne
+/// se cuisinent ni ne s'achètent pareil sont deux Ingrédients.
+model Ingredient {
+  id            String        @id @default(uuid())
+  /// Le libellé normalisé (`normaliserLibelle` de `contracts`) : deux noms qui
+  /// ne diffèrent que par la casse ou les accents sont le même Ingrédient.
+  name          String        @unique
+  displayName   String
+  canonicalUnit CanonicalUnit
+  /// Le poids d'une pièce, en grammes ; n'a de sens qu'en `GRAM` ou `PIECE`.
+  gramsPerPiece Decimal?      @db.Decimal(10, 2)
+  allergens     Allergen[]
+  perishable    Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+}
+
 /// Session applicative. Seule l'empreinte du jeton est stockée.
 model Session {
   id        String    @id @default(uuid())
