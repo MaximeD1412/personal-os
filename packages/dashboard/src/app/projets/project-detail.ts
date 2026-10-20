@@ -25,10 +25,11 @@ import type { ErreurApi } from '../erreur-api.interceptor';
 import { rendreLeMarkdown } from './markdown';
 import { formaterJour, formaterMontant } from './montant';
 import { ProjectService } from './project.service';
+import { OngletsDuProjet } from './project-tabs';
 import { FIL_DES_PROJETS } from './projects';
 
 /**
- * La fiche d'un Projet : ses dépenses et leur total, ses notes rendues depuis
+ * La fiche d'un Projet, sa face privée : ses dépenses et leur total, ses notes rendues depuis
  * le markdown, ses liens. « Modifier » et « Ajouter une dépense » mènent à
  * leur formulaire ; supprimer le Projet ou retirer une dépense se confirme.
  */
@@ -43,6 +44,7 @@ import { FIL_DES_PROJETS } from './projects';
     HlmTableImports,
     DccmPageHeader,
     DccmState,
+    OngletsDuProjet,
   ],
   providers: [
     provideIcons({

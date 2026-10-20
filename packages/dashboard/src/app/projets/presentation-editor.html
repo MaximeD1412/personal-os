@@ -1,0 +1,171 @@
+<section hlmCard data-test="presentation" [attr.data-lang]="lang()">
+  <div hlmCardHeader>
+    <h2 hlmCardTitle>{{ libelle() }}</h2>
+    <p hlmCardDescription>Le texte du portfolio {{ enLettres() }}.</p>
+    <div hlmCardAction>
+      <span hlmBadge data-test="etat" [tone]="ton()" [dot]="etat() === 'READY'"
+        >{{ libelleDeLEtat() }}</span
+      >
+    </div>
+  </div>
+
+  <form
+    hlmCardContent
+    class="flex flex-col gap-gutter"
+    novalidate
+    [attr.aria-busy]="envoi() || null"
+    (submit)="$event.preventDefault(); enregistrer()"
+  >
+    @if (refusSansChamp(); as message) {
+    <div hlmAlert tone="error" data-test="refus">
+      <hlm-alert-icon />
+      <div hlmAlertContent>
+        <p hlmAlertTitle>{{ message }}</p>
+      </div>
+    </div>
+    } @if (etat() === 'PUBLISHED') {
+    <div hlmAlert tone="info" data-test="avertissement">
+      <hlm-alert-icon />
+      <div hlmAlertContent>
+        <p hlmAlertTitle>Ce texte est en ligne.</p>
+        <p hlmAlertDescription>
+          Le modifier le retire du portfolio : il repasse en « Prêt à publier »
+          jusqu’à sa republication.
+        </p>
+      </div>
+    </div>
+    }
+
+    <!-- Le texte anglais se saisit en anglais : correcteur et lecteurs d'écran suivent. -->
+    <div class="flex flex-col gap-gutter" [attr.lang]="lang().toLowerCase()">
+      <div hlmField>
+        <label hlmFieldLabel [for]="'presentation-titre-' + lang()"
+          >Titre</label
+        >
+        <input
+          hlmInput
+          data-test="titre"
+          autocomplete="off"
+          [id]="'presentation-titre-' + lang()"
+          [value]="titre()"
+          [forceInvalid]="!!erreurs()['title']"
+          (input)="titre.set(valeur($event))"
+        />
+        @if (erreurs()['title']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        }
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel [for]="'presentation-accroche-' + lang()"
+          >Accroche</label
+        >
+        <textarea
+          hlmInput
+          data-test="accroche"
+          rows="2"
+          class="h-auto py-space-sm"
+          [id]="'presentation-accroche-' + lang()"
+          [value]="accroche()"
+          [forceInvalid]="!!erreurs()['summary']"
+          (input)="accroche.set(valeur($event))"
+        ></textarea>
+        @if (erreurs()['summary']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        } @else {
+        <p hlmFieldDescription>Une ou deux phrases, sous le titre.</p>
+        }
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel [for]="'presentation-texte-' + lang()"
+          >Texte</label
+        >
+        <textarea
+          hlmInput
+          data-test="texte"
+          rows="10"
+          class="h-auto min-h-40 py-space-sm font-mono text-code-mono"
+          [id]="'presentation-texte-' + lang()"
+          [value]="texte()"
+          [forceInvalid]="!!erreurs()['body']"
+          (input)="texte.set(valeur($event))"
+        ></textarea>
+        @if (erreurs()['body']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        } @else {
+        <p hlmFieldDescription>
+          En markdown. Rien des notes privées du projet n’y figure.
+        </p>
+        }
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-space-sm">
+      <button
+        hlmBtn
+        type="submit"
+        data-test="enregistrer"
+        [variant]="modifie() ? 'primary' : 'secondary'"
+        [disabled]="envoi() || !modifie()"
+      >
+        <ng-icon name="matSaveOutline" aria-hidden="true" />
+        Enregistrer
+      </button>
+
+      @if (!modifie()) { @for (transition of transitions(); track transition) {
+      @switch (transition) { @case ('ready') {
+      <button
+        hlmBtn
+        type="button"
+        variant="secondary"
+        data-test="marquer-pret"
+        [disabled]="envoi()"
+        (click)="changer('ready')"
+      >
+        <ng-icon name="matCheckCircleOutline" aria-hidden="true" />
+        Marquer prêt
+      </button>
+      } @case ('publish') {
+      <button
+        hlmBtn
+        type="button"
+        data-test="publier"
+        [disabled]="envoi()"
+        (click)="changer('publish')"
+      >
+        <ng-icon name="matSendOutline" aria-hidden="true" />
+        Publier
+      </button>
+      } @case ('unpublish') { @if (etat() === 'PUBLISHED') {
+      <button
+        hlmBtn
+        type="button"
+        variant="destructive"
+        data-test="depublier"
+        [disabled]="envoi()"
+        (click)="changer('unpublish')"
+      >
+        <ng-icon name="matPublicOffOutline" aria-hidden="true" />
+        Dépublier
+      </button>
+      } @else {
+      <button
+        hlmBtn
+        type="button"
+        variant="ghost"
+        data-test="repasser-en-non-publie"
+        [disabled]="envoi()"
+        (click)="changer('unpublish')"
+      >
+        <ng-icon name="matUndoOutline" aria-hidden="true" />
+        Repasser en non publié
+      </button>
+      } } } } } @else if (presentation()) {
+      <p class="text-body-default text-outline" data-test="a-enregistrer">
+        Enregistrez le texte pour le publier.
+      </p>
+      }
+    </div>
+  </form>
+</section>

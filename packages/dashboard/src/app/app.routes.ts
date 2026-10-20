@@ -71,6 +71,11 @@ export const appRoutes: Route[] = [
       (await import('./projets/project-detail')).FicheDeProjet,
   },
   {
+    path: 'projets/:id/presentation',
+    loadComponent: async () =>
+      (await import('./projets/project-presentation')).PresentationDuProjet,
+  },
+  {
     path: 'projets/:id/modifier',
     loadComponent: async () =>
       (await import('./projets/project-form')).FormulaireDeProjet,

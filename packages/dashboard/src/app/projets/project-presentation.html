@@ -1,0 +1,67 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    [heading]="titre()"
+    subtitle="Ce que le portfolio montre du projet, en français et en anglais."
+    [breadcrumb]="fil()"
+  />
+
+  <pos-project-tabs [projectId]="id" />
+
+  @if (ignores.length > 0) {
+  <div hlmAlert tone="warning" data-test="ignores">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>
+        Certaines valeurs du lien n'ont pas été reprises : {{ ignores.join(', ')
+        }}
+      </p>
+      <p hlmAlertDescription>
+        Elles ne correspondent à aucune valeur admise : le texte garde les
+        siennes.
+      </p>
+    </div>
+  </div>
+  }
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="detail"
+    loadingLabel="Chargement de la présentation…"
+    (retry)="lecture.reload()"
+  >
+    @if (lu()) {
+    <div class="flex flex-col gap-gutter">
+      <!-- Sous 1024 px, une langue à la fois ; au-delà, les deux côte à côte. -->
+      <div class="lg:hidden">
+        <hlm-toggle-group
+          size="md"
+          data-test="langue"
+          aria-label="Langue"
+          [value]="langue()"
+          (valueChange)="choisir($event)"
+        >
+          @for (lang of langues; track lang) {
+          <button hlmToggleGroupItem [value]="lang" [attr.data-lang]="lang">
+            {{ libelles[lang] }}
+          </button>
+          }
+        </hlm-toggle-group>
+      </div>
+
+      <div class="grid gap-gutter lg:grid-cols-2 lg:items-start">
+        @for (lang of langues; track lang) {
+        <pos-presentation-editor
+          [class]="lang === langue() ? '' : 'max-lg:hidden'"
+          [projectId]="id"
+          [lang]="lang"
+          [presentation]="parLangue()[lang]"
+          [prefill]="prefillDe(lang)"
+          (ecrite)="ecrite($event)"
+        />
+        }
+      </div>
+    </div>
+    }
+  </dccm-state>
+</div>

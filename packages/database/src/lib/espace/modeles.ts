@@ -76,6 +76,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'mealPlanEntries',
     'projects',
     'projectExpenses',
+    'publicPresentations',
   ],
 };
 

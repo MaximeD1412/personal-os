@@ -115,6 +115,10 @@ export class PrismaService {
     return this.#client.projectExpense;
   }
 
+  get publicPresentation() {
+    return this.#client.publicPresentation;
+  }
+
   get session() {
     return this.#client.session;
   }
