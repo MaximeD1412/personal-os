@@ -6,7 +6,7 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { NavigationEnd, provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import type { MealPlan, MealPlanEntry } from '@personal-os/contracts';
+import type { MealPlan, MealPlanEntry, MealWish } from '@personal-os/contracts';
 import { DccmConfirm, type DccmConfirmOptions } from '@personal-os/ui/dccm';
 import { filter, firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../app/api-base-url';
@@ -70,6 +70,27 @@ export const PLANNING: MealPlan = {
   entries: [DAHL_DU_LUNDI, RESTES_DU_MERCREDI],
   createdAt: '2026-10-18T08:00:00.000Z',
 };
+
+/** Une envie de Léa, puis une Recette souhaitée par Maxime. */
+export const ENVIE_DE_POISSON: MealWish = {
+  id: 'souhait-1',
+  week: LUNDI,
+  recipe: null,
+  text: 'Un plat de poisson',
+  authorId: 'compte-b',
+  createdAt: '2026-10-17T08:00:00.000Z',
+};
+
+export const DAHL_SOUHAITE: MealWish = {
+  id: 'souhait-2',
+  week: LUNDI,
+  recipe: { id: 'recette-1', title: 'Dahl de lentilles corail' },
+  text: null,
+  authorId: 'compte-a',
+  createdAt: '2026-10-17T09:00:00.000Z',
+};
+
+export const SOUHAITS: MealWish[] = [ENVIE_DE_POISSON, DAHL_SOUHAITE];
 
 export async function ouvrirLePlanning(
   url: string,
