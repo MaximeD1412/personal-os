@@ -1,0 +1,130 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    heading="Préférences alimentaires"
+    subtitle="Les allergies, les aliments exclus et les aliments peu appréciés de chaque Compte. Les deux Comptes voient et modifient les deux profils."
+    [breadcrumb]="fil"
+  >
+    <!-- En mobile, chaque carte porte son ajout : le bouton d'en-tête
+         écraserait le sous-titre. -->
+    <a
+      hlmBtn
+      class="max-md:hidden"
+      routerLink="/foyer/preferences/nouvelle"
+      data-test="nouvelle"
+    >
+      <ng-icon name="matAddOutline" aria-hidden="true" />
+      Ajouter une préférence
+    </a>
+  </dccm-page-header>
+
+  @if (refus(); as erreur) {
+  <div hlmAlert tone="error" data-test="refus">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>{{ erreur.message }}</p>
+    </div>
+  </div>
+  }
+
+  <dccm-state
+    [status]="etat()"
+    [error]="erreur()"
+    skeleton="cards"
+    loadingLabel="Chargement des préférences…"
+    (retry)="recharger()"
+  >
+    <div class="grid items-start gap-gutter lg:grid-cols-2">
+      @for (colonne of colonnes(); track colonne.membre.id) {
+      <section
+        hlmCard
+        data-test="compte"
+        [attr.data-compte]="colonne.membre.id"
+        [attr.aria-labelledby]="'compte-' + colonne.membre.id"
+      >
+        <div hlmCardHeader>
+          <div class="flex min-w-0 items-center gap-space-md">
+            <hlm-avatar size="lg">
+              <span hlmAvatarFallback aria-hidden="true"
+                >{{ colonne.initiale }}</span
+              >
+            </hlm-avatar>
+            <h2
+              class="truncate text-title-sm text-on-surface"
+              [id]="'compte-' + colonne.membre.id"
+            >
+              {{ colonne.membre.displayName }}
+            </h2>
+          </div>
+        </div>
+
+        @for (section of colonne.sections; track section.kind) {
+        <div
+          class="flex flex-col gap-space-sm"
+          [attr.data-section]="section.kind"
+        >
+          <h3
+            class="flex items-center gap-space-sm text-label-micro font-semibold uppercase {{
+              section.couleur
+            }}"
+          >
+            <ng-icon
+              [name]="section.icone"
+              class="icon-xs"
+              aria-hidden="true"
+            />
+            {{ section.titre }}
+          </h3>
+          @if (section.preferences.length) {
+          <ul
+            class="flex flex-col gap-space-xs"
+            [attr.aria-label]="section.titre"
+          >
+            @for (preference of section.preferences; track preference.id) {
+            <li
+              class="rounded border-s-4 bg-surface-container-low {{ section.filet }}"
+            >
+              <dccm-list-row
+                data-test="preference"
+                [label]="libelle(preference)"
+                [meta]="cible(preference)"
+              >
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  data-test="retirer"
+                  [attr.aria-label]="'Retirer ' + libelle(preference)"
+                  [disabled]="suppression() === preference.id"
+                  (click)="supprimer(preference, colonne.membre)"
+                >
+                  <ng-icon name="matCloseOutline" aria-hidden="true" />
+                </button>
+              </dccm-list-row>
+            </li>
+            }
+          </ul>
+          } @else {
+          <p class="text-body-dense text-outline" data-test="vide">
+            {{ section.vide }}
+          </p>
+          }
+        </div>
+        }
+
+        <a
+          hlmBtn
+          variant="secondary"
+          fullWidth
+          routerLink="/foyer/preferences/nouvelle"
+          data-test="ajouter"
+          [queryParams]="{ userId: colonne.membre.id }"
+        >
+          <ng-icon name="matAddOutline" aria-hidden="true" />
+          Ajouter une préférence pour {{ colonne.membre.displayName }}
+        </a>
+      </section>
+      }
+    </div>
+  </dccm-state>
+</div>

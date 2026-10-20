@@ -100,6 +100,8 @@ et lève `food.list_already_closed`.
 | Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |
 | Tour de génération, Souhait              | `GenerationRound`, `MealWish`                                    |
 | Préférence alimentaire, Allergène        | `FoodPreference`, `Allergen`                                     |
+| Allergie, aliment exclu, peu apprécié    | `FoodPreferenceKind` : `ALLERGY`, `EXCLUDED`, `DISLIKED`         |
+| Contraintes d'un repas                   | `contraintesDuRepas` : `interdits`, `evites`                     |
 | Liste de courses, Article de courses     | `ShoppingList`, `ShoppingListItem`                               |
 | Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
 | Stock domestique                         | `PantryItem`                                                     |

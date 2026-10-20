@@ -49,25 +49,27 @@ model Scope {
   eventExceptions    EventException[]
   aiTraces           AiTrace[]
   unresolvedCommands UnresolvedCommand[]
+  foodPreferences    FoodPreference[]
 
   @@index([householdId])
 }
 
 /// Compte local associé à un sujet Authentik.
 model User {
-  id            String    @id @default(uuid())
+  id              String           @id @default(uuid())
   /// Sujet OIDC stable et opaque.
-  subject       String    @unique
-  email         String    @unique
-  displayName   String?
-  createdAt     DateTime  @default(now())
-  lastSeenAt    DateTime  @default(now())
-  sessions      Session[]
+  subject         String           @unique
+  email           String           @unique
+  displayName     String?
+  createdAt       DateTime         @default(now())
+  lastSeenAt      DateTime         @default(now())
+  sessions        Session[]
   /// Le Foyer est unique : la valeur par défaut laisse la version précédente
   /// de l'API créer des Comptes sans la connaître (ADR 0024).
-  householdId   String    @default("11111111-1111-4111-8111-111111111111")
-  household     Household @relation(fields: [householdId], references: [id])
-  personalScope Scope?
+  householdId     String           @default("11111111-1111-4111-8111-111111111111")
+  household       Household        @relation(fields: [householdId], references: [id])
+  personalScope   Scope?
+  foodPreferences FoodPreference[]
 }
 
 /// Entité jouet du fil traceur de l'issue #6, retirée du code par #99 : plus
@@ -232,18 +234,19 @@ enum Allergen {
 /// hors Espace : les deux Comptes du Foyer le partagent. Deux libellés qui ne
 /// se cuisinent ni ne s'achètent pareil sont deux Ingrédients.
 model Ingredient {
-  id            String            @id @default(uuid())
+  id              String            @id @default(uuid())
   /// Le libellé normalisé (`normaliserLibelle` de `contracts`) : deux noms qui
   /// ne diffèrent que par la casse ou les accents sont le même Ingrédient.
-  name          String            @unique
-  displayName   String
-  canonicalUnit CanonicalUnit
+  name            String            @unique
+  displayName     String
+  canonicalUnit   CanonicalUnit
   /// Le poids d'une pièce, en grammes ; n'a de sens qu'en `GRAM` ou `PIECE`.
-  gramsPerPiece Decimal?          @db.Decimal(10, 2)
-  allergens     Allergen[]
-  perishable    Boolean           @default(false)
-  createdAt     DateTime          @default(now())
-  aliases       IngredientAlias[]
+  gramsPerPiece   Decimal?          @db.Decimal(10, 2)
+  allergens       Allergen[]
+  perishable      Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  aliases         IngredientAlias[]
+  foodPreferences FoodPreference[]
 }
 
 /// Un libellé rattaché à un Ingrédient (CUISINE-3) : une fois rattaché, le
@@ -257,6 +260,38 @@ model IngredientAlias {
   /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
   createdAt    DateTime   @default(now()) @db.Timestamptz(3)
 
+  @@index([ingredientId])
+}
+
+/// Le type d'une Préférence alimentaire : une allergie et un aliment exclu
+/// sont interdits au repas, un aliment peu apprécié n'est qu'évité.
+enum FoodPreferenceKind {
+  ALLERGY
+  EXCLUDED
+  DISLIKED
+}
+
+/// Une Préférence alimentaire d'un Compte du Foyer. Elle vise soit un
+/// Allergène, soit un Ingrédient, jamais les deux ni aucun : une contrainte
+/// CHECK de la migration le garde, Prisma ne sachant pas la décrire. Elle vit
+/// dans l'Espace foyer, que le module pose (FOYER-2).
+model FoodPreference {
+  id           String             @id @default(uuid())
+  scopeId      String
+  scope        Scope              @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind         FoodPreferenceKind
+  allergen     Allergen?
+  ingredientId String?
+  ingredient   Ingredient?        @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt    DateTime           @default(now()) @db.Timestamptz(3)
+
+  /// L'index de la migration tient deux vides pour égaux (`NULLS NOT
+  /// DISTINCT`) : la même allergie ne s'enregistre pas deux fois.
+  @@unique([userId, kind, allergen, ingredientId])
+  @@index([scopeId])
   @@index([ingredientId])
 }
 

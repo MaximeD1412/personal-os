@@ -3,8 +3,15 @@ import {
   UNITES_AVEC_POIDS_A_LA_PIECE,
   zIngredientInput,
 } from '@personal-os/contracts';
+import { ID_ESPACE_FOYER } from '../lib/espace/foyer';
+import { porteeCourante } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
-import { INGREDIENTS_DE_DEMO, semerLaCuisine } from './food';
+import {
+  CORIANDRE_DE_DEMO,
+  INGREDIENTS_DE_DEMO,
+  semerLaCuisine,
+  semerLesPreferences,
+} from './food';
 
 function trouver(displayName: string) {
   const ingredient = INGREDIENTS_DE_DEMO.find(
@@ -50,6 +57,7 @@ describe('Le catalogue de démo', () => {
     ['Tomate fraîche', [], true],
     ['Tomate en conserve', [], false],
     ['Cerneaux de noix', ['TREE_NUTS'], false],
+    [CORIANDRE_DE_DEMO, [], true],
   ])(
     'déclare %s avec ses Allergènes et sa périssabilité',
     (nom, allergenes, perissable) => {
@@ -87,5 +95,106 @@ describe('semerLaCuisine', () => {
         perishable: true,
       },
     });
+  });
+});
+
+describe('semerLesPreferences', () => {
+  /** Un Prisma qui connaît ces Comptes et ces Préférences, et note les créations. */
+  function prismaDeDemo(
+    comptes: string[],
+    existantes: Record<string, unknown>[] = [],
+  ) {
+    const creees: unknown[] = [];
+    const portees: unknown[] = [];
+    const prisma = {
+      user: {
+        findMany: () => Promise.resolve(comptes.map((id) => ({ id }))),
+      },
+      ingredient: {
+        findUnique: () => Promise.resolve({ id: 'coriandre' }),
+      },
+      foodPreference: {
+        findFirst: ({ where }: { where: Record<string, unknown> }) => {
+          portees.push(porteeCourante());
+          return Promise.resolve(
+            existantes.some(
+              (existante) =>
+                JSON.stringify(existante) === JSON.stringify(where),
+            )
+              ? { id: 'deja-la' }
+              : null,
+          );
+        },
+        create: ({ data }: { data: unknown }) => {
+          portees.push(porteeCourante());
+          creees.push(data);
+          return Promise.resolve(data);
+        },
+      },
+    } as unknown as PrismaService;
+
+    return { prisma, creees, portees };
+  }
+
+  const ALLERGIE = {
+    userId: 'compte-a',
+    kind: 'ALLERGY',
+    allergen: 'TREE_NUTS',
+    ingredientId: null,
+  };
+  const CORIANDRE = (userId: string) => ({
+    userId,
+    kind: 'DISLIKED',
+    allergen: null,
+    ingredientId: 'coriandre',
+  });
+
+  it("donne l'allergie aux fruits à coque au premier Compte, la coriandre au second, dans l'Espace foyer", async () => {
+    const { prisma, creees, portees } = prismaDeDemo(['compte-a', 'compte-b']);
+
+    await semerLesPreferences(prisma);
+
+    expect(creees).toEqual([
+      { scopeId: ID_ESPACE_FOYER, ...ALLERGIE },
+      { scopeId: ID_ESPACE_FOYER, ...CORIANDRE('compte-b') },
+    ]);
+    for (const portee of portees) {
+      expect(portee).toEqual({
+        espaces: [{ id: ID_ESPACE_FOYER, kind: 'HOUSEHOLD' }],
+        typesAcceptes: ['HOUSEHOLD'],
+      });
+    }
+  });
+
+  it('donne les deux au Compte seul', async () => {
+    const { prisma, creees } = prismaDeDemo(['compte-a']);
+
+    await semerLesPreferences(prisma);
+
+    expect(creees).toEqual([
+      { scopeId: ID_ESPACE_FOYER, ...ALLERGIE },
+      { scopeId: ID_ESPACE_FOYER, ...CORIANDRE('compte-a') },
+    ]);
+  });
+
+  it('ne repose pas une Préférence déjà là', async () => {
+    const { prisma, creees } = prismaDeDemo(
+      ['compte-a', 'compte-b'],
+      [ALLERGIE],
+    );
+
+    await semerLesPreferences(prisma);
+
+    expect(creees).toEqual([
+      { scopeId: ID_ESPACE_FOYER, ...CORIANDRE('compte-b') },
+    ]);
+  });
+
+  it('ne fait rien sans Compte à qui les donner', async () => {
+    const { prisma, creees } = prismaDeDemo([]);
+
+    await semerLesPreferences(prisma);
+
+    expect(creees).toEqual([]);
   });
 });

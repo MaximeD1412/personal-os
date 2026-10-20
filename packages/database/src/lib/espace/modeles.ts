@@ -29,6 +29,7 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
       'eventExceptions',
       'aiTraces',
       'unresolvedCommands',
+      'foodPreferences',
     ],
   };
 
@@ -45,12 +46,12 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Record<string, readonly string[]>
 > = {
   HealthProbe: [],
-  User: ['household', 'personalScope', 'sessions'],
+  User: ['household', 'personalScope', 'sessions', 'foodPreferences'],
   Session: ['user'],
   LoginTransaction: [],
   Household: ['members', 'scopes'],
-  Ingredient: [],
-  IngredientAlias: [],
+  Ingredient: ['aliases', 'foodPreferences'],
+  IngredientAlias: ['ingredient'],
   Scope: [
     'household',
     'holder',
@@ -59,6 +60,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'eventExceptions',
     'aiTraces',
     'unresolvedCommands',
+    'foodPreferences',
   ],
 };
 
