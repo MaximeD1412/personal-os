@@ -1,0 +1,208 @@
+<dccm-state
+  [status]="etat()"
+  [error]="erreurDeLecture()"
+  skeleton="detail"
+  (retry)="foyer.reload(); planning.reload()"
+>
+  <dccm-form-page
+    heading="Nouveau repas"
+    subtitle="Un repas saisi à la main est approuvé d'emblée. Ses portions valent ses Participants plus ses Invités."
+    [breadcrumb]="fil"
+    submitLabel="Ajouter le repas"
+    [ignored]="prefill.ignores"
+    [error]="refus()"
+    [pending]="envoi()"
+    (submitted)="enregistrer()"
+    (cancelled)="fermer()"
+  >
+    <div class="grid gap-gutter md:grid-cols-2">
+      <div hlmField>
+        <label hlmFieldLabel for="repas-jour">Jour</label>
+        <hlm-select
+          data-test="jour"
+          [value]="jour()"
+          [itemToString]="nomDuJour"
+          (valueChange)="choisirLeJour($event)"
+        >
+          <hlm-select-trigger buttonId="repas-jour">
+            <hlm-select-value placeholder="Choisir un jour" />
+          </hlm-select-trigger>
+          <hlm-select-content *hlmSelectPortal>
+            @for (jour of jours; track jour) {
+            <hlm-select-item [value]="jour"
+              >{{ nomDuJour(jour) }}</hlm-select-item
+            >
+            }
+          </hlm-select-content>
+        </hlm-select>
+        @if (erreurs()['day']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        }
+      </div>
+
+      <div hlmField>
+        <span hlmFieldLabel id="repas-moment">Moment</span>
+        <!-- Le champ étire ses enfants : le groupe garde sa largeur dans un conteneur. -->
+        <div>
+          <hlm-toggle-group
+            size="md"
+            data-test="moment"
+            aria-labelledby="repas-moment"
+            [value]="moment()"
+            (valueChange)="choisirLeMoment($event)"
+          >
+            @for (moment of moments; track moment.valeur) {
+            <button
+              hlmToggleGroupItem
+              [value]="moment.valeur"
+              [attr.data-moment]="moment.valeur"
+            >
+              {{ moment.libelle }}
+            </button>
+            }
+          </hlm-toggle-group>
+        </div>
+        @if (erreurs()['moment']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        }
+      </div>
+    </div>
+
+    <div hlmField data-champ="plat">
+      <span hlmFieldLabel id="repas-plat">Ce qu'il sert</span>
+      <div>
+        <hlm-toggle-group
+          size="md"
+          data-test="plat"
+          aria-labelledby="repas-plat"
+          [value]="plat()"
+          (valueChange)="choisirLePlat($event)"
+        >
+          @for (plat of plats; track plat.valeur) {
+          <button
+            hlmToggleGroupItem
+            [value]="plat.valeur"
+            [attr.data-plat]="plat.valeur"
+          >
+            {{ plat.libelle }}
+          </button>
+          }
+        </hlm-toggle-group>
+      </div>
+
+      @if (plat() === 'recette') {
+      <div hlmInputGroup class="md:max-w-md">
+        <ng-icon name="matSearchOutline" aria-hidden="true" />
+        <input
+          hlmInput
+          type="search"
+          data-test="recherche"
+          autocomplete="off"
+          aria-label="Rechercher une recette"
+          placeholder="Rechercher une recette"
+          [value]="recherche()"
+          (input)="chercher($event)"
+        />
+      </div>
+      @if (recetteChoisie(); as titre) {
+      <p hlmFieldDescription data-test="choisie">
+        Recette choisie : {{ titre }}
+      </p>
+      }
+      <dccm-state
+        [status]="etatDesRecettes()"
+        [error]="catalogue.error()"
+        [rows]="3"
+        emptyHeading="Aucune recette ne correspond"
+        loadingLabel="Recherche des recettes…"
+        (retry)="catalogue.reload()"
+      >
+        <ul
+          class="flex max-h-72 flex-col overflow-y-auto"
+          aria-label="Recettes trouvées"
+        >
+          @for (recette of trouvees(); track recette.id) {
+          <li>
+            <button
+              dccmListRow
+              type="button"
+              data-test="recette"
+              [label]="recette.title"
+              [meta]="recette.servings + (recette.servings > 1 ? ' portions' : ' portion')"
+              [selected]="recette.id === recetteId()"
+              [attr.aria-pressed]="recette.id === recetteId()"
+              (click)="choisirLaRecette(recette.id, recette.title)"
+            ></button>
+          </li>
+          }
+        </ul>
+      </dccm-state>
+      } @else {
+      <input
+        hlmInput
+        data-test="intitule"
+        class="md:max-w-md"
+        aria-label="Intitulé du repas"
+        placeholder="Des restes, un restaurant…"
+        maxlength="160"
+        [forceInvalid]="!!erreurs()['title']"
+        [value]="intitule()"
+        (input)="saisirLIntitule($event)"
+      />
+      } @if (erreurs()['title'] ?? erreurs()['recipeId']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+
+    <fieldset class="flex flex-col gap-space-sm" data-test="participants">
+      <legend
+        class="mb-space-sm text-label-regular font-semibold text-on-surface"
+      >
+        Participants
+      </legend>
+      <div class="flex flex-wrap gap-x-gutter gap-y-space-sm">
+        @for (membre of membres(); track membre.id) {
+        <div
+          hlmField
+          orientation="horizontal"
+          [attr.data-participant]="membre.id"
+        >
+          <hlm-checkbox
+            [inputId]="'participant-' + membre.id"
+            [checked]="participants().includes(membre.id)"
+            (checkedChange)="cocher(membre.id, $event)"
+          />
+          <label hlmFieldLabel [for]="'participant-' + membre.id"
+            >{{ membre.displayName }}</label
+          >
+        </div>
+        }
+      </div>
+      @if (erreurs()['participantIds']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </fieldset>
+
+    <div hlmField>
+      <span hlmFieldLabel id="repas-invites">Invités</span>
+      <div class="flex flex-wrap items-center gap-gutter">
+        <dccm-stepper
+          size="md"
+          aria-label="Invités"
+          [min]="0"
+          [max]="50"
+          [(value)]="invites"
+        />
+        <span
+          class="text-body-dense tabular-nums text-on-surface-variant"
+          data-test="portions"
+          aria-live="polite"
+          >{{ portions() }}</span
+        >
+      </div>
+      @if (erreurs()['guestCount']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+  </dccm-form-page>
+</dccm-state>
