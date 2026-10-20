@@ -30,7 +30,17 @@ export interface RepasDuTour extends Creneau {
 export interface PlanningDuTour {
   status: MealPlanStatus;
   entries: readonly RepasDuTour[];
+  /** Les Tours de génération déjà lancés : 0 avant le premier. */
+  toursLances: number;
+  /**
+   * Les créneaux que le contrôle a vidés au tour précédent, faute d'une
+   * proposition sûre : le tour suivant les retente (CUISINE-16).
+   */
+  ecartes: readonly Creneau[];
 }
+
+/** Ce que l'arrêt lit d'un planning : ses tours n'y changent rien. */
+export type PlanningAArreter = Pick<PlanningDuTour, 'status' | 'entries'>;
 
 /** Ce qu'on peut décider d'un repas proposé. */
 export type DecisionSurUnRepas = Exclude<MealPlanEntryDecision, 'PROPOSED'>;
@@ -42,8 +52,7 @@ export type Decision =
 
 /**
  * Un tour se lance sur un planning ouvert dont chaque repas est statué, et
- * qui a quelque chose à remplir : un refusé à remplacer, ou un créneau
- * demandé encore vide.
+ * qui a quelque chose à remplir (voir `creneauxDuTour`).
  */
 export function peutLancerUnTour(
   planning: PlanningDuTour,
@@ -58,9 +67,11 @@ export function peutLancerUnTour(
 
 /**
  * Les créneaux d'un tour : celui de chaque repas refusé, que le tour remplace,
- * pour la même tablée ; puis les créneaux demandés où rien n'est encore
- * planifié. Un repas approuvé ou proposé n'est jamais régénéré. Le tout dans
- * l'ordre de la semaine.
+ * pour la même tablée ; puis, encore vides, les créneaux demandés au premier
+ * tour, ou ceux que le contrôle a écartés au tour précédent. Après le premier
+ * tour, une demande nouvelle n'ajoute rien : le tour suivant ne porte que sur
+ * les refusés et les écartés. Un repas approuvé ou proposé n'est jamais
+ * régénéré. Le tout dans l'ordre de la semaine.
  */
 export function creneauxDuTour(
   planning: PlanningDuTour,
@@ -76,7 +87,11 @@ export function creneauxDuTour(
     }));
 
   const occupes = new Set(planning.entries.map(cle));
-  const vides = creneauxDemandes.filter((creneau) => {
+  const aRemplir = [
+    ...(planning.toursLances === 0 ? creneauxDemandes : []),
+    ...planning.ecartes,
+  ];
+  const vides = aRemplir.filter((creneau) => {
     if (occupes.has(cle(creneau))) return false;
     occupes.add(cle(creneau));
     return true;
@@ -116,10 +131,10 @@ export function appliquerDecision(
  * Un planning ouvert s'arrête quand plus aucun repas n'attend de décision.
  * Les refusés ne le retiennent pas : l'arrêt les retire.
  */
-export function estArretable(planning: PlanningDuTour): boolean {
+export function estArretable(planning: PlanningAArreter): boolean {
   return planning.status === 'OPEN' && !aUnRepasPropose(planning);
 }
 
-function aUnRepasPropose({ entries }: PlanningDuTour): boolean {
+function aUnRepasPropose({ entries }: PlanningAArreter): boolean {
   return entries.some(({ decision }) => decision === 'PROPOSED');
 }

@@ -5,12 +5,14 @@ import {
   estArretable,
   peutLancerUnTour,
   type Creneau,
+  type PlanningDuTour,
   type RepasDuTour,
 } from './tours';
 
 const LUNDI = '2028-03-13';
 const MARDI = '2028-03-14';
 const MERCREDI = '2028-03-15';
+const JEUDI = '2028-03-16';
 
 function repas(
   day: string,
@@ -25,15 +27,26 @@ function creneau(day: string, moment: Creneau['moment']): Creneau {
   return { day, moment, participantIds: ['a', 'b'], guestCount: 1 };
 }
 
-function ouvert(...entries: RepasDuTour[]) {
-  return { status: 'OPEN' as const, entries };
+/** Un planning ouvert dont aucun tour n'a encore été lancé. */
+function ouvert(...entries: RepasDuTour[]): PlanningDuTour {
+  return { status: 'OPEN', entries, toursLances: 0, ecartes: [] };
+}
+
+/** Le même planning, après son premier tour. */
+function apresUnTour(
+  planning: PlanningDuTour,
+  ecartes: Creneau[] = [],
+): PlanningDuTour {
+  return { ...planning, toursLances: 1, ecartes };
 }
 
 describe('peutLancerUnTour', () => {
   it('refuse de relancer tant qu’un repas est proposé', () => {
-    const planning = ouvert(
-      repas(LUNDI, 'LUNCH', 'REFUSED'),
-      repas(MARDI, 'LUNCH', 'PROPOSED'),
+    const planning = apresUnTour(
+      ouvert(
+        repas(LUNDI, 'LUNCH', 'REFUSED'),
+        repas(MARDI, 'LUNCH', 'PROPOSED'),
+      ),
     );
 
     expect(peutLancerUnTour(planning, [])).toBe(false);
@@ -43,10 +56,33 @@ describe('peutLancerUnTour', () => {
   });
 
   it('relance quand chaque repas est statué et qu’un repas est refusé', () => {
-    const planning = ouvert(
-      repas(LUNDI, 'LUNCH', 'APPROVED'),
-      repas(MARDI, 'LUNCH', 'REFUSED'),
+    const planning = apresUnTour(
+      ouvert(
+        repas(LUNDI, 'LUNCH', 'APPROVED'),
+        repas(MARDI, 'LUNCH', 'REFUSED'),
+      ),
     );
+
+    expect(peutLancerUnTour(planning, [])).toBe(true);
+  });
+
+  it('ne relance pas, quand tout est approuvé, pour un créneau demandé après le premier tour', () => {
+    const planning = apresUnTour(
+      ouvert(
+        repas(LUNDI, 'LUNCH', 'APPROVED'),
+        repas(MARDI, 'LUNCH', 'APPROVED'),
+      ),
+    );
+
+    expect(peutLancerUnTour(planning, [creneau(MERCREDI, 'LUNCH')])).toBe(
+      false,
+    );
+  });
+
+  it('relance pour un créneau que le contrôle a écarté au tour précédent', () => {
+    const planning = apresUnTour(ouvert(repas(LUNDI, 'LUNCH', 'APPROVED')), [
+      creneau(MARDI, 'DINNER'),
+    ]);
 
     expect(peutLancerUnTour(planning, [])).toBe(true);
   });
@@ -67,7 +103,10 @@ describe('peutLancerUnTour', () => {
   it('ne lance rien sur un planning arrêté', () => {
     expect(
       peutLancerUnTour(
-        { status: 'STOPPED', entries: [repas(LUNDI, 'LUNCH', 'REFUSED')] },
+        {
+          ...ouvert(repas(LUNDI, 'LUNCH', 'REFUSED')),
+          status: 'STOPPED',
+        },
         [creneau(MARDI, 'LUNCH')],
       ),
     ).toBe(false);
@@ -131,26 +170,48 @@ describe('estArretable', () => {
   });
 
   it('n’arrête pas un planning déjà arrêté', () => {
-    expect(estArretable({ status: 'STOPPED', entries: [] })).toBe(false);
+    expect(estArretable({ ...ouvert(), status: 'STOPPED' })).toBe(false);
   });
 });
 
 describe('creneauxDuTour', () => {
   it('ne porte, au tour suivant, que sur les créneaux des refusés', () => {
-    const planning = ouvert(
-      repas(LUNDI, 'LUNCH', 'APPROVED'),
-      repas(LUNDI, 'DINNER', 'REFUSED', ['b']),
-      repas(MARDI, 'DINNER', 'APPROVED'),
-      repas(MERCREDI, 'LUNCH', 'REFUSED'),
+    const planning = apresUnTour(
+      ouvert(
+        repas(LUNDI, 'LUNCH', 'APPROVED'),
+        repas(LUNDI, 'DINNER', 'REFUSED', ['b']),
+        repas(MARDI, 'DINNER', 'APPROVED'),
+        repas(MERCREDI, 'LUNCH', 'REFUSED'),
+      ),
     );
 
-    expect(creneauxDuTour(planning, [])).toEqual([
+    expect(
+      creneauxDuTour(planning, [
+        creneau(MARDI, 'LUNCH'),
+        creneau(JEUDI, 'DINNER'),
+      ]),
+    ).toEqual([
       { day: LUNDI, moment: 'DINNER', participantIds: ['b'], guestCount: 0 },
       { day: MERCREDI, moment: 'LUNCH', participantIds: ['a'], guestCount: 0 },
     ]);
   });
 
-  it('ajoute les créneaux demandés encore vides, dans l’ordre de la semaine', () => {
+  it('retente, au tour suivant, les créneaux écartés par le contrôle encore vides', () => {
+    const planning = apresUnTour(
+      ouvert(
+        repas(LUNDI, 'LUNCH', 'REFUSED'),
+        repas(MARDI, 'LUNCH', 'APPROVED'),
+      ),
+      [creneau(MARDI, 'LUNCH'), creneau(MERCREDI, 'DINNER')],
+    );
+
+    expect(creneauxDuTour(planning, [])).toEqual([
+      { day: LUNDI, moment: 'LUNCH', participantIds: ['a'], guestCount: 0 },
+      creneau(MERCREDI, 'DINNER'),
+    ]);
+  });
+
+  it('ajoute au premier tour les créneaux demandés encore vides, dans l’ordre de la semaine', () => {
     const planning = ouvert(repas(MARDI, 'LUNCH', 'REFUSED'));
 
     expect(
