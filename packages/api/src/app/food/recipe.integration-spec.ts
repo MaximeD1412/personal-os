@@ -342,6 +342,40 @@ describe('Recettes', () => {
       ]);
     });
 
+    it('sérialise les remplacements simultanés : chacun aboutit, le dernier gagne en entier', async () => {
+      const recette = await creer(jeu.a, { title: 'Dahl disputé' });
+      const saisies = Array.from({ length: 8 }, (_, i) => [
+        { ingredientId: lentilles.id, quantity: 100 + i, unit: 'G' },
+        { ingredientId: oignon.id, quantity: 1, unit: 'PIECE' },
+        { ingredientId: cumin.id, quantity: i + 1, unit: 'TSP' },
+      ]);
+
+      const reponses = await Promise.all(
+        saisies.map((lines, i) =>
+          request(app.getHttpServer())
+            .patch(`/api/recipes/${recette.id}`)
+            .set('Cookie', i % 2 ? jeu.b.session : jeu.a.session)
+            .send({ lines }),
+        ),
+      );
+
+      expect(reponses.map(({ status }) => status)).toEqual(
+        saisies.map(() => 200),
+      );
+      const relue = await request(app.getHttpServer())
+        .get(`/api/recipes/${recette.id}`)
+        .set('Cookie', jeu.a.session)
+        .expect(200);
+      const lignes = (relue.body as Recipe).lines.map(
+        ({ ingredient, quantity, unit }) => ({
+          ingredientId: ingredient.id,
+          quantity,
+          unit,
+        }),
+      );
+      expect(saisies).toContainEqual(lignes);
+    });
+
     it("garde les anciennes lignes si l'une des nouvelles cite un Ingrédient inconnu", async () => {
       const recette = await creer(jeu.a, { title: 'Dahl à préserver' });
 

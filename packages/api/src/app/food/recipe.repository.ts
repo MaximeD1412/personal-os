@@ -121,6 +121,12 @@ export class RecipeRepository {
    * on supprime, puis on recrée sous la recette, jamais ligne à ligne. Une
    * recette absente fait échouer la modification, et avec elle la
    * suppression des lignes.
+   *
+   * La transaction s'ouvre en écrivant la recette, ce qui verrouille sa
+   * rangée jusqu'au commit : deux remplacements simultanés passent l'un après
+   * l'autre. Sans ce verrou, le second supprimerait les lignes qu'il a lues
+   * avant le commit du premier, puis buterait sur les nouvelles
+   * (`recipeId`, `position`).
    */
   async modifier(
     id: string,
@@ -137,7 +143,12 @@ export class RecipeRepository {
       );
     }
 
-    const [, rangee] = await this.prisma.$transaction([
+    const [, , rangee] = await this.prisma.$transaction([
+      this.prisma.recipe.update({
+        where: { id },
+        data: { updatedAt: new Date() },
+        select: { id: true },
+      }),
       this.prisma.recipeLine.deleteMany({ where: { recipeId: id } }),
       this.prisma.recipe.update({
         where: { id },

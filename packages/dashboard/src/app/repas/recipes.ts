@@ -1,5 +1,7 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, linkedSignal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   matMenuBookOutline,
@@ -53,9 +55,21 @@ export class Recettes {
   ];
   protected readonly iconeVide = matMenuBookOutline;
 
-  protected readonly recherche = signal(
-    this.route.snapshot.queryParamMap.get('q') ?? '',
+  /** La recherche de l'URL : un lien vers l'écran déjà ouvert la change aussi. */
+  private readonly rechercheDeLUrl = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('q') ?? '')),
+    { initialValue: this.route.snapshot.queryParamMap.get('q') ?? '' },
   );
+  /**
+   * Le champ suit la frappe, et l'URL quand elle dit autre chose. L'URL ne
+   * retient que la recherche nettoyée : quand elle s'accorde avec la frappe,
+   * le champ garde l'espace qu'on vient de taper.
+   */
+  protected readonly recherche = linkedSignal<string, string>({
+    source: this.rechercheDeLUrl,
+    computation: (q, precedente) =>
+      precedente && precedente.value.trim() === q ? precedente.value : q,
+  });
   protected readonly lecture = inject(RecipeService).recettes(this.recherche);
   protected readonly etat = computed(() =>
     stateOf(this.lecture, (recettes) => recettes.length === 0),

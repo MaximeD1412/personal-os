@@ -67,6 +67,50 @@ describe('Les recettes', () => {
     expect(el().querySelectorAll('[data-test="recette"]')).toHaveLength(1);
   });
 
+  it('suit l’URL quand elle change sous le même écran, comme le lien « Recettes » de la navigation', async () => {
+    const { harness, http, el } = await ouvrirLesRecettes(
+      '/repas/recettes?q=dahl',
+    );
+    http.expectOne(({ params }) => params.get('q') === 'dahl').flush([DAHL]);
+    await harness.fixture.whenStable();
+    const ecran = harness.routeDebugElement?.componentInstance;
+
+    await harness.navigateByUrl('/repas/recettes');
+    TestBed.tick();
+
+    const lecture = http.expectOne(`${BASE}/recipes`);
+    expect(lecture.request.params.keys()).toEqual([]);
+    lecture.flush([DAHL, OMELETTE]);
+    await harness.fixture.whenStable();
+
+    expect(harness.routeDebugElement?.componentInstance).toBe(ecran);
+    const champ = el().querySelector(
+      '[data-test="recherche"]',
+    ) as HTMLInputElement;
+    expect(champ.value).toBe('');
+    expect(el().querySelectorAll('[data-test="recette"]')).toHaveLength(2);
+  });
+
+  it('garde l’espace en fin de frappe, que l’URL ne retient pas', async () => {
+    const { harness, http, el, router } = await ouvrirLesRecettes(
+      '/repas/recettes',
+    );
+    http.expectOne(`${BASE}/recipes`).flush([DAHL]);
+    await harness.fixture.whenStable();
+
+    const champ = el().querySelector(
+      '[data-test="recherche"]',
+    ) as HTMLInputElement;
+    champ.value = 'dahl ';
+    champ.dispatchEvent(new Event('input'));
+    TestBed.tick();
+    http.expectOne(({ params }) => params.get('q') === 'dahl').flush([DAHL]);
+    await harness.fixture.whenStable();
+
+    expect(router.url).toBe('/repas/recettes?q=dahl');
+    expect(champ.value).toBe('dahl ');
+  });
+
   it('dit qu’une recherche ne trouve rien', async () => {
     const { harness, http, el } = await ouvrirLesRecettes(
       '/repas/recettes?q=Bortsch',
