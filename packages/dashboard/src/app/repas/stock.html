@@ -1,0 +1,199 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    heading="Stock domestique"
+    subtitle="Une ligne par Ingrédient. Une modification s'enregistre en quittant le champ."
+    [breadcrumb]="fil"
+  >
+    <a hlmBtn routerLink="/repas/stock/nouveau" data-test="ajouter">
+      <ng-icon name="matAddOutline" aria-hidden="true" />
+      Ajouter un ingrédient
+    </a>
+  </dccm-page-header>
+
+  <div hlmInputGroup class="md:max-w-md">
+    <ng-icon name="matSearchOutline" aria-hidden="true" />
+    <input
+      hlmInput
+      type="search"
+      data-test="recherche"
+      aria-label="Rechercher dans le stock"
+      placeholder="Rechercher dans le stock"
+      [value]="recherche()"
+      (input)="chercher($event)"
+    />
+  </div>
+
+  @if (refusDeSuppression(); as erreur) {
+  <div hlmAlert tone="error" data-test="refus-suppression">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>{{ erreur.message }}</p>
+    </div>
+  </div>
+  }
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    [emptyHeading]="titreVide()"
+    [emptyIcon]="iconeVide"
+    loadingLabel="Chargement du stock…"
+    (retry)="lecture.reload()"
+  >
+    <a dccmStateEmpty hlmBtn routerLink="/repas/stock/nouveau"
+      >Ajouter un ingrédient</a
+    >
+
+    @if (large()) {
+    <div hlmTableContainer>
+      <table hlmTable aria-label="Stock domestique">
+        <thead hlmTableHeader>
+          <tr hlmTableRow>
+            <th hlmTableHead>Ingrédient</th>
+            <th hlmTableHead>Quantité</th>
+            <th hlmTableHead>Péremption</th>
+            <th hlmTableHead>Statut</th>
+            <th hlmTableHead><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody hlmTableBody>
+          @for (ligne of affichees(); track ligne.id) {
+          <tr
+            hlmTableRow
+            data-test="ligne"
+            [attr.data-ingredient]="ligne.ingredient.id"
+          >
+            <td
+              hlmTableCell
+              class="font-semibold text-on-surface"
+              data-test="nom"
+            >
+              {{ ligne.ingredient.displayName }}
+            </td>
+            <td hlmTableCell class="w-56 align-top">
+              <ng-container
+                *ngTemplateOutlet="quantite; context: { $implicit: ligne }"
+              />
+            </td>
+            <td hlmTableCell class="w-48 align-top">
+              <ng-container
+                *ngTemplateOutlet="peremption; context: { $implicit: ligne }"
+              />
+            </td>
+            <td hlmTableCell>
+              <ng-container
+                *ngTemplateOutlet="statut; context: { $implicit: ligne }"
+              />
+            </td>
+            <td hlmTableCell class="w-12 text-end">
+              <ng-container
+                *ngTemplateOutlet="retrait; context: { $implicit: ligne }"
+              />
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    } @else {
+    <ul class="flex flex-col gap-space-sm" aria-label="Stock domestique">
+      @for (ligne of affichees(); track ligne.id) {
+      <li
+        hlmCard
+        data-test="ligne"
+        [attr.data-ingredient]="ligne.ingredient.id"
+      >
+        <div class="flex items-start justify-between gap-space-sm">
+          <div class="flex min-w-0 flex-col gap-space-xs">
+            <h2 class="truncate text-title-sm text-on-surface" data-test="nom">
+              {{ ligne.ingredient.displayName }}
+            </h2>
+            <ng-container
+              *ngTemplateOutlet="statut; context: { $implicit: ligne }"
+            />
+          </div>
+          <ng-container
+            *ngTemplateOutlet="retrait; context: { $implicit: ligne }"
+          />
+        </div>
+        <div class="grid grid-cols-2 gap-space-sm">
+          <ng-container
+            *ngTemplateOutlet="quantite; context: { $implicit: ligne }"
+          />
+          <ng-container
+            *ngTemplateOutlet="peremption; context: { $implicit: ligne }"
+          />
+        </div>
+      </li>
+      }
+    </ul>
+    }
+  </dccm-state>
+</div>
+
+<ng-template #quantite let-ligne>
+  <div hlmField>
+    <div hlmInputGroup>
+      <input
+        hlmInput
+        type="number"
+        inputmode="decimal"
+        min="0"
+        step="any"
+        class="tabular-nums"
+        data-test="quantite"
+        [attr.aria-label]="
+          'Quantité de ' + ligne.ingredient.displayName + ', en ' + unite(ligne)
+        "
+        [value]="ligne.quantity"
+        [forceInvalid]="!!refusDe(ligne, 'quantity')"
+        (change)="changerLaQuantite(ligne, $event)"
+      />
+      <span class="text-label-regular text-outline" aria-hidden="true"
+        >{{ unite(ligne) }}</span
+      >
+    </div>
+    @if (refusDe(ligne, 'quantity'); as message) {
+    <hlm-field-error forceShow data-test="refus">{{ message }}</hlm-field-error>
+    }
+  </div>
+</ng-template>
+
+<ng-template #peremption let-ligne>
+  <div hlmField>
+    <input
+      hlmInput
+      type="date"
+      class="tabular-nums"
+      data-test="peremption"
+      [attr.aria-label]="'Péremption de ' + ligne.ingredient.displayName"
+      [value]="ligne.expiresOn ?? ''"
+      [forceInvalid]="!!refusDe(ligne, 'expiresOn')"
+      (change)="changerLaPeremption(ligne, $event)"
+    />
+    @if (refusDe(ligne, 'expiresOn'); as message) {
+    <hlm-field-error forceShow data-test="refus">{{ message }}</hlm-field-error>
+    }
+  </div>
+</ng-template>
+
+<ng-template #statut let-ligne>
+  @if (alerte(ligne); as alerte) {
+  <span hlmBadge tone="warning" dot data-test="alerte">{{ alerte }}</span>
+  }
+</ng-template>
+
+<ng-template #retrait let-ligne>
+  <button
+    hlmBtn
+    variant="ghost"
+    size="icon"
+    type="button"
+    data-test="retirer"
+    [attr.aria-label]="'Retirer ' + ligne.ingredient.displayName + ' du stock'"
+    [disabled]="suppression() === ligne.ingredient.id"
+    (click)="retirer(ligne)"
+  >
+    <ng-icon name="matDeleteOutline" aria-hidden="true" />
+  </button>
+</ng-template>

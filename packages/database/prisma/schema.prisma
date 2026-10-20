@@ -52,6 +52,7 @@ model Scope {
   foodPreferences    FoodPreference[]
   recipes            Recipe[]
   recipeLines        RecipeLine[]
+  pantryItems        PantryItem[]
 
   @@index([householdId])
 }
@@ -250,6 +251,7 @@ model Ingredient {
   aliases         IngredientAlias[]
   recipeLines     RecipeLine[]
   foodPreferences FoodPreference[]
+  pantryItems     PantryItem[]
 }
 
 /// Un libellé rattaché à un Ingrédient (CUISINE-3) : une fois rattaché, le
@@ -387,4 +389,25 @@ model LoginTransaction {
   codeVerifier String
   createdAt    DateTime @default(now())
   expiresAt    DateTime
+}
+
+/// Une ligne du Stock domestique (CUISINE-8) : la quantité déclarée d'un
+/// Ingrédient, en Unité canonique, et sa péremption la plus proche. Une seule
+/// ligne par Ingrédient dans un Espace (ADR 0013), sans lots.
+model PantryItem {
+  id           String     @id @default(uuid())
+  scopeId      String
+  scope        Scope      @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  /// Un Ingrédient en stock ne se supprime pas : il se fusionne (CUISINE-4).
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  /// Positive ou nulle, au millième près, en Unité canonique de l'Ingrédient.
+  quantity     Decimal    @db.Decimal(12, 3)
+  /// Un jour civil (`zDay`), jamais un instant ; vide à zéro.
+  expiresOn    DateTime?  @db.Date
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
+
+  @@unique([scopeId, ingredientId])
+  @@index([ingredientId])
 }
