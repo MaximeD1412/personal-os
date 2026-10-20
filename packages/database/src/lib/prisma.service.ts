@@ -87,6 +87,10 @@ export class PrismaService {
     return this.#client.ingredientAlias;
   }
 
+  get foodPreference() {
+    return this.#client.foodPreference;
+  }
+
   get recipe() {
     return this.#client.recipe;
   }

@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { FoodPreferenceController } from './food-preference.controller';
+import { FoodPreferenceRepository } from './food-preference.repository';
+import { FoodPreferenceService } from './food-preference.service';
 import { IngredientAliasController } from './ingredient-alias.controller';
 import { IngredientAliasRepository } from './ingredient-alias.repository';
 import { IngredientAliasService } from './ingredient-alias.service';
@@ -11,13 +14,14 @@ import { RecipeService } from './recipe.service';
 
 /**
  * La Cuisine. Le catalogue d'Ingrédients et ses Alias sont globaux ; les
- * Recettes vivent dans l'Espace foyer, où le Planning de repas et les Courses
- * les rejoindront.
+ * Recettes et les Préférences alimentaires vivent dans l'Espace foyer, où le
+ * Planning de repas et les Courses les rejoindront.
  */
 @Module({
   controllers: [
     IngredientController,
     IngredientAliasController,
+    FoodPreferenceController,
     RecipeController,
   ],
   providers: [
@@ -25,6 +29,8 @@ import { RecipeService } from './recipe.service';
     IngredientRepository,
     IngredientAliasService,
     IngredientAliasRepository,
+    FoodPreferenceService,
+    FoodPreferenceRepository,
     RecipeService,
     RecipeRepository,
   ],

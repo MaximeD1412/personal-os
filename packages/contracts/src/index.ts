@@ -4,6 +4,7 @@ export * from './lib/auth';
 export * from './lib/command-bar';
 export * from './lib/erreur';
 export * from './lib/event';
+export * from './lib/food-preference';
 export * from './lib/health';
 export * from './lib/household';
 export * from './lib/ingredient';

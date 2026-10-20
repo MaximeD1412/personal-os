@@ -4,7 +4,7 @@ import {
   type CanonicalUnit,
   type RecipeUnit,
 } from '@personal-os/contracts';
-import { ID_ESPACE_FOYER } from '../lib/espace/foyer';
+import { ID_ESPACE_FOYER, ID_FOYER } from '../lib/espace/foyer';
 import { sousPortee } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
 
@@ -121,6 +121,11 @@ export const INGREDIENTS_DE_DEMO: readonly IngredientDeDemo[] = [
   { displayName: 'Pomme de terre', canonicalUnit: 'GRAM', perishable: false },
   { displayName: 'Carotte', canonicalUnit: 'GRAM', perishable: false },
   { displayName: 'Courgette', canonicalUnit: 'GRAM', perishable: true },
+  {
+    displayName: 'Coriandre fraîche',
+    canonicalUnit: 'GRAM',
+    perishable: true,
+  },
   {
     displayName: 'Céleri branche',
     canonicalUnit: 'GRAM',
@@ -420,4 +425,75 @@ function idDe(ingredient: string, ids: ReadonlyMap<string, string>): string {
     throw new Error(`${ingredient} n'est pas dans le catalogue de démo.`);
   }
   return id;
+}
+
+/** Le libellé de l'Ingrédient que le second Compte n'apprécie guère. */
+export const CORIANDRE_DE_DEMO = 'Coriandre fraîche';
+
+/** Le semeur ne touche qu'à l'Espace foyer, comme le module. */
+const ESPACE_FOYER = {
+  espaces: [{ id: ID_ESPACE_FOYER, kind: 'HOUSEHOLD' as const }],
+  typesAcceptes: ['HOUSEHOLD' as const],
+};
+
+/**
+ * Les Préférences alimentaires de démo : une allergie aux fruits à coque pour
+ * le premier Compte du Foyer, la coriandre peu appréciée du second (du même,
+ * s'il est seul). Sans Compte, il n'y a personne à qui les donner : le semeur
+ * ne fait rien. Il passe après `semerLaCuisine`, dont il lit la coriandre.
+ *
+ * Une Préférence déjà là n'est pas reposée : deux semis de suite donnent les
+ * mêmes Préférences.
+ */
+export async function semerLesPreferences(
+  prisma: PrismaService,
+): Promise<void> {
+  const [premier, second = premier] = await prisma.user.findMany({
+    where: { householdId: ID_FOYER },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: { id: true },
+  });
+  if (!premier) {
+    return;
+  }
+
+  const coriandre = await prisma.ingredient.findUnique({
+    where: { name: normaliserLibelle(CORIANDRE_DE_DEMO) },
+    select: { id: true },
+  });
+  if (!coriandre) {
+    throw new Error(
+      `${CORIANDRE_DE_DEMO} manque au catalogue : semerLaCuisine passe avant les Préférences.`,
+    );
+  }
+
+  const preferences = [
+    {
+      userId: premier.id,
+      kind: 'ALLERGY' as const,
+      allergen: 'TREE_NUTS' as const,
+      ingredientId: null,
+    },
+    {
+      userId: second.id,
+      kind: 'DISLIKED' as const,
+      allergen: null,
+      ingredientId: coriandre.id,
+    },
+  ];
+
+  // Une requête Prisma ne part qu'à l'`await` : il se fait sous la portée.
+  await sousPortee(ESPACE_FOYER, async () => {
+    for (const preference of preferences) {
+      const existante = await prisma.foodPreference.findFirst({
+        where: preference,
+        select: { id: true },
+      });
+      if (!existante) {
+        await prisma.foodPreference.create({
+          data: { scopeId: ID_ESPACE_FOYER, ...preference },
+        });
+      }
+    }
+  });
 }
