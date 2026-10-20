@@ -50,6 +50,8 @@ model Scope {
   aiTraces           AiTrace[]
   unresolvedCommands UnresolvedCommand[]
   foodPreferences    FoodPreference[]
+  recipes            Recipe[]
+  recipeLines        RecipeLine[]
 
   @@index([householdId])
 }
@@ -246,6 +248,7 @@ model Ingredient {
   perishable      Boolean           @default(false)
   createdAt       DateTime          @default(now())
   aliases         IngredientAlias[]
+  recipeLines     RecipeLine[]
   foodPreferences FoodPreference[]
 }
 
@@ -260,6 +263,74 @@ model IngredientAlias {
   /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
   createdAt    DateTime   @default(now()) @db.Timestamptz(3)
 
+  @@index([ingredientId])
+}
+
+/// L'unité dans laquelle une recette donne une quantité (`UNITES_DE_RECETTE`
+/// de `contracts`).
+enum RecipeUnit {
+  G
+  KG
+  MG
+  ML
+  CL
+  L
+  TSP
+  TBSP
+  PIECE
+}
+
+/// L'origine d'une Recette : saisie à la main, ou proposée par la génération.
+enum RecipeSource {
+  MANUAL
+  GENERATED
+}
+
+/// Une Recette : une préparation réutilisable, pour un nombre de portions de
+/// référence. Elle ne connaît que des Ingrédients, jamais des Produits. Elle
+/// vit dans l'Espace foyer, que la Cuisine pose elle-même.
+model Recipe {
+  id        String       @id @default(uuid())
+  scopeId   String
+  scope     Scope        @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  title     String
+  /// Les portions de référence, au moins une.
+  servings  Int
+  /// Les étapes, dans leur ordre.
+  steps     String[]
+  source    RecipeSource @default(MANUAL)
+  lines     RecipeLine[]
+  /// Des instants (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @db.Timestamptz(3)
+
+  /// La cible de la clé étrangère des lignes, qui porte l'Espace.
+  @@unique([id, scopeId])
+  @@index([scopeId])
+}
+
+/// Une ligne de Recette : un Ingrédient du catalogue, sa quantité et l'unité
+/// saisie, conservée telle quelle ; la conversion n'a lieu qu'à la
+/// consolidation. La clé étrangère porte l'Espace avec la Recette : une ligne
+/// est toujours dans l'Espace de sa recette (ADR 0028).
+model RecipeLine {
+  id           String     @id @default(uuid())
+  scopeId      String
+  scope        Scope      @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  recipeId     String
+  recipe       Recipe     @relation(fields: [recipeId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  /// Un Ingrédient cité par une recette ne se supprime pas : il se fusionne
+  /// (CUISINE-4).
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  /// Strictement positive, au millième près.
+  quantity     Decimal    @db.Decimal(12, 3)
+  unit         RecipeUnit
+  /// Le rang de la ligne dans la recette, à partir de 0.
+  position     Int
+
+  @@unique([recipeId, position])
+  @@index([scopeId])
   @@index([ingredientId])
 }
 

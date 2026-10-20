@@ -30,6 +30,8 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
       'aiTraces',
       'unresolvedCommands',
       'foodPreferences',
+      'recipes',
+      'recipeLines',
     ],
   };
 
@@ -50,7 +52,10 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Session: ['user'],
   LoginTransaction: [],
   Household: ['members', 'scopes'],
-  Ingredient: ['aliases', 'foodPreferences'],
+  // Un Ingrédient est cité par les lignes de Recette et les Préférences
+  // alimentaires, qui sont cloisonnées : directement, ou depuis un Alias à
+  // travers son Ingrédient.
+  Ingredient: ['aliases', 'recipeLines', 'foodPreferences'],
   IngredientAlias: ['ingredient'],
   Scope: [
     'household',
@@ -61,6 +66,8 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'aiTraces',
     'unresolvedCommands',
     'foodPreferences',
+    'recipes',
+    'recipeLines',
   ],
 };
 

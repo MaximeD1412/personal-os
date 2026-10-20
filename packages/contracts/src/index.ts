@@ -8,5 +8,6 @@ export * from './lib/food-preference';
 export * from './lib/health';
 export * from './lib/household';
 export * from './lib/ingredient';
+export * from './lib/recipe';
 export * from './lib/scope';
 export * from './lib/valeurs';
