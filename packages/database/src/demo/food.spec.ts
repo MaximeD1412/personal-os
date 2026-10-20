@@ -2,9 +2,12 @@ import {
   normaliserLibelle,
   UNITES_AVEC_POIDS_A_LA_PIECE,
   zIngredientInput,
+  zRecipeInput,
 } from '@personal-os/contracts';
+import { ID_ESPACE_FOYER } from '../lib/espace/foyer';
+import { porteeCourante } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
-import { INGREDIENTS_DE_DEMO, semerLaCuisine } from './food';
+import { INGREDIENTS_DE_DEMO, RECETTES_DE_DEMO, semerLaCuisine } from './food';
 
 function trouver(displayName: string) {
   const ingredient = INGREDIENTS_DE_DEMO.find(
@@ -61,15 +64,93 @@ describe('Le catalogue de démo', () => {
   );
 });
 
+describe('Les recettes de démo', () => {
+  it('sont six, chacune conforme à la saisie du contrat', () => {
+    expect(RECETTES_DE_DEMO).toHaveLength(6);
+    for (const { lines, ...recette } of RECETTES_DE_DEMO) {
+      const saisie = {
+        ...recette,
+        lines: lines.map(({ ingredient, ...ligne }) => ({
+          ...ligne,
+          ingredientId: ingredient,
+        })),
+      };
+      expect(zRecipeInput.safeParse(saisie).success).toBe(true);
+    }
+  });
+
+  it('ne portent jamais deux fois le même titre', () => {
+    const titres = RECETTES_DE_DEMO.map(({ title }) => title);
+
+    expect(new Set(titres).size).toBe(titres.length);
+  });
+
+  it('ne citent que des Ingrédients du catalogue de démo', () => {
+    for (const { lines } of RECETTES_DE_DEMO) {
+      for (const { ingredient } of lines) {
+        expect(() => trouver(ingredient)).not.toThrow();
+      }
+    }
+  });
+
+  it('ne mesurent en cuillères que des liquides, en pièces que ce qui a un poids à la pièce', () => {
+    for (const { lines } of RECETTES_DE_DEMO) {
+      for (const { ingredient, unit } of lines) {
+        const { canonicalUnit } = trouver(ingredient);
+        if (['ML', 'CL', 'L', 'TSP', 'TBSP'].includes(unit)) {
+          expect(canonicalUnit).toBe('MILLILITER');
+        }
+        if (unit === 'PIECE') {
+          expect(canonicalUnit).toBe('PIECE');
+        }
+        if (['G', 'KG', 'MG'].includes(unit)) {
+          expect(['GRAM', 'PIECE']).toContain(canonicalUnit);
+        }
+      }
+    }
+  });
+});
+
 describe('semerLaCuisine', () => {
+  function unFauxPrisma(recettesExistantes: Record<string, string> = {}) {
+    const portees: unknown[] = [];
+    const suivre =
+      <T>(valeur: T) =>
+      () => {
+        portees.push(porteeCourante());
+        return Promise.resolve(valeur);
+      };
+    const prisma = {
+      ingredient: {
+        upsert: jest.fn(({ where }: { where: { name: string } }) =>
+          Promise.resolve({ id: `id-${where.name}` }),
+        ),
+      },
+      recipe: {
+        findFirst: jest.fn(({ where }: { where: { title: string } }) => {
+          portees.push(porteeCourante());
+          const id = recettesExistantes[where.title];
+          return Promise.resolve(id ? { id } : null);
+        }),
+        create: jest.fn(suivre(undefined)),
+        update: jest.fn(() => 'mise-a-jour'),
+      },
+      recipeLine: { deleteMany: jest.fn(() => 'suppression') },
+      $transaction: jest.fn(suivre([])),
+    };
+
+    return { prisma, portees, service: prisma as unknown as PrismaService };
+  }
+
   it('retrouve chaque Ingrédient par son nom normalisé et le remet dans son état', async () => {
-    const upsert = jest.fn().mockResolvedValue(undefined);
-    const prisma = { ingredient: { upsert } } as unknown as PrismaService;
+    const { prisma, service } = unFauxPrisma();
 
-    await semerLaCuisine(prisma);
+    await semerLaCuisine(service);
 
-    expect(upsert).toHaveBeenCalledTimes(INGREDIENTS_DE_DEMO.length);
-    expect(upsert).toHaveBeenCalledWith({
+    expect(prisma.ingredient.upsert).toHaveBeenCalledTimes(
+      INGREDIENTS_DE_DEMO.length,
+    );
+    expect(prisma.ingredient.upsert).toHaveBeenCalledWith({
       where: { name: 'oeufs' },
       create: {
         name: 'oeufs',
@@ -86,6 +167,88 @@ describe('semerLaCuisine', () => {
         allergens: ['EGGS'],
         perishable: true,
       },
+      select: { id: true },
     });
+  });
+
+  it("crée les recettes dans l'Espace foyer, sous sa portée, avec leurs lignes dans l'ordre", async () => {
+    const { prisma, portees, service } = unFauxPrisma();
+
+    await semerLaCuisine(service);
+
+    expect(prisma.recipe.create).toHaveBeenCalledTimes(6);
+    expect(prisma.recipe.create).toHaveBeenCalledWith({
+      data: {
+        title: 'Crêpes',
+        servings: 4,
+        steps: expect.any(Array),
+        source: 'MANUAL',
+        scope: { connect: { id: ID_ESPACE_FOYER } },
+        lines: {
+          create: [
+            {
+              ingredientId: 'id-farine de ble',
+              quantity: 250,
+              unit: 'G',
+              position: 0,
+            },
+            {
+              ingredientId: 'id-oeufs',
+              quantity: 4,
+              unit: 'PIECE',
+              position: 1,
+            },
+            {
+              ingredientId: 'id-lait demi-ecreme',
+              quantity: 50,
+              unit: 'CL',
+              position: 2,
+            },
+            {
+              ingredientId: 'id-beurre doux',
+              quantity: 50,
+              unit: 'G',
+              position: 3,
+            },
+            {
+              ingredientId: 'id-sucre en poudre',
+              quantity: 20,
+              unit: 'G',
+              position: 4,
+            },
+            { ingredientId: 'id-sel fin', quantity: 1, unit: 'G', position: 5 },
+          ],
+        },
+      },
+    });
+    expect(portees.length).toBeGreaterThan(0);
+    for (const portee of portees) {
+      expect(portee).toEqual({
+        espaces: [{ id: ID_ESPACE_FOYER, kind: 'HOUSEHOLD' }],
+        typesAcceptes: ['HOUSEHOLD'],
+      });
+    }
+  });
+
+  it('remplace les lignes d’une recette déjà semée, dans une transaction', async () => {
+    const { prisma, service } = unFauxPrisma({ Crêpes: 'recette-crepes' });
+
+    await semerLaCuisine(service);
+
+    expect(prisma.recipe.create).toHaveBeenCalledTimes(5);
+    expect(prisma.recipeLine.deleteMany).toHaveBeenCalledWith({
+      where: { recipeId: 'recette-crepes' },
+    });
+    expect(prisma.recipe.update).toHaveBeenCalledWith({
+      where: { id: 'recette-crepes' },
+      data: expect.objectContaining({
+        title: 'Crêpes',
+        lines: { create: expect.any(Array) },
+      }),
+    });
+    expect(prisma.$transaction).toHaveBeenCalledWith([
+      'suppression',
+      'mise-a-jour',
+    ]);
   });
 });

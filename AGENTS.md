@@ -97,6 +97,7 @@ et lève `food.list_already_closed`.
 | Résolveur d'ingrédients                  | `resoudre`, `IngredientResolution`                               |
 | Unité de recette                         | `RecipeUnit`, `UNITES_DE_RECETTE`                                |
 | Recette                                  | `Recipe`                                                         |
+| Ligne (d'une Recette), Origine           | `RecipeLine`, `RecipeSource` (`MANUAL`, `GENERATED`)             |
 | Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |
 | Tour de génération, Souhait              | `GenerationRound`, `MealWish`                                    |
 | Préférence alimentaire, Allergène        | `FoodPreference`, `Allergen`                                     |
