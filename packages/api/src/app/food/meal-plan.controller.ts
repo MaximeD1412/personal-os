@@ -16,6 +16,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { Espaces } from '../espace/espaces.decorator';
 import {
   MealPlanDto,
+  MealPlanEntryDecisionInputDto,
   MealPlanEntryDto,
   MealPlanEntryInputDto,
   MealPlanEntryUpdateDto,
@@ -68,6 +69,18 @@ export class MealPlanController {
     @Param('entryId') entryId: string,
   ): Promise<void> {
     return this.plannings.supprimer(id, entryId);
+  }
+
+  /** On statue sur chaque repas proposé par un Tour de génération. */
+  @Post(':id/entries/:entryId/decision')
+  @HttpCode(200)
+  @ZodResponse({ status: 200, type: MealPlanEntryDto })
+  decider(
+    @Param('id') id: string,
+    @Param('entryId') entryId: string,
+    @Body() { decision }: MealPlanEntryDecisionInputDto,
+  ) {
+    return this.plannings.decider(id, entryId, decision);
   }
 
   @Post(':id/stop')

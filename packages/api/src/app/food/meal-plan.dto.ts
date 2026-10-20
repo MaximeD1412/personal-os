@@ -1,6 +1,7 @@
 import {
   zMealPlan,
   zMealPlanEntry,
+  zMealPlanEntryDecisionInput,
   zMealPlanEntryInput,
   zMealPlanEntryUpdate,
   zMealPlanQuery,
@@ -20,6 +21,10 @@ export class MealPlanEntryInputDto extends createZodDto(zMealPlanEntryInput) {}
 
 export class MealPlanEntryUpdateDto extends createZodDto(
   zMealPlanEntryUpdate,
+) {}
+
+export class MealPlanEntryDecisionInputDto extends createZodDto(
+  zMealPlanEntryDecisionInput,
 ) {}
 
 export class MealPlanQueryDto extends createZodDto(zMealPlanQuery) {}

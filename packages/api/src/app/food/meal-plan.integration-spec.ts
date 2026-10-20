@@ -522,6 +522,153 @@ describe('Planning de repas', () => {
     });
   });
 
+  describe('POST /meal-plans/:id/entries/:entryId/decision', () => {
+    it('approuve un repas proposé, et en refuse un autre, qui reste au planning', async () => {
+      const planning = await lire(jeu.a, '2028-09-04');
+      const approuve = await proposer(planning, '2028-09-04');
+      const refuse = await proposer(planning, '2028-09-05');
+
+      const reponse = await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/entries/${approuve.id}/decision`)
+        .set('Cookie', jeu.a.session)
+        .send({ decision: 'APPROVED' })
+        .expect(200)
+        .expect(conformeA(UN_REPAS));
+      expect(reponse.body).toMatchObject({
+        id: approuve.id,
+        decision: 'APPROVED',
+      });
+
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/entries/${refuse.id}/decision`)
+        .set('Cookie', jeu.b.session)
+        .send({ decision: 'REFUSED' })
+        .expect(200);
+
+      expect((await lire(jeu.b, '2028-09-04')).entries).toMatchObject([
+        { id: approuve.id, decision: 'APPROVED' },
+        { id: refuse.id, decision: 'REFUSED' },
+      ]);
+    });
+
+    it('refuse une décision qui n’est ni une approbation ni un refus, sur `decision`', async () => {
+      const planning = await lire(jeu.a, '2028-09-11');
+      const repas = await proposer(planning, '2028-09-11');
+
+      for (const decision of ['PROPOSED', undefined]) {
+        await request(app.getHttpServer())
+          .post(`/api/meal-plans/${planning.id}/entries/${repas.id}/decision`)
+          .set('Cookie', jeu.a.session)
+          .send({ decision })
+          .expect(400)
+          .expect(champsEnErreur(['decision']));
+      }
+    });
+
+    it('refuse de décider d’un repas qui n’est pas proposé', async () => {
+      const planning = await lire(jeu.a, '2028-09-18');
+      const saisi = await ajouter(jeu.a, planning, unRepas('2028-09-18'));
+      const statue = await proposer(planning, '2028-09-19');
+      await decider(planning, statue, 'REFUSED');
+
+      for (const [repas, decision] of [
+        [saisi, 'REFUSED'],
+        [statue, 'APPROVED'],
+      ] as const) {
+        await request(app.getHttpServer())
+          .post(`/api/meal-plans/${planning.id}/entries/${repas.id}/decision`)
+          .set('Cookie', jeu.a.session)
+          .send({ decision })
+          .expect(422)
+          .expect(codeDErreur('food.entry_not_proposed'));
+      }
+
+      expect((await lire(jeu.a, '2028-09-18')).entries).toMatchObject([
+        { id: saisi.id, decision: 'APPROVED' },
+        { id: statue.id, decision: 'REFUSED' },
+      ]);
+    });
+
+    it('refuse une décision sur un planning arrêté', async () => {
+      const planning = await lire(jeu.a, '2028-09-25');
+      const repas = await ajouter(jeu.a, planning, unRepas('2028-09-25'));
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/stop`)
+        .set('Cookie', jeu.a.session)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/entries/${repas.id}/decision`)
+        .set('Cookie', jeu.a.session)
+        .send({ decision: 'REFUSED' })
+        .expect(422)
+        .expect(codeDErreur('food.plan_stopped'));
+    });
+
+    it('répond 404 pour un planning ou un repas inconnu', async () => {
+      const planning = await lire(jeu.a, '2028-10-09');
+
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${INCONNU}/entries/${INCONNU}/decision`)
+        .set('Cookie', jeu.a.session)
+        .send({ decision: 'APPROVED' })
+        .expect(404)
+        .expect(codeDErreur('food.plan_not_found'));
+
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/entries/${INCONNU}/decision`)
+        .set('Cookie', jeu.a.session)
+        .send({ decision: 'APPROVED' })
+        .expect(404)
+        .expect(codeDErreur('food.entry_not_found'));
+    });
+
+    it('refuse une requête sans session', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${INCONNU}/entries/${INCONNU}/decision`)
+        .send({ decision: 'APPROVED' })
+        .expect(401);
+    });
+  });
+
+  describe('un Tour de génération statué puis arrêté', () => {
+    it('arrête le planning quand chaque repas est approuvé ou refusé, et retire les refusés', async () => {
+      const planning = await lire(jeu.a, '2028-10-02');
+      const saisi = await ajouter(jeu.a, planning, unRepas('2028-10-02'));
+      const approuve = await proposer(planning, '2028-10-03');
+      const refuse = await proposer(planning, '2028-10-04');
+      await decider(planning, approuve, 'APPROVED');
+
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/stop`)
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('food.plan_has_pending'));
+
+      await decider(planning, refuse, 'REFUSED');
+
+      const arrete = await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/stop`)
+        .set('Cookie', jeu.b.session)
+        .expect(200)
+        .expect(conformeA(UN_PLANNING));
+      expect(arrete.body).toMatchObject({
+        status: 'STOPPED',
+        entries: [
+          { id: saisi.id, decision: 'APPROVED' },
+          { id: approuve.id, decision: 'APPROVED' },
+        ],
+      });
+      expect(arrete.body.entries).toHaveLength(2);
+      expect(
+        await dansLeFoyer(
+          async () =>
+            await prisma.mealPlanEntry.count({ where: { id: refuse.id } }),
+        ),
+      ).toBe(0);
+    });
+  });
+
   describe('une recette supprimée entre la vérification et l’écriture', () => {
     /**
      * L'autre Compte supprime la recette juste après que le service l'a
@@ -739,6 +886,46 @@ describe('Planning de repas', () => {
       .expect(201);
 
     return reponse.body as MealPlanEntry;
+  }
+
+  /**
+   * Un repas proposé par un Tour de génération. La génération vient avec
+   * CUISINE-16 : on pose le tour et la décision en base.
+   */
+  async function proposer(
+    planning: MealPlan,
+    day: string,
+  ): Promise<MealPlanEntry> {
+    const repas = await ajouter(jeu.a, planning, unRepas(day));
+    await dansLeFoyer(async () => {
+      const tour = await prisma.generationRound.upsert({
+        where: { mealPlanId_number: { mealPlanId: planning.id, number: 1 } },
+        create: {
+          mealPlanId: planning.id,
+          number: 1,
+          scopeId: jeu.espaceFoyer,
+        },
+        update: {},
+      });
+      await prisma.mealPlanEntry.update({
+        where: { id: repas.id },
+        data: { decision: 'PROPOSED', generationRoundId: tour.id },
+      });
+    });
+
+    return { ...repas, decision: 'PROPOSED' };
+  }
+
+  async function decider(
+    planning: MealPlan,
+    repas: MealPlanEntry,
+    decision: 'APPROVED' | 'REFUSED',
+  ): Promise<void> {
+    await request(app.getHttpServer())
+      .post(`/api/meal-plans/${planning.id}/entries/${repas.id}/decision`)
+      .set('Cookie', jeu.a.session)
+      .send({ decision })
+      .expect(200);
   }
 
   async function creerUneRecette(title: string): Promise<Recipe> {

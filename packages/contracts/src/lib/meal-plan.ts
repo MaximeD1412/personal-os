@@ -153,3 +153,15 @@ export type MealPlanEntryUpdate = z.infer<typeof zMealPlanEntryUpdate>;
 export const zMealPlanQuery = /* @__PURE__ */ z.object({ week: zWeek });
 
 export type MealPlanQuery = z.infer<typeof zMealPlanQuery>;
+
+/**
+ * La décision sur un repas proposé : on l'approuve ou on le refuse. Qu'il soit
+ * encore proposé est une règle métier.
+ */
+export const zMealPlanEntryDecisionInput = /* @__PURE__ */ z.object({
+  decision: /* @__PURE__ */ zMealPlanEntryDecision.exclude(['PROPOSED']),
+});
+
+export type MealPlanEntryDecisionInput = z.infer<
+  typeof zMealPlanEntryDecisionInput
+>;
