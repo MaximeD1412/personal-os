@@ -1,0 +1,77 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header [heading]="titre()" [breadcrumb]="fil()" />
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="detail"
+    loadingLabel="Chargement de la recette…"
+    (retry)="lecture.reload()"
+  >
+    @if (recette(); as recette) {
+    <div class="grid items-start gap-margin lg:grid-cols-2">
+      <section hlmCard data-test="ingredients">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Ingrédients</h2>
+          <p hlmCardDescription data-test="portions">{{ pourCombien() }}</p>
+        </div>
+        <div hlmCardContent>
+          <div hlmTableContainer>
+            <table hlmTable>
+              <thead hlmTableHeader>
+                <tr hlmTableRow>
+                  <th hlmTableHead>Ingrédient</th>
+                  <th hlmTableHead class="text-end">Quantité</th>
+                </tr>
+              </thead>
+              <tbody hlmTableBody>
+                @for (ligne of recette.lines; track ligne.id) {
+                <tr hlmTableRow data-test="ligne">
+                  <td hlmTableCell class="font-semibold text-on-surface">
+                    {{ ligne.ingredient.displayName }}
+                  </td>
+                  <td
+                    hlmTableCell
+                    class="whitespace-nowrap text-end tabular-nums"
+                  >
+                    {{ quantite(ligne) }}
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section hlmCard data-test="etapes">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Étapes</h2>
+        </div>
+        <div hlmCardContent>
+          @if (recette.steps.length) {
+          <ol class="flex flex-col gap-gutter">
+            @for (etape of recette.steps; track $index) {
+            <li class="flex items-start gap-space-md" data-test="etape">
+              <span
+                class="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-10 text-label-regular font-semibold tabular-nums text-primary"
+                aria-hidden="true"
+                >{{ $index + 1 }}</span
+              >
+              <p class="pt-0.5 text-body-default text-on-surface">
+                {{ etape }}
+              </p>
+            </li>
+            }
+          </ol>
+          } @else {
+          <p class="text-body-default text-outline">
+            Cette recette ne décrit aucune étape.
+          </p>
+          }
+        </div>
+      </section>
+    </div>
+    }
+  </dccm-state>
+</div>
