@@ -160,9 +160,28 @@ export class RecipeRepository {
     return enRecette(rangee);
   }
 
-  /** Les lignes suivent leur recette (`onDelete: Cascade`). */
-  async supprimer(id: string): Promise<void> {
-    await this.prisma.recipe.delete({ where: { id } });
+  /**
+   * Les lignes suivent leur recette (`onDelete: Cascade`). Un Repas planifié
+   * passé (avant `aujourdhui`) garde le titre de la recette à sa place, dans
+   * la même transaction ; un repas à venir la retient (`onDelete: NoAction`),
+   * et la suppression échoue tout entière, sur une clé étrangère.
+   */
+  async supprimer(id: string, aujourdhui: string): Promise<void> {
+    const recette = await this.prisma.recipe.findUniqueOrThrow({
+      where: { id },
+      select: { title: true },
+    });
+
+    await this.prisma.$transaction([
+      this.prisma.mealPlanEntry.updateMany({
+        where: {
+          recipeId: id,
+          day: { lt: new Date(`${aujourdhui}T00:00:00Z`) },
+        },
+        data: { recipeId: null, title: recette.title },
+      }),
+      this.prisma.recipe.delete({ where: { id } }),
+    ]);
   }
 }
 

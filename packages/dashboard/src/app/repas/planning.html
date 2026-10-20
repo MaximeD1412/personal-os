@@ -1,0 +1,211 @@
+<div class="flex flex-col gap-margin-mobile md:gap-margin">
+  <dccm-page-header
+    heading="Planning de repas"
+    [subtitle]="titre()"
+    [breadcrumb]="fil"
+  >
+    @if (planning(); as planning) { @if (planning.status === 'OPEN') {
+    <button
+      hlmBtn
+      variant="secondary"
+      type="button"
+      data-test="arreter"
+      [loading]="transition()"
+      (click)="arreter()"
+    >
+      <ng-icon [svg]="icones.arreter" aria-hidden="true" />
+      Arrêter le planning
+    </button>
+    } @else {
+    <button
+      hlmBtn
+      variant="secondary"
+      type="button"
+      data-test="rouvrir"
+      [loading]="transition()"
+      (click)="rouvrir()"
+    >
+      <ng-icon [svg]="icones.rouvrir" aria-hidden="true" />
+      Rouvrir le planning
+    </button>
+    } }
+  </dccm-page-header>
+
+  <div class="flex flex-wrap items-center gap-space-sm">
+    <button
+      hlmBtn
+      variant="secondary"
+      size="icon"
+      type="button"
+      data-test="semaine-precedente"
+      aria-label="Semaine précédente"
+      (click)="changerDeSemaine(-1)"
+    >
+      <ng-icon [svg]="icones.precedent" aria-hidden="true" />
+    </button>
+    <button
+      hlmBtn
+      variant="secondary"
+      size="icon"
+      type="button"
+      data-test="semaine-suivante"
+      aria-label="Semaine suivante"
+      (click)="changerDeSemaine(1)"
+    >
+      <ng-icon [svg]="icones.suivant" aria-hidden="true" />
+    </button>
+    <button
+      hlmBtn
+      variant="secondary"
+      type="button"
+      data-test="aujourdhui"
+      (click)="revenirAujourdhui()"
+    >
+      Aujourd'hui
+    </button>
+    @if (planning(); as planning) {
+    <span
+      hlmBadge
+      dot
+      data-test="statut"
+      class="ms-space-sm"
+      [tone]="planning.status === 'OPEN' ? 'info' : 'success'"
+      >{{ planning.status === 'OPEN' ? 'Ouvert' : 'Arrêté' }}</span
+    >
+    }
+  </div>
+
+  @if (refus(); as erreur) {
+  <div hlmAlert tone="error" data-test="refus">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>{{ erreur.message }}</p>
+    </div>
+  </div>
+  }
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="cards"
+    loadingLabel="Chargement du planning…"
+    errorHeading="Le Planning de repas n'a pas pu être lu"
+    (retry)="lecture.reload()"
+  >
+    <div class="grid items-start gap-gutter xl:grid-cols-7 xl:gap-space-sm">
+      @for (jour of jours(); track jour.jour) {
+      <section
+        class="flex min-w-0 flex-col gap-space-sm rounded-md border-t-2 p-space-sm"
+        [class]="
+          jour.estAujourdhui
+            ? 'border-primary bg-surface-container-high'
+            : 'border-transparent bg-surface-container'
+        "
+        [attr.data-jour]="jour.jour"
+        [attr.aria-current]="jour.estAujourdhui ? 'date' : null"
+        [attr.aria-labelledby]="'jour-' + jour.jour"
+      >
+        <!-- En colonnes, le nom et la date ont chacun leur ligne : les créneaux
+             des sept jours restent alignés. -->
+        <h2
+          class="flex flex-wrap items-baseline gap-x-space-sm xl:flex-col xl:items-start"
+          [id]="'jour-' + jour.jour"
+        >
+          <span
+            class="flex flex-wrap gap-x-space-sm text-label-micro font-semibold uppercase"
+            [class]="jour.estAujourdhui ? 'text-primary' : 'text-outline'"
+          >
+            <span>{{ jour.nom }}</span>
+            @if (jour.estAujourdhui) {
+            <span>Aujourd'hui</span>
+            }
+          </span>
+          <span
+            class="text-title-sm tabular-nums"
+            [class]="jour.estAujourdhui ? 'text-primary' : 'text-on-surface'"
+            >{{ jour.date }}</span
+          >
+        </h2>
+
+        <div class="grid gap-space-sm md:grid-cols-2 xl:grid-cols-1">
+          @for (creneau of jour.creneaux; track creneau.moment) {
+          <div
+            class="flex min-w-0 flex-col gap-space-xs"
+            [attr.data-moment]="creneau.moment"
+          >
+            <h3
+              class="text-label-micro font-semibold uppercase text-on-surface-variant"
+            >
+              {{ creneau.libelle }}
+            </h3>
+
+            @for (repas of creneau.repas; track repas.id) {
+            <article
+              data-test="repas"
+              class="flex min-w-0 flex-col gap-space-xs rounded bg-surface-container-highest p-space-sm"
+            >
+              <span hlmBadge class="self-start" [tone]="repas.tone">
+                <ng-icon [svg]="repas.icone" aria-hidden="true" />
+                {{ repas.decision }}
+              </span>
+              <p
+                class="break-words text-label-regular font-semibold text-on-surface"
+              >
+                {{ repas.titre }}
+              </p>
+              <div class="flex flex-wrap items-center gap-space-xs">
+                <span
+                  role="img"
+                  class="flex -space-x-1"
+                  [attr.aria-label]="repas.participants"
+                >
+                  @for (initiale of repas.initiales; track $index) {
+                  <span
+                    class="inline-flex size-5 items-center justify-center rounded-full border border-surface-container-highest bg-primary-container text-label-micro font-semibold text-on-primary-container"
+                    aria-hidden="true"
+                    >{{ initiale }}</span
+                  >
+                  }
+                </span>
+                <span
+                  class="flex flex-wrap gap-x-space-xs text-label-micro tabular-nums text-on-surface-variant"
+                >
+                  <span class="whitespace-nowrap">{{ repas.portions }}</span>
+                  @if (repas.invites; as invites) {
+                  <span class="whitespace-nowrap">{{ invites }}</span>
+                  }
+                </span>
+              </div>
+            </article>
+            } @if (ouvert()) {
+            <a
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              class="self-start"
+              data-test="ajouter"
+              routerLink="/repas/planning/nouveau"
+              [queryParams]="parametresDAjout(jour.jour, creneau.moment)"
+              [attr.aria-label]="
+                'Ajouter un repas : ' +
+                creneau.libelle.toLowerCase() +
+                ' du ' +
+                jour.nom +
+                ' ' +
+                jour.date
+              "
+            >
+              <ng-icon [svg]="icones.ajouter" aria-hidden="true" />
+              Ajouter
+            </a>
+            } @else if (!creneau.repas.length) {
+            <p class="text-body-dense text-outline">Aucun repas.</p>
+            }
+          </div>
+          }
+        </div>
+      </section>
+      }
+    </div>
+  </dccm-state>
+</div>

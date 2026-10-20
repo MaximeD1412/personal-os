@@ -99,6 +99,10 @@ et lève `food.list_already_closed`.
 | Recette                                  | `Recipe`                                                         |
 | Ligne (d'une Recette), Origine           | `RecipeLine`, `RecipeSource` (`MANUAL`, `GENERATED`)             |
 | Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |
+| Moment (déjeuner, dîner)                 | `MealMoment` : `LUNCH`, `DINNER`                                 |
+| Décision (approuvé, proposé, refusé)     | `MealPlanEntryDecision` : `APPROVED`, `PROPOSED`, `REFUSED`      |
+| Planning ouvert, arrêté                  | `MealPlanStatus` : `OPEN`, `STOPPED`                             |
+| Portions (d'un Repas planifié)           | `servings`, `portions()`                                         |
 | Tour de génération, Souhait              | `GenerationRound`, `MealWish`                                    |
 | Préférence alimentaire, Allergène        | `FoodPreference`, `Allergen`                                     |
 | Allergie, aliment exclu, peu apprécié    | `FoodPreferenceKind` : `ALLERGY`, `EXCLUDED`, `DISLIKED`         |
