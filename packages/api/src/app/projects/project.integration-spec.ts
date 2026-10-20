@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import {
   zProject,
@@ -20,6 +20,7 @@ import {
 } from '../../../test/jeu-d-espaces';
 import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
+import { accepterLesCorpsJson } from '../../corps';
 import { AppModule } from '../app.module';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
@@ -46,7 +47,7 @@ const INCONNU = '00000000-0000-4000-8000-000000000000';
  */
 describe('Projets', () => {
   let authentik: FauxAuthentik;
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let jeu: JeuDEspaces;
 
   beforeAll(async () => {
@@ -63,8 +64,9 @@ describe('Projets', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
     app.setGlobalPrefix('api');
+    accepterLesCorpsJson(app);
     await app.init();
 
     jeu = await poserLeJeuDEspaces(app, authentik, [ADRESSE_A, ADRESSE_B]);
@@ -96,6 +98,32 @@ describe('Projets', () => {
         expenses: [],
         totalSpent: { cents: 0, currency: 'EUR' },
       });
+    });
+
+    it('accepte les plus grandes notes et les plus longs liens que le contrat autorise', async () => {
+      // Un caractère de contrôle s'écrit `\u0001` en JSON : six octets par
+      // caractère, le pire encodage de notes conformes, soit 600 000 octets.
+      const notes = '\u0001'.repeat(100_000);
+      const url = `https://papier.exemple.test/${'a'.repeat(2_000)}`;
+      const links = Array.from({ length: 50 }, (_, i) => ({
+        label: `Fournisseur ${i}`,
+        url,
+      }));
+
+      const reponse = await request(app.getHttpServer())
+        .post('/api/projects')
+        .set('Cookie', jeu.a.session)
+        .send({ title: 'Notes volumineuses', notes, links })
+        .expect(201);
+
+      expect(reponse.body.notes).toBe(notes);
+      expect(reponse.body.links).toHaveLength(50);
+
+      await request(app.getHttpServer())
+        .patch(`/api/projects/${reponse.body.id}`)
+        .set('Cookie', jeu.a.session)
+        .send({ notes: 'é'.repeat(100_000) })
+        .expect(200);
     });
 
     it("refuse en 400 un titre vide et un lien qui n'est pas une adresse web", async () => {
