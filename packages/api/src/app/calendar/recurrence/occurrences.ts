@@ -88,6 +88,36 @@ export function occurrences(
 }
 
 /**
+ * L'occurrence que la règle place à `originalStart`, son exception appliquée :
+ * celle qu'une action sur « cette occurrence » vise (AGENDA-2). `null` quand
+ * la règle n'en place aucune à cet instant, ou quand une exception l'a
+ * supprimée.
+ *
+ * Elle se cherche par son origine, et non par la période qu'elle occupe : une
+ * exception a pu la déplacer n'importe où.
+ */
+export function occurrenceVisee(
+  evenement: EvenementRecurrent,
+  exceptions: readonly ExceptionDOccurrence[],
+  originalStart: Date,
+): Occurrence | null {
+  const instant = originalStart.getTime();
+  const origine = originesDansLaFenetre(evenement, new Map(), {
+    debut: originalStart,
+    fin: originalStart,
+  }).find(({ startsAt }) => startsAt.getTime() === instant);
+
+  return origine
+    ? appliquer(
+        origine,
+        exceptions.find(
+          (exception) => exception.originalStart.getTime() === instant,
+        ),
+      )
+    : null;
+}
+
+/**
  * Les occurrences telles que la règle les place, sans exception, réduites à
  * celles qui peuvent rencontrer la période : celles qui en sont assez proches,
  * et celles qu'une exception pourrait y avoir déplacées.

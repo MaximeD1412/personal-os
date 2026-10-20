@@ -146,6 +146,32 @@ export const zEventUpdate = /* @__PURE__ */ zEventInput.partial();
 export type EventUpdate = z.infer<typeof zEventUpdate>;
 
 /**
+ * L'occurrence visée par une action sur « cette occurrence » (AGENDA-2) :
+ * son Événement, et l'instant où la règle la place, qui est son identité.
+ */
+export const zEventOccurrenceRef = /* @__PURE__ */ z.object({
+  id: /* @__PURE__ */ z.string(),
+  originalStart: zInstant,
+});
+
+export type EventOccurrenceRef = z.infer<typeof zEventOccurrenceRef>;
+
+/**
+ * Ce qu'on change d'une seule occurrence : son titre et ses bornes, les seuls
+ * champs qu'une exception porte. Le reste appartient à la série. Un champ
+ * absent garde ce que l'occurrence portait déjà ; une occurrence déplacée
+ * sans fin propre garde la durée des autres.
+ */
+export const zEventOccurrenceUpdate = /* @__PURE__ */ z.object({
+  title: /* @__PURE__ */ z.string().trim().min(1).optional(),
+  startsAt: /* @__PURE__ */ zInstant.optional(),
+  /** `null` retire la fin propre : l'occurrence reprend la durée de la série. */
+  endsAt: /* @__PURE__ */ zInstant.nullable().optional(),
+});
+
+export type EventOccurrenceUpdate = z.infer<typeof zEventOccurrenceUpdate>;
+
+/**
  * Une occurrence d'un Événement, telle que la lecture d'une période la rend.
  * Un Événement sans récurrence n'en a qu'une ; une série en a autant que sa
  * règle en produit, moins celles qu'une exception supprime.

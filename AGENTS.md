@@ -94,10 +94,19 @@ et lève `food.list_already_closed`.
 | Période (d'une lecture datée)            | `zPeriod` (`from`, `to`)                                         |
 | Séance, Objectif                         | `TrainingSession`, `TrainingGoal`                                |
 | Ingrédient, Alias, Unité canonique       | `Ingredient`, `IngredientAlias`, `canonicalUnit`                 |
+| Résolveur d'ingrédients                  | `resoudre`, `IngredientResolution`                               |
+| Unité de recette                         | `RecipeUnit`, `UNITES_DE_RECETTE`                                |
 | Recette                                  | `Recipe`                                                         |
+| Ligne (d'une Recette), Origine           | `RecipeLine`, `RecipeSource` (`MANUAL`, `GENERATED`)             |
 | Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |
+| Moment (déjeuner, dîner)                 | `MealMoment` : `LUNCH`, `DINNER`                                 |
+| Décision (approuvé, proposé, refusé)     | `MealPlanEntryDecision` : `APPROVED`, `PROPOSED`, `REFUSED`      |
+| Planning ouvert, arrêté                  | `MealPlanStatus` : `OPEN`, `STOPPED`                             |
+| Portions (d'un Repas planifié)           | `servings`, `portions()`                                         |
 | Tour de génération, Souhait              | `GenerationRound`, `MealWish`                                    |
 | Préférence alimentaire, Allergène        | `FoodPreference`, `Allergen`                                     |
+| Allergie, aliment exclu, peu apprécié    | `FoodPreferenceKind` : `ALLERGY`, `EXCLUDED`, `DISLIKED`         |
+| Contraintes d'un repas                   | `contraintesDuRepas` : `interdits`, `evites`                     |
 | Liste de courses, Article de courses     | `ShoppingList`, `ShoppingListItem`                               |
 | Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
 | Stock domestique                         | `PantryItem`                                                     |

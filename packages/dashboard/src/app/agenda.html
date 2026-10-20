@@ -1,95 +1,214 @@
-<section hlmCard class="mt-6">
-  <div hlmCardHeader>
-    <h2 hlmCardTitle>Agenda</h2>
-    <p hlmCardDescription>
-      Ce qui a une date, sur la période choisie. Rien ne s'écrit ici : une
-      entrée renvoie au module qui la possède.
-    </p>
-  </div>
+<div class="flex flex-col gap-margin-mobile md:gap-margin">
+  <dccm-page-header
+    heading="Agenda"
+    subtitle="Ce qui a une date, tous modules confondus. Une entrée s'ouvre dans le module qui la possède."
+    [breadcrumb]="[{ label: 'Organisation' }, { label: 'Agenda' }]"
+  />
 
-  <div hlmCardContent>
-    <div class="flex flex-wrap items-end gap-3">
-      <label class="flex flex-col gap-1.5">
-        <span hlmLabel>Du</span>
-        <input
-          hlmInput
-          type="date"
-          data-test="du"
-          [value]="du()"
-          (input)="borner('du', $event)"
-        />
-      </label>
-
-      <label class="flex flex-col gap-1.5">
-        <span hlmLabel>Au</span>
-        <input
-          hlmInput
-          type="date"
-          data-test="au"
-          [value]="au()"
-          (input)="borner('au', $event)"
-        />
-      </label>
+  <div class="flex flex-wrap items-center justify-between gap-space-md">
+    <div class="flex items-center gap-space-sm">
+      <button
+        hlmBtn
+        variant="secondary"
+        size="icon"
+        type="button"
+        data-test="semaine-precedente"
+        aria-label="Semaine précédente"
+        (click)="changerDeSemaine(-1)"
+      >
+        <ng-icon [svg]="icones.precedente" aria-hidden="true" />
+      </button>
+      <button
+        hlmBtn
+        variant="secondary"
+        size="icon"
+        type="button"
+        data-test="semaine-suivante"
+        aria-label="Semaine suivante"
+        (click)="changerDeSemaine(1)"
+      >
+        <ng-icon [svg]="icones.suivante" aria-hidden="true" />
+      </button>
+      <button
+        hlmBtn
+        variant="secondary"
+        type="button"
+        data-test="aujourdhui"
+        (click)="revenirAujourdhui()"
+      >
+        Aujourd'hui
+      </button>
+      <h2
+        data-test="titre-semaine"
+        aria-live="polite"
+        class="ms-space-sm text-title-sm text-on-surface"
+      >
+        {{ titre() }}
+      </h2>
     </div>
 
-    @if (erreur(); as message) {
-    <p class="text-destructive mt-3 text-sm">{{ message }}</p>
-    }
+    <ul
+      data-test="legende"
+      aria-label="Sources"
+      class="flex flex-wrap items-center gap-space-md"
+    >
+      @for (source of legende; track source.libelle) {
+      <li
+        class="flex items-center gap-space-xs text-label-regular text-on-surface-variant"
+      >
+        <ng-icon
+          [svg]="source.icone"
+          class="icon-xs"
+          [class]="source.encre"
+          aria-hidden="true"
+        />
+        {{ source.libelle }}
+      </li>
+      }
+    </ul>
+  </div>
 
-    <div class="mt-4 flex flex-col gap-5">
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="cards"
+    [rows]="6"
+    emptyHeading="Rien de daté cette semaine"
+    emptyDescription="Les Événements du Calendrier et les objets datés des modules s'afficheront ici."
+    [emptyIcon]="icones.vide"
+    errorHeading="L'Agenda n'a pas pu être lu"
+    (retry)="lecture.reload()"
+  >
+    @if (large()) {
+    <div class="grid grid-cols-7 gap-space-sm">
       @for (journee of journees(); track journee.jour) {
-      <div data-test="journee">
-        <h3 class="text-muted-foreground text-xs font-semibold uppercase">
-          {{ journee.jour | date: 'EEEE d MMMM yyyy' }}
-        </h3>
-
-        <ul class="mt-1 divide-y">
-          @for (entree of journee.entrees; track entree.source + entree.sourceId
-          + entree.startsAt) {
-          <li
-            data-test="entree"
-            class="flex flex-wrap items-baseline gap-3 py-2.5"
-          >
-            <span class="text-muted-foreground w-14 text-xs tabular-nums">
-              {{ entree.startsAt | date: 'HH:mm' }}
-            </span>
-
-            <span class="flex-1 text-sm font-medium">
-              @if (origine(entree); as module) {
-              <a
-                class="hover:underline"
-                [routerLink]="module.chemin"
-                [queryParams]="retour(entree)"
-                >{{ entree.title }}</a
-              >
-              } @else { {{ entree.title }} }
-            </span>
-
-            @if (entree.endsAt) {
+      <section
+        data-test="jour"
+        [attr.aria-current]="journee.estAujourdhui ? 'date' : null"
+        class="flex min-w-0 flex-col gap-space-sm rounded-md border p-space-sm"
+        [class]="
+          journee.estAujourdhui
+            ? 'border-primary-40 bg-primary-10'
+            : 'border-surface-container-highest bg-surface-container-low'
+        "
+      >
+        <header class="flex flex-col gap-0.5 px-space-xs">
+          <h2 class="flex flex-col">
             <span
-              data-test="fin"
-              class="text-muted-foreground text-xs tabular-nums"
+              class="text-label-micro font-semibold uppercase"
+              [class]="journee.estAujourdhui ? 'text-primary' : 'text-outline'"
+              >{{ formaterJour(journee.jour, { weekday: 'short' }) }}</span
             >
-              jusqu'au {{ entree.endsAt | date: 'dd/MM/yyyy HH:mm' }}
-            </span>
-            } @if (entree.status !== 'PLANNED') {
-            <span hlmBadge tone="neutral" data-test="statut"
-              >{{ nomDuStatut(entree.status) }}</span
+            <span class="text-title-sm text-on-surface"
+              >{{ formaterJour(journee.jour, { day: 'numeric', month: 'short'
+              }) }}</span
             >
-            } @if (origine(entree); as module) {
-            <span hlmBadge variant="tag">{{ module.libelle }}</span>
-            } @else {
-            <span hlmBadge variant="tag">{{ entree.source }}</span>
-            }
+          </h2>
+          <span class="text-label-micro text-outline"
+            >{{ nombreDEntrees(journee) }}</span
+          >
+          @if (journee.estAujourdhui) {
+          <span hlmBadge tone="info">Aujourd'hui</span>
+          }
+        </header>
+
+        <ul class="flex flex-col gap-space-sm">
+          @for (entree of journee.entrees; track entree.cle) {
+          <li>
+            <ng-container
+              *ngTemplateOutlet="carte; context: { $implicit: entree }"
+            />
           </li>
           }
         </ul>
-      </div>
-      } @empty {
-      <p class="text-muted-foreground text-sm">
-        Rien de daté sur cette période.
-      </p>
+      </section>
       }
     </div>
-  </div>
-</section>
+    } @else {
+    <div class="flex flex-col gap-gutter">
+      @for (journee of journeesOccupees(); track journee.jour) {
+      <section
+        data-test="jour"
+        [attr.aria-current]="journee.estAujourdhui ? 'date' : null"
+        class="flex flex-col gap-space-sm"
+      >
+        <header class="flex items-center justify-between gap-space-sm">
+          <h2
+            class="text-label-regular font-semibold first-letter:uppercase"
+            [class]="journee.estAujourdhui ? 'text-primary' : 'text-on-surface'"
+          >
+            {{ formaterJour(journee.jour, { weekday: 'long', day: 'numeric',
+            month: 'long' }) }}
+          </h2>
+          @if (journee.estAujourdhui) {
+          <span hlmBadge tone="info">Aujourd'hui</span>
+          } @else {
+          <span class="text-label-micro text-outline"
+            >{{ nombreDEntrees(journee) }}</span
+          >
+          }
+        </header>
+
+        <ul class="flex flex-col gap-space-sm">
+          @for (entree of journee.entrees; track entree.cle) {
+          <li>
+            <ng-container
+              *ngTemplateOutlet="carte; context: { $implicit: entree }"
+            />
+          </li>
+          }
+        </ul>
+      </section>
+      }
+    </div>
+    }
+  </dccm-state>
+</div>
+
+<ng-template #carte let-entree>
+  <article
+    data-test="entree"
+    class="flex min-w-0 flex-col gap-space-xs rounded-md border border-s-2 border-surface-container-highest bg-surface-container p-space-sm"
+    [class]="entree.teinte.filet"
+  >
+    <div class="flex flex-wrap items-center justify-between gap-space-xs">
+      <span
+        class="flex items-center gap-space-xs text-label-regular font-semibold tabular-nums"
+        [class]="entree.teinte.encre"
+      >
+        <ng-icon [svg]="entree.icone" class="icon-xs" aria-hidden="true" />
+        <time>{{ entree.heure }}</time>
+        <span class="sr-only">, {{ entree.source }}</span>
+      </span>
+      <span hlmBadge data-test="statut" [tone]="entree.statut.ton" dot
+        >{{ entree.statut.libelle }}</span
+      >
+    </div>
+
+    <h3
+      class="text-body-default font-semibold break-words hyphens-auto text-on-surface"
+    >
+      {{ entree.titre }}
+    </h3>
+
+    @if (entree.periode) {
+    <p data-test="periode" class="text-body-dense text-on-surface-variant">
+      {{ entree.periode }}
+    </p>
+    } @if (entree.lien; as lien) {
+    <a
+      hlmBtn
+      variant="link"
+      size="sm"
+      class="h-auto self-start px-0 text-start whitespace-normal"
+      [routerLink]="lien.chemin"
+      [queryParams]="lien.parametres"
+    >
+      Ouvrir dans {{ entree.source }}
+      <ng-icon [svg]="icones.ouvrir" aria-hidden="true" />
+    </a>
+    } @else {
+    <span hlmBadge variant="tag" class="self-start">{{ entree.source }}</span>
+    }
+  </article>
+</ng-template>

@@ -976,6 +976,413 @@ describe('Calendrier', () => {
     });
   });
 
+  describe('GET /events/:id', () => {
+    it("rend l'Événement lui-même, conforme au contrat : la série, et non l'une de ses occurrences", async () => {
+      const serie = await creerLaSerie(jeu.a);
+      await request(app.getHttpServer())
+        .patch(`/api/events/${serie.id}/occurrences/${LUNDI_8}`)
+        .set('Cookie', jeu.a.session)
+        .send({ title: 'Réunion déplacée' })
+        .expect(200);
+
+      const lu = await request(app.getHttpServer())
+        .get(`/api/events/${serie.id}`)
+        .set('Cookie', jeu.a.session)
+        .expect(200)
+        .expect(conformeA(UN_EVENEMENT));
+
+      expect(lu.body).toEqual(serie);
+    });
+
+    it("rend 404 sur l'Événement de l'Espace personnel de l'autre", async () => {
+      const sien = await creerLaSerie(jeu.b);
+
+      await request(app.getHttpServer())
+        .get(`/api/events/${sien.id}`)
+        .set('Cookie', jeu.a.session)
+        .expect(404)
+        .expect(codeDErreur('event.not_found'));
+    });
+
+    it("n'expose rien sans session", async () => {
+      const serie = await creerLaSerie(jeu.a);
+
+      await request(app.getHttpServer())
+        .get(`/api/events/${serie.id}`)
+        .expect(401)
+        .expect(codeDErreur('auth.required'));
+    });
+  });
+
+  describe('PATCH /events/:id/occurrences/:originalStart', () => {
+    it('modifie une seule occurrence, conforme au contrat, sans changer la règle', async () => {
+      const serie = await creerLaSerie(jeu.a);
+
+      const modifiee = await request(app.getHttpServer())
+        .patch(`/api/events/${serie.id}/occurrences/${LUNDI_15}`)
+        .set('Cookie', jeu.a.session)
+        .send({ title: 'Réunion avancée', startsAt: '2027-03-14T15:00:00.000Z' })
+        .expect(200)
+        .expect(conformeA(zEventOccurrence.strict()));
+
+      expect(modifiee.body).toMatchObject({
+        eventId: serie.id,
+        originalStart: LUNDI_15,
+        isRecurring: true,
+        title: 'Réunion avancée',
+        startsAt: '2027-03-14T15:00:00.000Z',
+        // Sans fin propre, l'occurrence garde la durée des autres.
+        endsAt: '2027-03-14T16:00:00.000Z',
+      });
+      expect(await occurrencesDeLaSerie(jeu.a, serie)).toEqual([
+        [LUNDI_1, LUNDI_1, 'Réunion'],
+        [LUNDI_8, LUNDI_8, 'Réunion'],
+        [LUNDI_15, '2027-03-14T15:00:00.000Z', 'Réunion avancée'],
+        [LUNDI_22, LUNDI_22, 'Réunion'],
+      ]);
+      expect(await lireLEvenement(jeu.a, serie)).toEqual(serie);
+    });
+
+    it("met à jour l'exception déjà posée, sans en créer une seconde", async () => {
+      const serie = await creerLaSerie(jeu.a);
+      const occurrence = `/api/events/${serie.id}/occurrences/${LUNDI_8}`;
+
+      await request(app.getHttpServer())
+        .patch(occurrence)
+        .set('Cookie', jeu.a.session)
+        .send({ title: 'Réunion longue' })
+        .expect(200);
+      const modifiee = await request(app.getHttpServer())
+        .patch(occurrence)
+        .set('Cookie', jeu.a.session)
+        .send({ endsAt: '2027-03-08T11:00:00.000Z' })
+        .expect(200);
+
+      expect(modifiee.body).toMatchObject({
+        title: 'Réunion longue',
+        startsAt: LUNDI_8,
+        endsAt: '2027-03-08T11:00:00.000Z',
+      });
+      expect(
+        await compterLesExceptions(
+          app,
+          { id: jeu.a.espacePersonnel, kind: 'PERSONAL' },
+          serie.id,
+        ),
+      ).toBe(1);
+    });
+
+    it('retire la fin propre sur un endsAt à null : la durée de la série revient', async () => {
+      const serie = await creerLaSerie(jeu.a);
+      const occurrence = `/api/events/${serie.id}/occurrences/${LUNDI_8}`;
+
+      await request(app.getHttpServer())
+        .patch(occurrence)
+        .set('Cookie', jeu.a.session)
+        .send({
+          startsAt: '2027-03-08T13:00:00.000Z',
+          endsAt: '2027-03-08T16:00:00.000Z',
+        })
+        .expect(200);
+      const reprise = await request(app.getHttpServer())
+        .patch(occurrence)
+        .set('Cookie', jeu.a.session)
+        .send({ endsAt: null })
+        .expect(200)
+        .expect(conformeA(zEventOccurrence.strict()));
+
+      // Le début déplacé reste ; la fin suit, une heure après, comme les autres.
+      expect(reprise.body).toMatchObject({
+        startsAt: '2027-03-08T13:00:00.000Z',
+        endsAt: '2027-03-08T14:00:00.000Z',
+      });
+      const relue = (await lister(jeu.a)).find(
+        ({ eventId, originalStart }) =>
+          eventId === serie.id && originalStart === LUNDI_8,
+      );
+      expect(relue).toMatchObject({
+        startsAt: '2027-03-08T13:00:00.000Z',
+        endsAt: '2027-03-08T14:00:00.000Z',
+      });
+    });
+
+    it('refuse en 400 une modification hors contrat, ou une occurrence mal désignée', async () => {
+      const serie = await creerLaSerie(jeu.a);
+
+      await request(app.getHttpServer())
+        .patch(`/api/events/${serie.id}/occurrences/${LUNDI_8}`)
+        .set('Cookie', jeu.a.session)
+        .send({ title: '  ' })
+        .expect(400)
+        .expect(champsEnErreur(['title']));
+
+      await request(app.getHttpServer())
+        .patch(`/api/events/${serie.id}/occurrences/2027-03-08`)
+        .set('Cookie', jeu.a.session)
+        .send({ title: 'Réunion' })
+        .expect(400)
+        .expect(champsEnErreur(['originalStart']));
+    });
+
+    it('refuse en 422 une modification qui ne change rien', async () => {
+      const serie = await creerLaSerie(jeu.a);
+
+      await request(app.getHttpServer())
+        .patch(`/api/events/${serie.id}/occurrences/${LUNDI_8}`)
+        .set('Cookie', jeu.a.session)
+        .send({})
+        .expect(422)
+        .expect(codeDErreur('event.empty_update'));
+    });
+
+    it("refuse en 422 une occurrence qui finirait avant de commencer", async () => {
+      const serie = await creerLaSerie(jeu.a);
+      const occurrence = `/api/events/${serie.id}/occurrences/${LUNDI_8}`;
+
+      await request(app.getHttpServer())
+        .patch(occurrence)
+        .set('Cookie', jeu.a.session)
+        .send({ endsAt: '2027-03-08T07:00:00.000Z' })
+        .expect(422)
+        .expect(codeDErreur('event.period_reversed'));
+
+      // La fin déjà posée se juge contre le nouveau début.
+      await request(app.getHttpServer())
+        .patch(occurrence)
+        .set('Cookie', jeu.a.session)
+        .send({ endsAt: '2027-03-08T10:00:00.000Z' })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(occurrence)
+        .set('Cookie', jeu.a.session)
+        .send({ startsAt: '2027-03-08T12:00:00.000Z' })
+        .expect(422)
+        .expect(codeDErreur('event.period_reversed'));
+    });
+
+    it("refuse en 422 l'occurrence d'un Événement qui n'a lieu qu'une fois", async () => {
+      const unique = await creer(jeu.a, {
+        title: 'Une seule fois',
+        startsAt: LUNDI_1,
+        category: 'OTHER',
+        scopeId: jeu.a.espacePersonnel,
+      });
+
+      await request(app.getHttpServer())
+        .patch(`/api/events/${unique.id}/occurrences/${LUNDI_1}`)
+        .set('Cookie', jeu.a.session)
+        .send({ title: 'Autre' })
+        .expect(422)
+        .expect(codeDErreur('event.not_recurring'));
+    });
+
+    it("rend 404 sur une occurrence que la règle ne place pas, ou qu'on a supprimée", async () => {
+      const serie = await creerLaSerie(jeu.a);
+
+      await request(app.getHttpServer())
+        .patch(`/api/events/${serie.id}/occurrences/2027-03-09T08:00:00.000Z`)
+        .set('Cookie', jeu.a.session)
+        .send({ title: 'Mardi ?' })
+        .expect(404)
+        .expect(codeDErreur('event.occurrence_not_found'));
+
+      await request(app.getHttpServer())
+        .delete(`/api/events/${serie.id}/occurrences/${LUNDI_8}`)
+        .set('Cookie', jeu.a.session)
+        .expect(204);
+      await request(app.getHttpServer())
+        .patch(`/api/events/${serie.id}/occurrences/${LUNDI_8}`)
+        .set('Cookie', jeu.a.session)
+        .send({ title: 'Ressuscitée' })
+        .expect(404)
+        .expect(codeDErreur('event.occurrence_not_found'));
+    });
+
+    it("rend 404 sur la série de l'Espace personnel de l'autre, et n'y touche pas", async () => {
+      const sienne = await creerLaSerie(jeu.b);
+
+      await request(app.getHttpServer())
+        .patch(`/api/events/${sienne.id}/occurrences/${LUNDI_8}`)
+        .set('Cookie', jeu.a.session)
+        .send({ title: 'Volée' })
+        .expect(404)
+        .expect(codeDErreur('event.not_found'));
+
+      expect(
+        await compterLesExceptions(
+          app,
+          { id: jeu.b.espacePersonnel, kind: 'PERSONAL' },
+          sienne.id,
+        ),
+      ).toBe(0);
+    });
+
+    it("n'écrit rien sans session", async () => {
+      const serie = await creerLaSerie(jeu.a);
+
+      await request(app.getHttpServer())
+        .patch(`/api/events/${serie.id}/occurrences/${LUNDI_8}`)
+        .send({ title: 'Anonyme' })
+        .expect(401)
+        .expect(codeDErreur('auth.required'));
+    });
+  });
+
+  describe('DELETE /events/:id/occurrences/:originalStart', () => {
+    it('supprime une seule occurrence, sans changer la règle', async () => {
+      const serie = await creerLaSerie(jeu.a);
+
+      const reponse = await request(app.getHttpServer())
+        .delete(`/api/events/${serie.id}/occurrences/${LUNDI_8}`)
+        .set('Cookie', jeu.a.session)
+        .expect(204);
+
+      expect(reponse.text).toBe('');
+      expect(
+        (await occurrencesDeLaSerie(jeu.a, serie)).map(([origine]) => origine),
+      ).toEqual([LUNDI_1, LUNDI_15, LUNDI_22]);
+      expect(await lireLEvenement(jeu.a, serie)).toEqual(serie);
+    });
+
+    it("supprime une occurrence déjà modifiée, sans laisser sa modification derrière elle", async () => {
+      const serie = await creerLaSerie(jeu.a);
+      await request(app.getHttpServer())
+        .patch(`/api/events/${serie.id}/occurrences/${LUNDI_15}`)
+        .set('Cookie', jeu.a.session)
+        .send({ startsAt: '2027-03-30T08:00:00.000Z' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .delete(`/api/events/${serie.id}/occurrences/${LUNDI_15}`)
+        .set('Cookie', jeu.a.session)
+        .expect(204);
+
+      expect(
+        (await occurrencesDeLaSerie(jeu.a, serie)).map(([origine]) => origine),
+      ).toEqual([LUNDI_1, LUNDI_8, LUNDI_22]);
+      expect(
+        await compterLesExceptions(
+          app,
+          { id: jeu.a.espacePersonnel, kind: 'PERSONAL' },
+          serie.id,
+        ),
+      ).toBe(1);
+    });
+
+    it('refuse en 400 une occurrence mal désignée', async () => {
+      const serie = await creerLaSerie(jeu.a);
+
+      await request(app.getHttpServer())
+        .delete(`/api/events/${serie.id}/occurrences/lundi`)
+        .set('Cookie', jeu.a.session)
+        .expect(400)
+        .expect(champsEnErreur(['originalStart']));
+    });
+
+    it("refuse en 422 l'occurrence d'un Événement qui n'a lieu qu'une fois", async () => {
+      const unique = await creer(jeu.a, {
+        title: 'Une seule fois',
+        startsAt: LUNDI_1,
+        category: 'OTHER',
+        scopeId: jeu.a.espacePersonnel,
+      });
+
+      await request(app.getHttpServer())
+        .delete(`/api/events/${unique.id}/occurrences/${LUNDI_1}`)
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('event.not_recurring'));
+    });
+
+    it("rend 404 sur une occurrence que la règle ne place pas, ou déjà supprimée", async () => {
+      const serie = await creerLaSerie(jeu.a);
+
+      // Au-delà des quatre occurrences de la règle.
+      await request(app.getHttpServer())
+        .delete(`/api/events/${serie.id}/occurrences/2027-03-29T07:00:00.000Z`)
+        .set('Cookie', jeu.a.session)
+        .expect(404)
+        .expect(codeDErreur('event.occurrence_not_found'));
+
+      await request(app.getHttpServer())
+        .delete(`/api/events/${serie.id}/occurrences/${LUNDI_22}`)
+        .set('Cookie', jeu.a.session)
+        .expect(204);
+      await request(app.getHttpServer())
+        .delete(`/api/events/${serie.id}/occurrences/${LUNDI_22}`)
+        .set('Cookie', jeu.a.session)
+        .expect(404)
+        .expect(codeDErreur('event.occurrence_not_found'));
+    });
+
+    it("rend 404 sur la série de l'Espace personnel de l'autre, et n'y touche pas", async () => {
+      const sienne = await creerLaSerie(jeu.b);
+
+      await request(app.getHttpServer())
+        .delete(`/api/events/${sienne.id}/occurrences/${LUNDI_8}`)
+        .set('Cookie', jeu.a.session)
+        .expect(404)
+        .expect(codeDErreur('event.not_found'));
+
+      expect(await occurrencesDeLaSerie(jeu.b, sienne)).toHaveLength(4);
+    });
+
+    it('ne supprime rien sans session', async () => {
+      const serie = await creerLaSerie(jeu.a);
+
+      await request(app.getHttpServer())
+        .delete(`/api/events/${serie.id}/occurrences/${LUNDI_8}`)
+        .expect(401)
+        .expect(codeDErreur('auth.required'));
+    });
+  });
+
+  /**
+   * Chaque lundi de mars 2027 à 9 h, heure de Paris (08:00Z), pendant une
+   * heure : quatre occurrences, du 1er au 22.
+   */
+  const LUNDI_1 = '2027-03-01T08:00:00.000Z';
+  const LUNDI_8 = '2027-03-08T08:00:00.000Z';
+  const LUNDI_15 = '2027-03-15T08:00:00.000Z';
+  const LUNDI_22 = '2027-03-22T08:00:00.000Z';
+
+  function creerLaSerie(compte: JeuDEspaces['a']): Promise<Event> {
+    return creer(compte, {
+      title: 'Réunion',
+      startsAt: LUNDI_1,
+      endsAt: '2027-03-01T09:00:00.000Z',
+      category: 'APPOINTMENT',
+      recurrence: { freq: 'WEEKLY', interval: 1, count: 4 },
+      scopeId: compte.espacePersonnel,
+    });
+  }
+
+  /** Les occurrences de la série : origine, début, titre. */
+  async function occurrencesDeLaSerie(
+    compte: JeuDEspaces['a'],
+    serie: Event,
+  ): Promise<[string, string, string][]> {
+    return (await lister(compte))
+      .filter(({ eventId }) => eventId === serie.id)
+      .map(({ originalStart, startsAt, title }) => [
+        originalStart,
+        startsAt,
+        title,
+      ]);
+  }
+
+  async function lireLEvenement(
+    compte: JeuDEspaces['a'],
+    evenement: Event,
+  ): Promise<Event> {
+    const reponse = await request(app.getHttpServer())
+      .get(`/api/events/${evenement.id}`)
+      .set('Cookie', compte.session)
+      .expect(200);
+
+    return reponse.body;
+  }
+
   async function creer(
     compte: JeuDEspaces['a'],
     saisie: Record<string, unknown>,

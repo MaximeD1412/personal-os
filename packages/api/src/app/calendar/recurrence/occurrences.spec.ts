@@ -1,5 +1,6 @@
 import type { Recurrence } from '@personal-os/contracts';
 import {
+  occurrenceVisee,
   occurrences,
   type EvenementRecurrent,
   type ExceptionDOccurrence,
@@ -801,5 +802,107 @@ describe('occurrences', () => {
         ),
       ).toEqual(['2026-09-14T07:00:00.000Z', '2026-09-21T07:00:00.000Z']);
     });
+  });
+});
+
+describe('occurrenceVisee', () => {
+  // Chaque lundi à 9 h, d'une heure, quatre fois : du 14 septembre au 5 octobre.
+  const HEBDO = evenement({
+    title: 'Réunion',
+    startsAt: '2026-09-14T07:00:00.000Z',
+    endsAt: '2026-09-14T08:00:00.000Z',
+    recurrence: regle({ freq: 'WEEKLY', count: 4 }),
+  });
+
+  it("rend l'occurrence que la règle place à cet instant", () => {
+    expect(
+      occurrenceVisee(HEBDO, [], instant('2026-09-28T07:00:00.000Z')),
+    ).toEqual({
+      originalStart: instant('2026-09-28T07:00:00.000Z'),
+      startsAt: instant('2026-09-28T07:00:00.000Z'),
+      endsAt: instant('2026-09-28T08:00:00.000Z'),
+      title: 'Réunion',
+    });
+  });
+
+  it('rend la première occurrence, qui est le début de la série', () => {
+    expect(
+      occurrenceVisee(HEBDO, [], instant('2026-09-14T07:00:00.000Z'))
+        ?.startsAt,
+    ).toEqual(instant('2026-09-14T07:00:00.000Z'));
+  });
+
+  it("ne rend rien d'un instant où la règle ne place aucune occurrence", () => {
+    expect(
+      occurrenceVisee(HEBDO, [], instant('2026-09-28T08:00:00.000Z')),
+    ).toBeNull();
+    expect(
+      occurrenceVisee(HEBDO, [], instant('2026-09-29T07:00:00.000Z')),
+    ).toBeNull();
+    // Avant le début de la série.
+    expect(
+      occurrenceVisee(HEBDO, [], instant('2026-09-07T07:00:00.000Z')),
+    ).toBeNull();
+  });
+
+  it('ne rend rien au-delà de la fin de la règle', () => {
+    expect(
+      occurrenceVisee(HEBDO, [], instant('2026-10-12T07:00:00.000Z')),
+    ).toBeNull();
+    expect(
+      occurrenceVisee(
+        evenement({
+          startsAt: '2026-09-14T07:00:00.000Z',
+          recurrence: regle({ freq: 'WEEKLY', until: '2026-09-21' }),
+        }),
+        [],
+        instant('2026-09-28T07:00:00.000Z'),
+      ),
+    ).toBeNull();
+  });
+
+  it('applique son exception, même quand elle la déplace loin de son origine', () => {
+    expect(
+      occurrenceVisee(
+        HEBDO,
+        [
+          modifiee('2026-09-28T07:00:00.000Z', {
+            startsAt: '2026-11-02T08:00:00.000Z',
+            title: 'Réunion déplacée',
+          }),
+        ],
+        instant('2026-09-28T07:00:00.000Z'),
+      ),
+    ).toEqual({
+      originalStart: instant('2026-09-28T07:00:00.000Z'),
+      startsAt: instant('2026-11-02T08:00:00.000Z'),
+      endsAt: instant('2026-11-02T09:00:00.000Z'),
+      title: 'Réunion déplacée',
+    });
+  });
+
+  it("ne rend rien d'une occurrence supprimée", () => {
+    expect(
+      occurrenceVisee(
+        HEBDO,
+        [annulee('2026-09-21T07:00:00.000Z')],
+        instant('2026-09-21T07:00:00.000Z'),
+      ),
+    ).toBeNull();
+  });
+
+  it("garde l'heure de Paris au changement d'heure", () => {
+    // Le 26 octobre, Paris est revenu à l'heure d'hiver : 9 h vaut 08:00Z.
+    const longue = evenement({
+      startsAt: '2026-09-14T07:00:00.000Z',
+      recurrence: regle({ freq: 'WEEKLY' }),
+    });
+
+    expect(
+      occurrenceVisee(longue, [], instant('2026-10-26T08:00:00.000Z')),
+    ).not.toBeNull();
+    expect(
+      occurrenceVisee(longue, [], instant('2026-10-26T07:00:00.000Z')),
+    ).toBeNull();
   });
 });

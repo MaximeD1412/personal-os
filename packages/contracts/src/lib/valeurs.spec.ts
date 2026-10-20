@@ -1,7 +1,9 @@
 import {
   aujourdhui,
   FUSEAU,
+  instantDans,
   lundiDe,
+  periodeDeLaSemaine,
   periodeDuMois,
   zCents,
   zDay,
@@ -194,8 +196,16 @@ describe('zPeriod', () => {
   it.each([
     ['sans début', { to: SEPTEMBRE.to }, 'from'],
     ['sans fin', { from: SEPTEMBRE.from }, 'to'],
-    ['avec une borne qui n’est pas un instant', { ...SEPTEMBRE, from: 'hier' }, 'from'],
-    ['qui finit avant de commencer', { from: SEPTEMBRE.to, to: SEPTEMBRE.from }, 'to'],
+    [
+      'avec une borne qui n’est pas un instant',
+      { ...SEPTEMBRE, from: 'hier' },
+      'from',
+    ],
+    [
+      'qui finit avant de commencer',
+      { from: SEPTEMBRE.to, to: SEPTEMBRE.from },
+      'to',
+    ],
   ])('refuse une période %s, sur le bon champ', (_cas, periode, champ) => {
     const resultat = zPeriod.safeParse(periode);
 
@@ -238,5 +248,42 @@ describe('periodeDuMois', () => {
   it('refuse ce qui n’est pas un mois', () => {
     expect(() => periodeDuMois('2026-13')).toThrow();
     expect(() => periodeDuMois('octobre')).toThrow();
+  });
+});
+
+describe('periodeDeLaSemaine', () => {
+  it.each([
+    // Une semaine d’été, du lundi au dimanche.
+    ['2026-09-14', '2026-09-13T22:00:00.000Z', '2026-09-20T21:59:59.999Z'],
+    // La semaine du passage à l’heure d’hiver (dimanche 25 octobre).
+    ['2026-10-19', '2026-10-18T22:00:00.000Z', '2026-10-25T22:59:59.999Z'],
+    // Une semaine à cheval sur deux années.
+    ['2026-12-28', '2026-12-27T23:00:00.000Z', '2027-01-03T22:59:59.999Z'],
+  ])(
+    'borne la semaine du %s du lundi au dimanche, à Paris',
+    (lundi, from, to) => {
+      expect(periodeDeLaSemaine(lundi)).toEqual({ from, to });
+    },
+  );
+
+  it('refuse un jour qui n’est pas un lundi', () => {
+    expect(() => periodeDeLaSemaine('2026-09-15')).toThrow();
+  });
+});
+
+describe('instantDans', () => {
+  it.each([
+    // L’heure d’été : Paris a deux heures d’avance.
+    ['2026-09-14', 12, 0, '2026-09-14T10:00:00.000Z'],
+    // L’heure d’hiver : une heure.
+    ['2026-12-28', 19, 30, '2026-12-28T18:30:00.000Z'],
+    // Le jour du passage à l’heure d’hiver, l’après-midi.
+    ['2026-10-25', 19, 30, '2026-10-25T18:30:00.000Z'],
+  ])('place le %s à %ih%i, heure de Paris', (jour, heure, minute, instant) => {
+    expect(instantDans(jour, heure, minute)).toBe(instant);
+  });
+
+  it('refuse un jour mal formé', () => {
+    expect(() => instantDans('25/10/2026', 12, 0)).toThrow();
   });
 });

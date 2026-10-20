@@ -1,5 +1,9 @@
 import { convertToParamMap } from '@angular/router';
-import { zEventInput, zIngredientInput } from '@personal-os/contracts';
+import {
+  zEventInput,
+  zFoodPreferenceInput,
+  zIngredientInput,
+} from '@personal-os/contracts';
 import { erreursDeChamp, prefillDepuisRequete } from './formulaire';
 
 describe('prefillDepuisRequete', () => {
@@ -79,6 +83,35 @@ describe('prefillDepuisRequete', () => {
       valeurs: { category: 'APPOINTMENT' },
       ignores: ['category=FOO', 'category=OTHER'],
     });
+  });
+
+  it('lit une union discriminée : un champ vaut si une des branches l’accepte', () => {
+    const preference = (parametres: Record<string, string>) =>
+      prefillDepuisRequete(zFoodPreferenceInput, convertToParamMap(parametres));
+
+    expect(
+      preference({
+        userId: 'compte-a',
+        kind: 'ALLERGY',
+        target: 'ALLERGEN',
+        allergen: 'TREE_NUTS',
+      }),
+    ).toEqual({
+      valeurs: {
+        userId: 'compte-a',
+        kind: 'ALLERGY',
+        target: 'ALLERGEN',
+        allergen: 'TREE_NUTS',
+      },
+      ignores: [],
+    });
+    expect(
+      preference({ target: 'INGREDIENT', ingredientId: 'coriandre' }).valeurs,
+    ).toEqual({ target: 'INGREDIENT', ingredientId: 'coriandre' });
+    expect(preference({ target: 'RECIPE', allergen: 'NUTS' }).ignores).toEqual([
+      'target=RECIPE',
+      'allergen=NUTS',
+    ]);
   });
 
   it('ne lit pas les paramètres étrangers au schéma', () => {

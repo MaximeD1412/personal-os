@@ -66,7 +66,9 @@
 
       @if (avecPoidsALaPiece()) {
       <div hlmField>
-        <label hlmFieldLabel for="ingredient-poids">Poids à la pièce (g)</label>
+        <label hlmFieldLabel for="ingredient-poids"
+          >Poids moyen d'une pièce (g)</label
+        >
         <input
           hlmInput
           id="ingredient-poids"
@@ -83,7 +85,10 @@
         @if (erreurs()['gramsPerPiece']; as message) {
         <hlm-field-error forceShow>{{ message }}</hlm-field-error>
         } @else {
-        <p hlmFieldDescription>Facultatif : le poids moyen d'une pièce.</p>
+        <p hlmFieldDescription>
+          Facultatif. Utilisé pour additionner des recettes en pièces et en
+          grammes.
+        </p>
         }
       </div>
       }

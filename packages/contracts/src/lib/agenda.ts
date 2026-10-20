@@ -79,3 +79,6 @@ export interface AgendaContributor {
 
 /** La source du Calendrier, premier contributeur de l'Agenda. */
 export const SOURCE_CALENDRIER = 'calendar';
+
+/** La source de la Cuisine : ses Repas planifiés. */
+export const SOURCE_CUISINE = 'food';

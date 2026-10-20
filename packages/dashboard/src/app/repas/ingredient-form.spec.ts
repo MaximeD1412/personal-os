@@ -70,6 +70,12 @@ describe('Le formulaire d’un Ingrédient', () => {
       const { harness, el } = await ouvrirLeCatalogue(POIREAU);
       await harness.fixture.whenStable();
       expect(champ(el(), 'poids')).not.toBeNull();
+      expect(
+        el().querySelector('label[for="ingredient-poids"]')?.textContent,
+      ).toContain("Poids moyen d'une pièce (g)");
+      expect(el().textContent).toContain(
+        'Utilisé pour additionner des recettes en pièces et en grammes',
+      );
 
       (
         el().querySelector('[data-unite="MILLILITER"]') as HTMLButtonElement

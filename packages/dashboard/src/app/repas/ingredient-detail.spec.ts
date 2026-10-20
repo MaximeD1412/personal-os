@@ -29,7 +29,11 @@ describe('La fiche d’un Ingrédient', () => {
     expect(texte(el(), 'unite')).toContain('Gramme (g)');
     expect(texte(el(), 'allergenes')).toContain('Lait');
     expect(texte(el(), 'conservation')).toContain('Périssable');
-    expect(el().querySelector('[data-test="poids"]')).toBeNull();
+    expect(texte(el(), 'poids')).toContain("Poids moyen d'une pièce");
+    expect(texte(el(), 'poids')).toContain('Non renseigné');
+    expect(texte(el(), 'poids')).toContain(
+      'Utilisé pour additionner des recettes en pièces et en grammes',
+    );
     expect(
       el().querySelector('[data-test="modifier"]')?.getAttribute('href'),
     ).toBe('/repas/ingredients/ingredient-1/modifier');
@@ -47,6 +51,21 @@ describe('La fiche d’un Ingrédient', () => {
     );
     expect(texte(el(), 'conservation')).toContain('Non périssable');
     expect(texte(el(), 'poids')).toContain('150 g');
+  });
+
+  it('ne parle pas de poids à la pièce pour un Ingrédient compté en millilitres', async () => {
+    const { harness, http, el } = await ouvrirLeCatalogue(
+      '/repas/ingredients/ingredient-3',
+    );
+    http.expectOne(`${BASE}/ingredients/ingredient-3`).flush({
+      ...BEURRE,
+      id: 'ingredient-3',
+      displayName: 'Lait entier',
+      canonicalUnit: 'MILLILITER',
+    });
+    await harness.fixture.whenStable();
+
+    expect(el().querySelector('[data-test="poids"]')).toBeNull();
   });
 
   it('affiche le message de l’API pour un Ingrédient introuvable', async () => {

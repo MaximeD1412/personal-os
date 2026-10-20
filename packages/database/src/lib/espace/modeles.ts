@@ -20,12 +20,20 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
     // Le catalogue d'Ingrédients est global : les deux Comptes du Foyer le
     // partagent (CUISINE-1).
     Ingredient: [],
+    // Ses Alias le sont aussi : un libellé rattaché vaut pour le Foyer entier
+    // (CUISINE-3).
+    IngredientAlias: [],
     Scope: [
       'traces',
       'events',
       'eventExceptions',
       'aiTraces',
       'unresolvedCommands',
+      'foodPreferences',
+      'recipes',
+      'recipeLines',
+      'mealPlans',
+      'mealPlanEntries',
       'projects',
       'projectExpenses',
     ],
@@ -44,11 +52,15 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Record<string, readonly string[]>
 > = {
   HealthProbe: [],
-  User: ['household', 'personalScope', 'sessions'],
+  User: ['household', 'personalScope', 'sessions', 'foodPreferences'],
   Session: ['user'],
   LoginTransaction: [],
   Household: ['members', 'scopes'],
-  Ingredient: [],
+  // Un Ingrédient est cité par les lignes de Recette et les Préférences
+  // alimentaires, qui sont cloisonnées : directement, ou depuis un Alias à
+  // travers son Ingrédient.
+  Ingredient: ['aliases', 'recipeLines', 'foodPreferences'],
+  IngredientAlias: ['ingredient'],
   Scope: [
     'household',
     'holder',
@@ -57,6 +69,11 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'eventExceptions',
     'aiTraces',
     'unresolvedCommands',
+    'foodPreferences',
+    'recipes',
+    'recipeLines',
+    'mealPlans',
+    'mealPlanEntries',
     'projects',
     'projectExpenses',
   ],

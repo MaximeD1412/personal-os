@@ -1,6 +1,10 @@
 import { Route } from '@angular/router';
 import { Agenda } from './agenda';
 import { Calendrier } from './calendrier';
+import { FormulaireDEvenement } from './formulaire-d-evenement';
+import { FormulaireDOccurrence } from './formulaire-d-occurrence';
+import { FormulaireDePreference } from './foyer/preference-form';
+import { Preferences } from './foyer/preferences';
 import { FormulaireDeDepense } from './projets/expense-form';
 import { FicheDeProjet } from './projets/project-detail';
 import { FormulaireDeProjet } from './projets/project-form';
@@ -8,17 +12,32 @@ import { Projets } from './projets/projects';
 import { FicheDIngredient } from './repas/ingredient-detail';
 import { FormulaireDIngredient } from './repas/ingredient-form';
 import { Ingredients } from './repas/ingredients';
+import { FormulaireDeRepas } from './repas/meal-plan-entry-form';
+import { PlanningDeRepas } from './repas/planning';
+import { FicheDeRecette } from './repas/recipe-detail';
+import { Recettes } from './repas/recipes';
 
 export const appRoutes: Route[] = [
   { path: '', pathMatch: 'full', redirectTo: 'agenda' },
   { path: 'agenda', component: Agenda },
-  { path: 'calendrier', component: Calendrier },
-  // Le formulaire de création, adressable et prérempli par sa requête
-  // (ADR 0030). C'est le même écran, qui lit alors la requête.
   {
-    path: 'calendrier/evenements/nouveau',
+    path: 'calendrier',
     component: Calendrier,
-    data: { creation: true },
+    // Le formulaire d'un Événement, adressable et prérempli par sa requête
+    // (ADR 0030), s'ouvre dans le Calendrier : le mois reste visible à côté.
+    children: [
+      {
+        path: 'evenements/nouveau',
+        component: FormulaireDEvenement,
+        data: { creation: true },
+      },
+      { path: 'evenements/:id', component: FormulaireDEvenement },
+      // Une seule occurrence d'une série, par l'instant où la règle la place.
+      {
+        path: 'evenements/:id/occurrences/:originalStart',
+        component: FormulaireDOccurrence,
+      },
+    ],
   },
   // Le catalogue d'Ingrédients, global au Foyer. Le formulaire de création est
   // adressable et prérempli par sa requête (ADR 0030) ; « nouveau » passe
@@ -27,6 +46,16 @@ export const appRoutes: Route[] = [
   { path: 'repas/ingredients/nouveau', component: FormulaireDIngredient },
   { path: 'repas/ingredients/:id', component: FicheDIngredient },
   { path: 'repas/ingredients/:id/modifier', component: FormulaireDIngredient },
+  { path: 'repas/recettes', component: Recettes },
+  // Le Planning de repas d'une semaine (`?semaine=`, son lundi), et l'ajout
+  // d'un repas, prérempli par sa requête (ADR 0030).
+  { path: 'repas/planning', component: PlanningDeRepas },
+  { path: 'repas/planning/nouveau', component: FormulaireDeRepas },
+  { path: 'repas/recettes/:id', component: FicheDeRecette },
+  // Les Préférences alimentaires du Foyer, et l'ajout d'une Préférence,
+  // prérempli par sa requête (ADR 0030).
+  { path: 'foyer/preferences', component: Preferences },
+  { path: 'foyer/preferences/nouvelle', component: FormulaireDePreference },
   // Les Projets de l'Espace personnel. Les formulaires sont adressables et
   // préremplis par leur requête (ADR 0030) ; « nouveau » passe avant
   // l'identifiant.

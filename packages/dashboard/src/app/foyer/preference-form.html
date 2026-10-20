@@ -1,0 +1,181 @@
+<dccm-state
+  [status]="etatDuFoyer()"
+  [error]="foyer.error()"
+  skeleton="detail"
+  (retry)="foyer.reload()"
+>
+  <dccm-form-page
+    heading="Nouvelle préférence"
+    subtitle="Une allergie et un aliment exclu ne sont jamais proposés ; un aliment peu apprécié est évité."
+    [breadcrumb]="fil"
+    submitLabel="Ajouter la préférence"
+    [ignored]="prefill.ignores"
+    [error]="refus()"
+    [pending]="envoi()"
+    (submitted)="enregistrer()"
+    (cancelled)="fermer()"
+  >
+    <div hlmField>
+      <span hlmFieldLabel id="preference-compte">Compte</span>
+      <!-- Le champ étire ses enfants : le groupe garde sa largeur dans un conteneur. -->
+      <div>
+        <hlm-toggle-group
+          size="md"
+          data-test="compte"
+          aria-labelledby="preference-compte"
+          [value]="compte()"
+          (valueChange)="choisirLeCompte($event)"
+        >
+          @for (membre of membres(); track membre.id) {
+          <button
+            hlmToggleGroupItem
+            [value]="membre.id"
+            [attr.data-compte]="membre.id"
+          >
+            {{ membre.displayName }}
+          </button>
+          }
+        </hlm-toggle-group>
+      </div>
+      @if (erreurs()['userId']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+
+    <div hlmField>
+      <span hlmFieldLabel id="preference-type">Type</span>
+      <div>
+        <hlm-toggle-group
+          size="md"
+          data-test="type"
+          aria-labelledby="preference-type"
+          [value]="type()"
+          (valueChange)="choisirLeType($event)"
+        >
+          @for (type of types; track type.valeur) {
+          <button
+            hlmToggleGroupItem
+            [value]="type.valeur"
+            [attr.data-type]="type.valeur"
+          >
+            {{ type.libelle }}
+          </button>
+          }
+        </hlm-toggle-group>
+      </div>
+      @if (erreurs()['kind']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+
+    <div hlmField>
+      <span hlmFieldLabel id="preference-cible">Ce qu'elle vise</span>
+      <div>
+        <hlm-toggle-group
+          size="md"
+          data-test="cible"
+          aria-labelledby="preference-cible"
+          [value]="cible()"
+          (valueChange)="choisirLaCible($event)"
+        >
+          @for (cible of cibles; track cible.valeur) {
+          <button
+            hlmToggleGroupItem
+            [value]="cible.valeur"
+            [attr.data-cible]="cible.valeur"
+          >
+            {{ cible.libelle }}
+          </button>
+          }
+        </hlm-toggle-group>
+      </div>
+      @if (erreurs()['target']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+
+    @if (cible() === 'ALLERGEN') {
+    <div hlmField>
+      <label hlmFieldLabel for="preference-allergene">Allergène</label>
+      <hlm-select
+        data-test="allergene"
+        [value]="allergene()"
+        [itemToString]="nomDeLAllergene"
+        (valueChange)="choisirLAllergene($event)"
+      >
+        <hlm-select-trigger buttonId="preference-allergene" class="md:w-72">
+          <hlm-select-value placeholder="Choisir un Allergène" />
+        </hlm-select-trigger>
+        <hlm-select-content *hlmSelectPortal>
+          @for (famille of familles; track famille.valeur) {
+          <hlm-select-item [value]="famille.valeur"
+            >{{ famille.libelle }}</hlm-select-item
+          >
+          }
+        </hlm-select-content>
+      </hlm-select>
+      @if (erreurs()['allergen']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      } @else {
+      <p hlmFieldDescription>
+        Les 14 familles de la liste réglementaire : tout Ingrédient qui en
+        déclare une est concerné.
+      </p>
+      }
+    </div>
+    } @else {
+    <div hlmField>
+      <label hlmFieldLabel for="preference-recherche">Ingrédient</label>
+      <div hlmInputGroup class="md:max-w-md">
+        <ng-icon name="matSearchOutline" aria-hidden="true" />
+        <input
+          hlmInput
+          id="preference-recherche"
+          type="search"
+          data-test="recherche"
+          autocomplete="off"
+          placeholder="Rechercher un ingrédient"
+          [value]="recherche()"
+          (input)="chercher($event)"
+        />
+      </div>
+      @if (ingredientChoisi(); as nom) {
+      <p hlmFieldDescription data-test="choisi">
+        Ingrédient choisi : {{ nom }}
+      </p>
+      }
+      <dccm-state
+        data-test="trouves"
+        [status]="etatDuCatalogue()"
+        [error]="catalogue.error()"
+        [rows]="3"
+        emptyHeading="Aucun Ingrédient du catalogue ne correspond"
+        loadingLabel="Recherche dans le catalogue…"
+        (retry)="catalogue.reload()"
+      >
+        <ul
+          class="flex max-h-72 flex-col overflow-y-auto"
+          aria-label="Ingrédients trouvés"
+        >
+          @for (ingredient of trouves(); track ingredient.id) {
+          <li>
+            <button
+              dccmListRow
+              type="button"
+              data-test="ingredient"
+              [label]="ingredient.displayName"
+              [selected]="ingredient.id === ingredientId()"
+              [attr.aria-pressed]="ingredient.id === ingredientId()"
+              (click)="choisirLIngredient(ingredient.id, ingredient.displayName)"
+            ></button>
+          </li>
+          }
+        </ul>
+      </dccm-state>
+      @if (erreurs()['ingredientId']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+    }
+  </dccm-form-page>
+</dccm-state>

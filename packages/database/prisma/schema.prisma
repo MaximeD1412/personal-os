@@ -49,6 +49,11 @@ model Scope {
   eventExceptions    EventException[]
   aiTraces           AiTrace[]
   unresolvedCommands UnresolvedCommand[]
+  foodPreferences    FoodPreference[]
+  recipes            Recipe[]
+  recipeLines        RecipeLine[]
+  mealPlans          MealPlan[]
+  mealPlanEntries    MealPlanEntry[]
   projects           Project[]
   projectExpenses    ProjectExpense[]
 
@@ -57,19 +62,20 @@ model Scope {
 
 /// Compte local associé à un sujet Authentik.
 model User {
-  id            String    @id @default(uuid())
+  id              String           @id @default(uuid())
   /// Sujet OIDC stable et opaque.
-  subject       String    @unique
-  email         String    @unique
-  displayName   String?
-  createdAt     DateTime  @default(now())
-  lastSeenAt    DateTime  @default(now())
-  sessions      Session[]
+  subject         String           @unique
+  email           String           @unique
+  displayName     String?
+  createdAt       DateTime         @default(now())
+  lastSeenAt      DateTime         @default(now())
+  sessions        Session[]
   /// Le Foyer est unique : la valeur par défaut laisse la version précédente
   /// de l'API créer des Comptes sans la connaître (ADR 0024).
-  householdId   String    @default("11111111-1111-4111-8111-111111111111")
-  household     Household @relation(fields: [householdId], references: [id])
-  personalScope Scope?
+  householdId     String           @default("11111111-1111-4111-8111-111111111111")
+  household       Household        @relation(fields: [householdId], references: [id])
+  personalScope   Scope?
+  foodPreferences FoodPreference[]
 }
 
 /// Entité jouet du fil traceur de l'issue #6, retirée du code par #99 : plus
@@ -234,17 +240,203 @@ enum Allergen {
 /// hors Espace : les deux Comptes du Foyer le partagent. Deux libellés qui ne
 /// se cuisinent ni ne s'achètent pareil sont deux Ingrédients.
 model Ingredient {
-  id            String        @id @default(uuid())
+  id              String            @id @default(uuid())
   /// Le libellé normalisé (`normaliserLibelle` de `contracts`) : deux noms qui
   /// ne diffèrent que par la casse ou les accents sont le même Ingrédient.
-  name          String        @unique
-  displayName   String
-  canonicalUnit CanonicalUnit
+  name            String            @unique
+  displayName     String
+  canonicalUnit   CanonicalUnit
   /// Le poids d'une pièce, en grammes ; n'a de sens qu'en `GRAM` ou `PIECE`.
-  gramsPerPiece Decimal?      @db.Decimal(10, 2)
-  allergens     Allergen[]
-  perishable    Boolean       @default(false)
-  createdAt     DateTime      @default(now())
+  gramsPerPiece   Decimal?          @db.Decimal(10, 2)
+  allergens       Allergen[]
+  perishable      Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  aliases         IngredientAlias[]
+  recipeLines     RecipeLine[]
+  foodPreferences FoodPreference[]
+}
+
+/// Un libellé rattaché à un Ingrédient (CUISINE-3) : une fois rattaché, le
+/// résolveur ne le redemande plus. Global, comme le catalogue.
+model IngredientAlias {
+  id           String     @id @default(uuid())
+  /// Le libellé normalisé (`normaliserLibelle`) : il ne désigne qu'un Ingrédient.
+  label        String     @unique
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@index([ingredientId])
+}
+
+/// L'unité dans laquelle une recette donne une quantité (`UNITES_DE_RECETTE`
+/// de `contracts`).
+enum RecipeUnit {
+  G
+  KG
+  MG
+  ML
+  CL
+  L
+  TSP
+  TBSP
+  PIECE
+}
+
+/// L'origine d'une Recette : saisie à la main, ou proposée par la génération.
+enum RecipeSource {
+  MANUAL
+  GENERATED
+}
+
+/// Une Recette : une préparation réutilisable, pour un nombre de portions de
+/// référence. Elle ne connaît que des Ingrédients, jamais des Produits. Elle
+/// vit dans l'Espace foyer, que la Cuisine pose elle-même.
+model Recipe {
+  id              String          @id @default(uuid())
+  scopeId         String
+  scope           Scope           @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  title           String
+  /// Les portions de référence, au moins une.
+  servings        Int
+  /// Les étapes, dans leur ordre.
+  steps           String[]
+  source          RecipeSource    @default(MANUAL)
+  lines           RecipeLine[]
+  /// Les Repas planifiés qui la cuisinent.
+  mealPlanEntries MealPlanEntry[]
+  /// Des instants (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(3)
+
+  /// La cible de la clé étrangère des lignes, qui porte l'Espace.
+  @@unique([id, scopeId])
+  @@index([scopeId])
+}
+
+/// Une ligne de Recette : un Ingrédient du catalogue, sa quantité et l'unité
+/// saisie, conservée telle quelle ; la conversion n'a lieu qu'à la
+/// consolidation. La clé étrangère porte l'Espace avec la Recette : une ligne
+/// est toujours dans l'Espace de sa recette (ADR 0028).
+model RecipeLine {
+  id           String     @id @default(uuid())
+  scopeId      String
+  scope        Scope      @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  recipeId     String
+  recipe       Recipe     @relation(fields: [recipeId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  /// Un Ingrédient cité par une recette ne se supprime pas : il se fusionne
+  /// (CUISINE-4).
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  /// Strictement positive, au millième près.
+  quantity     Decimal    @db.Decimal(12, 3)
+  unit         RecipeUnit
+  /// Le rang de la ligne dans la recette, à partir de 0.
+  position     Int
+
+  @@unique([recipeId, position])
+  @@index([scopeId])
+  @@index([ingredientId])
+}
+
+/// Le type d'une Préférence alimentaire : une allergie et un aliment exclu
+/// sont interdits au repas, un aliment peu apprécié n'est qu'évité.
+enum FoodPreferenceKind {
+  ALLERGY
+  EXCLUDED
+  DISLIKED
+}
+
+/// Une Préférence alimentaire d'un Compte du Foyer. Elle vise soit un
+/// Allergène, soit un Ingrédient, jamais les deux ni aucun : une contrainte
+/// CHECK de la migration le garde, Prisma ne sachant pas la décrire. Elle vit
+/// dans l'Espace foyer, que le module pose (FOYER-2).
+model FoodPreference {
+  id           String             @id @default(uuid())
+  scopeId      String
+  scope        Scope              @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind         FoodPreferenceKind
+  allergen     Allergen?
+  ingredientId String?
+  ingredient   Ingredient?        @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt    DateTime           @default(now()) @db.Timestamptz(3)
+
+  /// L'index de la migration tient deux vides pour égaux (`NULLS NOT
+  /// DISTINCT`) : la même allergie ne s'enregistre pas deux fois.
+  @@unique([userId, kind, allergen, ingredientId])
+  @@index([scopeId])
+  @@index([ingredientId])
+}
+
+enum MealPlanStatus {
+  OPEN
+  STOPPED
+}
+
+enum MealMoment {
+  LUNCH
+  DINNER
+}
+
+enum MealPlanEntryDecision {
+  APPROVED
+  PROPOSED
+  REFUSED
+}
+
+/// Le Planning de repas d'une semaine : un par semaine et par Espace (le
+/// Foyer). Arrêté, il refuse toute modification de ses repas (CUISINE-7).
+model MealPlan {
+  id        String          @id @default(uuid())
+  scopeId   String
+  scope     Scope           @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  /// Le lundi de la semaine (`zWeek`), un jour civil sans fuseau.
+  week      DateTime        @db.Date
+  status    MealPlanStatus  @default(OPEN)
+  entries   MealPlanEntry[]
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@unique([scopeId, week])
+  /// La cible de la clé étrangère des repas, qui porte l'Espace.
+  @@unique([id, scopeId])
+}
+
+/// Un Repas planifié : une Recette ou un intitulé libre, jamais les deux ni
+/// aucun (une contrainte CHECK de la migration le garde), pour des
+/// Participants du Foyer et des Invités. La clé étrangère porte l'Espace avec
+/// le planning : un repas est toujours dans l'Espace de son planning (ADR
+/// 0028).
+model MealPlanEntry {
+  id             String                @id @default(uuid())
+  scopeId        String
+  scope          Scope                 @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  mealPlanId     String
+  mealPlan       MealPlan              @relation(fields: [mealPlanId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  /// Un jour civil (`zDay`) de la semaine du planning.
+  day            DateTime              @db.Date
+  moment         MealMoment
+  /// Une Recette cuisinée par un repas à venir ne se supprime pas ; celle
+  /// d'un repas passé laisse son titre à sa place (CUISINE-7).
+  recipeId       String?
+  recipe         Recipe?               @relation(fields: [recipeId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  title          String?
+  /// Des Comptes du Foyer, au moins un.
+  participantIds String[]
+  /// Au moins zéro.
+  guestCount     Int                   @default(0)
+  decision       MealPlanEntryDecision
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt      DateTime              @default(now()) @db.Timestamptz(3)
+
+  @@index([scopeId])
+  @@index([mealPlanId])
+  @@index([recipeId])
+  @@index([day])
 }
 
 /// Un Projet : un travail suivi dans l'application, avec ses notes, ses liens
