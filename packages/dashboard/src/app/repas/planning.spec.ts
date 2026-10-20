@@ -225,6 +225,79 @@ describe('Le Planning de repas', () => {
     expect(bouton(el(), 'statut').textContent).toContain('Ouvert');
   });
 
+  it('laisse la semaine affichée en paix quand l’arrêt d’une autre répond après', async () => {
+    const ouvert = await ouvrir();
+    const { el, http, router, harness } = ouvert;
+
+    bouton(el(), 'arreter').click();
+    await apresLaConfirmation(ouvert);
+    const arret = http.expectOne(`${BASE}/meal-plans/planning-1/stop`);
+
+    const suivante = arrivee(router);
+    bouton(el(), 'semaine-suivante').click();
+    await suivante;
+    TestBed.tick();
+    lectureDe(ouvert, '2026-10-26').flush({
+      ...PLANNING,
+      id: 'planning-2',
+      week: '2026-10-26',
+      entries: [],
+    } satisfies MealPlan);
+    await harness.fixture.whenStable();
+
+    arret.flush({ ...PLANNING, status: 'STOPPED' } satisfies MealPlan);
+    await harness.fixture.whenStable();
+
+    expect(el().textContent).toContain('Semaine du 26 octobre au 1 novembre');
+    expect(bouton(el(), 'statut').textContent).toContain('Ouvert');
+    bouton(el(), 'arreter').click();
+    await apresLaConfirmation(ouvert);
+    http.expectOne(`${BASE}/meal-plans/planning-2/stop`).flush({
+      ...PLANNING,
+      id: 'planning-2',
+      week: '2026-10-26',
+      entries: [],
+      status: 'STOPPED',
+    } satisfies MealPlan);
+    await harness.fixture.whenStable();
+  });
+
+  it('ne montre pas sur une autre semaine le refus d’un arrêt', async () => {
+    const ouvert = await ouvrir();
+    const { el, http, router, harness } = ouvert;
+
+    bouton(el(), 'arreter').click();
+    await apresLaConfirmation(ouvert);
+    const arret = http.expectOne(`${BASE}/meal-plans/planning-1/stop`);
+
+    const suivante = arrivee(router);
+    bouton(el(), 'semaine-suivante').click();
+    await suivante;
+    TestBed.tick();
+    lectureDe(ouvert, '2026-10-26').flush({
+      ...PLANNING,
+      id: 'planning-2',
+      week: '2026-10-26',
+      entries: [],
+    } satisfies MealPlan);
+    await harness.fixture.whenStable();
+
+    arret.flush(
+      {
+        status: 422,
+        code: 'food.plan_has_pending',
+        message: 'Un repas attend encore une décision.',
+      },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+    TestBed.tick();
+    await harness.fixture.whenStable();
+
+    // Ni bandeau, ni relecture : `verify` refuserait une lecture en attente.
+    expect(el().querySelector('[data-test="refus"]')).toBeNull();
+    expect(el().textContent).toContain('Semaine du 26 octobre au 1 novembre');
+  });
+
   it('n’arrête rien quand on renonce', async () => {
     const ouvert = await ouvrir(undefined, { confirme: false });
 

@@ -248,20 +248,26 @@ export class PlanningDeRepas {
     return { [PARAMETRE_DE_SEMAINE]: this.semaine(), day: jour, moment };
   }
 
+  /**
+   * La réponse ne touche l'écran que s'il montre encore la semaine de départ :
+   * on a pu passer à une autre pendant la requête.
+   */
   private changerDeStatut(geste: 'arreter' | 'rouvrir', message: string): void {
     const planning = this.planning();
     if (!planning) return;
+    const toujoursAffiche = () => this.semaine() === planning.week;
 
     this.transition.set(true);
     this.refus.set(null);
     this.service[geste](planning.id).subscribe({
       next: (nouveau) => {
         this.transition.set(false);
-        this.lecture.set(nouveau);
+        if (toujoursAffiche()) this.lecture.set(nouveau);
         showToast({ tone: 'success', message });
       },
       error: (erreur: ErreurApi) => {
         this.transition.set(false);
+        if (!toujoursAffiche()) return;
         this.refus.set(erreur);
         this.lecture.reload();
       },

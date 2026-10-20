@@ -174,10 +174,7 @@ export class MealPlanService {
       recipeId !== undefined &&
       !(await this.repository.recetteExiste(recipeId))
     ) {
-      throw new ErreurMetier(
-        'food.entry_unknown_recipe',
-        "Ce repas cite une Recette qui n'existe pas.",
-      );
+      throw recetteInconnue();
     }
   }
 
@@ -204,7 +201,8 @@ export class MealPlanService {
 
   /**
    * Une écriture échoue si le planning a été arrêté, ou le repas supprimé,
-   * depuis qu'on l'a lu : on relit pour dire lequel.
+   * depuis qu'on l'a lu : on relit pour dire lequel. Sa clé étrangère vers la
+   * recette cède si celle-ci a été supprimée depuis sa vérification.
    */
   private async ecrire<T>(
     operation: Promise<T>,
@@ -214,6 +212,9 @@ export class MealPlanService {
     try {
       return await operation;
     } catch (erreur) {
+      if (codePrisma(erreur) === 'P2003') {
+        throw recetteInconnue();
+      }
       if (codePrisma(erreur) !== 'P2025') {
         throw erreur;
       }
@@ -230,6 +231,13 @@ function codePrisma(erreur: unknown): unknown {
   return typeof erreur === 'object' && erreur !== null && 'code' in erreur
     ? erreur.code
     : undefined;
+}
+
+function recetteInconnue(): ErreurMetier {
+  return new ErreurMetier(
+    'food.entry_unknown_recipe',
+    "Ce repas cite une Recette qui n'existe pas.",
+  );
 }
 
 function planningArrete(): ErreurMetier {

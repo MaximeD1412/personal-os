@@ -27,6 +27,7 @@ import {
 import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
 import { AppModule } from '../app.module';
+import { MealPlanRepository } from './meal-plan.repository';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
 const DASHBOARD_URL = 'http://app.exemple.test/';
@@ -518,6 +519,66 @@ describe('Planning de repas', () => {
           .post(`/api/meal-plans/${INCONNU}/${action}`)
           .expect(401);
       }
+    });
+  });
+
+  describe('une recette supprimée entre la vérification et l’écriture', () => {
+    /**
+     * L'autre Compte supprime la recette juste après que le service l'a
+     * trouvée : l'écriture bute alors sur la clé étrangère.
+     */
+    async function supprimerApresLaVerification(recette: Recipe) {
+      const repository = app.get(MealPlanRepository);
+      const verifier = repository.recetteExiste.bind(repository);
+      return jest
+        .spyOn(repository, 'recetteExiste')
+        .mockImplementationOnce(async (id) => {
+          const existe = await verifier(id);
+          await request(app.getHttpServer())
+            .delete(`/api/recipes/${recette.id}`)
+            .set('Cookie', jeu.b.session)
+            .expect(204);
+          return existe;
+        });
+    }
+
+    it('refuse l’ajout en 422, comme une recette inconnue', async () => {
+      const planning = await lire(jeu.a, '2028-08-07');
+      const recette = await creerUneRecette('Recette supprimée (ajout)');
+      const espion = await supprimerApresLaVerification(recette);
+
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/entries`)
+        .set('Cookie', jeu.a.session)
+        .send({
+          day: '2028-08-08',
+          moment: 'DINNER',
+          recipeId: recette.id,
+          participantIds: [compteA],
+        })
+        .expect(422)
+        .expect(codeDErreur('food.entry_unknown_recipe'));
+
+      espion.mockRestore();
+      expect((await lire(jeu.a, '2028-08-07')).entries).toEqual([]);
+    });
+
+    it('refuse la modification en 422, et laisse le repas tel quel', async () => {
+      const planning = await lire(jeu.a, '2028-08-14');
+      const repas = await ajouter(jeu.a, planning, unRepas('2028-08-15'));
+      const recette = await creerUneRecette('Recette supprimée (modification)');
+      const espion = await supprimerApresLaVerification(recette);
+
+      await request(app.getHttpServer())
+        .patch(`/api/meal-plans/${planning.id}/entries/${repas.id}`)
+        .set('Cookie', jeu.a.session)
+        .send({ recipeId: recette.id })
+        .expect(422)
+        .expect(codeDErreur('food.entry_unknown_recipe'));
+
+      espion.mockRestore();
+      const [relu] = (await lire(jeu.a, '2028-08-14')).entries;
+      expect(relu).toMatchObject({ title: 'Soupe', recipe: null });
     });
   });
 
