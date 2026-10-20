@@ -64,6 +64,11 @@ describe('La Présentation publique d’un Projet', () => {
     expect(texte(partie(en, 'etat'))).toBe('Non publié');
     expect((partie(en, 'titre') as HTMLInputElement).value).toBe('');
     expect(partie(en, 'marquer-pret')).toBeNull();
+    // Rien à enregistrer tant qu'aucun champ n'est rempli.
+    expect((partie(en, 'enregistrer') as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(partie(en, 'a-enregistrer')).toBeNull();
     expect(
       partie(el(), 'onglet-presentation')?.getAttribute('aria-current'),
     ).toBe('page');
@@ -245,6 +250,10 @@ describe('La Présentation publique d’un Projet', () => {
     );
     expect((partie(carte(el(), 'FR'), 'titre') as HTMLInputElement).value).toBe(
       'Atelier de reliure',
+    );
+    expect(partie(en, 'a-enregistrer')).not.toBeNull();
+    expect((partie(en, 'enregistrer') as HTMLButtonElement).disabled).toBe(
+      false,
     );
     expect(partie(el(), 'ignores')).toBeNull();
     // Sur mobile, la langue du lien est celle qu'on voit.

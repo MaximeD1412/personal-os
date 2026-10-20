@@ -3,7 +3,11 @@
     <h2 hlmCardTitle>{{ libelle() }}</h2>
     <p hlmCardDescription>Le texte du portfolio {{ enLettres() }}.</p>
     <div hlmCardAction>
-      <span hlmBadge data-test="etat" [tone]="ton()" [dot]="etat() === 'READY'"
+      <span
+        hlmBadge
+        data-test="etat"
+        [tone]="ton()"
+        [dot]="etat() !== 'UNPUBLISHED'"
         >{{ libelleDeLEtat() }}</span
       >
     </div>
@@ -161,7 +165,7 @@
         <ng-icon name="matUndoOutline" aria-hidden="true" />
         Repasser en non publié
       </button>
-      } } } } } @else if (presentation()) {
+      } } } } } @else {
       <p class="text-body-default text-outline" data-test="a-enregistrer">
         Enregistrez le texte pour le publier.
       </p>

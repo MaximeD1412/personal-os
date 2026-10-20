@@ -126,11 +126,17 @@ export class EditeurDePresentation {
   );
   protected readonly ton = computed(() => TONS[this.etat()]);
 
-  /** Le texte saisi diffère de l'enregistré, ou rien n'est encore enregistré. */
+  /**
+   * Le texte saisi diffère de l'enregistré ; tant que rien ne l'est, d'une
+   * langue vide.
+   */
   protected readonly modifie = computed(() => {
-    const enregistree = this.presentation();
+    const enregistree = this.presentation() ?? {
+      title: '',
+      summary: '',
+      body: '',
+    };
     return (
-      !enregistree ||
       enregistree.title !== this.titre() ||
       enregistree.summary !== this.accroche() ||
       enregistree.body !== this.texte()
