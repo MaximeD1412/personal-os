@@ -75,7 +75,12 @@ export const NAVIGATION: readonly DccmNavGroup[] = [
     label: 'Professionnel',
     entries: [
       { label: 'Projets', icon: 'matRocketLaunchOutline', link: '/projets' },
-      { label: 'Portfolio', icon: 'matCasesOutline', link: '/portfolio' },
+      // Le portfolio n'a pas d'écran d'accueil : l'entrée mène à ses pages.
+      {
+        label: 'Portfolio',
+        icon: 'matCasesOutline',
+        link: '/portfolio/pages',
+      },
       { label: 'Documentation', icon: 'matArticleOutline' },
     ],
   },

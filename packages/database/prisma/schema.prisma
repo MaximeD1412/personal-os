@@ -559,6 +559,28 @@ model PublicPresentation {
   @@index([scopeId])
 }
 
+/// Une Page de contenu du portfolio (`PAGES_DE_CONTENU` de `contracts`).
+enum PageSlug {
+  about
+  experience
+  skills
+}
+
+/// Le texte rédigé d'une page du portfolio, dans une langue : de la prose, ni
+/// entité Expérience ni entité Compétence (ADR 0019). Globale, hors Espace.
+model PageContent {
+  id               String           @id @default(uuid())
+  slug             PageSlug
+  lang             Lang
+  title            String
+  /// Le texte, en markdown, rendu côté front.
+  body             String           @default("")
+  publicationState PublicationState @default(UNPUBLISHED)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@unique([slug, lang])
+}
+
 /// Session applicative. Seule l'empreinte du jeton est stockée.
 model Session {
   id        String    @id @default(uuid())

@@ -123,6 +123,10 @@ export class PrismaService {
     return this.#client.publicPresentation;
   }
 
+  get pageContent() {
+    return this.#client.pageContent;
+  }
+
   get session() {
     return this.#client.session;
   }

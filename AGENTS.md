@@ -116,6 +116,7 @@ et lève `food.list_already_closed`.
 | Langue (du portfolio)                    | `Lang` : `FR`, `EN`                                              |
 | Dépense de projet, Lien de projet        | `ProjectExpense`, `links` (`ProjectLink`)                        |
 | Page de contenu                          | `PageContent`                                                    |
+| Présentation, Expériences, Compétences   | `slug` : `about`, `experience`, `skills`                         |
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 | Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
 | Commande non comprise                    | `UnresolvedCommand`                                              |

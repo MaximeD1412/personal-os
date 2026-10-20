@@ -92,4 +92,12 @@ export const appRoutes: Route[] = [
     loadComponent: async () =>
       (await import('./projets/expense-form')).FormulaireDeDepense,
   },
+  // Les Pages de contenu du portfolio, chargées à la demande comme les
+  // Projets : leur aperçu rend du markdown. Préremplies par leur requête
+  // (ADR 0030).
+  {
+    path: 'portfolio/pages',
+    loadComponent: async () =>
+      (await import('./portfolio/pages')).PagesDuPortfolio,
+  },
 ];
