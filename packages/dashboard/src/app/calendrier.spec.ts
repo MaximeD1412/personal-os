@@ -562,10 +562,7 @@ describe('Calendrier', () => {
     it('se tient au clavier en feuille : focus pris, Échap ferme, focus rendu', async () => {
       const harnais = await ouvrir('/calendrier', { largeur: 1024 });
       document.body.appendChild(racine(harnais));
-      const declencheur = champ<HTMLAnchorElement>(
-        harnais,
-        'nouvel-evenement',
-      );
+      const declencheur = champ<HTMLAnchorElement>(harnais, 'nouvel-evenement');
       declencheur.focus();
 
       await cliquer(harnais, declencheur);
@@ -605,9 +602,9 @@ describe('Calendrier', () => {
       await laisserFiler();
       harnais.detectChanges();
 
-      expect(document.querySelectorAll('[data-slot="select-item"]')).toHaveLength(
-        0,
-      );
+      expect(
+        document.querySelectorAll('[data-slot="select-item"]'),
+      ).toHaveLength(0);
       expect(url()).toBe('/calendrier/evenements/nouveau?mois=2026-09');
       expect(formulaire(harnais)).not.toBeNull();
       expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Vaccin');
