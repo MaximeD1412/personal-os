@@ -1,0 +1,116 @@
+<dccm-form-page
+  heading="Ajouter un ingrédient"
+  subtitle="Sa quantité en unité canonique, et sa péremption la plus proche si on la connaît."
+  [breadcrumb]="fil"
+  submitLabel="Ajouter au stock"
+  [ignored]="prefill.ignores"
+  [error]="refus()"
+  [pending]="envoi()"
+  [submitDisabled]="!ingredientId()"
+  (submitted)="enregistrer()"
+  (cancelled)="fermer()"
+>
+  <div hlmField>
+    <label hlmFieldLabel for="stock-recherche">Ingrédient</label>
+    <div hlmInputGroup class="md:max-w-md">
+      <ng-icon name="matSearchOutline" aria-hidden="true" />
+      <input
+        hlmInput
+        id="stock-recherche"
+        type="search"
+        data-test="recherche"
+        autocomplete="off"
+        placeholder="Rechercher un ingrédient"
+        [value]="recherche()"
+        (input)="chercher($event)"
+      />
+    </div>
+    @if (choisi(); as ingredient) {
+    <p hlmFieldDescription data-test="choisi">
+      Ingrédient choisi : {{ ingredient.displayName }}
+    </p>
+    }
+    <dccm-state
+      data-test="trouves"
+      [status]="etatDuCatalogue()"
+      [error]="catalogue.error()"
+      [rows]="3"
+      emptyHeading="Aucun Ingrédient du catalogue ne correspond"
+      loadingLabel="Recherche dans le catalogue…"
+      (retry)="catalogue.reload()"
+    >
+      <ul
+        class="flex max-h-72 flex-col overflow-y-auto"
+        aria-label="Ingrédients trouvés"
+      >
+        @for (ingredient of trouves(); track ingredient.id) {
+        <li>
+          <button
+            dccmListRow
+            type="button"
+            data-test="ingredient"
+            [label]="ingredient.displayName"
+            [meta]="dejaEnStock(ingredient.id)"
+            [selected]="ingredient.id === ingredientId()"
+            [attr.aria-pressed]="ingredient.id === ingredientId()"
+            (click)="choisir(ingredient)"
+          ></button>
+        </li>
+        }
+      </ul>
+    </dccm-state>
+    @if (erreurs()['ingredientId']; as message) {
+    <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+    }
+  </div>
+
+  <div hlmField>
+    <label hlmFieldLabel for="stock-quantite">Quantité</label>
+    <div hlmInputGroup class="md:max-w-60">
+      <input
+        hlmInput
+        id="stock-quantite"
+        data-test="quantite"
+        type="number"
+        inputmode="decimal"
+        min="0"
+        step="any"
+        class="tabular-nums"
+        [value]="quantite() ?? ''"
+        [forceInvalid]="!!erreurs()['quantity']"
+        (input)="saisirLaQuantite($event)"
+      />
+      @if (unite(); as unite) {
+      <span class="text-label-regular text-outline" data-test="unite"
+        >{{ unite }}</span
+      >
+      }
+    </div>
+    @if (erreurs()['quantity']; as message) {
+    <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+    } @else if (enPlace(); as enPlace) {
+    <p hlmFieldDescription data-test="en-place">
+      {{ enPlace }} : l'ajout remplace cette quantité.
+    </p>
+    }
+  </div>
+
+  <div hlmField>
+    <label hlmFieldLabel for="stock-peremption">Péremption</label>
+    <input
+      hlmInput
+      id="stock-peremption"
+      data-test="peremption"
+      type="date"
+      class="md:max-w-60"
+      [value]="peremption() ?? ''"
+      [forceInvalid]="!!erreurs()['expiresOn']"
+      (input)="saisirLaPeremption($event)"
+    />
+    @if (erreurs()['expiresOn']; as message) {
+    <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+    } @else {
+    <p hlmFieldDescription>Facultatif. La plus proche, si plusieurs.</p>
+    }
+  </div>
+</dccm-form-page>

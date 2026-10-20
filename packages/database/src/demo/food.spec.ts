@@ -1,5 +1,6 @@
 import {
   normaliserLibelle,
+  perimeBientot,
   UNITES_AVEC_POIDS_A_LA_PIECE,
   zIngredientInput,
   zRecipeInput,
@@ -13,6 +14,8 @@ import {
   RECETTES_DE_DEMO,
   semerLaCuisine,
   semerLesPreferences,
+  semerLeStock,
+  STOCK_DE_DEMO,
 } from './food';
 
 function trouver(displayName: string) {
@@ -358,5 +361,102 @@ describe('semerLesPreferences', () => {
     await semerLesPreferences(prisma);
 
     expect(creees).toEqual([]);
+  });
+});
+
+describe('semerLeStock', () => {
+  const JOUR = '2026-10-20';
+
+  /** Un Prisma qui connaît tout le catalogue de démo, ou une part, et note les lignes posées. */
+  function prismaDeDemo(catalogue = INGREDIENTS_DE_DEMO) {
+    const posees: { where: unknown; create: Record<string, unknown> }[] = [];
+    const portees: unknown[] = [];
+    const prisma = {
+      ingredient: {
+        findMany: () =>
+          Promise.resolve(
+            catalogue.map(({ displayName }) => ({
+              id: `id-${displayName}`,
+              name: normaliserLibelle(displayName),
+            })),
+          ),
+      },
+      pantryItem: {
+        upsert: (requete: {
+          where: unknown;
+          create: Record<string, unknown>;
+        }) => {
+          portees.push(porteeCourante());
+          posees.push(requete);
+          return Promise.resolve(requete.create);
+        },
+      },
+    } as unknown as PrismaService;
+
+    return { prisma, posees, portees };
+  }
+
+  it("tient une dizaine de lignes d'Ingrédients du catalogue, dont deux qui périment bientôt", () => {
+    expect(STOCK_DE_DEMO.length).toBeGreaterThanOrEqual(8);
+    expect(STOCK_DE_DEMO.length).toBeLessThanOrEqual(12);
+    for (const { ingredient } of STOCK_DE_DEMO) {
+      expect(() => trouver(ingredient)).not.toThrow();
+    }
+    expect(
+      new Set(STOCK_DE_DEMO.map(({ ingredient }) => ingredient)).size,
+    ).toBe(STOCK_DE_DEMO.length);
+  });
+
+  it("pose chaque ligne dans l'Espace foyer, sa péremption comptée depuis le jour du semis", async () => {
+    const { prisma, posees, portees } = prismaDeDemo();
+
+    await semerLeStock(prisma, JOUR);
+
+    expect(posees).toHaveLength(STOCK_DE_DEMO.length);
+    expect(posees[0]).toEqual({
+      where: {
+        scopeId_ingredientId: {
+          scopeId: ID_ESPACE_FOYER,
+          ingredientId: `id-${STOCK_DE_DEMO[0].ingredient}`,
+        },
+      },
+      create: {
+        scopeId: ID_ESPACE_FOYER,
+        ingredientId: `id-${STOCK_DE_DEMO[0].ingredient}`,
+        quantity: STOCK_DE_DEMO[0].quantity,
+        expiresOn: expect.any(Date),
+      },
+      update: {
+        quantity: STOCK_DE_DEMO[0].quantity,
+        expiresOn: expect.any(Date),
+      },
+    });
+    for (const portee of portees) {
+      expect(portee).toEqual({
+        espaces: [{ id: ID_ESPACE_FOYER, kind: 'HOUSEHOLD' }],
+        typesAcceptes: ['HOUSEHOLD'],
+      });
+    }
+
+    const peremptions = posees.map(({ create }) =>
+      create['expiresOn'] instanceof Date
+        ? create['expiresOn'].toISOString().slice(0, 10)
+        : null,
+    );
+    expect(
+      peremptions.filter((jour) => perimeBientot(jour, JOUR)),
+    ).toHaveLength(2);
+    expect(peremptions.every((jour) => jour === null || jour > JOUR)).toBe(
+      true,
+    );
+  });
+
+  it('refuse de semer sans le catalogue de démo', async () => {
+    const { prisma, posees } = prismaDeDemo([]);
+
+    await expect(semerLeStock(prisma, JOUR)).rejects.toThrow(
+      /n'est pas dans le catalogue de démo/,
+    );
+    expect(posees).toEqual([]);
   });
 });

@@ -106,6 +106,8 @@ et lève `food.list_already_closed`.
 | Liste de courses, Article de courses     | `ShoppingList`, `ShoppingListItem`                               |
 | Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
 | Stock domestique                         | `PantryItem`                                                     |
+| Péremption (d'une ligne de stock)        | `expiresOn`                                                      |
+| Recaleur, mouvement de stock             | `recaler`, `ACHAT`, `CONSOMMATION`, `CORRECTION`                 |
 | Repas cuisiné                            | `CookedMeal`                                                     |
 | Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
 | Page de contenu                          | `PageContent`                                                    |

@@ -1,4 +1,5 @@
 import {
+  aujourdhui,
   normaliserLibelle,
   type Allergen,
   type CanonicalUnit,
@@ -419,8 +420,12 @@ async function semerUneRecette(
   });
 }
 
-function idDe(ingredient: string, ids: ReadonlyMap<string, string>): string {
-  const id = ids.get(ingredient);
+function idDe(
+  cle: string,
+  ids: ReadonlyMap<string, string>,
+  ingredient = cle,
+): string {
+  const id = ids.get(cle);
   if (!id) {
     throw new Error(`${ingredient} n'est pas dans le catalogue de démo.`);
   }
@@ -494,6 +499,80 @@ export async function semerLesPreferences(
           data: { scopeId: ID_ESPACE_FOYER, ...preference },
         });
       }
+    }
+  });
+}
+
+/** Une ligne du stock de démo : sa péremption se compte en jours depuis le semis. */
+export interface LigneDeStockDeDemo {
+  ingredient: string;
+  /** En Unité canonique de l'Ingrédient. */
+  quantity: number;
+  /** Dans combien de jours elle périme ; absente pour un sec ou une conserve. */
+  perimeDansJours?: number;
+}
+
+/**
+ * Le stock d'un frigo et d'un placard ordinaires. Le lait et les yaourts
+ * périment dans les trois jours : l'écran les met en avant.
+ */
+export const STOCK_DE_DEMO: readonly LigneDeStockDeDemo[] = [
+  { ingredient: 'Lait demi-écrémé', quantity: 1000, perimeDansJours: 2 },
+  { ingredient: 'Yaourt nature', quantity: 4, perimeDansJours: 1 },
+  { ingredient: 'Beurre doux', quantity: 250, perimeDansJours: 18 },
+  { ingredient: 'Œufs', quantity: 6, perimeDansJours: 12 },
+  { ingredient: 'Gruyère râpé', quantity: 150, perimeDansJours: 9 },
+  { ingredient: 'Parmesan', quantity: 200, perimeDansJours: 40 },
+  { ingredient: 'Spaghetti', quantity: 500 },
+  { ingredient: 'Riz basmati', quantity: 1000 },
+  { ingredient: 'Farine de blé', quantity: 750 },
+  { ingredient: 'Tomate en conserve', quantity: 800 },
+];
+
+/**
+ * Le Stock domestique de démo, dans l'Espace foyer. Il passe après
+ * `semerLaCuisine`, dont il lit le catalogue. Chaque ligne est remise dans
+ * l'état du jeu, ses péremptions recomptées depuis `jour` : un semis de la
+ * veille se rafraîchit, deux semis du même jour donnent le même stock.
+ */
+export async function semerLeStock(
+  prisma: PrismaService,
+  jour: string = aujourdhui(),
+): Promise<void> {
+  const catalogue = await prisma.ingredient.findMany({
+    where: {
+      name: {
+        in: STOCK_DE_DEMO.map(({ ingredient }) =>
+          normaliserLibelle(ingredient),
+        ),
+      },
+    },
+    select: { id: true, name: true },
+  });
+  const ids = new Map(catalogue.map(({ id, name }) => [name, id] as const));
+  const lignes = STOCK_DE_DEMO.map(
+    ({ ingredient, quantity, perimeDansJours }) => ({
+      ingredientId: idDe(normaliserLibelle(ingredient), ids, ingredient),
+      quantity,
+      expiresOn:
+        perimeDansJours === undefined
+          ? null
+          : new Date(
+              Date.parse(`${jour}T00:00:00Z`) + perimeDansJours * 86_400_000,
+            ),
+    }),
+  );
+
+  // Une requête Prisma ne part qu'à l'`await` : il se fait sous la portée.
+  await sousPortee(ESPACE_FOYER, async () => {
+    for (const { ingredientId, ...ligne } of lignes) {
+      await prisma.pantryItem.upsert({
+        where: {
+          scopeId_ingredientId: { scopeId: ID_ESPACE_FOYER, ingredientId },
+        },
+        create: { scopeId: ID_ESPACE_FOYER, ingredientId, ...ligne },
+        update: ligne,
+      });
     }
   });
 }

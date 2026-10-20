@@ -32,6 +32,7 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
       'foodPreferences',
       'recipes',
       'recipeLines',
+      'pantryItems',
     ],
   };
 
@@ -52,10 +53,10 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Session: ['user'],
   LoginTransaction: [],
   Household: ['members', 'scopes'],
-  // Un Ingrédient est cité par les lignes de Recette et les Préférences
-  // alimentaires, qui sont cloisonnées : directement, ou depuis un Alias à
-  // travers son Ingrédient.
-  Ingredient: ['aliases', 'recipeLines', 'foodPreferences'],
+  // Un Ingrédient est cité par les lignes de Recette, les Préférences
+  // alimentaires et le Stock domestique, qui sont cloisonnés : directement, ou
+  // depuis un Alias à travers son Ingrédient.
+  Ingredient: ['aliases', 'recipeLines', 'foodPreferences', 'pantryItems'],
   IngredientAlias: ['ingredient'],
   Scope: [
     'household',
@@ -68,6 +69,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'foodPreferences',
     'recipes',
     'recipeLines',
+    'pantryItems',
   ],
 };
 
