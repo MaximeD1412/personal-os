@@ -55,6 +55,7 @@ model Scope {
   mealPlans          MealPlan[]
   mealPlanEntries    MealPlanEntry[]
   generationRounds   GenerationRound[]
+  mealWishes         MealWish[]
   projects           Project[]
   projectExpenses    ProjectExpense[]
 
@@ -77,6 +78,7 @@ model User {
   household       Household        @relation(fields: [householdId], references: [id])
   personalScope   Scope?
   foodPreferences FoodPreference[]
+  mealWishes      MealWish[]
 }
 
 /// Entité jouet du fil traceur de l'issue #6, retirée du code par #99 : plus
@@ -311,6 +313,8 @@ model Recipe {
   lines           RecipeLine[]
   /// Les Repas planifiés qui la cuisinent.
   mealPlanEntries MealPlanEntry[]
+  /// Les Souhaits qui la demandent.
+  mealWishes      MealWish[]
   /// Des instants (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
   createdAt       DateTime        @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime        @updatedAt @db.Timestamptz(3)
@@ -474,6 +478,34 @@ model GenerationRound {
   @@unique([id, scopeId])
   @@index([scopeId])
   @@index([traceId])
+}
+
+/// Un Souhait : une Recette ou une envie en texte libre, jamais les deux ni
+/// aucun (une contrainte CHECK de la migration le garde), déposée avant la
+/// génération d'une semaine, que son Planning de repas doit honorer. Il vise
+/// une semaine, pas un planning : il se dépose avant que le planning existe,
+/// et honoré, il reste lié à sa semaine (CUISINE-18). La clé étrangère vers la
+/// Recette porte l'Espace avec elle (ADR 0028).
+model MealWish {
+  id        String   @id @default(uuid())
+  scopeId   String
+  scope     Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  /// Le lundi de la semaine (`zWeek`), un jour civil sans fuseau.
+  week      DateTime @db.Date
+  /// Une Recette souhaitée laisse son titre au Souhait quand on la supprime
+  /// (CUISINE-18).
+  recipeId  String?
+  recipe    Recipe?  @relation(fields: [recipeId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  text      String?
+  /// Le Compte du Foyer qui l'a déposé.
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([scopeId, week])
+  @@index([recipeId])
+  @@index([authorId])
 }
 
 /// Un Projet : un travail suivi dans l'application, avec ses notes, ses liens

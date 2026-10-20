@@ -24,7 +24,16 @@ function lectureDe(ouvert: Ouvert, semaine: string): TestRequest {
   );
 }
 
-/** L'écran ouvert, devant le Foyer et le planning de sa semaine. */
+/** Les Souhaits de la semaine, lus par leur panneau au-dessus de la grille. */
+function souhaitsDe(ouvert: Ouvert, semaine: string): TestRequest {
+  return ouvert.http.expectOne(
+    (requete) =>
+      requete.url === `${BASE}/meal-wishes` &&
+      requete.params.get('week') === semaine,
+  );
+}
+
+/** L'écran ouvert, devant le Foyer, le planning et les Souhaits de sa semaine. */
 async function ouvrir(
   url = `/repas/planning?semaine=${LUNDI}`,
   { planning = PLANNING, confirme = true } = {},
@@ -32,6 +41,7 @@ async function ouvrir(
   const ouvert = await ouvrirLePlanning(url, { confirme });
   ouvert.http.expectOne(`${BASE}/household`).flush(FOYER);
   lectureDe(ouvert, planning.week).flush(planning);
+  souhaitsDe(ouvert, planning.week).flush([]);
   await ouvert.harness.fixture.whenStable();
   return ouvert;
 }
@@ -167,6 +177,7 @@ describe('Le Planning de repas', () => {
       week: '2026-10-26',
       entries: [],
     } satisfies MealPlan);
+    souhaitsDe(ouvert, '2026-10-26').flush([]);
     await harness.fixture.whenStable();
     expect(el().textContent).toContain('Semaine du 26 octobre au 1 novembre');
 
@@ -176,6 +187,7 @@ describe('Le Planning de repas', () => {
     TestBed.tick();
     expect(router.url).toBe(`/repas/planning?semaine=${LUNDI}`);
     lectureDe(ouvert, LUNDI).flush(PLANNING);
+    souhaitsDe(ouvert, LUNDI).flush([]);
     await harness.fixture.whenStable();
     expect(el().textContent).toContain('Semaine du 19 au 25 octobre 2026');
   });
@@ -243,6 +255,7 @@ describe('Le Planning de repas', () => {
       week: '2026-10-26',
       entries: [],
     } satisfies MealPlan);
+    souhaitsDe(ouvert, '2026-10-26').flush([]);
     await harness.fixture.whenStable();
 
     arret.flush({ ...PLANNING, status: 'STOPPED' } satisfies MealPlan);
@@ -280,6 +293,7 @@ describe('Le Planning de repas', () => {
       week: '2026-10-26',
       entries: [],
     } satisfies MealPlan);
+    souhaitsDe(ouvert, '2026-10-26').flush([]);
     await harness.fixture.whenStable();
 
     arret.flush(
@@ -333,6 +347,7 @@ describe('Le Planning de repas', () => {
       { status: 503, code: 'unavailable', message: 'La base ne répond pas.' },
       { status: 503, statusText: 'Service Unavailable' },
     );
+    souhaitsDe(ouvert, LUNDI).flush([]);
     await ouvert.harness.fixture.whenStable();
 
     expect(ouvert.el().textContent).toContain('La base ne répond pas.');

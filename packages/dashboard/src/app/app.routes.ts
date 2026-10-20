@@ -8,8 +8,6 @@ import { Preferences } from './foyer/preferences';
 import { FicheDIngredient } from './repas/ingredient-detail';
 import { FormulaireDIngredient } from './repas/ingredient-form';
 import { Ingredients } from './repas/ingredients';
-import { FormulaireDeRepas } from './repas/meal-plan-entry-form';
-import { PlanningDeRepas } from './repas/planning';
 import { FicheDeRecette } from './repas/recipe-detail';
 import { Recettes } from './repas/recipes';
 
@@ -43,10 +41,19 @@ export const appRoutes: Route[] = [
   { path: 'repas/ingredients/:id', component: FicheDIngredient },
   { path: 'repas/ingredients/:id/modifier', component: FormulaireDIngredient },
   { path: 'repas/recettes', component: Recettes },
-  // Le Planning de repas d'une semaine (`?semaine=`, son lundi), et l'ajout
-  // d'un repas, prérempli par sa requête (ADR 0030).
-  { path: 'repas/planning', component: PlanningDeRepas },
-  { path: 'repas/planning/nouveau', component: FormulaireDeRepas },
+  // Le Planning de repas d'une semaine (`?semaine=`, son lundi) avec ses
+  // Souhaits, et l'ajout d'un repas, prérempli par sa requête (ADR 0030).
+  // Chargés à la demande, pour que le bundle initial tienne son budget.
+  {
+    path: 'repas/planning',
+    loadComponent: async () =>
+      (await import('./repas/planning')).PlanningDeRepas,
+  },
+  {
+    path: 'repas/planning/nouveau',
+    loadComponent: async () =>
+      (await import('./repas/meal-plan-entry-form')).FormulaireDeRepas,
+  },
   { path: 'repas/recettes/:id', component: FicheDeRecette },
   // Les Préférences alimentaires du Foyer, et l'ajout d'une Préférence,
   // prérempli par sa requête (ADR 0030).

@@ -32,7 +32,7 @@ let prochainId = 0;
   host: {
     'data-slot': 'list-row',
     class:
-      'flex w-full items-center gap-2.5 rounded border border-transparent px-space-md py-space-sm text-start transition-colors outline-none hover:bg-surface-container-high focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary-20 data-[selected=true]:border-primary-40 data-[selected=true]:bg-primary-10',
+      'flex w-full items-center gap-2.5 rounded border border-transparent px-space-md py-space-sm text-start transition-colors outline-none hover:bg-surface-container-high focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary-20 data-[selected=true]:border-primary-40 data-[selected=true]:bg-primary-10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent',
     '[attr.data-checked]': '_coche() ? "true" : null',
     '[attr.data-selected]': 'selected() ? "true" : null',
   },

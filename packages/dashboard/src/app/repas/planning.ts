@@ -40,6 +40,7 @@ import { decaler, formaterJour } from '../dates';
 import type { ErreurApi } from '../erreur-api.interceptor';
 import { HouseholdService } from '../household.service';
 import { MealPlanService } from './meal-plan.service';
+import { SouhaitsDeLaSemaine } from './souhaits';
 
 /** Le paramètre de requête qui porte la semaine affichée, par son lundi. */
 export const PARAMETRE_DE_SEMAINE = 'semaine';
@@ -120,8 +121,9 @@ interface Jour {
  * son déjeuner et son dîner : en grille à partir de 1280 px, empilés en
  * dessous.
  *
- * L'ajout passe par le formulaire de sa route, prérempli du jour et du
- * moment du créneau. Arrêter et rouvrir le planning sont des transitions,
+ * Au-dessus de la grille, les Souhaits de la semaine. L'ajout d'un repas
+ * passe par le formulaire de sa route, prérempli du jour et du moment du
+ * créneau. Arrêter et rouvrir le planning sont des transitions,
  * confirmées par `DccmConfirm`.
  */
 @Component({
@@ -133,6 +135,7 @@ interface Jour {
     HlmButton,
     DccmPageHeader,
     DccmState,
+    SouhaitsDeLaSemaine,
   ],
   templateUrl: './planning.html',
 })
@@ -185,7 +188,7 @@ export class PlanningDeRepas {
   /** Le refus de la dernière transition, en bandeau : jamais en toast seul. */
   protected readonly refus = signal<ErreurApi | null>(null);
 
-  private readonly noms = computed(() => {
+  protected readonly noms = computed(() => {
     const membres = this.foyer.hasValue()
       ? (this.foyer.value()?.members ?? [])
       : [];

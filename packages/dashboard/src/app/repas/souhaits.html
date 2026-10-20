@@ -1,0 +1,174 @@
+<section hlmCard data-test="souhaits" aria-labelledby="souhaits-titre">
+  <div hlmCardHeader>
+    <h2 hlmCardTitle tone="tertiary" id="souhaits-titre">
+      <ng-icon name="matLightbulbOutline" aria-hidden="true" />
+      Souhaits de la semaine
+    </h2>
+    <p hlmCardDescription>
+      Les recettes et les envies que la génération de la semaine devra honorer.
+    </p>
+    <div hlmCardAction>
+      <span
+        class="text-label-regular tabular-nums text-outline"
+        data-test="compte"
+        >{{ compte() }}</span
+      >
+    </div>
+  </div>
+
+  <div hlmCardContent class="grid items-start gap-gutter lg:grid-cols-2">
+    <div class="flex min-w-0 flex-col gap-space-sm">
+      <!-- Le groupe garde sa largeur : le champ n'étire pas ses enfants ici. -->
+      <div>
+        <hlm-toggle-group
+          size="md"
+          aria-label="Ce que le Souhait demande"
+          [value]="mode()"
+          (valueChange)="choisirLeMode($event)"
+        >
+          @for (un of modes; track un.valeur) {
+          <button
+            hlmToggleGroupItem
+            [value]="un.valeur"
+            [attr.data-test]="'mode-' + un.valeur"
+          >
+            {{ un.libelle }}
+          </button>
+          }
+        </hlm-toggle-group>
+      </div>
+
+      @if (mode() === 'envie') {
+      <form
+        class="flex items-center gap-space-sm"
+        (submit)="$event.preventDefault(); deposerLEnvie()"
+      >
+        <input
+          hlmInput
+          data-test="envie"
+          class="min-w-0 flex-1"
+          autocomplete="off"
+          aria-label="Une envie pour la semaine"
+          placeholder="Ex : des pâtes fraîches"
+          maxlength="160"
+          [forceInvalid]="!!erreurDuChamp()"
+          [value]="envie()"
+          (input)="saisir($event)"
+        />
+        <button
+          hlmBtn
+          size="icon"
+          type="submit"
+          data-test="deposer"
+          aria-label="Déposer l'envie"
+          [loading]="envoi()"
+        >
+          <ng-icon name="matAddOutline" aria-hidden="true" />
+        </button>
+      </form>
+      } @else {
+      <div hlmInputGroup>
+        <ng-icon name="matSearchOutline" aria-hidden="true" />
+        <input
+          hlmInput
+          type="search"
+          data-test="recherche"
+          autocomplete="off"
+          aria-label="Rechercher une recette"
+          placeholder="Rechercher une recette"
+          [value]="recherche()"
+          (input)="chercher($event)"
+        />
+      </div>
+      <dccm-state
+        [status]="etatDesRecettes()"
+        [error]="catalogue.error()"
+        [rows]="3"
+        emptyHeading="Aucune recette ne correspond"
+        loadingLabel="Recherche des recettes…"
+        (retry)="catalogue.reload()"
+      >
+        <ul
+          class="flex max-h-60 flex-col overflow-y-auto"
+          aria-label="Recettes trouvées"
+        >
+          @for (recette of trouvees(); track recette.id) {
+          <li>
+            <button
+              dccmListRow
+              type="button"
+              data-test="recette"
+              [label]="recette.title"
+              [meta]="
+                dejaSouhaitees().has(recette.id)
+                  ? 'Déjà souhaitée cette semaine'
+                  : 'Souhaiter cette recette'
+              "
+              [disabled]="envoi() || dejaSouhaitees().has(recette.id)"
+              (click)="deposerLaRecette(recette.id)"
+            >
+              @if (!dejaSouhaitees().has(recette.id)) {
+              <ng-icon
+                name="matAddOutline"
+                class="icon-sm text-primary"
+                aria-hidden="true"
+              />
+              }
+            </button>
+          </li>
+          }
+        </ul>
+      </dccm-state>
+      } @if (erreurDuChamp(); as message) {
+      <hlm-field-error forceShow data-test="erreur-envie"
+        >{{ message }}</hlm-field-error
+      >
+      } @else if (refus(); as erreur) {
+      <div hlmAlert tone="error" data-test="refus">
+        <hlm-alert-icon />
+        <div hlmAlertContent>
+          <p hlmAlertTitle>{{ erreur.message }}</p>
+        </div>
+      </div>
+      }
+    </div>
+
+    <dccm-state
+      [status]="etat()"
+      [error]="lecture.error()"
+      [rows]="2"
+      emptyHeading="Aucun souhait pour cette semaine"
+      emptyDescription="Une envie ou une recette déposée ici guidera la génération."
+      loadingLabel="Chargement des souhaits…"
+      errorHeading="Les Souhaits n'ont pas pu être lus"
+      (retry)="lecture.reload()"
+    >
+      <ul class="flex flex-col gap-space-xs" aria-label="Souhaits déposés">
+        @for (souhait of souhaits(); track souhait.id) {
+        <li class="rounded bg-surface-container-low" data-test="souhait">
+          <dccm-list-row
+            [label]="souhait.intitule"
+            [meta]="'Déposé par ' + souhait.auteur"
+          >
+            @if (souhait.recette) {
+            <span hlmBadge variant="tag">Recette</span>
+            }
+            <button
+              hlmBtn
+              variant="ghost"
+              size="icon"
+              type="button"
+              data-test="retirer"
+              [attr.aria-label]="'Retirer ' + souhait.intitule"
+              [disabled]="retrait() === souhait.id"
+              (click)="retirer(souhait.id, souhait.intitule)"
+            >
+              <ng-icon name="matCloseOutline" aria-hidden="true" />
+            </button>
+          </dccm-list-row>
+        </li>
+        }
+      </ul>
+    </dccm-state>
+  </div>
+</section>
