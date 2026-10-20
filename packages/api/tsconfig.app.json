@@ -4,6 +4,7 @@
     "outDir": "../../dist/out-tsc",
     "module": "commonjs",
     "types": [
+      "multer",
       "node"
     ],
     "experimentalDecorators": true,

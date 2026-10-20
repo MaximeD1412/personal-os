@@ -27,13 +27,18 @@ Toute la configuration d'Authentik — fournisseur OIDC, comptes, flux — vit e
 `BACKUP_PATHS`. N'en sauvegarder qu'une laisserait une restauration où
 l'application revient intacte mais où plus personne ne peut se connecter.
 
-Pas encore couvert, faute d'exister : le **stockage objet** (issue #23). Il
-s'ajoutera en une ligne de `BACKUP_PATHS`, sans toucher au script.
+Le **stockage objet** (le CV du portfolio, #23) vit dans un bucket OVH, pas
+sur la machine : `BACKUP_PATHS` ne peut pas l'atteindre. Quand `S3_MIRROR_BUCKET`
+est renseigné dans `backup.conf`, le script le recopie d'abord dans le transit
+(rclone, dans un conteneur à version fixée), sous `objets/`. Ses clés vivent
+dans `restic.env` et passent à rclone par l'environnement, jamais par la ligne
+de commande. Une copie qui échoue interrompt la sauvegarde, plutôt qu'un
+instantané auquel il manquerait les fichiers.
 
-Les deux bases partent dans le **même** instantané, sous
-`postgres/<base>.dump`. Deux instantanés séparés se restaureraient à des dates
-différentes, et plus rien ne garantirait que les comptes correspondent aux
-données.
+Les deux bases et le bucket partent dans le **même** instantané, sous
+`postgres/<base>.dump` et `objets/`. Deux instantanés séparés se
+restaureraient à des dates différentes, et plus rien ne garantirait que les
+comptes correspondent aux données.
 
 ## Ce qui ne peut pas être automatisé
 
@@ -65,7 +70,8 @@ chmod 600 /etc/personal-os/restic-password
 
 cp restic.env.example /etc/personal-os/restic.env
 chmod 600 /etc/personal-os/restic.env
-# renseigner RESTIC_REPOSITORY, B2_ACCOUNT_ID, B2_ACCOUNT_KEY
+# renseigner RESTIC_REPOSITORY, B2_ACCOUNT_ID, B2_ACCOUNT_KEY,
+# et S3_MIRROR_ACCESS_KEY_ID, S3_MIRROR_SECRET_ACCESS_KEY pour le bucket
 
 set -a; . /etc/personal-os/restic.env; set +a
 restic init      # UNE SEULE FOIS — voir l'avertissement ci-dessous
@@ -121,6 +127,16 @@ ne dirait pas pourquoi.
 
 **Chronométrer cette exécution** : cette durée est le RTO réel, et le
 déploiement (#4) la paiera à chaque livraison.
+
+Les fichiers du **stockage objet** reviennent avec le reste, sous `objets/`
+dans la cible. Rien ne les repose seul dans le bucket : un bucket perdu se
+recrée (`infra/deploy`, « Le stockage objet OVH »), puis on y recopie le
+dossier restauré, avec les mêmes variables `RCLONE_CONFIG_OBJETS_*` que
+`backup.sh` :
+
+```bash
+rclone copy /var/tmp/verification/<chemin>/objets "objets:$S3_MIRROR_BUCKET"
+```
 
 ## Exploitation courante
 

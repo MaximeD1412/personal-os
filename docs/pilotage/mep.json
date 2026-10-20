@@ -118,6 +118,61 @@
       ],
       "commande": "docker logs --tail 50 personal-os-api",
       "ajouteLe": "2026-10-19"
+    },
+    {
+      "id": "stockage-bucket-ovh",
+      "phase": "acc",
+      "source": "#23",
+      "titre": "Créer le bucket OVH Object Storage et deux utilisateurs S3 limités à ce bucket",
+      "pourquoi": "Le CV du portfolio vit dans un bucket OVH, hors de la base et du VPS. Une clé qui fuite ne doit atteindre que ce bucket : l'API y écrit, la sauvegarde n'a qu'à le lire.",
+      "etapes": [
+        "Dans le projet Public Cloud OVH, créer un bucket Object Storage (API S3, classe Standard), privé, dans la région du VPS.",
+        "Créer un utilisateur S3 pour l'API et lui importer une politique limitée au bucket : s3:GetObject, s3:PutObject, s3:DeleteObject sur arn:aws:s3:::<bucket>/*, s3:ListBucket sur arn:aws:s3:::<bucket>.",
+        "Créer un second utilisateur S3 pour la sauvegarde, en lecture seule sur le même bucket (s3:GetObject et s3:ListBucket).",
+        "Noter l'endpoint de la région (https://s3.<region>.io.cloud.ovh.net) et les deux paires de clés, sur la machine seulement."
+      ],
+      "ajouteLe": "2026-10-21"
+    },
+    {
+      "id": "stockage-variables-prod",
+      "phase": "env",
+      "source": "#23",
+      "titre": "Poser STORAGE_PROVIDER=s3 et les variables S3_* dans stack.env (prod), STORAGE_PROVIDER=disk dans staging.env",
+      "pourquoi": "Le compose de la pile exige STORAGE_PROVIDER (« STORAGE_PROVIDER manquant ») et l'API refuse de démarrer en production sans s3 et ses cinq variables. Sans elles, la livraison qui embarque #23 ne démarre pas. Le staging, qui lit le même compose, peut garder disk : ses fichiers vivent alors dans le conteneur et disparaissent au déploiement suivant.",
+      "etapes": [
+        "Dans stack.env (prod) : STORAGE_PROVIDER=s3, S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID et S3_SECRET_ACCESS_KEY (l'utilisateur S3 de l'API).",
+        "Dans staging.env : STORAGE_PROVIDER=disk, sans clé."
+      ],
+      "ajouteLe": "2026-10-21"
+    },
+    {
+      "id": "stockage-sauvegarde-bucket",
+      "phase": "vps",
+      "source": "#23",
+      "titre": "Faire entrer le bucket dans la sauvegarde Restic (S3_MIRROR_* dans backup.conf et restic.env)",
+      "pourquoi": "Le bucket n'est pas un chemin de la machine : BACKUP_PATHS ne l'atteint pas. backup.sh le recopie dans l'instantané, sous objets/, seulement si S3_MIRROR_BUCKET est renseigné. Sans cela, le CV n'est sauvegardé nulle part hors d'OVH (OPS-1).",
+      "etapes": [
+        "Réinstaller les scripts de sauvegarde (infra/backup/bin/install.sh) pour poser la nouvelle version de backup.sh.",
+        "Dans /etc/personal-os/backup.conf : S3_MIRROR_ENDPOINT, S3_MIRROR_REGION, S3_MIRROR_BUCKET.",
+        "Dans /etc/personal-os/restic.env : S3_MIRROR_ACCESS_KEY_ID et S3_MIRROR_SECRET_ACCESS_KEY (l'utilisateur S3 en lecture seule).",
+        "Relire le plan : il doit annoncer « copie du bucket <bucket> »."
+      ],
+      "commande": "sudo /opt/personal-os/backup/bin/backup.sh --dry-run",
+      "ajouteLe": "2026-10-21"
+    },
+    {
+      "id": "stockage-verifier-cv",
+      "phase": "chk",
+      "source": "#23",
+      "titre": "Téléverser le CV en production, puis le retrouver dans le bucket et dans l'instantané Restic suivant",
+      "pourquoi": "Une variable S3 fausse ne se voit qu'au premier téléversement, et une copie du bucket qui n'emporte rien ne se voit qu'à la restauration.",
+      "etapes": [
+        "Connecté au tableau de bord, ouvrir /portfolio/cv, téléverser le CV en français et en anglais, puis les télécharger.",
+        "Vérifier dans la console OVH que le bucket contient cv/FR.pdf et cv/EN.pdf.",
+        "Après la sauvegarde suivante (ou systemctl start personal-os-backup.service), vérifier que l'instantané contient objets/cv/FR.pdf."
+      ],
+      "commande": "restic ls latest | grep objets/cv/",
+      "ajouteLe": "2026-10-21"
     }
   ],
   "format": "élément = { id (stable), phase, source (#n), titre, pourquoi, etapes: [], commande (facultative), ajouteLe (YYYY-MM-DD) }"

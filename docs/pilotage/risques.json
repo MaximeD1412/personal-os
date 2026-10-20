@@ -252,6 +252,11 @@
           "fait": true
         },
         {
+          "texte": "Le bucket du stockage objet recopié dans le même instantané Restic que la base",
+          "ref": "#23",
+          "fait": true
+        },
+        {
           "texte": "Migration répétée sur une restauration à chaque déploiement",
           "ref": "ADR 0023",
           "fait": true
