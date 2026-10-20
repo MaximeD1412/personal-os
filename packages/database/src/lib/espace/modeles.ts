@@ -26,6 +26,8 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
       'eventExceptions',
       'aiTraces',
       'unresolvedCommands',
+      'projects',
+      'projectExpenses',
     ],
   };
 
@@ -55,6 +57,8 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'eventExceptions',
     'aiTraces',
     'unresolvedCommands',
+    'projects',
+    'projectExpenses',
   ],
 };
 

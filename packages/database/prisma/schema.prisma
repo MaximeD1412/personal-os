@@ -49,6 +49,8 @@ model Scope {
   eventExceptions    EventException[]
   aiTraces           AiTrace[]
   unresolvedCommands UnresolvedCommand[]
+  projects           Project[]
+  projectExpenses    ProjectExpense[]
 
   @@index([householdId])
 }
@@ -243,6 +245,48 @@ model Ingredient {
   allergens     Allergen[]
   perishable    Boolean       @default(false)
   createdAt     DateTime      @default(now())
+}
+
+/// Un Projet : un travail suivi dans l'application, avec ses notes, ses liens
+/// et ses dépenses. Il vit dans un Espace personnel et n'en sort jamais ; ses
+/// notes ne vont jamais vers le portfolio (ADR 0019).
+model Project {
+  id        String           @id @default(uuid())
+  scopeId   String
+  scope     Scope            @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  title     String
+  /// Les notes, en markdown, rendues côté front.
+  notes     String           @default("")
+  /// Les liens (`zProjectLink` de `contracts`) : `{ label, url }[]`.
+  links     Json             @default("[]")
+  expenses  ProjectExpense[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  /// La cible de la clé étrangère des dépenses, qui porte l'Espace.
+  @@unique([id, scopeId])
+  @@index([scopeId])
+}
+
+/// Une dépense engagée pour un Projet. La clé étrangère porte l'Espace avec le
+/// Projet : une dépense est toujours dans l'Espace de son Projet, c'est la base
+/// qui le garantit.
+model ProjectExpense {
+  id          String   @id @default(uuid())
+  scopeId     String
+  scope       Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  projectId   String
+  project     Project  @relation(fields: [projectId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  label       String
+  /// Le montant, en centimes : un total se calcule sans arrondi.
+  amountCents Int
+  currency    String   @default("EUR")
+  /// Le jour de la dépense, jamais converti en instant.
+  spentOn     DateTime @db.Date
+  createdAt   DateTime @default(now())
+
+  @@index([scopeId])
+  @@index([projectId])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.

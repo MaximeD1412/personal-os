@@ -83,6 +83,14 @@ export class PrismaService {
     return this.#client.ingredient;
   }
 
+  get project() {
+    return this.#client.project;
+  }
+
+  get projectExpense() {
+    return this.#client.projectExpense;
+  }
+
   get session() {
     return this.#client.session;
   }

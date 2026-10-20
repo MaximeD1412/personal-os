@@ -7,5 +7,6 @@ export * from './lib/event';
 export * from './lib/health';
 export * from './lib/household';
 export * from './lib/ingredient';
+export * from './lib/project';
 export * from './lib/scope';
 export * from './lib/valeurs';
