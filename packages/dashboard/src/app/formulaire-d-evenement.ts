@@ -579,18 +579,25 @@ export class FormulaireDEvenement {
    * pas (déjà supprimée, ou d'un autre mois) ramène au mois, sans un mot.
    *
    * Elle se retrouve par son identité quand le lien la porte : une exception
-   * peut en avoir déplacé une autre au même instant.
+   * peut en avoir déplacé une autre au même instant. Le lien de l'Agenda n'en
+   * porte que le début ; quand plusieurs occurrences y tombent, on demande
+   * d'abord laquelle, sans en prendre une au hasard.
    */
   private async demanderLaPortee(serie: Event, cible: Cible): Promise<void> {
-    const occurrence = this.calendrier
+    const candidates = this.calendrier
       .occurrences()
-      .find(
+      .filter(
         ({ eventId, originalStart, startsAt }) =>
           eventId === serie.id &&
           (cible.occurrence !== null
             ? memeInstant(originalStart, cible.occurrence)
             : memeInstant(startsAt, cible.debut)),
       );
+    if (candidates.length > 1) {
+      await this.departager(serie, candidates);
+      return;
+    }
+    const [occurrence] = candidates;
     if (!occurrence) {
       await this.fermer();
       return;
@@ -629,6 +636,46 @@ export class FormulaireDEvenement {
     } else {
       await this.fermer();
     }
+  }
+
+  /**
+   * Plusieurs occurrences de la série au même instant : celle que l'on vise
+   * se choisit par l'instant où la règle la place. Le choix fait, le lien
+   * porte son identité, et la portée se demande comme depuis le Calendrier.
+   */
+  private async departager(
+    serie: Event,
+    candidates: EventOccurrence[],
+  ): Promise<void> {
+    const choisie = await this.confirmation.choose({
+      title: `Quelle occurrence de « ${serie.title} » ?`,
+      description: `Plusieurs occurrences de la série tombent le ${dateDe(candidates[0])} à la même heure. Choisissez celle que vous visez.`,
+      confirmLabel: 'Continuer',
+      choicesLabel: 'Occurrences',
+      choices: [...candidates]
+        .sort((gauche, droite) =>
+          gauche.originalStart.localeCompare(droite.originalStart),
+        )
+        .map((occurrence) => ({
+          value: occurrence.originalStart,
+          label: occurrence.title,
+          description: `Prévue par la série le ${jourDe(occurrence.originalStart)}.`,
+        })),
+    });
+
+    if (choisie === null) {
+      await this.fermer();
+      return;
+    }
+    await this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        ...this.route.snapshot.queryParams,
+        [PARAMETRE_D_OCCURRENCE]: choisie,
+        [PARAMETRE_DE_DEBUT]: null,
+      },
+      replaceUrl: true,
+    });
   }
 
   private reprendre(evenement: Event): void {
@@ -720,7 +767,11 @@ function estIntrouvable(erreur: Error): boolean {
 
 /** La date d'une occurrence, telle qu'un choix de portée la nomme. */
 export function dateDe(occurrence: EventOccurrence): string {
-  return formaterInstant(occurrence.startsAt, {
+  return jourDe(occurrence.startsAt);
+}
+
+function jourDe(instant: string): string {
+  return formaterInstant(instant, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -728,7 +779,10 @@ export function dateDe(occurrence: EventOccurrence): string {
 }
 
 /** Deux instants, comparés comme des instants et non comme des chaînes. */
-export function memeInstant(gauche: string | null, droite: string | null): boolean {
+export function memeInstant(
+  gauche: string | null,
+  droite: string | null,
+): boolean {
   if (gauche === null || droite === null) {
     return gauche === droite;
   }

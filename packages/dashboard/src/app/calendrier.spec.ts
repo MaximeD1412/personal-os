@@ -260,19 +260,19 @@ describe('Calendrier', () => {
     document.body.querySelector<HTMLElement>('[role="alertdialog"]');
 
   const boutonDuDialogue = (libelle: string) =>
-    [
-      ...(dialogue()?.querySelectorAll<HTMLButtonElement>('button') ?? []),
-    ].find((candidat) => texte(candidat) === libelle) as HTMLButtonElement;
+    [...(dialogue()?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
+      (candidat) => texte(candidat) === libelle,
+    ) as HTMLButtonElement;
 
   const optionsDuDialogue = () => [
     ...(dialogue()?.querySelectorAll<HTMLInputElement>('input[type="radio"]') ??
       []),
   ];
 
-  /** Le choix de portée, dans le dialogue : coche l'option, puis confirme. */
+  /** Un choix dans le dialogue (la portée, l'occurrence) : coche l'option, puis confirme. */
   async function choisirLaPortee(
     harnais: RouterTestingHarness,
-    option: 'Cette occurrence uniquement' | 'Toute la série',
+    option: string,
     confirmer: string,
   ): Promise<void> {
     const radio = optionsDuDialogue().find((candidat) =>
@@ -1091,10 +1091,14 @@ describe('Calendrier', () => {
     });
 
     it("ne garde rien de l'Événement précédent quand le suivant n'a pas pu être lu", async () => {
-      const harnais = await ouvrir('/calendrier/evenements/event-1?mois=2026-09');
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-1?mois=2026-09',
+      );
       expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Dentiste');
 
-      await harnais.navigateByUrl('/calendrier/evenements/event-2?mois=2026-09');
+      await harnais.navigateByUrl(
+        '/calendrier/evenements/event-2?mois=2026-09',
+      );
       await laisserFiler();
       lectureDeLEvenement('event-2').flush(
         {
@@ -1309,6 +1313,50 @@ describe('Calendrier', () => {
       expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe(
         'Piscine déplacée',
       );
+    });
+
+    it("demande depuis l'Agenda laquelle est visée, quand plusieurs occurrences tombent à son début", async () => {
+      // Celle du 14, déplacée sur l'horaire de celle du 7 : l'Agenda ne les
+      // distingue que par leur début, qui est le même.
+      const deplacee = occurrenceDe(PISCINE, {
+        originalStart: '2026-09-14T16:00:00.000Z',
+        title: 'Piscine déplacée',
+      });
+      const lien =
+        '/calendrier/evenements/event-serie?mois=2026-09&debut=2026-09-07T16:00:00.000Z';
+
+      let harnais = await ouvrir(lien, { evenements: [PISCINES[0], deplacee] });
+      expect(texte(dialogue())).toContain('Quelle occurrence de « Piscine » ?');
+      expect(
+        optionsDuDialogue().map((option) => texte(option.labels?.[0] ?? null)),
+      ).toEqual([
+        'PiscinePrévue par la série le lundi 7 septembre.',
+        'Piscine déplacéePrévue par la série le lundi 14 septembre.',
+      ]);
+      expect(optionsDuDialogue().some((option) => option.checked)).toBe(false);
+      expect(boutonDuDialogue('Continuer').disabled).toBe(true);
+      expect(champ(harnais, 'titre')).toBeNull();
+
+      await choisirLaPortee(harnais, 'Piscine déplacée', 'Continuer');
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie?mois=2026-09&occurrence=2026-09-14T16:00:00.000Z',
+      );
+      expect(texte(dialogue())).toContain('Modifier « Piscine déplacée » ?');
+      await choisirLaPortee(harnais, 'Cette occurrence uniquement', 'Modifier');
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09',
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe(
+        'Piscine déplacée',
+      );
+
+      // « Annuler » ne choisit rien, et referme.
+      TestBed.resetTestingModule();
+      harnais = await ouvrir(lien, { evenements: [PISCINES[0], deplacee] });
+      await cliquer(harnais, boutonDuDialogue('Annuler'));
+      await harnais.fixture.whenStable();
+      expect(url()).toBe('/calendrier?mois=2026-09');
+      expect(httpMock.match(({ method }) => method !== 'GET')).toEqual([]);
     });
 
     it("retrouve depuis l'Agenda l'occurrence par son début, seul connu de l'Agenda", async () => {

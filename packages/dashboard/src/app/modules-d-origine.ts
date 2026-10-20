@@ -43,7 +43,7 @@ export const PARAMETRE_D_OCCURRENCE = 'occurrence';
  * L'occurrence visée par son seul début affiché, faute de mieux : c'est tout
  * ce que l'Agenda en connaît, son contrat ne portant que la période d'une
  * entrée (ADR 0011). Deux occurrences d'une série au même instant y sont
- * indiscernables ; c'est la première que le mois montre qui est reprise.
+ * indiscernables : le Calendrier demande alors laquelle est visée.
  */
 export const PARAMETRE_DE_DEBUT = 'debut';
 
