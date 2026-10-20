@@ -54,6 +54,7 @@ model Scope {
   recipeLines         RecipeLine[]
   mealPlans           MealPlan[]
   mealPlanEntries     MealPlanEntry[]
+  generationRounds    GenerationRound[]
   projects            Project[]
   projectExpenses     ProjectExpense[]
   publicPresentations PublicPresentation[]
@@ -172,28 +173,32 @@ model EventException {
 /// du mois. Une réponse rejetée par son schéma, comme un appel resté sans
 /// réponse, est tracée comme les autres, avec sa raison dans `error`.
 model AiTrace {
-  id           String   @id @default(uuid())
-  scopeId      String
-  scope        Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  id               String            @id @default(uuid())
+  scopeId          String
+  scope            Scope             @relation(fields: [scopeId], references: [id], onDelete: Cascade)
   /// Le but de l'appel (`meal-plan.generate`…), qui dit quel module l'a fait.
-  purpose      String
+  purpose          String
   /// Le modèle qui a répondu, tel que le fournisseur le nomme.
-  model        String
-  system       String
-  input        String
+  model            String
+  system           String
+  input            String
   /// La réponse brute, avant toute validation ; vide quand le fournisseur n'a
   /// pas répondu.
-  output       String?
+  output           String?
   /// Inconnus quand le fournisseur n'a pas répondu.
-  inputTokens  Int?
-  outputTokens Int?
+  inputTokens      Int?
+  outputTokens     Int?
   /// Le coût estimé, arrondi au centime supérieur : le plafond ne se sous-estime jamais.
-  costCents    Int
+  costCents        Int
   /// Pourquoi l'appel n'a rien rendu d'utilisable (panne, sortie hors schéma) ;
   /// vide pour une réponse retenue.
-  error        String?
-  createdAt    DateTime @default(now())
+  error            String?
+  createdAt        DateTime          @default(now())
+  /// Les Tours de génération dont c'est l'appel.
+  generationRounds GenerationRound[]
 
+  /// La cible de la clé étrangère des Tours de génération, qui porte l'Espace.
+  @@unique([id, scopeId])
   @@index([scopeId])
   @@index([createdAt])
 }
@@ -392,15 +397,16 @@ enum MealPlanEntryDecision {
 /// Le Planning de repas d'une semaine : un par semaine et par Espace (le
 /// Foyer). Arrêté, il refuse toute modification de ses repas (CUISINE-7).
 model MealPlan {
-  id        String          @id @default(uuid())
+  id        String            @id @default(uuid())
   scopeId   String
-  scope     Scope           @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  scope     Scope             @relation(fields: [scopeId], references: [id], onDelete: Cascade)
   /// Le lundi de la semaine (`zWeek`), un jour civil sans fuseau.
-  week      DateTime        @db.Date
-  status    MealPlanStatus  @default(OPEN)
+  week      DateTime          @db.Date
+  status    MealPlanStatus    @default(OPEN)
   entries   MealPlanEntry[]
+  rounds    GenerationRound[]
   /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
-  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+  createdAt DateTime          @default(now()) @db.Timestamptz(3)
 
   @@unique([scopeId, week])
   /// La cible de la clé étrangère des repas, qui porte l'Espace.
@@ -413,31 +419,62 @@ model MealPlan {
 /// le planning : un repas est toujours dans l'Espace de son planning (ADR
 /// 0028).
 model MealPlanEntry {
-  id             String                @id @default(uuid())
-  scopeId        String
-  scope          Scope                 @relation(fields: [scopeId], references: [id], onDelete: Cascade)
-  mealPlanId     String
-  mealPlan       MealPlan              @relation(fields: [mealPlanId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  id                String                @id @default(uuid())
+  scopeId           String
+  scope             Scope                 @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  mealPlanId        String
+  mealPlan          MealPlan              @relation(fields: [mealPlanId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
   /// Un jour civil (`zDay`) de la semaine du planning.
-  day            DateTime              @db.Date
-  moment         MealMoment
+  day               DateTime              @db.Date
+  moment            MealMoment
   /// Une Recette cuisinée par un repas à venir ne se supprime pas ; celle
   /// d'un repas passé laisse son titre à sa place (CUISINE-7).
-  recipeId       String?
-  recipe         Recipe?               @relation(fields: [recipeId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
-  title          String?
+  recipeId          String?
+  recipe            Recipe?               @relation(fields: [recipeId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  title             String?
   /// Des Comptes du Foyer, au moins un.
-  participantIds String[]
+  participantIds    String[]
   /// Au moins zéro.
-  guestCount     Int                   @default(0)
-  decision       MealPlanEntryDecision
+  guestCount        Int                   @default(0)
+  decision          MealPlanEntryDecision
+  /// Le Tour de génération qui l'a proposé ; vide pour un repas saisi à la main.
+  generationRoundId String?
+  generationRound   GenerationRound?      @relation(fields: [generationRoundId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
   /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
-  createdAt      DateTime              @default(now()) @db.Timestamptz(3)
+  createdAt         DateTime              @default(now()) @db.Timestamptz(3)
 
   @@index([scopeId])
   @@index([mealPlanId])
   @@index([recipeId])
   @@index([day])
+  @@index([generationRoundId])
+}
+
+/// Un Tour de génération d'un Planning de repas : l'IA propose, on statue sur
+/// chacun des repas proposés, puis on relance ; le tour suivant ne régénère
+/// que les refusés (CUISINE-15). Ses tours se numérotent à partir de 1. La clé
+/// étrangère porte l'Espace avec le planning (ADR 0028).
+model GenerationRound {
+  id         String          @id @default(uuid())
+  scopeId    String
+  scope      Scope           @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  mealPlanId String
+  mealPlan   MealPlan        @relation(fields: [mealPlanId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  number     Int
+  /// La Trace IA de l'appel au modèle ; vide tant qu'il n'a pas eu lieu. Un
+  /// journal en ajout seul ne perd pas ses traces : la clé ne prévoit pas
+  /// leur suppression.
+  traceId    String?
+  trace      AiTrace?        @relation(fields: [traceId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  entries    MealPlanEntry[]
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@unique([mealPlanId, number])
+  /// La cible de la clé étrangère des repas, qui porte l'Espace.
+  @@unique([id, scopeId])
+  @@index([scopeId])
+  @@index([traceId])
 }
 
 /// Un Projet : un travail suivi dans l'application, avec ses notes, ses liens

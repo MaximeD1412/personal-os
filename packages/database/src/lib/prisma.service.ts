@@ -107,6 +107,10 @@ export class PrismaService {
     return this.#client.mealPlanEntry;
   }
 
+  get generationRound() {
+    return this.#client.generationRound;
+  }
+
   get project() {
     return this.#client.project;
   }

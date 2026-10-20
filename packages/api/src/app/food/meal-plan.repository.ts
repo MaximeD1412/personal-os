@@ -205,21 +205,53 @@ export class MealPlanRepository {
   }
 
   /**
+   * Seul un repas encore proposé se décide, dans la même écriture : deux
+   * décisions simultanées ne passent pas toutes les deux.
+   */
+  async decider(
+    planId: string,
+    id: string,
+    decision: MealPlanEntryDecision,
+  ): Promise<MealPlanEntryRecord> {
+    const [, rangee] = await this.prisma.$transaction([
+      this.verrouillerOuvert(planId),
+      this.prisma.mealPlanEntry.update({
+        where: { id, mealPlanId: planId, decision: 'PROPOSED' },
+        data: { decision },
+        select: CHAMPS_DU_REPAS,
+      }),
+    ]);
+
+    return enRepas(rangee);
+  }
+
+  /**
    * L'arrêt n'a lieu que si le planning est ouvert et sans repas proposé, dans
    * la même écriture : rien ne s'intercale entre la vérification et l'arrêt.
+   * Elle verrouille le planning avant que ses refusés soient retirés : un repas
+   * refusé entre-temps ne survit pas à l'arrêt.
    */
   async arreter(id: string): Promise<MealPlanRecord> {
-    return enPlanning(
-      await this.prisma.mealPlan.update({
+    const [, , rangee] = await this.prisma.$transaction([
+      this.prisma.mealPlan.update({
         where: {
           id,
           status: 'OPEN',
           entries: { none: { decision: 'PROPOSED' } },
         },
         data: { status: 'STOPPED' },
+        select: { id: true },
+      }),
+      this.prisma.mealPlanEntry.deleteMany({
+        where: { mealPlanId: id, decision: 'REFUSED' },
+      }),
+      this.prisma.mealPlan.findUniqueOrThrow({
+        where: { id },
         include: AVEC_LES_REPAS,
       }),
-    );
+    ]);
+
+    return enPlanning(rangee);
   }
 
   async rouvrir(id: string): Promise<MealPlanRecord> {

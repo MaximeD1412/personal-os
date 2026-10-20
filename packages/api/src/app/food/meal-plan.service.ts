@@ -14,13 +14,18 @@ import {
   type MealPlanEntryWrite,
   type MealPlanRecord,
 } from './meal-plan.repository';
+import {
+  appliquerDecision,
+  estArretable,
+  type DecisionSurUnRepas,
+} from './generation/tours';
 import { estDansLaSemaine } from './planning/semaine';
 
 /**
  * Les saisies arrivent validées par leur schéma (ADR 0030) : il reste ici ce
  * qu'un schéma ne peut pas juger seul. Un jour hors de la semaine, des
  * Participants absents ou étrangers au Foyer, une recette inconnue, un
- * planning arrêté ou qui attend encore une décision.
+ * planning arrêté ou qui attend encore une décision, un repas déjà statué.
  */
 @Injectable()
 export class MealPlanService {
@@ -76,7 +81,7 @@ export class MealPlanService {
       await this.ecrire(
         this.repository.modifier(planId, id, changements),
         planId,
-        id,
+        (relu) => repasDe(relu, id),
       ),
     );
   }
@@ -85,31 +90,55 @@ export class MealPlanService {
     const planning = await this.planningOuvert(planId);
     repasDe(planning, id);
 
-    await this.ecrire(this.repository.supprimer(planId, id), planId, id);
+    await this.ecrire(this.repository.supprimer(planId, id), planId, (relu) =>
+      repasDe(relu, id),
+    );
+  }
+
+  /**
+   * On statue sur un repas proposé : on l'approuve, ou on le refuse et il
+   * reste au planning, barré, jusqu'au tour suivant qui le remplace.
+   */
+  async decider(
+    planId: string,
+    id: string,
+    decision: DecisionSurUnRepas,
+  ): Promise<MealPlanEntry> {
+    const statuer = (planning: MealPlanRecord) => {
+      if ('echec' in appliquerDecision(repasDe(planning, id), decision)) {
+        throw new ErreurMetier(
+          'food.entry_not_proposed',
+          "Ce repas n'est pas proposé : il est déjà approuvé ou refusé.",
+        );
+      }
+    };
+    statuer(await this.planningOuvert(planId));
+
+    return exposerLeRepas(
+      await this.ecrire(
+        this.repository.decider(planId, id, decision),
+        planId,
+        statuer,
+      ),
+    );
   }
 
   /**
    * Un planning s'arrête quand chaque repas est décidé : un repas encore
-   * proposé le retient.
+   * proposé le retient. Ses refusés, qu'aucun tour ne remplacera plus,
+   * disparaissent à l'arrêt.
    */
   async arreter(id: string): Promise<MealPlan> {
+    verifierArretable(await this.planning(id));
     try {
       return exposer(await this.repository.arreter(id));
     } catch (erreur) {
       if (codePrisma(erreur) !== 'P2025') {
         throw erreur;
       }
-      const planning = await this.planning(id);
-      if (planning.status === 'STOPPED') {
-        throw new ErreurMetier(
-          'food.plan_already_stopped',
-          'Ce planning est déjà arrêté.',
-        );
-      }
-      throw new ErreurMetier(
-        'food.plan_has_pending',
-        "Un repas proposé attend encore d'être approuvé ou refusé.",
-      );
+      // Le repas proposé qui le retenait à l'écriture a pu être statué depuis.
+      verifierArretable(await this.planning(id));
+      throw repasEnAttente();
     }
   }
 
@@ -200,14 +229,15 @@ export class MealPlanService {
   }
 
   /**
-   * Une écriture échoue si le planning a été arrêté, ou le repas supprimé,
-   * depuis qu'on l'a lu : on relit pour dire lequel. Sa clé étrangère vers la
+   * Une écriture échoue si le planning a été arrêté, ou le repas supprimé ou
+   * déjà statué, depuis qu'on l'a lu : on relit pour dire lequel, en rejouant
+   * sur le planning relu la vérification du repas. Sa clé étrangère vers la
    * recette cède si celle-ci a été supprimée depuis sa vérification.
    */
   private async ecrire<T>(
     operation: Promise<T>,
     planId: string,
-    id?: string,
+    reverifier: (planning: MealPlanRecord) => void = () => undefined,
   ): Promise<T> {
     try {
       return await operation;
@@ -218,10 +248,7 @@ export class MealPlanService {
       if (codePrisma(erreur) !== 'P2025') {
         throw erreur;
       }
-      const planning = await this.planningOuvert(planId);
-      if (id) {
-        repasDe(planning, id);
-      }
+      reverifier(await this.planningOuvert(planId));
       throw erreur;
     }
   }
@@ -237,6 +264,25 @@ function recetteInconnue(): ErreurMetier {
   return new ErreurMetier(
     'food.entry_unknown_recipe',
     "Ce repas cite une Recette qui n'existe pas.",
+  );
+}
+
+function verifierArretable(planning: MealPlanRecord): void {
+  if (planning.status === 'STOPPED') {
+    throw new ErreurMetier(
+      'food.plan_already_stopped',
+      'Ce planning est déjà arrêté.',
+    );
+  }
+  if (!estArretable(planning)) {
+    throw repasEnAttente();
+  }
+}
+
+function repasEnAttente(): ErreurMetier {
+  return new ErreurMetier(
+    'food.plan_has_pending',
+    "Un repas proposé attend encore d'être approuvé ou refusé.",
   );
 }
 
