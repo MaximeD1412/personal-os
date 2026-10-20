@@ -1,0 +1,86 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    heading="Pages du portfolio"
+    subtitle="Les textes du portfolio public, rédigés en français et en anglais. Chaque langue se publie à part."
+    [breadcrumb]="fil"
+  />
+
+  @if (ignores.length > 0) {
+  <div hlmAlert tone="warning" data-test="ignores">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>
+        Certaines valeurs du lien n'ont pas été reprises : {{ ignores.join(', ')
+        }}
+      </p>
+      <p hlmAlertDescription>
+        Elles ne correspondent à aucune valeur admise : les pages gardent leurs
+        textes.
+      </p>
+    </div>
+  </div>
+  }
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="detail"
+    loadingLabel="Chargement des pages…"
+    (retry)="lecture.reload()"
+  >
+    @if (lu()) {
+    <div class="flex flex-col gap-gutter">
+      @for (slug of pagesDeContenu; track slug; let numero = $index) {
+      <section
+        hlmCard
+        data-test="page-de-contenu"
+        [attr.data-slug]="slug"
+        [attr.aria-labelledby]="'page-' + slug"
+      >
+        <div hlmCardHeader>
+          <h2 hlmCardTitle [id]="'page-' + slug">
+            {{ numero + 1 }}. {{ libelles[slug] }}
+          </h2>
+          <p hlmCardDescription>{{ descriptions[slug] }}</p>
+          <!-- Sous 1024 px, une langue à la fois ; au-delà, les deux côte à côte. -->
+          <div hlmCardAction class="lg:hidden">
+            <hlm-toggle-group
+              data-test="langue"
+              aria-label="Langue"
+              [value]="langueVue()[slug]"
+              (valueChange)="choisir(slug, $event)"
+            >
+              @for (lang of langues; track lang) {
+              <button
+                hlmToggleGroupItem
+                [value]="lang"
+                [attr.data-lang]="lang"
+                [attr.aria-label]="libellesDesLangues[lang]"
+              >
+                {{ lang }}
+              </button>
+              }
+            </hlm-toggle-group>
+          </div>
+        </div>
+        <div
+          hlmCardContent
+          class="grid gap-margin lg:grid-cols-2 lg:items-start"
+        >
+          @for (lang of langues; track lang) {
+          <pos-page-content-editor
+            [class]="lang === langueVue()[slug] ? '' : 'max-lg:hidden'"
+            [slug]="slug"
+            [lang]="lang"
+            [page]="texteDe(slug, lang)"
+            [prefill]="prefillDe(slug, lang)"
+            (ecrite)="ecrite($event)"
+          />
+          }
+        </div>
+      </section>
+      }
+    </div>
+    }
+  </dccm-state>
+</div>

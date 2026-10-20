@@ -23,6 +23,9 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
     // Ses Alias le sont aussi : un libellé rattaché vaut pour le Foyer entier
     // (CUISINE-3).
     IngredientAlias: [],
+    // Les Pages de contenu du portfolio sont globales : un seul portfolio,
+    // rédigé depuis l'un ou l'autre Compte (PORTFOLIO-3).
+    PageContent: [],
     Scope: [
       'traces',
       'events',
@@ -62,6 +65,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   // travers son Ingrédient.
   Ingredient: ['aliases', 'recipeLines', 'foodPreferences'],
   IngredientAlias: ['ingredient'],
+  PageContent: [],
   Scope: [
     'household',
     'holder',
@@ -78,6 +82,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'generationRounds',
     'projects',
     'projectExpenses',
+    'publicPresentations',
   ],
 };
 

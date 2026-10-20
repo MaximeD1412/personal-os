@@ -112,8 +112,11 @@ et lève `food.list_already_closed`.
 | Stock domestique                         | `PantryItem`                                                     |
 | Repas cuisiné                            | `CookedMeal`                                                     |
 | Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
+| État de publication                      | `PublicationState` : `UNPUBLISHED`, `READY`, `PUBLISHED`         |
+| Langue (du portfolio)                    | `Lang` : `FR`, `EN`                                              |
 | Dépense de projet, Lien de projet        | `ProjectExpense`, `links` (`ProjectLink`)                        |
 | Page de contenu                          | `PageContent`                                                    |
+| Présentation, Expériences, Compétences   | `slug` : `about`, `experience`, `skills`                         |
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 | Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
 | Commande non comprise                    | `UnresolvedCommand`                                              |

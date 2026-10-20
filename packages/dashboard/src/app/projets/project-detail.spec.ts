@@ -53,6 +53,17 @@ describe('La fiche d’un Projet', () => {
     );
   });
 
+  it('mène à sa Présentation publique, par son onglet', async () => {
+    const { el } = await ouvrirLaReliure();
+
+    expect(partie(el(), 'onglet-fiche')?.getAttribute('aria-current')).toBe(
+      'page',
+    );
+    expect(partie(el(), 'onglet-presentation')?.getAttribute('href')).toBe(
+      '/projets/projet-1/presentation',
+    );
+  });
+
   it('rend ses notes en markdown, sans en exécuter le HTML', async () => {
     const { harness, http, el } = await ouvrirLesProjets('/projets/projet-1');
     http.expectOne(`${BASE}/projects/projet-1`).flush({
