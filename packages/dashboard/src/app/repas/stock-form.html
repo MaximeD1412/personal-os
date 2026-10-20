@@ -40,7 +40,7 @@
       (retry)="catalogue.reload()"
     >
       <ul
-        class="flex max-h-72 flex-col overflow-y-auto"
+        class="flex max-h-72 flex-col overflow-y-auto md:max-w-md"
         aria-label="Ingrédients trouvés"
       >
         @for (ingredient of trouves(); track ingredient.id) {
@@ -90,7 +90,7 @@
     <hlm-field-error forceShow>{{ message }}</hlm-field-error>
     } @else if (enPlace(); as enPlace) {
     <p hlmFieldDescription data-test="en-place">
-      {{ enPlace }} : l'ajout remplace cette quantité.
+      {{ enPlace }}. L'ajout remplace cette quantité.
     </p>
     }
   </div>

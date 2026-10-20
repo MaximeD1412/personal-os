@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-margin">
   <dccm-page-header
     heading="Stock domestique"
-    subtitle="Ce que le Foyer a chez lui, une ligne par Ingrédient. Une modification s'enregistre en quittant le champ."
+    subtitle="Une ligne par Ingrédient. Une modification s'enregistre en quittant le champ."
     [breadcrumb]="fil"
   >
     <a hlmBtn routerLink="/repas/stock/nouveau" data-test="ajouter">
@@ -45,58 +45,56 @@
     >
 
     @if (large()) {
-    <section hlmCard class="p-space-sm md:p-space-sm">
-      <div hlmTableContainer>
-        <table hlmTable aria-label="Stock domestique">
-          <thead hlmTableHeader>
-            <tr hlmTableRow>
-              <th hlmTableHead>Ingrédient</th>
-              <th hlmTableHead>Quantité</th>
-              <th hlmTableHead>Péremption</th>
-              <th hlmTableHead>Statut</th>
-              <th hlmTableHead><span class="sr-only">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody hlmTableBody>
-            @for (ligne of affichees(); track ligne.id) {
-            <tr
-              hlmTableRow
-              data-test="ligne"
-              [attr.data-ingredient]="ligne.ingredient.id"
+    <div hlmTableContainer>
+      <table hlmTable aria-label="Stock domestique">
+        <thead hlmTableHeader>
+          <tr hlmTableRow>
+            <th hlmTableHead>Ingrédient</th>
+            <th hlmTableHead>Quantité</th>
+            <th hlmTableHead>Péremption</th>
+            <th hlmTableHead>Statut</th>
+            <th hlmTableHead><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody hlmTableBody>
+          @for (ligne of affichees(); track ligne.id) {
+          <tr
+            hlmTableRow
+            data-test="ligne"
+            [attr.data-ingredient]="ligne.ingredient.id"
+          >
+            <td
+              hlmTableCell
+              class="font-semibold text-on-surface"
+              data-test="nom"
             >
-              <td
-                hlmTableCell
-                class="font-semibold text-on-surface"
-                data-test="nom"
-              >
-                {{ ligne.ingredient.displayName }}
-              </td>
-              <td hlmTableCell class="w-56 align-top">
-                <ng-container
-                  *ngTemplateOutlet="quantite; context: { $implicit: ligne }"
-                />
-              </td>
-              <td hlmTableCell class="w-48 align-top">
-                <ng-container
-                  *ngTemplateOutlet="peremption; context: { $implicit: ligne }"
-                />
-              </td>
-              <td hlmTableCell>
-                <ng-container
-                  *ngTemplateOutlet="statut; context: { $implicit: ligne }"
-                />
-              </td>
-              <td hlmTableCell class="w-12 text-end">
-                <ng-container
-                  *ngTemplateOutlet="retrait; context: { $implicit: ligne }"
-                />
-              </td>
-            </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
+              {{ ligne.ingredient.displayName }}
+            </td>
+            <td hlmTableCell class="w-56 align-top">
+              <ng-container
+                *ngTemplateOutlet="quantite; context: { $implicit: ligne }"
+              />
+            </td>
+            <td hlmTableCell class="w-48 align-top">
+              <ng-container
+                *ngTemplateOutlet="peremption; context: { $implicit: ligne }"
+              />
+            </td>
+            <td hlmTableCell>
+              <ng-container
+                *ngTemplateOutlet="statut; context: { $implicit: ligne }"
+              />
+            </td>
+            <td hlmTableCell class="w-12 text-end">
+              <ng-container
+                *ngTemplateOutlet="retrait; context: { $implicit: ligne }"
+              />
+            </td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
     } @else {
     <ul class="flex flex-col gap-space-sm" aria-label="Stock domestique">
       @for (ligne of affichees(); track ligne.id) {
