@@ -94,6 +94,7 @@ et lève `food.list_already_closed`.
 | Période (d'une lecture datée)            | `zPeriod` (`from`, `to`)                                         |
 | Séance, Objectif                         | `TrainingSession`, `TrainingGoal`                                |
 | Ingrédient, Alias, Unité canonique       | `Ingredient`, `IngredientAlias`, `canonicalUnit`                 |
+| Résolveur d'ingrédients                  | `resoudre`, `IngredientResolution`                               |
 | Unité de recette                         | `RecipeUnit`, `UNITES_DE_RECETTE`                                |
 | Recette                                  | `Recipe`                                                         |
 | Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |

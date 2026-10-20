@@ -83,6 +83,10 @@ export class PrismaService {
     return this.#client.ingredient;
   }
 
+  get ingredientAlias() {
+    return this.#client.ingredientAlias;
+  }
+
   get session() {
     return this.#client.session;
   }

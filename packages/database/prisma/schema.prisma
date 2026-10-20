@@ -232,17 +232,31 @@ enum Allergen {
 /// hors Espace : les deux Comptes du Foyer le partagent. Deux libellés qui ne
 /// se cuisinent ni ne s'achètent pareil sont deux Ingrédients.
 model Ingredient {
-  id            String        @id @default(uuid())
+  id            String            @id @default(uuid())
   /// Le libellé normalisé (`normaliserLibelle` de `contracts`) : deux noms qui
   /// ne diffèrent que par la casse ou les accents sont le même Ingrédient.
-  name          String        @unique
+  name          String            @unique
   displayName   String
   canonicalUnit CanonicalUnit
   /// Le poids d'une pièce, en grammes ; n'a de sens qu'en `GRAM` ou `PIECE`.
-  gramsPerPiece Decimal?      @db.Decimal(10, 2)
+  gramsPerPiece Decimal?          @db.Decimal(10, 2)
   allergens     Allergen[]
-  perishable    Boolean       @default(false)
-  createdAt     DateTime      @default(now())
+  perishable    Boolean           @default(false)
+  createdAt     DateTime          @default(now())
+  aliases       IngredientAlias[]
+}
+
+/// Un libellé rattaché à un Ingrédient (CUISINE-3) : une fois rattaché, le
+/// résolveur ne le redemande plus. Global, comme le catalogue.
+model IngredientAlias {
+  id           String     @id @default(uuid())
+  /// Le libellé normalisé (`normaliserLibelle`) : il ne désigne qu'un Ingrédient.
+  label        String     @unique
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@index([ingredientId])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.

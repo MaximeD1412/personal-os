@@ -406,7 +406,7 @@
         {
           "texte": "Résolveur d'ingrédients et Alias",
           "ref": "PRD #1",
-          "fait": false
+          "fait": true
         },
         {
           "texte": "Écran de fusion de deux Ingrédients",
