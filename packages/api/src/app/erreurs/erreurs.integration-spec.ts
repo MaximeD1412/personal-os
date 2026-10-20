@@ -138,7 +138,7 @@ describe("L'enveloppe d'erreur unique (ADR 0030)", () => {
     const reponse = await request(app.getHttpServer())
       .post('/api/erreurs-de-test/saisie')
       .set('Content-Type', 'application/json')
-      .send(JSON.stringify({ a: { b: [] }, remplissage: 'x'.repeat(1_100_000) }))
+      .send(JSON.stringify({ a: { b: [] }, remplissage: 'x'.repeat(2_200_000) }))
       .expect(413);
 
     expect(enveloppe(reponse.body)).toEqual({

@@ -100,24 +100,25 @@ describe('Projets', () => {
       });
     });
 
-    it('accepte les plus grandes notes et les plus longs liens que le contrat autorise', async () => {
+    it('accepte le plus gros Projet que le contrat autorise', async () => {
       // Un caractère de contrôle s'écrit `\u0001` en JSON : six octets par
-      // caractère, le pire encodage de notes conformes, soit 600 000 octets.
-      const notes = '\u0001'.repeat(100_000);
-      const url = `https://papier.exemple.test/${'a'.repeat(2_000)}`;
-      const links = Array.from({ length: 50 }, (_, i) => ({
-        label: `Fournisseur ${i}`,
-        url,
+      // caractère, le pire encodage de chaque champ conforme, plus de 1,2 Mo.
+      const pire = (longueur: number) => '\u0001'.repeat(longueur);
+      const title = pire(120);
+      const notes = pire(100_000);
+      const prefixe = 'https://papier.exemple.test/';
+      const links = Array.from({ length: 50 }, () => ({
+        label: pire(120),
+        url: prefixe + pire(2_048 - prefixe.length),
       }));
 
       const reponse = await request(app.getHttpServer())
         .post('/api/projects')
         .set('Cookie', jeu.a.session)
-        .send({ title: 'Notes volumineuses', notes, links })
+        .send({ title, notes, links })
         .expect(201);
 
-      expect(reponse.body.notes).toBe(notes);
-      expect(reponse.body.links).toHaveLength(50);
+      expect(reponse.body).toMatchObject({ title, notes, links });
 
       await request(app.getHttpServer())
         .patch(`/api/projects/${reponse.body.id}`)
