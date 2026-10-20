@@ -6,14 +6,15 @@
 --
 -- Comme le catalogue, la table est hors Espace : pas de `scopeId`. L'unicité
 -- du libellé normalisé garantit qu'un libellé ne désigne qu'un Ingrédient,
--- même entre deux rattachements simultanés.
+-- même entre deux rattachements simultanés. La date de création est un
+-- instant : elle est en `timestamptz` (ADR 0030).
 
 -- CreateTable
 CREATE TABLE "IngredientAlias" (
     "id" TEXT NOT NULL,
     "label" TEXT NOT NULL,
     "ingredientId" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "IngredientAlias_pkey" PRIMARY KEY ("id")
 );

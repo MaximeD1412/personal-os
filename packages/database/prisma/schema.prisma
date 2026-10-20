@@ -254,7 +254,8 @@ model IngredientAlias {
   label        String     @unique
   ingredientId String
   ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now())
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
 
   @@index([ingredientId])
 }
