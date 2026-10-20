@@ -43,13 +43,22 @@
           </dd>
         </div>
 
-        @if (ingredient.gramsPerPiece !== null) {
+        @if (avecPoidsALaPiece()) {
         <div class="flex flex-col gap-1" data-test="poids">
-          <dt class="text-label-regular text-outline">Poids à la pièce</dt>
+          <dt class="text-label-regular text-outline">
+            Poids moyen d'une pièce
+          </dt>
           <dd
             class="text-body-default font-semibold tabular-nums text-on-surface"
           >
-            {{ ingredient.gramsPerPiece }} g
+            @if (ingredient.gramsPerPiece !== null) {
+            <span>{{ ingredient.gramsPerPiece }} g</span>
+            } @else {
+            <span class="font-normal text-outline">Non renseigné</span>
+            }
+          </dd>
+          <dd class="text-label-regular text-outline">
+            Utilisé pour additionner des recettes en pièces et en grammes.
           </dd>
         </div>
         }

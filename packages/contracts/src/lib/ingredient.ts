@@ -76,6 +76,40 @@ export const LIBELLES_DES_UNITES: Readonly<Record<CanonicalUnit, string>> = {
 };
 
 /**
+ * L'Unité de recette : celle dans laquelle une recette donne une quantité.
+ * Le convertisseur la ramène à l'Unité canonique de l'Ingrédient.
+ */
+export const UNITES_DE_RECETTE = [
+  'G',
+  'KG',
+  'MG',
+  'ML',
+  'CL',
+  'L',
+  'TSP',
+  'TBSP',
+  'PIECE',
+] as const;
+
+export const zRecipeUnit = /* @__PURE__ */ z.enum(UNITES_DE_RECETTE);
+
+export type RecipeUnit = z.infer<typeof zRecipeUnit>;
+
+export const LIBELLES_DES_UNITES_DE_RECETTE: Readonly<
+  Record<RecipeUnit, string>
+> = {
+  G: 'Gramme (g)',
+  KG: 'Kilogramme (kg)',
+  MG: 'Milligramme (mg)',
+  ML: 'Millilitre (ml)',
+  CL: 'Centilitre (cl)',
+  L: 'Litre (l)',
+  TSP: 'Cuillère à café (5 ml)',
+  TBSP: 'Cuillère à soupe (15 ml)',
+  PIECE: 'Pièce',
+};
+
+/**
  * Les unités où un poids à la pièce a un sens : un Ingrédient compté en
  * grammes qu'on achète à la pièce, ou l'inverse. Un liquide n'en a pas.
  */
