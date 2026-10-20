@@ -3,7 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { cloisonner } from './espace/cloisonnement';
 import { lireLeModeleDeDonnees, lireLeSchema } from './espace/modeles';
 import { porteeCourante } from './espace/portee';
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient, type Prisma } from '../generated/prisma/client';
 
 /**
  * Le point d'accès unique aux données, et le seul endroit où le filtrage par
@@ -87,12 +87,38 @@ export class PrismaService {
     return this.#client.ingredientAlias;
   }
 
+  get foodPreference() {
+    return this.#client.foodPreference;
+  }
+
+  get recipe() {
+    return this.#client.recipe;
+  }
+
+  get recipeLine() {
+    return this.#client.recipeLine;
+  }
+
   get session() {
     return this.#client.session;
   }
 
   get loginTransaction() {
     return this.#client.loginTransaction;
+  }
+
+  /**
+   * Des opérations de délégué exécutées ensemble, ou pas du tout. Seule la
+   * forme en lot est exposée : chaque opération passe par la garde comme
+   * les autres. La forme interactive donnerait un client de transaction, et
+   * avec lui le SQL brut que la façade refuse.
+   */
+  $transaction<P extends Prisma.PrismaPromise<unknown>[]>(operations: [...P]) {
+    // Le type l'interdit déjà ; un appel non typé ne doit pas l'obtenir non plus.
+    if (!Array.isArray(operations)) {
+      throw new Error("Une transaction ne s'ouvre qu'en lot d'opérations.");
+    }
+    return this.#client.$transaction(operations);
   }
 
   async $connect(): Promise<void> {

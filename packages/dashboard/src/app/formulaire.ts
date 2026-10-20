@@ -2,9 +2,23 @@ import type { ParamMap } from '@angular/router';
 import type { ApiError } from '@personal-os/contracts';
 import type * as z from 'zod';
 
+/** Les champs d'une union, chacun avec les valeurs que ses branches lui donnent. */
+export type Aplati<T> = {
+  [K in T extends unknown ? keyof T : never]?: T extends unknown
+    ? K extends keyof T
+      ? T[K]
+      : never
+    : never;
+};
+
+/** Le schéma d'une saisie : un objet, ou une union discriminée d'objets. */
+export type SchemaDeSaisie =
+  | z.ZodObject
+  | z.ZodDiscriminatedUnion<readonly z.ZodObject[]>;
+
 /** Ce qu'une URL apporte à un formulaire, et ce qu'elle n'a pas pu y mettre. */
 export interface Prefill<T> {
-  valeurs: Partial<T>;
+  valeurs: Aplati<T>;
   /** Les paramètres écartés, sous la forme `nom=valeur`, pour les montrer. */
   ignores: string[];
 }
@@ -18,17 +32,21 @@ export interface Prefill<T> {
  *
  * Un paramètre répété ne donne qu'une valeur, la première valable : les
  * autres sont signalées.
+ *
+ * Une union discriminée (la cible d'une Préférence alimentaire) se lit champ
+ * par champ : un paramètre vaut si une des branches qui le nomment
+ * l'accepte. Choisir la branche reste au formulaire.
  */
-export function prefillDepuisRequete<S extends z.ZodObject>(
+export function prefillDepuisRequete<S extends SchemaDeSaisie>(
   schema: S,
   parametres: ParamMap,
 ): Prefill<z.output<S>> {
   const valeurs: Record<string, unknown> = {};
   const ignores: string[] = [];
 
-  for (const [nom, champ] of Object.entries(schema.shape)) {
+  for (const [nom, champs] of champsDe(schema)) {
     for (const brut of parametres.getAll(nom)) {
-      const valeur = nom in valeurs ? undefined : lire(champ, brut);
+      const valeur = nom in valeurs ? undefined : lireParUn(champs, brut);
       if (valeur === undefined) {
         ignores.push(`${nom}=${brut}`);
       } else {
@@ -37,7 +55,29 @@ export function prefillDepuisRequete<S extends z.ZodObject>(
     }
   }
 
-  return { valeurs: valeurs as Partial<z.output<S>>, ignores };
+  return { valeurs: valeurs as Aplati<z.output<S>>, ignores };
+}
+
+/** Chaque champ du schéma, et ses schémas : un par branche qui le nomme. */
+function champsDe(schema: SchemaDeSaisie): Map<string, z.ZodType[]> {
+  const branches = 'options' in schema ? schema.options : [schema];
+  const champs = new Map<string, z.ZodType[]>();
+  for (const branche of branches) {
+    for (const [nom, champ] of Object.entries(branche.shape)) {
+      champs.set(nom, [...(champs.get(nom) ?? []), champ as z.ZodType]);
+    }
+  }
+  return champs;
+}
+
+function lireParUn(champs: readonly z.ZodType[], brut: string): unknown {
+  for (const champ of champs) {
+    const valeur = lire(champ, brut);
+    if (valeur !== undefined) {
+      return valeur;
+    }
+  }
+  return undefined;
 }
 
 /**

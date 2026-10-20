@@ -20,11 +20,16 @@ export class IngredientService {
   /**
    * Le catalogue, filtré par la recherche qu'on lui donne (tout le catalogue
    * sans recherche). La lecture suit la recherche, et abandonne celle qu'une
-   * nouvelle frappe remplace.
+   * nouvelle frappe remplace. Rien n'est lu tant que `active` est faux (un
+   * formulaire où l'on ne cherche pas encore d'Ingrédient).
    */
-  catalogue(recherche: () => string): HttpResourceRef<Ingredient[]> {
+  catalogue(
+    recherche: () => string,
+    active: () => boolean = () => true,
+  ): HttpResourceRef<Ingredient[]> {
     return httpResource<Ingredient[]>(
       () => {
+        if (!active()) return undefined;
         const q = recherche().trim();
         const params: Record<string, string> = q ? { q } : {};
         return { url: `${this.baseUrl}/ingredients`, params };

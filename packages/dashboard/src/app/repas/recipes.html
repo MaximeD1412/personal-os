@@ -1,0 +1,46 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    heading="Recettes"
+    subtitle="Les recettes du Foyer, partagées par les deux Comptes."
+    [breadcrumb]="fil"
+  />
+
+  <div hlmInputGroup class="md:max-w-md">
+    <ng-icon name="matSearchOutline" aria-hidden="true" />
+    <input
+      hlmInput
+      type="search"
+      data-test="recherche"
+      aria-label="Rechercher une recette"
+      placeholder="Rechercher une recette"
+      [value]="recherche()"
+      (input)="chercher($event)"
+    />
+  </div>
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    [emptyHeading]="titreVide()"
+    [emptyIcon]="iconeVide"
+    loadingLabel="Chargement des recettes…"
+    (retry)="lecture.reload()"
+  >
+    <section hlmCard class="p-space-sm md:p-space-sm">
+      <ul class="flex flex-col" aria-label="Recettes du Foyer">
+        @for (recette of recettes(); track recette.id) {
+        <li>
+          <a
+            dccmListRow
+            chevron
+            data-test="recette"
+            [label]="recette.title"
+            [meta]="meta(recette)"
+            [routerLink]="['/repas/recettes', recette.id]"
+          ></a>
+        </li>
+        }
+      </ul>
+    </section>
+  </dccm-state>
+</div>
