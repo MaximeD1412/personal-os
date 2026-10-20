@@ -144,29 +144,34 @@
         Ingrédient choisi : {{ nom }}
       </p>
       }
-      <ul
-        class="flex max-h-72 flex-col overflow-y-auto"
-        aria-label="Ingrédients trouvés"
+      <dccm-state
         data-test="trouves"
+        [status]="etatDuCatalogue()"
+        [error]="catalogue.error()"
+        [rows]="3"
+        emptyHeading="Aucun Ingrédient du catalogue ne correspond"
+        loadingLabel="Recherche dans le catalogue…"
+        (retry)="catalogue.reload()"
       >
-        @for (ingredient of trouves(); track ingredient.id) {
-        <li>
-          <button
-            dccmListRow
-            type="button"
-            data-test="ingredient"
-            [label]="ingredient.displayName"
-            [selected]="ingredient.id === ingredientId()"
-            [attr.aria-pressed]="ingredient.id === ingredientId()"
-            (click)="choisirLIngredient(ingredient.id, ingredient.displayName)"
-          ></button>
-        </li>
-        } @empty { @if (catalogue.status() === 'resolved') {
-        <li class="text-body-dense text-outline">
-          Aucun Ingrédient du catalogue ne correspond.
-        </li>
-        } }
-      </ul>
+        <ul
+          class="flex max-h-72 flex-col overflow-y-auto"
+          aria-label="Ingrédients trouvés"
+        >
+          @for (ingredient of trouves(); track ingredient.id) {
+          <li>
+            <button
+              dccmListRow
+              type="button"
+              data-test="ingredient"
+              [label]="ingredient.displayName"
+              [selected]="ingredient.id === ingredientId()"
+              [attr.aria-pressed]="ingredient.id === ingredientId()"
+              (click)="choisirLIngredient(ingredient.id, ingredient.displayName)"
+            ></button>
+          </li>
+          }
+        </ul>
+      </dccm-state>
       @if (erreurs()['ingredientId']; as message) {
       <hlm-field-error forceShow>{{ message }}</hlm-field-error>
       }

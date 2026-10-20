@@ -105,6 +105,10 @@ export class FormulaireDePreference {
     this.recherche,
     () => this.cible() === 'INGREDIENT',
   );
+  /** Une lecture échouée dit le `message` de l'API et propose « Réessayer ». */
+  protected readonly etatDuCatalogue = computed(() =>
+    stateOf(this.catalogue, (ingredients) => ingredients.length === 0),
+  );
   protected readonly trouves = computed(() =>
     this.catalogue.hasValue() ? this.catalogue.value() : [],
   );

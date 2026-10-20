@@ -151,6 +151,39 @@ describe('L’ajout d’une Préférence alimentaire', () => {
     });
   });
 
+  it('dit l’échec de la lecture du catalogue, et la reprend sur « Réessayer »', async () => {
+    const { harness, http, el } = await ouvrir(
+      '/foyer/preferences/nouvelle?userId=compte-a&kind=DISLIKED',
+    );
+
+    bouton(el(), '[data-cible="INGREDIENT"]').click();
+    TestBed.tick();
+    http.expectOne(`${BASE}/ingredients`).flush(
+      {
+        status: 503,
+        code: 'database.unavailable',
+        message: 'La base de données ne répond pas.',
+      },
+      { status: 503, statusText: 'Service Unavailable' },
+    );
+    await harness.fixture.whenStable();
+
+    const trouves = el().querySelector('[data-test="trouves"]') as HTMLElement;
+    expect(trouves.textContent).toContain('La base de données ne répond pas.');
+    const reessayer = [...trouves.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Réessayer'),
+    ) as HTMLButtonElement;
+    expect(reessayer.type).toBe('button');
+
+    reessayer.click();
+    TestBed.tick();
+    http.expectOne(`${BASE}/ingredients`).flush([BEURRE, OIGNON]);
+    await harness.fixture.whenStable();
+
+    expect(el().querySelectorAll('[data-test="ingredient"]')).toHaveLength(2);
+    http.expectNone(`${BASE}/food-preferences`);
+  });
+
   it('nomme l’Ingrédient que le lien désigne, la cible en découlant', async () => {
     const { harness, http, el } = await ouvrir(
       '/foyer/preferences/nouvelle?userId=compte-b&kind=DISLIKED&ingredientId=ingredient-3',
