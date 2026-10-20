@@ -78,6 +78,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'generationRounds',
     'projects',
     'projectExpenses',
+    'publicPresentations',
   ],
 };
 

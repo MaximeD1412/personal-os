@@ -36,27 +36,28 @@ model Household {
 /// L'Espace, seule chose qui détermine qui voit une donnée. Il en existe trois :
 /// un Espace personnel par Compte, et l'Espace du Foyer.
 model Scope {
-  id                 String              @id @default(uuid())
-  kind               ScopeKind
-  label              String
-  householdId        String
-  household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  id                  String               @id @default(uuid())
+  kind                ScopeKind
+  label               String
+  householdId         String
+  household           Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
   /// Le Compte dont c'est l'Espace personnel ; vide pour l'Espace foyer.
-  holderId           String?             @unique
-  holder             User?               @relation(fields: [holderId], references: [id], onDelete: Cascade)
-  traces             Trace[]
-  events             Event[]
-  eventExceptions    EventException[]
-  aiTraces           AiTrace[]
-  unresolvedCommands UnresolvedCommand[]
-  foodPreferences    FoodPreference[]
-  recipes            Recipe[]
-  recipeLines        RecipeLine[]
-  mealPlans          MealPlan[]
-  mealPlanEntries    MealPlanEntry[]
-  generationRounds   GenerationRound[]
-  projects           Project[]
-  projectExpenses    ProjectExpense[]
+  holderId            String?              @unique
+  holder              User?                @relation(fields: [holderId], references: [id], onDelete: Cascade)
+  traces              Trace[]
+  events              Event[]
+  eventExceptions     EventException[]
+  aiTraces            AiTrace[]
+  unresolvedCommands  UnresolvedCommand[]
+  foodPreferences     FoodPreference[]
+  recipes             Recipe[]
+  recipeLines         RecipeLine[]
+  mealPlans           MealPlan[]
+  mealPlanEntries     MealPlanEntry[]
+  generationRounds    GenerationRound[]
+  projects            Project[]
+  projectExpenses     ProjectExpense[]
+  publicPresentations PublicPresentation[]
 
   @@index([householdId])
 }
@@ -480,17 +481,18 @@ model GenerationRound {
 /// et ses dépenses. Il vit dans un Espace personnel et n'en sort jamais ; ses
 /// notes ne vont jamais vers le portfolio (ADR 0019).
 model Project {
-  id        String           @id @default(uuid())
-  scopeId   String
-  scope     Scope            @relation(fields: [scopeId], references: [id], onDelete: Cascade)
-  title     String
+  id            String               @id @default(uuid())
+  scopeId       String
+  scope         Scope                @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  title         String
   /// Les notes, en markdown, rendues côté front.
-  notes     String           @default("")
+  notes         String               @default("")
   /// Les liens (`zProjectLink` de `contracts`) : `{ label, url }[]`.
-  links     Json             @default("[]")
-  expenses  ProjectExpense[]
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  links         Json                 @default("[]")
+  expenses      ProjectExpense[]
+  presentations PublicPresentation[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
   /// La cible de la clé étrangère des dépenses, qui porte l'Espace.
   @@unique([id, scopeId])
@@ -516,6 +518,45 @@ model ProjectExpense {
 
   @@index([scopeId])
   @@index([projectId])
+}
+
+/// Une langue du portfolio. Il n'y a pas de repli de l'une sur l'autre.
+enum Lang {
+  FR
+  EN
+}
+
+/// L'État de publication d'un contenu destiné au portfolio. Il dit si le
+/// contenu est sorti sur Internet, jamais qui le voit : c'est le rôle de
+/// l'Espace.
+enum PublicationState {
+  UNPUBLISHED
+  READY
+  PUBLISHED
+}
+
+/// La Présentation publique d'un Projet, dans une langue : le texte destiné au
+/// portfolio, distinct des notes privées. Elle est dans l'Espace de son
+/// Projet, et la clé étrangère le garantit.
+model PublicPresentation {
+  id               String           @id @default(uuid())
+  scopeId          String
+  scope            Scope            @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project          @relation(fields: [projectId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  lang             Lang
+  title            String
+  /// L'accroche, une ou deux phrases.
+  summary          String
+  /// Le texte, en markdown, rendu côté front.
+  body             String           @default("")
+  publicationState PublicationState @default(UNPUBLISHED)
+  /// L'instant de la mise en ligne ; vide hors de l'état « publié ».
+  publishedAt      DateTime?        @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@unique([projectId, lang])
+  @@index([scopeId])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.

@@ -6,7 +6,11 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import type { Project, ProjectSummary } from '@personal-os/contracts';
+import type {
+  Project,
+  ProjectSummary,
+  PublicPresentation,
+} from '@personal-os/contracts';
 import { DccmConfirm, type DccmConfirmOptions } from '@personal-os/ui/dccm';
 import { API_BASE_URL } from '../app/api-base-url';
 import { INTERCEPTEURS } from '../app/app.config';
@@ -64,6 +68,19 @@ export const RESUME_POTAGER: ProjectSummary = {
   title: 'Potager sur le balcon',
   totalSpent: { cents: 0, currency: 'EUR' },
   updatedAt: '2026-04-18T08:00:00.000Z',
+};
+
+/** La Présentation publique de la reliure, en français, en ligne. */
+export const RELIURE_EN_LIGNE: PublicPresentation = {
+  id: 'presentation-fr',
+  projectId: RELIURE.id,
+  lang: 'FR',
+  title: 'Atelier de reliure',
+  summary: 'Des carnets cousus main, du papier au fil.',
+  body: '## La couture\n\nUn cahier après l’autre.',
+  publicationState: 'PUBLISHED',
+  publishedAt: '2026-10-14T08:00:00.000Z',
+  updatedAt: '2026-10-14T08:00:00.000Z',
 };
 
 /** Les écrans des Projets, avec leurs vraies routes. */
