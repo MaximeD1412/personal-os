@@ -43,6 +43,12 @@ export const FIL_DU_STOCK: readonly DccmCrumb[] = [
   { label: 'Stock', link: '/repas/stock' },
 ];
 
+/** Ce qu'une correction pose sur une ligne : ses deux champs. */
+interface Saisie {
+  quantity: number | null;
+  expiresOn: string | null;
+}
+
 /** Le refus de la dernière correction : la ligne et le champ qu'il vise. */
 interface Refus {
   ingredientId: string;
@@ -121,6 +127,15 @@ export class Stock {
   );
 
   protected readonly refus = signal<Refus | null>(null);
+  /**
+   * Par Ingrédient, les champs modifiés et pas encore enregistrés : ce que
+   * les champs affichent. Un champ modifié pendant l'envoi de l'autre s'y
+   * ajoute, au lieu de partir avec la valeur d'avant ; un refus les y laisse,
+   * pour que la saisie reprise reparte avec eux.
+   */
+  private readonly brouillons = new Map<string, Partial<Saisie>>();
+  /** Les Ingrédients dont une correction est en route : une seule à la fois. */
+  private readonly enRoute = new Set<string>();
   /** La ligne en cours de suppression, le temps de la requête. */
   protected readonly suppression = signal<string | null>(null);
   /** Le refus de la dernière suppression, en bandeau : jamais en toast seul. */
@@ -158,12 +173,12 @@ export class Stock {
       champ.value === '' || Number.isNaN(champ.valueAsNumber)
         ? null
         : champ.valueAsNumber;
-    this.corriger(ligne, { quantity, expiresOn: ligne.expiresOn });
+    this.corriger(ligne, { quantity });
   }
 
   protected changerLaPeremption(ligne: PantryItem, evenement: Event): void {
     const expiresOn = (evenement.target as HTMLInputElement).value || null;
-    this.corriger(ligne, { quantity: ligne.quantity, expiresOn });
+    this.corriger(ligne, { expiresOn });
   }
 
   protected async retirer(ligne: PantryItem): Promise<void> {
@@ -193,22 +208,49 @@ export class Stock {
     });
   }
 
-  private corriger(
-    ligne: PantryItem,
-    saisie: { quantity: number | null; expiresOn: string | null },
-  ): void {
-    const { id, displayName } = ligne.ingredient;
-    this.service.corriger(id, saisie as PantryItemInput).subscribe({
+  /** Ajoute le champ modifié au brouillon de la ligne, puis l'envoie. */
+  private corriger(ligne: PantryItem, champ: Partial<Saisie>): void {
+    const { id } = ligne.ingredient;
+    this.brouillons.set(id, { ...this.brouillons.get(id), ...champ });
+    this.envoyer(id);
+  }
+
+  /**
+   * Envoie le brouillon de la ligne sur ce que le stock en sait, si aucune
+   * correction n'est déjà en route ; sinon, il partira à son retour, avec
+   * tout ce qui s'y est ajouté.
+   */
+  private envoyer(id: string): void {
+    const brouillon = this.brouillons.get(id);
+    const ligne = this.lignes().find((l) => l.ingredient.id === id);
+    if (!brouillon || !ligne || this.enRoute.has(id)) return;
+
+    const saisie = {
+      quantity: ligne.quantity,
+      expiresOn: ligne.expiresOn,
+      ...brouillon,
+    } as PantryItemInput;
+    this.enRoute.add(id);
+    this.service.corriger(id, saisie).subscribe({
       next: (corrigee) => {
+        this.enRoute.delete(id);
+        // Le brouillon a changé pendant l'envoi : il part à son tour, et
+        // c'est sa réponse qui s'affichera.
+        if (this.brouillons.get(id) !== brouillon) {
+          this.envoyer(id);
+          return;
+        }
+        this.brouillons.delete(id);
         if (this.refus()?.ingredientId === id) this.refus.set(null);
         this.lecture.update((lignes) =>
           lignes.map((l) => (l.id === corrigee.id ? corrigee : l)),
         );
         showToast({
-          message: `«\u00a0${displayName}\u00a0» : ${quantiteCanonique(corrigee.quantity, corrigee.ingredient.canonicalUnit)} en stock.`,
+          message: `«\u00a0${ligne.ingredient.displayName}\u00a0» : ${quantiteCanonique(corrigee.quantity, corrigee.ingredient.canonicalUnit)} en stock.`,
         });
       },
       error: (erreur: ErreurApi) => {
+        this.enRoute.delete(id);
         const champs = erreursDeChamp(erreur);
         const champ =
           champs['expiresOn'] && !champs['quantity'] ? 'expiresOn' : 'quantity';

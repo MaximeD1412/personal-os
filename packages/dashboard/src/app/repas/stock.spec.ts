@@ -170,6 +170,78 @@ describe('Le Stock domestique', () => {
     effacee.flush({ ...LAIT, expiresOn: null });
   });
 
+  it('garde les deux corrections d’une ligne modifiée deux fois avant la première réponse', async () => {
+    const ouvert = await ouvrir();
+    const { el, http } = ouvert;
+
+    await saisir(ouvert, champ(el(), 'ingredient-lait', 'quantite'), '250');
+    await saisir(
+      ouvert,
+      champ(el(), 'ingredient-lait', 'peremption'),
+      '2026-10-25',
+    );
+
+    // Une seule correction part à la fois : la seconde attend la première.
+    const premiere = http.expectOne(`${BASE}/pantry-items/ingredient-lait`);
+    expect(premiere.request.body).toEqual({
+      quantity: 250,
+      expiresOn: '2026-10-21',
+    });
+    premiere.flush({ ...LAIT, quantity: 250 });
+    await ouvert.harness.fixture.whenStable();
+
+    const seconde = http.expectOne(`${BASE}/pantry-items/ingredient-lait`);
+    expect(seconde.request.body).toEqual({
+      quantity: 250,
+      expiresOn: '2026-10-25',
+    });
+    seconde.flush({ ...LAIT, quantity: 250, expiresOn: '2026-10-25' });
+    await ouvert.harness.fixture.whenStable();
+
+    expect(champ(el(), 'ingredient-lait', 'quantite').value).toBe('250');
+    expect(champ(el(), 'ingredient-lait', 'peremption').value).toBe(
+      '2026-10-25',
+    );
+  });
+
+  it('après un refus, renvoie la saisie reprise avec l’autre champ modifié entre-temps', async () => {
+    const ouvert = await ouvrir();
+    const { el, http } = ouvert;
+
+    await saisir(ouvert, champ(el(), 'ingredient-lait', 'quantite'), '-3');
+    await saisir(
+      ouvert,
+      champ(el(), 'ingredient-lait', 'peremption'),
+      '2026-10-25',
+    );
+    http.expectOne(`${BASE}/pantry-items/ingredient-lait`).flush(
+      {
+        status: 400,
+        code: 'validation.failed',
+        message: 'La saisie est invalide.',
+        fields: [
+          {
+            path: 'quantity',
+            code: 'too_small',
+            message: 'La quantité ne peut pas être négative.',
+          },
+        ],
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    TestBed.tick();
+    http.expectOne(`${BASE}/pantry-items`).flush([LAIT, SPAGHETTI, YAOURT]);
+    await ouvert.harness.fixture.whenStable();
+
+    await saisir(ouvert, champ(el(), 'ingredient-lait', 'quantite'), '300');
+    const reprise = http.expectOne(`${BASE}/pantry-items/ingredient-lait`);
+    expect(reprise.request.body).toEqual({
+      quantity: 300,
+      expiresOn: '2026-10-25',
+    });
+    reprise.flush({ ...LAIT, quantity: 300, expiresOn: '2026-10-25' });
+  });
+
   it("dit le refus de l'API sous le champ, qui garde la saisie à reprendre", async () => {
     const ouvert = await ouvrir();
     const { el, http } = ouvert;

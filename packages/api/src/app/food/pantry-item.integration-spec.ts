@@ -287,6 +287,56 @@ describe('Stock domestique', () => {
     });
   });
 
+  describe("L'Unité canonique d'un Ingrédient en stock", () => {
+    it('refuse en 422 de changer quand sa ligne a une quantité, qui reste dans son unité', async () => {
+      const oignon = await ingredient('Oignon (stock)');
+      await corriger(oignon.id, { quantity: 1000 });
+
+      await request(app.getHttpServer())
+        .patch(`/api/ingredients/${oignon.id}`)
+        .set('Cookie', jeu.b.session)
+        .send({ canonicalUnit: 'PIECE', gramsPerPiece: 100 })
+        .expect(422)
+        .expect(codeDErreur('food.ingredient_unit_in_stock'));
+
+      expect(await lignesDe([oignon.id])).toMatchObject([
+        { quantity: 1000, ingredient: { canonicalUnit: 'GRAM' } },
+      ]);
+
+      // Le reste de l'Ingrédient se modifie toujours.
+      await request(app.getHttpServer())
+        .patch(`/api/ingredients/${oignon.id}`)
+        .set('Cookie', jeu.a.session)
+        .send({ canonicalUnit: 'GRAM', gramsPerPiece: 100 })
+        .expect(200);
+    });
+
+    it('change quand sa ligne est à zéro, ou retirée', async () => {
+      const ail = await ingredient('Ail (stock)');
+      await corriger(ail.id, { quantity: 0 });
+
+      await request(app.getHttpServer())
+        .patch(`/api/ingredients/${ail.id}`)
+        .set('Cookie', jeu.a.session)
+        .send({ canonicalUnit: 'PIECE' })
+        .expect(200);
+      expect(await lignesDe([ail.id])).toMatchObject([
+        { quantity: 0, ingredient: { canonicalUnit: 'PIECE' } },
+      ]);
+
+      await corriger(ail.id, { quantity: 4 });
+      await request(app.getHttpServer())
+        .delete(`/api/pantry-items/${ail.id}`)
+        .set('Cookie', jeu.a.session)
+        .expect(204);
+      await request(app.getHttpServer())
+        .patch(`/api/ingredients/${ail.id}`)
+        .set('Cookie', jeu.a.session)
+        .send({ canonicalUnit: 'GRAM' })
+        .expect(200);
+    });
+  });
+
   async function corriger(
     ingredientId: string,
     saisie: Record<string, unknown>,

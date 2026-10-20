@@ -4,6 +4,7 @@ import type {
   IngredientWrite,
 } from './ingredient.repository';
 import { IngredientService } from './ingredient.service';
+import type { PantryItemRepository } from './pantry-item.repository';
 
 const CITRON: IngredientRecord = {
   id: 'ingredient-1',
@@ -16,8 +17,11 @@ const CITRON: IngredientRecord = {
   createdAt: new Date('2026-10-19T08:00:00.000Z'),
 };
 
-/** Un dépôt qui garde un seul Ingrédient, et note ce qu'on lui demande. */
-function depot(enBase: IngredientRecord | null = CITRON) {
+/**
+ * Un dépôt qui garde un seul Ingrédient, et note ce qu'on lui demande ;
+ * `enStock` dit si cet Ingrédient a une quantité en stock.
+ */
+function depot(enBase: IngredientRecord | null = CITRON, enStock = false) {
   const appels: {
     lister?: readonly string[];
     ecrit?: Partial<IngredientWrite>;
@@ -39,7 +43,11 @@ function depot(enBase: IngredientRecord | null = CITRON) {
     },
   } as unknown as IngredientRepository;
 
-  return { service: new IngredientService(repository), appels };
+  const stock = {
+    aDuStock: () => Promise.resolve(enStock),
+  } as unknown as PantryItemRepository;
+
+  return { service: new IngredientService(repository, stock), appels };
 }
 
 /** Une règle métier violée : son code, en 422 (ADR 0030). */
@@ -151,6 +159,28 @@ describe('IngredientService', () => {
       await expect(
         service.modifier(CITRON.id, { gramsPerPiece: 100 }),
       ).rejects.toMatchObject(REGLE('food.grams_per_piece_not_applicable'));
+    });
+  });
+
+  describe("L'Unité canonique", () => {
+    it('ne change pas tant que l’Ingrédient a du stock', async () => {
+      const { service, appels } = depot(CITRON, true);
+
+      await expect(
+        service.modifier(CITRON.id, { canonicalUnit: 'GRAM' }),
+      ).rejects.toMatchObject(REGLE('food.ingredient_unit_in_stock'));
+      expect(appels.ecrit).toBeUndefined();
+    });
+
+    it('laisse modifier le reste, ou reposer la même unité, d’un Ingrédient en stock', async () => {
+      const { service, appels } = depot(CITRON, true);
+
+      await service.modifier(CITRON.id, {
+        canonicalUnit: 'PIECE',
+        displayName: 'Citron jaune',
+      });
+
+      expect(appels.ecrit).toMatchObject({ canonicalUnit: 'PIECE' });
     });
   });
 

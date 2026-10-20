@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { CanonicalUnit } from '@personal-os/contracts';
-import { ID_ESPACE_FOYER, PrismaService } from '@personal-os/database';
+import {
+  ID_ESPACE_FOYER,
+  PrismaService,
+  sousPortee,
+} from '@personal-os/database';
 
 export interface PantryItemRecord {
   id: string;
@@ -15,6 +19,12 @@ export interface PantryItemWrite {
   quantity: string;
   expiresOn: string | null;
 }
+
+/** Le stock n'est que dans l'Espace foyer : la Cuisine le pose elle-même. */
+const SOUS_L_ESPACE_FOYER = {
+  espaces: [{ id: ID_ESPACE_FOYER, kind: 'HOUSEHOLD' as const }],
+  typesAcceptes: ['HOUSEHOLD' as const],
+};
 
 const AVEC_L_INGREDIENT = {
   ingredient: { select: { id: true, displayName: true, canonicalUnit: true } },
@@ -59,6 +69,24 @@ export class PantryItemRepository {
     return (
       await this.prisma.pantryItem.deleteMany({ where: { ingredientId } })
     ).count;
+  }
+
+  /**
+   * L'Ingrédient a-t-il une quantité en stock ? Le catalogue le demande
+   * hors Espace, avant de changer une Unité canonique : la portée se pose ici
+   * sur l'Espace foyer, et la réponse n'est qu'un oui ou un non.
+   */
+  async aDuStock(ingredientId: string): Promise<boolean> {
+    const lignes = await sousPortee(
+      SOUS_L_ESPACE_FOYER,
+      // Attendue ici : une requête Prisma ne part qu'à son premier `then`, et
+      // partirait sinon hors de cette portée.
+      async () =>
+        await this.prisma.pantryItem.count({
+          where: { ingredientId, quantity: { gt: 0 } },
+        }),
+    );
+    return lignes > 0;
   }
 
   async ingredientExiste(id: string): Promise<boolean> {
