@@ -205,3 +205,64 @@ export const zIngredientListQuery = /* @__PURE__ */ z.object({
 });
 
 export type IngredientListQuery = z.infer<typeof zIngredientListQuery>;
+
+/** Ce que le résolveur accepte d'un coup : les ingrédients d'une semaine de repas. */
+const RESOLUTION_AU_PLUS = 200;
+
+/**
+ * Les libellés libres à rattacher au catalogue, tels qu'une recette ou l'IA
+ * les donne. Chacun est normalisé avant d'être comparé.
+ */
+export const zIngredientResolveInput = /* @__PURE__ */ z.object({
+  labels: /* @__PURE__ */ z.array(zDisplayName).min(1).max(RESOLUTION_AU_PLUS),
+});
+
+export type IngredientResolveInput = z.infer<typeof zIngredientResolveInput>;
+
+/**
+ * Le sort d'un libellé : rattaché à un Ingrédient (par un Alias, ou par son
+ * nom exact), ou inconnu, avec au plus cinq Ingrédients à proposer. Le
+ * libellé revient tel qu'il a été envoyé, sans ses espaces de bord.
+ */
+export const zIngredientResolution = /* @__PURE__ */ z.union([
+  /* @__PURE__ */ z.object({
+    label: /* @__PURE__ */ z.string(),
+    ingredientId: /* @__PURE__ */ z.string(),
+  }),
+  /* @__PURE__ */ z.object({
+    label: /* @__PURE__ */ z.string(),
+    unknown: /* @__PURE__ */ z.literal(true),
+    suggestions: /* @__PURE__ */ z.array(z.string()).max(5),
+  }),
+]);
+
+export type IngredientResolution = z.infer<typeof zIngredientResolution>;
+
+/** Un résultat par libellé, dans l'ordre de la demande. */
+export const zIngredientResolutions = /* @__PURE__ */ z.array(
+  zIngredientResolution,
+);
+
+/**
+ * Un Alias d'ingrédient : un libellé, normalisé, rattaché à un Ingrédient.
+ * Global comme le catalogue. Il ne se crée que sur un geste de l'utilisateur.
+ */
+export const zIngredientAlias = /* @__PURE__ */ z.object({
+  id: /* @__PURE__ */ z.string(),
+  label: /* @__PURE__ */ z.string(),
+  ingredientId: /* @__PURE__ */ z.string(),
+  createdAt: zInstant,
+});
+
+export type IngredientAlias = z.infer<typeof zIngredientAlias>;
+
+/**
+ * Rattacher un libellé. Qu'il ne soit pas déjà rattaché à un autre Ingrédient
+ * est une règle métier (`food.alias_conflict`).
+ */
+export const zIngredientAliasInput = /* @__PURE__ */ z.object({
+  label: zDisplayName,
+  ingredientId: /* @__PURE__ */ z.string().min(1),
+});
+
+export type IngredientAliasInput = z.infer<typeof zIngredientAliasInput>;

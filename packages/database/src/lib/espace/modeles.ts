@@ -20,6 +20,9 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
     // Le catalogue d'Ingrédients est global : les deux Comptes du Foyer le
     // partagent (CUISINE-1).
     Ingredient: [],
+    // Ses Alias le sont aussi : un libellé rattaché vaut pour le Foyer entier
+    // (CUISINE-3).
+    IngredientAlias: [],
     Scope: [
       'traces',
       'events',
@@ -47,6 +50,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   LoginTransaction: [],
   Household: ['members', 'scopes'],
   Ingredient: [],
+  IngredientAlias: [],
   Scope: [
     'household',
     'holder',
