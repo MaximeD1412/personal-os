@@ -2,17 +2,18 @@ import {
   Body,
   Controller,
   Get,
-  type INestApplication,
   Logger,
   Module,
   NotFoundException,
   Post,
 } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { type ApiError, zApiError } from '@personal-os/contracts';
 import { createZodDto } from 'nestjs-zod';
 import request from 'supertest';
 import { z } from 'zod';
+import { accepterLesCorpsJson } from '../../corps';
 import { AppModule } from '../app.module';
 import { Public } from '../auth/public.decorator';
 import { ErreurMetier } from './erreur-metier';
@@ -55,15 +56,16 @@ class ControleurDErreurs {
 class ModuleDErreurs {}
 
 describe("L'enveloppe d'erreur unique (ADR 0030)", () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule, ModuleDErreurs],
     }).compile();
 
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
     app.setGlobalPrefix('api');
+    accepterLesCorpsJson(app);
     await app.init();
   });
 
@@ -136,7 +138,7 @@ describe("L'enveloppe d'erreur unique (ADR 0030)", () => {
     const reponse = await request(app.getHttpServer())
       .post('/api/erreurs-de-test/saisie')
       .set('Content-Type', 'application/json')
-      .send(JSON.stringify({ a: { b: [] }, remplissage: 'x'.repeat(200_000) }))
+      .send(JSON.stringify({ a: { b: [] }, remplissage: 'x'.repeat(2_200_000) }))
       .expect(413);
 
     expect(enveloppe(reponse.body)).toEqual({

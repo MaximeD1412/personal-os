@@ -12,7 +12,10 @@ module.exports = {
       },
     ],
   },
-  transformIgnorePatterns: ['node_modules/(?!.*\\.mjs$)'],
+  // marked (le rendu des notes d'un Projet) n'est publié qu'en module ES.
+  transformIgnorePatterns: [
+    'node_modules/(?!(.*\\.mjs$|\\.pnpm/marked@|marked/))',
+  ],
   snapshotSerializers: [
     'jest-preset-angular/build/serializers/no-ng-attributes',
     'jest-preset-angular/build/serializers/ng-snapshot',

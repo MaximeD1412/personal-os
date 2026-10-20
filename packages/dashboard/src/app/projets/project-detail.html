@@ -1,0 +1,191 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header [heading]="titre()" [breadcrumb]="fil()">
+    @if (projet()) {
+    <a
+      hlmBtn
+      variant="secondary"
+      data-test="modifier"
+      [routerLink]="['/projets', id, 'modifier']"
+    >
+      <ng-icon name="matEditOutline" aria-hidden="true" />
+      <span class="max-sm:sr-only">Modifier</span>
+    </a>
+    <button
+      hlmBtn
+      type="button"
+      variant="destructive"
+      data-test="supprimer"
+      [disabled]="envoi()"
+      (click)="supprimer()"
+    >
+      <ng-icon name="matDeleteOutline" aria-hidden="true" />
+      <span class="max-sm:sr-only">Supprimer</span>
+    </button>
+    }
+  </dccm-page-header>
+
+  @if (refus(); as refus) {
+  <div hlmAlert tone="error" data-test="refus">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>{{ refus.message }}</p>
+    </div>
+  </div>
+  }
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="detail"
+    loadingLabel="Chargement du projet…"
+    (retry)="lecture.reload()"
+  >
+    @if (projet(); as projet) {
+    <div class="grid gap-gutter lg:grid-cols-3 lg:items-start">
+      <section hlmCard class="lg:col-span-3" data-test="depenses">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Dépenses</h2>
+          <p hlmCardDescription>Ce que le projet a coûté, au centime près.</p>
+          <div hlmCardAction>
+            <a
+              hlmBtn
+              variant="secondary"
+              size="sm"
+              data-test="ajouter-une-depense"
+              [routerLink]="['/projets', id, 'depenses', 'nouvelle']"
+            >
+              <ng-icon name="matAddOutline" aria-hidden="true" />
+              Ajouter une dépense
+            </a>
+          </div>
+        </div>
+        <div hlmCardContent>
+          <div hlmTableContainer>
+            <table hlmTable>
+              <thead hlmTableHeader>
+                <tr hlmTableRow>
+                  <th hlmTableHead scope="col">Libellé</th>
+                  <th hlmTableHead scope="col">Date</th>
+                  <th hlmTableHead scope="col" class="text-end">Montant</th>
+                  <th hlmTableHead scope="col" class="w-0">
+                    <span class="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody hlmTableBody>
+                @for (depense of projet.expenses; track depense.id) {
+                <tr hlmTableRow data-test="depense">
+                  <td
+                    hlmTableCell
+                    class="font-semibold whitespace-normal text-on-surface"
+                  >
+                    {{ depense.label }}
+                  </td>
+                  <td hlmTableCell class="tabular-nums">
+                    {{ jour(depense.spentOn) }}
+                  </td>
+                  <td hlmTableCell class="text-end font-mono tabular-nums">
+                    {{ montant(depense.amount) }}
+                  </td>
+                  <td hlmTableCell class="py-0 text-end">
+                    <button
+                      hlmBtn
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      data-test="retirer-la-depense"
+                      [attr.aria-label]="'Retirer la dépense ' + depense.label"
+                      [disabled]="envoi()"
+                      (click)="retirer(depense)"
+                    >
+                      <ng-icon name="matDeleteOutline" aria-hidden="true" />
+                    </button>
+                  </td>
+                </tr>
+                } @empty {
+                <tr hlmTableRow>
+                  <td hlmTableCell colspan="4" class="text-outline">
+                    Aucune dépense pour l’instant.
+                  </td>
+                </tr>
+                }
+              </tbody>
+              <tfoot hlmTableFooter>
+                <tr hlmTableRow>
+                  <th
+                    hlmTableHead
+                    scope="row"
+                    colspan="2"
+                    class="text-on-surface"
+                  >
+                    Total
+                  </th>
+                  <td
+                    hlmTableCell
+                    class="text-end font-mono font-semibold tabular-nums text-primary"
+                    data-test="total"
+                  >
+                    {{ montant(projet.totalSpent) }}
+                  </td>
+                  <td hlmTableCell></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section hlmCard class="lg:col-span-2" data-test="notes">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Notes</h2>
+          <div hlmCardAction>
+            <span hlmBadge tone="neutral">Privé</span>
+          </div>
+        </div>
+        <div hlmCardContent>
+          @if (notes()) {
+          <div
+            data-test="notes-rendues"
+            class="flex flex-col gap-space-sm text-body-default text-on-surface-variant [&_a]:text-primary [&_a]:underline [&_blockquote]:border-s-2 [&_blockquote]:border-outline-variant [&_blockquote]:ps-space-sm [&_blockquote]:text-secondary [&_code]:font-mono [&_code]:text-code-mono [&_h1]:text-headline-md [&_h1]:text-on-surface [&_h2]:text-title-sm [&_h2]:text-on-surface [&_h3]:text-label-regular [&_h3]:font-semibold [&_h3]:text-on-surface [&_ol]:list-decimal [&_ol]:ps-gutter [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-container-low [&_pre]:p-space-sm [&_strong]:text-on-surface [&_ul]:list-disc [&_ul]:ps-gutter [&_li.tache]:list-none"
+            [innerHTML]="notes()"
+          ></div>
+          } @else {
+          <p class="text-body-default text-outline">Aucune note.</p>
+          }
+        </div>
+      </section>
+
+      <section hlmCard data-test="liens">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Liens</h2>
+        </div>
+        <div hlmCardContent>
+          @if (projet.links.length) {
+          <ul class="flex flex-col gap-space-sm">
+            @for (lien of projet.links; track $index) {
+            <li>
+              <a
+                class="inline-flex items-center gap-1 text-body-default text-primary underline-offset-4 hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                [href]="lien.url"
+              >
+                {{ lien.label }}
+                <ng-icon
+                  name="matOpenInNewOutline"
+                  class="icon-xs"
+                  aria-hidden="true"
+                />
+              </a>
+            </li>
+            }
+          </ul>
+          } @else {
+          <p class="text-body-default text-outline">Aucun lien.</p>
+          }
+        </div>
+      </section>
+    </div>
+    }
+  </dccm-state>
+</div>

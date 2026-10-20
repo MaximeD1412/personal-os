@@ -52,4 +52,32 @@ export const appRoutes: Route[] = [
   // prérempli par sa requête (ADR 0030).
   { path: 'foyer/preferences', component: Preferences },
   { path: 'foyer/preferences/nouvelle', component: FormulaireDePreference },
+  // Les Projets de l'Espace personnel, chargés à la demande : le rendu du
+  // markdown n'alourdit pas le bundle initial. Les formulaires sont
+  // adressables et préremplis par leur requête (ADR 0030) ; « nouveau »
+  // passe avant l'identifiant.
+  {
+    path: 'projets',
+    loadComponent: async () => (await import('./projets/projects')).Projets,
+  },
+  {
+    path: 'projets/nouveau',
+    loadComponent: async () =>
+      (await import('./projets/project-form')).FormulaireDeProjet,
+  },
+  {
+    path: 'projets/:id',
+    loadComponent: async () =>
+      (await import('./projets/project-detail')).FicheDeProjet,
+  },
+  {
+    path: 'projets/:id/modifier',
+    loadComponent: async () =>
+      (await import('./projets/project-form')).FormulaireDeProjet,
+  },
+  {
+    path: 'projets/:id/depenses/nouvelle',
+    loadComponent: async () =>
+      (await import('./projets/expense-form')).FormulaireDeDepense,
+  },
 ];

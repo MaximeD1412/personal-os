@@ -34,6 +34,8 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
       'recipeLines',
       'mealPlans',
       'mealPlanEntries',
+      'projects',
+      'projectExpenses',
     ],
   };
 
@@ -72,6 +74,8 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'recipeLines',
     'mealPlans',
     'mealPlanEntries',
+    'projects',
+    'projectExpenses',
   ],
 };
 

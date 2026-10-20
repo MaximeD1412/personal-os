@@ -5,8 +5,8 @@ import type {
   UnresolvedCommandListQuery,
   UnresolvedCommandPage,
 } from '@personal-os/contracts';
-import { porteeCourante } from '@personal-os/database';
 import { GenerateurIA } from '../ai/generateur-ia';
+import { espacePersonnelCourant } from '../espace/espace-personnel';
 import { CATALOGUE_DE_COMMANDES } from './catalogue/catalogue';
 import { resoudre } from './resolution/resoudre';
 import { UnresolvedCommandRepository } from './unresolved-command.repository';
@@ -26,7 +26,9 @@ export class CommandBarService {
   ) {}
 
   async resoudre(text: string): Promise<CommandResolution> {
-    const scopeId = espacePersonnel();
+    // Le journal, comme la trace de l'appel au modèle, vit dans l'Espace
+    // personnel de l'auteur de la commande.
+    const scopeId = espacePersonnelCourant();
     const resolution = await resoudre(text, {
       catalogue: this.catalogue,
       generateur: this.generateur,
@@ -59,22 +61,4 @@ export class CommandBarService {
       nextCursor: commandes.length > limit ? items[items.length - 1].id : null,
     };
   }
-}
-
-/**
- * Le journal, comme la trace de l'appel au modèle, vit dans l'Espace
- * personnel de l'auteur de la commande : le module le pose lui-même, comme un
- * module à Espace unique (ADR 0030). C'est le seul Espace personnel que la
- * portée de la requête atteint.
- */
-function espacePersonnel(): string {
-  const espace = porteeCourante()?.espaces.find(
-    ({ kind }) => kind === 'PERSONAL',
-  );
-  if (!espace) {
-    throw new Error(
-      "La commande n'a pas d'auteur : aucun Espace personnel dans la portée.",
-    );
-  }
-  return espace.id;
 }
