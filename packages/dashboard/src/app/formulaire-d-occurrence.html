@@ -1,0 +1,99 @@
+<dccm-form-page
+  heading="Modifier l'occurrence"
+  [subtitle]="sousTitre()"
+  [presentation]="presentation()"
+  submitLabel="Enregistrer"
+  [error]="refus()"
+  [pending]="envoi()"
+  [submitDisabled]="!pretAEnregistrer()"
+  (submitted)="enregistrer()"
+  (cancelled)="fermer()"
+>
+  <dccm-state
+    [status]="etatDeLaCible()"
+    [error]="erreurDeLecture()"
+    skeleton="detail"
+    [rows]="3"
+    errorHeading="L'occurrence n'a pas pu être lue"
+    (retry)="relireLeMois()"
+  >
+    <div class="flex flex-col gap-gutter">
+      <div hlmField>
+        <label hlmFieldLabel for="occurrence-titre">Intitulé</label>
+        <input
+          hlmInput
+          id="occurrence-titre"
+          type="text"
+          data-test="titre"
+          [forceInvalid]="!!erreurs()['title']"
+          [value]="saisie().titre"
+          (input)="saisir('titre', $event)"
+        />
+        @if (erreurs()['title']; as message) {
+        <hlm-field-error forceShow data-test="erreur-title"
+          >{{ message }}</hlm-field-error
+        >
+        }
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="occurrence-debut">Début</label>
+        <input
+          hlmInput
+          id="occurrence-debut"
+          type="datetime-local"
+          data-test="debut"
+          [forceInvalid]="!!erreurs()['startsAt']"
+          [value]="saisie().debut"
+          (input)="saisir('debut', $event)"
+        />
+        @if (erreurs()['startsAt']; as message) {
+        <hlm-field-error forceShow data-test="erreur-startsAt"
+          >{{ message }}</hlm-field-error
+        >
+        }
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="occurrence-fin">Fin</label>
+        <input
+          hlmInput
+          id="occurrence-fin"
+          type="datetime-local"
+          data-test="fin"
+          [forceInvalid]="!!erreurs()['endsAt']"
+          [value]="saisie().fin"
+          (input)="saisir('fin', $event)"
+        />
+        @if (erreurs()['endsAt']; as message) {
+        <hlm-field-error forceShow data-test="erreur-endsAt"
+          >{{ message }}</hlm-field-error
+        >
+        }
+      </div>
+
+      <p class="text-body-dense text-on-surface-variant" data-test="portee">
+        Seule cette occurrence change : la catégorie, l'Espace, le rappel et la
+        répétition sont ceux de la série.
+      </p>
+    </div>
+  </dccm-state>
+
+  @if (enEdition()) {
+  <button
+    dccmFormPageStatus
+    hlmBtn
+    variant="destructive"
+    type="button"
+    data-test="supprimer"
+    size="icon"
+    class="me-auto"
+    aria-label="Supprimer l'occurrence"
+    title="Supprimer l'occurrence"
+    [disabled]="envoi()"
+    (click)="supprimer()"
+  >
+    <ng-icon [svg]="iconeSupprimer" aria-hidden="true" />
+  </button>
+  }
+</dccm-form-page>

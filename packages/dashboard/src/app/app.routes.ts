@@ -2,6 +2,7 @@ import { Route } from '@angular/router';
 import { Agenda } from './agenda';
 import { Calendrier } from './calendrier';
 import { FormulaireDEvenement } from './formulaire-d-evenement';
+import { FormulaireDOccurrence } from './formulaire-d-occurrence';
 import { FicheDIngredient } from './repas/ingredient-detail';
 import { FormulaireDIngredient } from './repas/ingredient-form';
 import { Ingredients } from './repas/ingredients';
@@ -21,6 +22,11 @@ export const appRoutes: Route[] = [
         data: { creation: true },
       },
       { path: 'evenements/:id', component: FormulaireDEvenement },
+      // Une seule occurrence d'une série, par l'instant où la règle la place.
+      {
+        path: 'evenements/:id/occurrences/:originalStart',
+        component: FormulaireDOccurrence,
+      },
     ],
   },
   // Le catalogue d'Ingrédients, global au Foyer. Le formulaire de création est

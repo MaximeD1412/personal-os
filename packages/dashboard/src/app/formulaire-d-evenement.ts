@@ -7,12 +7,13 @@ import {
   untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import { matDeleteOutline } from '@ng-icons/material-symbols/outline';
 import {
   zEventInput,
   type ApiError,
+  type Event,
   type EventCategory,
   type EventInput,
   type EventOccurrence,
@@ -29,15 +30,33 @@ import { HlmFieldImports } from '@personal-os/ui/field';
 import { HlmInput } from '@personal-os/ui/input';
 import { HlmSelectImports } from '@personal-os/ui/select';
 import { showToast } from '@personal-os/ui/sonner';
+import { HlmSwitch } from '@personal-os/ui/switch';
 import { HlmToggleGroupImports } from '@personal-os/ui/toggle-group';
 import { combineLatest, map } from 'rxjs';
 import { CATEGORIES } from './categories-d-evenement';
+import { formaterInstant } from './dates';
+import { ErreurApi } from './erreur-api.interceptor';
 import { EspaceCourant } from './espace-courant';
 import { EventService } from './event.service';
 import { erreursDeChamp, prefillDepuisRequete } from './formulaire';
 import { BUREAU, Largeur } from './largeur';
 import { MoisDuCalendrier } from './mois-du-calendrier';
-import { PARAMETRE_D_OCCURRENCE } from './modules-d-origine';
+import {
+  PARAMETRE_DE_MOIS,
+  PARAMETRE_D_OCCURRENCE,
+} from './modules-d-origine';
+import {
+  choisitSesJours,
+  FINS_OFFERTES,
+  FREQUENCES_OFFERTES,
+  JOURS_OFFERTS,
+  memeRegle,
+  SANS_REPETITION,
+  uniteDe,
+  versRegle,
+  versSaisie,
+  type SaisieDeRecurrence,
+} from './saisie-de-recurrence';
 
 /**
  * Les paliers de rappel offerts par l'écran. Un rappel est un délai avant le
@@ -84,9 +103,14 @@ interface Cible {
 
 /**
  * Le formulaire d'un Événement, à sa route : `/calendrier/evenements/nouveau`
- * pour en créer un, `/calendrier/evenements/:id` pour le modifier. Il s'ouvre
- * dans le Calendrier, en panneau à partir de 1280 px et en feuille en
- * dessous.
+ * pour en créer un, `/calendrier/evenements/:id` pour le modifier — une série
+ * entière, quand l'Événement en est une. Il s'ouvre dans le Calendrier, en
+ * panneau à partir de 1280 px et en feuille en dessous.
+ *
+ * Ouvert sur l'occurrence d'une série (`?occurrence=`, le lien d'une pastille
+ * ou de l'Agenda), il demande d'abord ce que la modification touche, sans
+ * choix par défaut : cette occurrence, que modifie son propre formulaire
+ * (`FormulaireDOccurrence`), ou toute la série (AGENDA-2).
  *
  * Il se préremplit depuis la requête (ADR 0030) : `title`, `startsAt`,
  * `endsAt`, `category`, `reminderLeadMinutes`, `scopeId`, validés par le
@@ -108,6 +132,7 @@ interface Cible {
     HlmFieldImports,
     HlmSelectImports,
     HlmToggleGroupImports,
+    HlmSwitch,
     DccmFormPage,
     DccmState,
   ],
@@ -116,6 +141,7 @@ export class FormulaireDEvenement {
   private readonly calendrier = inject(MoisDuCalendrier);
   private readonly api = inject(EventService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly confirmation = inject(DccmConfirm);
   private readonly espaceCourant = inject(EspaceCourant);
 
@@ -125,6 +151,9 @@ export class FormulaireDEvenement {
   private readonly bureau = inject(Largeur).auMoins(BUREAU);
 
   protected readonly categories = CATEGORIES;
+  protected readonly frequences = FREQUENCES_OFFERTES;
+  protected readonly jours = JOURS_OFFERTS;
+  protected readonly fins = FINS_OFFERTES;
   protected readonly creation = !!this.route.snapshot.data['creation'];
 
   protected readonly espaces = computed(() =>
@@ -151,10 +180,27 @@ export class FormulaireDEvenement {
   );
   private repriseDe: Cible | null = null;
 
+  /**
+   * L'Événement lui-même, et non l'une de ses occurrences : une occurrence
+   * peut porter le titre ou les horaires d'une exception, que la série n'a
+   * pas.
+   */
+  private readonly lu = this.api.evenement(() =>
+    this.creation ? null : this.cible().id,
+  );
+
   /** Le dernier refus d'une écriture, tel que l'API l'a formulé. */
   protected readonly refus = signal<ApiError | null>(null);
   /** Les messages de l'API, rangés sous le champ qu'ils visent. */
   protected readonly erreurs = computed(() => erreursDeChamp(this.refus()));
+  /** Un refus de la règle vise l'un de ses champs (`recurrence.count`). */
+  protected readonly erreurDeRecurrence = computed(
+    () =>
+      Object.entries(this.erreurs()).find(
+        ([chemin]) =>
+          chemin === 'recurrence' || chemin.startsWith('recurrence.'),
+      )?.[1] ?? null,
+  );
   protected readonly envoi = signal(false);
 
   /** Les paramètres de la requête que le formulaire n'a pas pu reprendre. */
@@ -162,39 +208,70 @@ export class FormulaireDEvenement {
   /** Ce que la requête a prérempli. */
   private readonly prerempli = signal<Partial<EventInput>>({});
 
-  /**
-   * L'occurrence reprise dans le formulaire, ou `null` quand on en crée un.
-   * La modifier modifie son Événement, donc toute la série : choisir entre
-   * l'occurrence et la série relève d'AGENDA-2.
-   */
-  protected readonly enEdition = signal<EventOccurrence | null>(null);
+  /** L'Événement repris dans le formulaire, ou `null` quand on en crée un. */
+  protected readonly enEdition = signal<Event | null>(null);
   protected readonly saisie = signal<Saisie>({ ...SAISIE_VIERGE });
+  protected readonly repetition = signal<SaisieDeRecurrence>(SANS_REPETITION);
 
   /** L'Espace a été choisi dans le champ : le sélecteur ne le change plus. */
   private readonly espaceChoisiALaMain = signal(false);
 
   /**
-   * Les bornes d'une occurrence ne sont pas celles de sa série : les envoyer
-   * déplacerait le début de toute la série, ou en changerait la durée de
-   * chaque occurrence. Tant que l'écran ne sait pas modifier une occurrence
-   * seule (AGENDA-2), ses horaires restent hors de la modification.
+   * Le lien désigne l'occurrence d'une série : rien ne s'affiche tant que
+   * l'on n'a pas choisi entre elle et toute la série. Un Événement qui n'a
+   * lieu qu'une fois s'ouvre directement.
    */
+  protected readonly choixAttendu = computed(() => {
+    if (
+      this.creation ||
+      this.cible().occurrence === null ||
+      this.erreurDeLecture()
+    ) {
+      return false;
+    }
+    return !this.lu.hasValue() || this.lu.value()?.recurrence !== null;
+  });
+
   /**
-   * Une modification attend son Événement : tant que le mois n'est pas lu, ou
-   * s'il n'a pas pu l'être, rien ne se saisit ni ne s'enregistre.
+   * Une modification attend son Événement : tant qu'il n'est pas lu, ou s'il
+   * n'a pas pu l'être, rien ne se saisit ni ne s'enregistre.
    */
   protected readonly etatDeLaCible = computed((): DccmStateStatus => {
     if (this.creation || this.enEdition()) {
       return 'ready';
     }
-    return this.calendrier.lecture.status() === 'error' ? 'error' : 'loading';
+    return this.erreurDeLecture() ? 'error' : 'loading';
   });
-  protected readonly erreurDeLecture = computed(() =>
-    this.calendrier.lecture.error(),
-  );
+  /**
+   * Un Événement introuvable n'est pas une erreur à montrer : le formulaire se
+   * referme (voir `constructor`). Le mois n'est attendu que pour retrouver
+   * l'occurrence que le lien désigne.
+   */
+  protected readonly erreurDeLecture = computed(() => {
+    const erreur = this.lu.error();
+    if (erreur && !estIntrouvable(erreur)) {
+      return erreur;
+    }
+    return this.cible().occurrence !== null
+      ? (this.calendrier.lecture.error() ?? null)
+      : null;
+  });
 
-  protected readonly horairesVerrouilles = computed(
-    () => this.enEdition()?.isRecurring ?? false,
+  protected readonly titre = computed(() => {
+    if (this.creation) {
+      return 'Nouvel événement';
+    }
+    return this.enEdition()?.recurrence
+      ? 'Modifier la série'
+      : "Modifier l'événement";
+  });
+
+  protected readonly repete = computed(() => this.repetition().active);
+  protected readonly choisitSesJours = computed(() =>
+    choisitSesJours(this.repetition().frequence),
+  );
+  protected readonly unite = computed(() =>
+    uniteDe(this.repetition().frequence),
   );
 
   protected readonly pretAEnregistrer = computed(() => {
@@ -202,7 +279,12 @@ export class FormulaireDEvenement {
       return false;
     }
     const { titre, debut, espaceId } = this.saisie();
-    return titre.trim().length > 0 && debut.length > 0 && espaceId.length > 0;
+    return (
+      titre.trim().length > 0 &&
+      debut.length > 0 &&
+      espaceId.length > 0 &&
+      versRegle(this.repetition()) !== undefined
+    );
   });
 
   protected readonly iconeSupprimer = matDeleteOutline;
@@ -225,19 +307,41 @@ export class FormulaireDEvenement {
       return;
     }
 
-    // L'Événement visé est cherché dans le mois lu : il n'existe pas de
-    // lecture d'un Événement seul, et le lien porte le mois qui le contient.
+    // Un identifiant qui ne désigne rien de visible ramène au mois, sans un
+    // mot : c'est le même silence que partout ailleurs, et il ne confirme pas
+    // l'existence d'un Événement hors de portée (ADR 0028).
+    effect(() => {
+      const erreur = this.lu.error();
+      if (erreur && estIntrouvable(erreur)) {
+        untracked(() => this.fermer());
+      }
+    });
+
     effect(() => {
       const cible = this.cible();
+      const evenement =
+        this.lu.status() === 'resolved' ? this.lu.value() : undefined;
       if (
-        this.calendrier.lecture.status() !== 'resolved' ||
+        !evenement ||
+        evenement.id !== cible.id ||
         (this.repriseDe?.id === cible.id &&
           this.repriseDe.occurrence === cible.occurrence)
       ) {
         return;
       }
+
+      const portee = evenement.recurrence !== null && cible.occurrence !== null;
+      // L'occurrence se retrouve dans le mois lu, que le lien désigne.
+      if (portee && this.calendrier.lecture.status() !== 'resolved') {
+        return;
+      }
+
       this.repriseDe = cible;
-      untracked(() => this.reprendre(cible));
+      untracked(() =>
+        portee
+          ? void this.demanderLaPortee(evenement, cible.occurrence as string)
+          : this.reprendre(evenement),
+      );
     });
   }
 
@@ -298,8 +402,48 @@ export class FormulaireDEvenement {
     void this.calendrier.fermer();
   }
 
-  protected relireLeMois(): void {
-    this.calendrier.lecture.reload();
+  protected relire(): void {
+    if (this.lu.error()) {
+      this.lu.reload();
+    }
+    if (this.calendrier.lecture.error()) {
+      this.calendrier.lecture.reload();
+    }
+  }
+
+  protected repeter(active: boolean): void {
+    this.repetition.update((saisie) => ({ ...saisie, active }));
+  }
+
+  protected choisirLaRepetition<C extends keyof SaisieDeRecurrence>(
+    champ: C,
+    valeur: SaisieDeRecurrence[C] | null | undefined,
+  ): void {
+    if (valeur === null || valeur === undefined) {
+      return;
+    }
+    this.repetition.update((saisie) => ({ ...saisie, [champ]: valeur }));
+  }
+
+  protected basculerLeJour(jour: SaisieDeRecurrence['jours'][number]): void {
+    this.repetition.update((saisie) => ({
+      ...saisie,
+      jours: saisie.jours.includes(jour)
+        ? saisie.jours.filter((choisi) => choisi !== jour)
+        : [...saisie.jours, jour],
+    }));
+  }
+
+  /** Les champs libres de la répétition : un jour, ou un nombre entier. */
+  protected saisirLaRepetition(
+    champ: 'jusquAu' | 'intervalle' | 'nombre',
+    evenement: globalThis.Event,
+  ): void {
+    const valeur = (evenement.target as HTMLInputElement).value;
+    this.repetition.update((saisie) => ({
+      ...saisie,
+      [champ]: champ === 'jusquAu' ? valeur : valeur ? Number(valeur) : NaN,
+    }));
   }
 
   protected enregistrer(): void {
@@ -328,7 +472,7 @@ export class FormulaireDEvenement {
 
     const confirme = await this.confirmation.confirm({
       title: "Supprimer l'événement ?",
-      description: repris.isRecurring
+      description: repris.recurrence
         ? `« ${repris.title} » est une série : toutes ses occurrences seront supprimées.`
         : `« ${repris.title} » sera supprimé du Calendrier.`,
       confirmLabel: "Supprimer l'événement",
@@ -338,7 +482,7 @@ export class FormulaireDEvenement {
       return;
     }
 
-    this.envoyer(this.api.supprimer(repris.eventId), 'Événement supprimé.');
+    this.envoyer(this.api.supprimer(repris.id), 'Événement supprimé.');
   }
 
   /**
@@ -398,33 +542,64 @@ export class FormulaireDEvenement {
   }
 
   /**
-   * L'occurrence que le lien désigne, ou la première de l'Événement dans le
-   * mois. Un identifiant qui ne désigne rien de visible ramène au mois, sans
-   * un mot : c'est le même silence que partout ailleurs, et il ne confirme
-   * pas l'existence d'un Événement hors de portée (ADR 0028).
+   * Le lien désigne une occurrence de la série : on demande ce que la
+   * modification touche, à chaque fois. Une occurrence que le mois ne montre
+   * pas (déjà supprimée, ou d'un autre mois) ramène au mois, sans un mot.
    */
-  private reprendre({ id, occurrence }: Cible): void {
-    const siennes = this.calendrier
+  private async demanderLaPortee(
+    serie: Event,
+    debut: string,
+  ): Promise<void> {
+    const occurrence = this.calendrier
       .occurrences()
-      .filter(({ eventId }) => eventId === id);
-    const reprise =
-      siennes.find(({ startsAt }) => memeInstant(startsAt, occurrence)) ??
-      siennes[0];
-
-    if (!reprise) {
-      this.fermer();
+      .find(
+        ({ eventId, startsAt }) =>
+          eventId === serie.id && memeInstant(startsAt, debut),
+      );
+    if (!occurrence) {
+      await this.fermer();
       return;
     }
 
+    const portee = await this.confirmation.chooseScope({
+      title: `Modifier « ${occurrence.title} » ?`,
+      description: `« ${serie.title} » est une série : choisissez ce que la modification touche.`,
+      confirmLabel: 'Modifier',
+      occurrenceDescription: `Seule l'occurrence du ${dateDe(occurrence)} change ; les autres restent intactes.`,
+    });
+
+    const mois = { [PARAMETRE_DE_MOIS]: this.calendrier.mois() };
+    if (portee === 'occurrence') {
+      await this.router.navigate(
+        [
+          '/calendrier/evenements',
+          serie.id,
+          'occurrences',
+          occurrence.originalStart,
+        ],
+        { queryParams: mois, replaceUrl: true },
+      );
+    } else if (portee === 'series') {
+      await this.router.navigate(['/calendrier/evenements', serie.id], {
+        queryParams: mois,
+        replaceUrl: true,
+      });
+    } else {
+      await this.fermer();
+    }
+  }
+
+  private reprendre(evenement: Event): void {
     this.refus.set(null);
-    this.enEdition.set(reprise);
+    this.enEdition.set(evenement);
+    this.repetition.set(versSaisie(evenement.recurrence));
     this.preremplir({
-      titre: reprise.title,
-      debut: versChampLocal(reprise.startsAt),
-      fin: reprise.endsAt ? versChampLocal(reprise.endsAt) : '',
-      categorie: reprise.category,
-      espaceId: reprise.scopeId,
-      rappel: reprise.reminderLeadMinutes?.toString() ?? '',
+      titre: evenement.title,
+      debut: versChampLocal(evenement.startsAt),
+      fin: evenement.endsAt ? versChampLocal(evenement.endsAt) : '',
+      categorie: evenement.category,
+      espaceId: evenement.scopeId,
+      rappel: evenement.reminderLeadMinutes?.toString() ?? '',
     });
   }
 
@@ -433,7 +608,7 @@ export class FormulaireDEvenement {
    * lorsqu'on déplace vraiment l'Événement — le répéter sans raison ferait
    * vérifier à la garde un déplacement qui n'a pas lieu (ADR 0028).
    */
-  private appliquer(repris: EventOccurrence): void {
+  private appliquer(repris: Event): void {
     const changements = this.changementsSur(repris);
 
     if (Object.keys(changements).length === 0) {
@@ -442,25 +617,31 @@ export class FormulaireDEvenement {
     }
 
     this.envoyer(
-      this.api.modifier(repris.eventId, changements),
-      'Événement modifié.',
+      this.api.modifier(repris.id, changements),
+      repris.recurrence ? 'Série modifiée.' : 'Événement modifié.',
     );
   }
 
-  private changementsSur(repris: EventOccurrence): EventUpdate {
+  /**
+   * Sur une série, les horaires sont ceux de sa première occurrence : les
+   * changer déplace toutes les autres, sauf celles qu'une exception a déjà
+   * déplacées.
+   */
+  private changementsSur(repris: Event): EventUpdate {
     const voulu = this.saisieCreee();
     const changements: EventUpdate = {};
 
     if (voulu.title !== repris.title) {
       changements.title = voulu.title;
     }
-    if (!repris.isRecurring) {
-      if (!memeInstant(voulu.startsAt, repris.startsAt)) {
-        changements.startsAt = voulu.startsAt;
-      }
-      if (!memeInstant(voulu.endsAt ?? null, repris.endsAt)) {
-        changements.endsAt = voulu.endsAt ?? null;
-      }
+    if (!memeInstant(voulu.startsAt, repris.startsAt)) {
+      changements.startsAt = voulu.startsAt;
+    }
+    if (!memeInstant(voulu.endsAt ?? null, repris.endsAt)) {
+      changements.endsAt = voulu.endsAt ?? null;
+    }
+    if (!memeRegle(voulu.recurrence ?? null, repris.recurrence)) {
+      changements.recurrence = voulu.recurrence ?? null;
     }
     if (voulu.category !== repris.category) {
       changements.category = voulu.category;
@@ -485,13 +666,27 @@ export class FormulaireDEvenement {
       endsAt: fin ? versIso(fin) : null,
       category: categorie,
       reminderLeadMinutes: rappel ? Number(rappel) : null,
+      recurrence: versRegle(this.repetition()) ?? null,
       scopeId: espaceId,
     };
   }
 }
 
+function estIntrouvable(erreur: Error): boolean {
+  return erreur instanceof ErreurApi && erreur.status === 404;
+}
+
+/** La date d'une occurrence, telle qu'un choix de portée la nomme. */
+export function dateDe(occurrence: EventOccurrence): string {
+  return formaterInstant(occurrence.startsAt, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
 /** Deux instants, comparés comme des instants et non comme des chaînes. */
-function memeInstant(gauche: string | null, droite: string | null): boolean {
+export function memeInstant(gauche: string | null, droite: string | null): boolean {
   if (gauche === null || droite === null) {
     return gauche === droite;
   }
@@ -499,7 +694,7 @@ function memeInstant(gauche: string | null, droite: string | null): boolean {
 }
 
 /** L'ISO-8601 du contrat, rendu au champ qui saisit en heure locale. */
-function versChampLocal(iso: string): string {
+export function versChampLocal(iso: string): string {
   const instant = new Date(iso);
   const deuxChiffres = (valeur: number) => valeur.toString().padStart(2, '0');
 
@@ -511,6 +706,6 @@ function versChampLocal(iso: string): string {
 }
 
 /** L'heure locale du champ, rendue au contrat en ISO-8601. */
-function versIso(local: string): string {
+export function versIso(local: string): string {
   return new Date(local).toISOString();
 }

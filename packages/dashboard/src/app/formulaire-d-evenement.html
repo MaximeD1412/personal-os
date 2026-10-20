@@ -1,5 +1,6 @@
+@if (!choixAttendu()) {
 <dccm-form-page
-  [heading]="creation ? 'Nouvel événement' : 'Modifier l\'événement'"
+  [heading]="titre()"
   subtitle="Calendrier"
   [presentation]="presentation()"
   [submitLabel]="creation ? 'Créer l\'événement' : 'Enregistrer'"
@@ -16,7 +17,7 @@
     skeleton="detail"
     [rows]="4"
     errorHeading="L'Événement n'a pas pu être lu"
-    (retry)="relireLeMois()"
+    (retry)="relire()"
   >
     <div class="flex flex-col gap-gutter">
       <div hlmField>
@@ -47,7 +48,6 @@
             data-test="debut"
             [forceInvalid]="!!erreurs()['startsAt']"
             [value]="saisie().debut"
-            [disabled]="horairesVerrouilles()"
             (input)="saisir('debut', $event)"
           />
           @if (erreurs()['startsAt']; as message) {
@@ -66,7 +66,6 @@
             data-test="fin"
             [forceInvalid]="!!erreurs()['endsAt']"
             [value]="saisie().fin"
-            [disabled]="horairesVerrouilles()"
             (input)="saisir('fin', $event)"
           />
           @if (erreurs()['endsAt']; as message) {
@@ -75,17 +74,155 @@
           >
           }
         </div>
-
-        @if (horairesVerrouilles()) {
-        <p
-          class="text-body-dense text-outline"
-          data-test="horaires-verrouilles"
-        >
-          Les horaires d'une série ne se modifient pas depuis l'une de ses
-          occurrences.
-        </p>
-        }
       </div>
+
+      <section
+        class="flex flex-col gap-space-md rounded border border-surface-container-highest p-space-md"
+        data-test="repetition"
+      >
+        <div hlmField orientation="horizontal">
+          <hlm-switch
+            inputId="evenement-repetition"
+            data-test="repeter"
+            [checked]="repete()"
+            (checkedChange)="repeter($event)"
+          />
+          <label hlmFieldLabel for="evenement-repetition">Répétition</label>
+        </div>
+
+        @if (repete()) {
+        <div hlmField>
+          <span hlmFieldLabel id="evenement-frequence">Fréquence</span>
+          <hlm-toggle-group
+            size="md"
+            data-test="frequence"
+            aria-labelledby="evenement-frequence"
+            class="grid grid-cols-2"
+            [value]="repetition().frequence"
+            (valueChange)="choisirLaRepetition('frequence', $any($event))"
+          >
+            @for (frequence of frequences; track frequence.valeur) {
+            <button hlmToggleGroupItem [value]="frequence.valeur">
+              {{ frequence.libelle }}
+            </button>
+            }
+          </hlm-toggle-group>
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="evenement-intervalle">Tous les</label>
+          <div class="flex items-center gap-space-sm">
+            <input
+              hlmInput
+              id="evenement-intervalle"
+              type="number"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              data-test="intervalle"
+              class="w-20 tabular-nums"
+              [value]="repetition().intervalle"
+              (input)="saisirLaRepetition('intervalle', $event)"
+            />
+            <span class="text-body-dense text-on-surface-variant">{{
+              unite()
+            }}</span>
+          </div>
+        </div>
+
+        @if (choisitSesJours()) {
+        <div hlmField>
+          <span hlmFieldLabel id="evenement-jours">Jours actifs</span>
+          <div
+            class="grid grid-cols-7 gap-space-xs"
+            role="group"
+            aria-labelledby="evenement-jours"
+            data-test="jours"
+          >
+            @for (jour of jours; track jour.valeur) {
+            <button
+              hlmBtn
+              type="button"
+              size="icon"
+              class="w-full"
+              [variant]="
+                repetition().jours.includes(jour.valeur)
+                  ? 'primary'
+                  : 'secondary'
+              "
+              [attr.aria-pressed]="repetition().jours.includes(jour.valeur)"
+              [attr.aria-label]="jour.nom"
+              (click)="basculerLeJour(jour.valeur)"
+            >
+              {{ jour.initiale }}
+            </button>
+            }
+          </div>
+          <p hlmFieldDescription>
+            Sans jour choisi, la série garde celui de son début.
+          </p>
+        </div>
+        }
+
+        <div hlmField>
+          <span hlmFieldLabel id="evenement-fin-de-repetition"
+            >Fin de répétition</span
+          >
+          <hlm-toggle-group
+            size="md"
+            data-test="fin-de-repetition"
+            aria-labelledby="evenement-fin-de-repetition"
+            class="grid grid-cols-1"
+            [value]="repetition().fin"
+            (valueChange)="choisirLaRepetition('fin', $any($event))"
+          >
+            @for (fin of fins; track fin.valeur) {
+            <button hlmToggleGroupItem [value]="fin.valeur">
+              {{ fin.libelle }}
+            </button>
+            }
+          </hlm-toggle-group>
+          @switch (repetition().fin) { @case ('date') {
+          <label hlmFieldLabel for="evenement-jusqu-au" class="sr-only"
+            >Dernier jour</label
+          >
+          <input
+            hlmInput
+            id="evenement-jusqu-au"
+            type="date"
+            data-test="jusqu-au"
+            [value]="repetition().jusquAu"
+            (input)="saisirLaRepetition('jusquAu', $event)"
+          />
+          } @case ('nombre') {
+          <div class="flex items-center gap-space-sm">
+            <label hlmFieldLabel for="evenement-nombre" class="sr-only"
+              >Nombre d'occurrences</label
+            >
+            <input
+              hlmInput
+              id="evenement-nombre"
+              type="number"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              data-test="nombre"
+              class="w-20 tabular-nums"
+              [value]="repetition().nombre"
+              (input)="saisirLaRepetition('nombre', $event)"
+            />
+            <span class="text-body-dense text-on-surface-variant"
+              >occurrence(s)</span
+            >
+          </div>
+          } }
+        </div>
+        } @if (erreurDeRecurrence(); as message) {
+        <hlm-field-error forceShow data-test="erreur-recurrence"
+          >{{ message }}</hlm-field-error
+        >
+        }
+      </section>
 
       <div hlmField>
         <span hlmFieldLabel id="evenement-categorie">Catégorie</span>
@@ -190,3 +327,4 @@
   </button>
   }
 </dccm-form-page>
+}
