@@ -4,6 +4,8 @@ import type {
   EventInput,
   EventListQuery,
   EventOccurrence,
+  EventOccurrenceRef,
+  EventOccurrenceUpdate,
   EventUpdate,
 } from '@personal-os/contracts';
 import { ErreurDEspace } from '@personal-os/database';
@@ -14,7 +16,12 @@ import {
   type EventRecord,
   type EventWrite,
 } from './event.repository';
-import { occurrences, type Occurrence } from './recurrence/occurrences';
+import {
+  occurrences,
+  occurrenceVisee,
+  type ExceptionDOccurrence,
+  type Occurrence,
+} from './recurrence/occurrences';
 
 /**
  * Les saisies arrivent validées par leur schéma (ADR 0030) : il ne reste ici
@@ -53,6 +60,15 @@ export class EventService {
       );
   }
 
+  async lire(id: string): Promise<Event> {
+    const evenement = await this.repository.lire(id);
+    if (!evenement) {
+      throw evenementIntrouvable();
+    }
+
+    return exposer(evenement);
+  }
+
   async creer(saisie: EventInput): Promise<Event> {
     const ecriture = enEcriture(saisie);
     verifierLaPeriode(ecriture.startsAt, ecriture.endsAt);
@@ -79,6 +95,112 @@ export class EventService {
 
   async supprimer(id: string): Promise<void> {
     await this.introuvableSinon(this.repository.supprimer(id));
+  }
+
+  /**
+   * Modifie une seule occurrence d'une série : son exception est posée, ou
+   * complétée si elle existait déjà, et la règle ne change pas. Un champ déjà
+   * modifié que la saisie ne nomme pas reste modifié.
+   */
+  async modifierLOccurrence(
+    ref: EventOccurrenceRef,
+    saisie: EventOccurrenceUpdate,
+  ): Promise<EventOccurrence> {
+    if (
+      saisie.title === undefined &&
+      saisie.startsAt === undefined &&
+      saisie.endsAt === undefined
+    ) {
+      throw new ErreurMetier(
+        'event.empty_update',
+        'La modification ne change rien.',
+      );
+    }
+
+    const { evenement, originalStart, exception } =
+      await this.occurrenceDeLaSerie(ref);
+    const modification: ExceptionDOccurrence = {
+      originalStart,
+      kind: 'MODIFIED',
+      title: saisie.title ?? exception?.title ?? null,
+      startsAt: saisie.startsAt
+        ? new Date(saisie.startsAt)
+        : (exception?.startsAt ?? null),
+      endsAt: saisie.endsAt
+        ? new Date(saisie.endsAt)
+        : (exception?.endsAt ?? null),
+    };
+    // La règle place l'occurrence : avec son exception, elle existe encore.
+    const modifiee = occurrenceVisee(
+      evenement,
+      [modification],
+      originalStart,
+    ) as Occurrence;
+    verifierLaPeriode(modifiee.startsAt, modifiee.endsAt);
+
+    await this.repository.poserLException(evenement, originalStart, {
+      kind: modification.kind,
+      title: modification.title,
+      startsAt: modification.startsAt,
+      endsAt: modification.endsAt,
+    });
+
+    return exposerLOccurrence(evenement, modifiee);
+  }
+
+  /**
+   * Supprime une seule occurrence d'une série : une exception l'annule, à la
+   * place de la modification qu'elle portait peut-être.
+   */
+  async supprimerLOccurrence(ref: EventOccurrenceRef): Promise<void> {
+    const { evenement, originalStart } = await this.occurrenceDeLaSerie(ref);
+
+    await this.repository.poserLException(evenement, originalStart, {
+      kind: 'CANCELLED',
+      title: null,
+      startsAt: null,
+      endsAt: null,
+    });
+  }
+
+  /**
+   * L'occurrence qu'une action sur « cette occurrence » vise : une série
+   * atteignable, une occurrence que sa règle place à cet instant, et qu'une
+   * exception n'a pas supprimée.
+   */
+  private async occurrenceDeLaSerie(ref: EventOccurrenceRef): Promise<{
+    evenement: EventRecord;
+    originalStart: Date;
+    exception: EventExceptionRecord | undefined;
+  }> {
+    const evenement = await this.repository.lire(ref.id);
+    if (!evenement) {
+      throw evenementIntrouvable();
+    }
+    if (!evenement.recurrence) {
+      throw new ErreurMetier(
+        'event.not_recurring',
+        "Cet Événement n'a lieu qu'une fois : il se modifie en entier.",
+      );
+    }
+
+    const originalStart = new Date(ref.originalStart);
+    const exceptions = await this.repository.exceptionsDe([evenement.id]);
+    if (!occurrenceVisee(evenement, exceptions, originalStart)) {
+      throw new Introuvable(
+        'event.occurrence_not_found',
+        "Cette série n'a aucune occurrence à cet instant.",
+      );
+    }
+
+    return {
+      evenement,
+      originalStart,
+      exception: exceptions.find(
+        (candidate) =>
+          candidate.originalStart.getTime() === originalStart.getTime(),
+      ),
+    };
   }
 
   /**
@@ -128,10 +250,7 @@ export class EventService {
         throw erreur;
       }
       if (estAbsencePrisma(erreur)) {
-        throw new Introuvable(
-          'event.not_found',
-          'Aucun Événement de cet identifiant.',
-        );
+        throw evenementIntrouvable();
       }
       throw erreur;
     }
@@ -193,6 +312,13 @@ function verifierLaPeriode(startsAt: Date, endsAt: Date | null): void {
       "La fin d'un Événement ne précède pas son début.",
     );
   }
+}
+
+function evenementIntrouvable(): Introuvable {
+  return new Introuvable(
+    'event.not_found',
+    'Aucun Événement de cet identifiant.',
+  );
 }
 
 function estAbsencePrisma(erreur: unknown): boolean {

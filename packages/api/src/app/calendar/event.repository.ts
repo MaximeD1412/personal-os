@@ -31,6 +31,9 @@ export interface EventExceptionRecord extends ExceptionDOccurrence {
   eventId: string;
 }
 
+/** Ce qu'une exception pose sur l'occurrence qu'elle vise. */
+export type EventExceptionWrite = Omit<ExceptionDOccurrence, 'originalStart'>;
+
 /** La rangée telle que Prisma la rend : la règle n'y est qu'un JSON. */
 type RangeeEvenement = Omit<EventRecord, 'recurrence'> & {
   recurrence: unknown;
@@ -148,6 +151,29 @@ export class EventRepository {
 
   async supprimer(id: string): Promise<EventRecord> {
     return enEvenement(await this.prisma.event.delete({ where: { id } }));
+  }
+
+  /**
+   * Pose l'exception d'une occurrence, ou remplace celle qui la visait déjà :
+   * une occurrence n'en a qu'une. Elle est dans l'Espace de son Événement.
+   */
+  async poserLException(
+    evenement: Pick<EventRecord, 'id' | 'scopeId'>,
+    originalStart: Date,
+    exception: EventExceptionWrite,
+  ): Promise<void> {
+    await this.prisma.eventException.upsert({
+      where: {
+        eventId_originalStart: { eventId: evenement.id, originalStart },
+      },
+      create: {
+        ...exception,
+        eventId: evenement.id,
+        scopeId: evenement.scopeId,
+        originalStart,
+      },
+      update: exception,
+    });
   }
 }
 
