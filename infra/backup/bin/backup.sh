@@ -30,8 +30,10 @@ load_config
 assert_password_file
 
 STAGING=""
+CONTENEUR_DE_COPIE=""
 cleanup() {
   local code=$?
+  [ -n "$CONTENEUR_DE_COPIE" ] && docker rm --force "$CONTENEUR_DE_COPIE" >/dev/null 2>&1
   [ -n "$STAGING" ] && rm -rf -- "$STAGING"
   return $code
 }
@@ -60,19 +62,30 @@ if [ -n "${S3_MIRROR_BUCKET:-}" ]; then
 fi
 : "${S3_MIRROR_IMAGE:=rclone/rclone:1.75.2}"
 
+# Pas de montage : le démon Docker résoudrait son chemin dans le /tmp de la
+# machine, pas dans le /tmp privé du service (PrivateTmp=yes), et Restic
+# sauvegarderait un dossier vide. rclone copie dans son conteneur, puis
+# `docker cp` en extrait le contenu : c'est le client, dans le service, qui
+# écrit le transit.
 copier_le_bucket() {
+  CONTENEUR_DE_COPIE="personal-os-sauvegarde-objets-$$"
   RCLONE_CONFIG_OBJETS_TYPE=s3 \
     RCLONE_CONFIG_OBJETS_PROVIDER=Other \
     RCLONE_CONFIG_OBJETS_ENDPOINT="$S3_MIRROR_ENDPOINT" \
     RCLONE_CONFIG_OBJETS_REGION="$S3_MIRROR_REGION" \
     RCLONE_CONFIG_OBJETS_ACCESS_KEY_ID="$S3_MIRROR_ACCESS_KEY_ID" \
     RCLONE_CONFIG_OBJETS_SECRET_ACCESS_KEY="$S3_MIRROR_SECRET_ACCESS_KEY" \
-    docker run --rm \
+    docker create --name "$CONTENEUR_DE_COPIE" \
     -e RCLONE_CONFIG_OBJETS_TYPE -e RCLONE_CONFIG_OBJETS_PROVIDER \
     -e RCLONE_CONFIG_OBJETS_ENDPOINT -e RCLONE_CONFIG_OBJETS_REGION \
     -e RCLONE_CONFIG_OBJETS_ACCESS_KEY_ID -e RCLONE_CONFIG_OBJETS_SECRET_ACCESS_KEY \
-    -v "$1:/objets" \
-    "$S3_MIRROR_IMAGE" copy "objets:$S3_MIRROR_BUCKET" /objets
+    "$S3_MIRROR_IMAGE" copy "objets:$S3_MIRROR_BUCKET" /data >/dev/null &&
+    docker start --attach "$CONTENEUR_DE_COPIE" &&
+    docker cp --quiet "$CONTENEUR_DE_COPIE:/data/." "$1"
+  local code=$?
+  docker rm --force "$CONTENEUR_DE_COPIE" >/dev/null 2>&1
+  CONTENEUR_DE_COPIE=""
+  return $code
 }
 
 RESTIC_BACKUP_ARGS=(backup --tag personal-os --tag "hôte=$(hostname)")

@@ -42,7 +42,7 @@ export function makeFixture(options: FixtureOptions = {}): Fixture {
         'KEEP_MONTHLY=6',
         'BACKUP_HEARTBEAT_URL=',
         'BACKUP_ALERT_EMAIL=',
-      ].join('\n')
+      ].join('\n'),
   );
 
   writeFileSync(
@@ -53,7 +53,7 @@ export function makeFixture(options: FixtureOptions = {}): Fixture {
         `RESTIC_PASSWORD_FILE=${passwordPath}`,
         'B2_ACCOUNT_ID=identifiant-de-test',
         'B2_ACCOUNT_KEY=cle-de-test',
-      ].join('\n')
+      ].join('\n'),
   );
 
   return { dir, confPath, envPath, passwordPath };
@@ -70,10 +70,17 @@ export function run(
   script: string,
   args: string[],
   fixture: Fixture,
-  extraEnv: NodeJS.ProcessEnv = {}
+  extraEnv: NodeJS.ProcessEnv = {},
+  // Une commande qui lance le script, comme `unshare` pour l'isoler.
+  enveloppe: string[] = [],
 ): RunResult {
+  const [commande, ...argumentsDuScript] = [
+    ...enveloppe,
+    join(BIN, script),
+    ...args,
+  ];
   try {
-    const stdout = execFileSync(join(BIN, script), args, {
+    const stdout = execFileSync(commande, argumentsDuScript, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
@@ -85,7 +92,11 @@ export function run(
     });
     return { status: 0, stdout, stderr: '', output: stdout };
   } catch (error) {
-    const failure = error as { status?: number; stdout?: string; stderr?: string };
+    const failure = error as {
+      status?: number;
+      stdout?: string;
+      stderr?: string;
+    };
     const stdout = failure.stdout ?? '';
     const stderr = failure.stderr ?? '';
     return {

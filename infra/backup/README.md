@@ -33,7 +33,10 @@ est renseigné dans `backup.conf`, le script le recopie d'abord dans le transit
 (rclone, dans un conteneur à version fixée), sous `objets/`. Ses clés vivent
 dans `restic.env` et passent à rclone par l'environnement, jamais par la ligne
 de commande. Une copie qui échoue interrompt la sauvegarde, plutôt qu'un
-instantané auquel il manquerait les fichiers.
+instantané auquel il manquerait les fichiers. rclone écrit dans son conteneur,
+et `docker cp` en extrait les fichiers : un montage `-v` serait résolu par le
+démon Docker dans le `/tmp` de la machine, pas dans le `/tmp` privé du service
+(`PrivateTmp=yes`), et Restic sauvegarderait un dossier vide.
 
 Les deux bases et le bucket partent dans le **même** instantané, sous
 `postgres/<base>.dump` et `objets/`. Deux instantanés séparés se
@@ -170,7 +173,10 @@ pnpm exec nx run backup:test-integration  # va-et-vient réel — exige restic e
 
 La campagne d'intégration initialise un vrai dépôt Restic local, sauvegarde une
 base PostgreSQL semée, la restaure dans un conteneur jetable et **interroge la
-base restaurée**. Simuler Restic reviendrait à tester la simulation, alors que
+base restaurée**. Elle recopie aussi un bucket servi par un serveur S3 jetable
+(`rclone serve s3`), le script tournant sous un `/tmp` privé comme celui du
+service (`unshare`, qui exige les espaces de noms utilisateur), et lit le CV
+dans l'instantané. Simuler Restic reviendrait à tester la simulation, alors que
 c'est justement la restauration qu'on ne peut pas croire sur parole.
 
 ## Migration vers le homelab
