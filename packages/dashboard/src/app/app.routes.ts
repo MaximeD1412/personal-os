@@ -3,8 +3,6 @@ import { Agenda } from './agenda';
 import { Calendrier } from './calendrier';
 import { FormulaireDEvenement } from './formulaire-d-evenement';
 import { FormulaireDOccurrence } from './formulaire-d-occurrence';
-import { FormulaireDePreference } from './foyer/preference-form';
-import { Preferences } from './foyer/preferences';
 import { FicheDIngredient } from './repas/ingredient-detail';
 import { FormulaireDIngredient } from './repas/ingredient-form';
 import { Ingredients } from './repas/ingredients';
@@ -49,9 +47,18 @@ export const appRoutes: Route[] = [
   { path: 'repas/planning/nouveau', component: FormulaireDeRepas },
   { path: 'repas/recettes/:id', component: FicheDeRecette },
   // Les Préférences alimentaires du Foyer, et l'ajout d'une Préférence,
-  // prérempli par sa requête (ADR 0030).
-  { path: 'foyer/preferences', component: Preferences },
-  { path: 'foyer/preferences/nouvelle', component: FormulaireDePreference },
+  // prérempli par sa requête (ADR 0030). Chargées à la demande, comme les
+  // Projets : le bundle initial reste sous son budget.
+  {
+    path: 'foyer/preferences',
+    loadComponent: async () =>
+      (await import('./foyer/preferences')).Preferences,
+  },
+  {
+    path: 'foyer/preferences/nouvelle',
+    loadComponent: async () =>
+      (await import('./foyer/preference-form')).FormulaireDePreference,
+  },
   // Les Projets de l'Espace personnel, chargés à la demande : le rendu du
   // markdown n'alourdit pas le bundle initial. Les formulaires sont
   // adressables et préremplis par leur requête (ADR 0030) ; « nouveau »
@@ -79,5 +86,10 @@ export const appRoutes: Route[] = [
     path: 'projets/:id/depenses/nouvelle',
     loadComponent: async () =>
       (await import('./projets/expense-form')).FormulaireDeDepense,
+  },
+  // Le CV du portfolio, un PDF par langue.
+  {
+    path: 'portfolio/cv',
+    loadComponent: async () => (await import('./portfolio/cv')).CurriculumVitae,
   },
 ];

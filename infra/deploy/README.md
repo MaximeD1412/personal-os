@@ -268,6 +268,26 @@ test (`factice`) n'y est pas admis, et le staging le garde.
 Changer de modèle, c'est changer son tarif dans le même geste : sans quoi le
 plafond se calcule sur le prix d'un autre.
 
+### 6. Le stockage objet OVH
+
+Les fichiers téléversés (le CV du portfolio) vivent dans un bucket OVH Object
+Storage, hors de la base et hors du VPS. L'API refuse de démarrer en production
+sans `STORAGE_PROVIDER=s3`.
+
+1. Dans le projet Public Cloud OVH, créer un bucket **Object Storage** (API S3,
+   classe Standard), privé, dans la région la plus proche du VPS.
+2. Créer un **utilisateur S3** dédié à Personal OS, puis lui importer une
+   politique qui ne lui ouvre **que ce bucket** (`s3:GetObject`,
+   `s3:PutObject`, `s3:DeleteObject` sur `arn:aws:s3:::<bucket>/*`,
+   `s3:ListBucket` sur `arn:aws:s3:::<bucket>`). Une clé fuitée n'atteint alors
+   rien d'autre du projet.
+3. Reporter dans `/opt/personal-os/.env` : `STORAGE_PROVIDER=s3`, `S3_ENDPOINT`
+   (celui de la région, `https://s3.<region>.io.cloud.ovh.net`), `S3_REGION`,
+   `S3_BUCKET`, `S3_ACCESS_KEY_ID` et `S3_SECRET_ACCESS_KEY`.
+4. Vérifier que la sauvegarde emporte le bucket : `S3_MIRROR_*` dans la
+   configuration de Restic, puis `backup.sh --dry-run`
+   ([`infra/backup`](../backup/README.md)).
+
 ## Exploitation courante
 
 ```bash

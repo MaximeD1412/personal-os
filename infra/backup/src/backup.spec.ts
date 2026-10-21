@@ -1,3 +1,5 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+
 import { makeFixture, run, SECRET } from './run-script';
 
 describe('backup.sh --dry-run', () => {
@@ -14,7 +16,7 @@ describe('backup.sh --dry-run', () => {
     const result = run('backup.sh', ['--dry-run'], makeFixture());
 
     expect(result.stdout).toContain(
-      'restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune'
+      'restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune',
     );
   });
 
@@ -24,7 +26,7 @@ describe('backup.sh --dry-run', () => {
     expect(result.stdout).toContain('-Z0');
   });
 
-  it('dumpe chacune des bases du serveur, pas seulement celle de l\'application', () => {
+  it("dumpe chacune des bases du serveur, pas seulement celle de l'application", () => {
     const fixture = makeFixture({
       conf: [
         'POSTGRES_DB=personalos',
@@ -62,7 +64,7 @@ describe('backup.sh --dry-run', () => {
     expect(result.stderr).toContain('nom de base');
   });
 
-  it("inclut les cibles du fichier de configuration, sans toucher au script", () => {
+  it('inclut les cibles du fichier de configuration, sans toucher au script', () => {
     const fixture = makeFixture({
       conf: [
         'POSTGRES_DB=personalos',
@@ -76,6 +78,59 @@ describe('backup.sh --dry-run', () => {
     expect(result.stdout).toContain('plan: inclut /srv/objets');
   });
 
+  describe('le bucket du stockage objet', () => {
+    const SECRET_S3 = 'secret-s3-qui-ne-doit-jamais-fuiter';
+    const CONF_AVEC_BUCKET = [
+      'POSTGRES_DB=personalos',
+      'BACKUP_PATHS=""',
+      'S3_MIRROR_ENDPOINT=https://s3.gra.io.cloud.ovh.net',
+      'S3_MIRROR_REGION=gra',
+      'S3_MIRROR_BUCKET=personal-os',
+    ].join('\n');
+
+    function avecBucket(cles: string[]) {
+      const fixture = makeFixture({ conf: CONF_AVEC_BUCKET });
+      writeFileSync(
+        fixture.envPath,
+        [readFileSync(fixture.envPath, 'utf8'), ...cles].join('\n'),
+      );
+      return fixture;
+    }
+
+    const CLES = [
+      'S3_MIRROR_ACCESS_KEY_ID=identifiant-s3-de-test',
+      `S3_MIRROR_SECRET_ACCESS_KEY=${SECRET_S3}`,
+    ];
+
+    it("le recopie dans l'instantané, à côté des dumps", () => {
+      const result = run('backup.sh', ['--dry-run'], avecBucket(CLES));
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain(
+        'plan: copie du bucket personal-os (https://s3.gra.io.cloud.ovh.net) -> <transit>/objets',
+      );
+    });
+
+    it('ne laisse jamais sa clé apparaître dans la sortie', () => {
+      const result = run('backup.sh', ['--dry-run'], avecBucket(CLES));
+
+      expect(result.output).not.toContain(SECRET_S3);
+    });
+
+    it("refuse de démarrer sans les clés d'accès du bucket", () => {
+      const result = run('backup.sh', ['--dry-run'], avecBucket([]));
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('S3_MIRROR_ACCESS_KEY_ID');
+    });
+
+    it("ne copie rien quand aucun bucket n'est configuré", () => {
+      const result = run('backup.sh', ['--dry-run'], makeFixture());
+
+      expect(result.stdout).not.toContain('copie du bucket');
+    });
+  });
+
   it('ne laisse jamais la clé apparaître dans sa sortie', () => {
     const result = run('backup.sh', ['--dry-run'], makeFixture());
 
@@ -86,7 +141,9 @@ describe('backup.sh --dry-run', () => {
 describe('backup.sh — garde-fous sur les secrets', () => {
   it("refuse un mot de passe passé par l'environnement", () => {
     const fixture = makeFixture({
-      env: ['RESTIC_REPOSITORY=b2:test:/', `RESTIC_PASSWORD=${SECRET}`].join('\n'),
+      env: ['RESTIC_REPOSITORY=b2:test:/', `RESTIC_PASSWORD=${SECRET}`].join(
+        '\n',
+      ),
     });
 
     const result = run('backup.sh', ['--dry-run'], fixture);
@@ -114,7 +171,7 @@ describe('backup.sh — garde-fous sur les secrets', () => {
     expect(result.stderr).toContain('configuration illisible');
   });
 
-  it('refuse un argument inconnu plutôt que de l\'ignorer', () => {
+  it("refuse un argument inconnu plutôt que de l'ignorer", () => {
     const result = run('backup.sh', ['--dry-runn'], makeFixture());
 
     expect(result.status).not.toBe(0);
