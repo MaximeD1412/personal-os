@@ -125,6 +125,13 @@ describe('sauvegarde et restauration, va-et-vient complet', () => {
   beforeAll(() => {
     requireTool('docker');
     requireTool('restic');
+    try {
+      sh('unshare', ['--user', '--map-root-user', '--mount', 'true']);
+    } catch {
+      throw new Error(
+        "unshare --user est refusé : la campagne d'intégration exige les espaces de noms utilisateur (sur Ubuntu, kernel.apparmor_restrict_unprivileged_userns=0).",
+      );
+    }
 
     repoDir = mkdtempSync(join(tmpdir(), 'restic-repo-'));
     restoreDir = mkdtempSync(join(tmpdir(), 'restic-restore-'));
