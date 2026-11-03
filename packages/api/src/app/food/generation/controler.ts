@@ -67,9 +67,7 @@ interface IngredientAControler {
   ingredientId: string | null;
 }
 
-type Verdict =
-  | { retenue: Retenue['recette'] }
-  | Omit<RejectedSlot, 'slot'>;
+type Verdict = { retenue: Retenue['recette'] } | Omit<RejectedSlot, 'slot'>;
 
 /**
  * Chaque créneau du tour reçoit la première proposition qui le vise, ou rien.
@@ -136,6 +134,10 @@ function juger(
 /**
  * Le rejet d'une proposition, ou rien si elle passe. Un interdit l'emporte
  * sur un libellé inconnu : la raison la plus grave est celle qu'on rend.
+ *
+ * Un Ingrédient absent du catalogue lu (créé depuis sa lecture, cité par une
+ * Recette relue après lui) a des Allergènes inconnus : il n'est pas
+ * contrôlable, et compte comme un libellé inconnu.
  */
 function confronter(
   ingredients: readonly IngredientAControler[],
@@ -167,10 +169,9 @@ function confronter(
       };
     }
 
-    const allergenes =
-      catalogue.ingredients.find(({ id }) => id === ingredientId)?.allergens ??
-      [];
-    const allergen = allergenes.find((a) => interdits.allergenes.includes(a));
+    const allergen = catalogue.ingredients
+      .find(({ id }) => id === ingredientId)
+      ?.allergens.find((a) => interdits.allergenes.includes(a));
     if (allergen) {
       return {
         reason: 'ALLERGEN',
@@ -181,7 +182,11 @@ function confronter(
     }
   }
 
-  const inconnu = ingredients.find(({ ingredientId }) => ingredientId === null);
+  const inconnu = ingredients.find(
+    ({ ingredientId }) =>
+      ingredientId === null ||
+      !catalogue.ingredients.some(({ id }) => id === ingredientId),
+  );
   return inconnu
     ? {
         reason: 'UNKNOWN_INGREDIENT',
@@ -199,7 +204,9 @@ function rejet(reason: RejectionReason): Omit<RejectedSlot, 'slot'> {
 function resolu(resolution: ReturnType<typeof resoudre>): {
   ingredientId: string | null;
 } {
-  return { ingredientId: 'ingredientId' in resolution ? resolution.ingredientId : null };
+  return {
+    ingredientId: 'ingredientId' in resolution ? resolution.ingredientId : null,
+  };
 }
 
 /** Appelée seulement quand chaque ingrédient est résolu. */

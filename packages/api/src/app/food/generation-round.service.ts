@@ -166,19 +166,24 @@ export class GenerationRoundService {
   }
 
   /**
-   * Ce que le contrôle confronte, avec la version de chaque donnée. Celle des
-   * Préférences de ces Comptes se lit d'abord : une Préférence ajoutée
-   * pendant la lecture fait échouer l'écriture, au lieu de passer inaperçue.
+   * Ce que le contrôle confronte, avec la version de chaque donnée, lu dans
+   * un ordre qui ne laisse rien passer inaperçu :
+   * - la version des Préférences de ces Comptes avant les Préférences : une
+   *   Préférence ajoutée entre les deux fait échouer l'écriture ;
+   * - les Recettes avant le catalogue : chaque Ingrédient qu'une Recette lue
+   *   cite y est déjà, et une ligne ajoutée après sa lecture change la
+   *   version de la Recette. Un Ingrédient qui manquerait malgré tout au
+   *   catalogue n'est pas contrôlable : le contrôle écarte la proposition.
    */
   private async donneesDuControle(
     comptes: readonly string[],
   ): Promise<DonneesDuControle> {
     const versions = await this.tours.versionsDesPreferences(comptes);
-    const [catalogue, preferences, recettes] = await Promise.all([
-      this.tours.catalogue(),
+    const [preferences, recettes] = await Promise.all([
       this.preferences.lister(),
       this.recettes.lister([]),
     ]);
+    const catalogue = await this.tours.catalogue();
 
     return {
       catalogue,

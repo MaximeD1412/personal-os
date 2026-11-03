@@ -33,6 +33,7 @@ import {
   GenerationRoundRepository,
   type LecturesDuTour,
 } from './generation-round.repository';
+import { RecipeRepository } from './recipe.repository';
 import {
   BUT_GENERATION,
   type PropositionDeRepas,
@@ -501,6 +502,86 @@ describe('Tours de génération', () => {
         ],
       });
       expect((await lire(jeu.a, '2029-06-04')).entries).toEqual([]);
+    });
+
+    it('écarte une Recette du Foyer à laquelle un Ingrédient allergène est ajouté juste avant sa relecture', async () => {
+      await preference(compteB, 'ALLERGY', 'TREE_NUTS');
+      const tartine = (
+        await request(app.getHttpServer())
+          .post('/api/recipes')
+          .set('Cookie', jeu.a.session)
+          .send({
+            title: 'Tartine (génération)',
+            servings: 2,
+            lines: [{ ingredientId: salade.id, quantity: 50, unit: 'G' }],
+          })
+          .expect(201)
+      ).body as Recipe;
+      const planning = await lire(jeu.a, '2029-07-09');
+      programmer([
+        {
+          day: '2029-07-09',
+          moment: 'LUNCH',
+          recipeId: tartine.id,
+          recipe: null,
+        },
+      ]);
+
+      // La relecture des Recettes, après la réponse du modèle, est la seconde
+      // lecture du tour : juste avant, l'autre Compte crée un Ingrédient aux
+      // fruits à coque et l'ajoute à la Recette.
+      const recettes = app.get(RecipeRepository);
+      const lister = recettes.lister.bind(recettes);
+      let lectures = 0;
+      const espion = jest
+        .spyOn(recettes, 'lister')
+        .mockImplementation(async (...args) => {
+          lectures += 1;
+          if (lectures === 2) {
+            const pistache = await ingredient('Pistache (génération)', [
+              'TREE_NUTS',
+            ]);
+            await request(app.getHttpServer())
+              .patch(`/api/recipes/${tartine.id}`)
+              .set('Cookie', jeu.b.session)
+              .send({
+                lines: [
+                  { ingredientId: salade.id, quantity: 50, unit: 'G' },
+                  { ingredientId: pistache.id, quantity: 20, unit: 'G' },
+                ],
+              })
+              .expect(200);
+          }
+          return lister(...args);
+        });
+
+      try {
+        const reponse = await lancer(jeu.a, planning, {
+          slots: [
+            {
+              day: '2029-07-09',
+              moment: 'LUNCH',
+              participantIds: [compteA, compteB],
+            },
+          ],
+        }).expect(201);
+
+        expect(lectures).toBe(2);
+        expect(reponse.body).toMatchObject({
+          entries: [],
+          rejected: [
+            {
+              reason: 'ALLERGEN',
+              ingredient: { label: 'Pistache (génération)' },
+              allergen: 'TREE_NUTS',
+              participantIds: [compteB],
+            },
+          ],
+        });
+        expect((await lire(jeu.a, '2029-07-09')).entries).toEqual([]);
+      } finally {
+        espion.mockRestore();
+      }
     });
 
     it('écarte le plat aux noix quand l’allergie est déclarée pendant la génération', async () => {

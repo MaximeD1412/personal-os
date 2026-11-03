@@ -233,6 +233,34 @@ describe('controler', () => {
     ]);
   });
 
+  it('écarte une Recette du Foyer dont un Ingrédient manque au catalogue lu : ses Allergènes ne sont pas connus', () => {
+    // L'Ingrédient a été créé, avec ses Allergènes, après la lecture du
+    // catalogue et avant celle des Recettes.
+    const pesto = {
+      id: 'pesto',
+      lines: [
+        { ingredientId: 'salade', label: 'Salade verte' },
+        { ingredientId: 'pistache', label: 'Pistache' },
+      ],
+    };
+    const resultat = controler(
+      [proposition(LUNDI, 'pesto')],
+      [creneau(LUNDI)],
+      contexte([allergie('b', 'TREE_NUTS')], [pesto]),
+    );
+
+    expect(resultat.retenues).toEqual([]);
+    expect(resultat.rejetes).toEqual([
+      {
+        slot: creneau(LUNDI),
+        reason: 'UNKNOWN_INGREDIENT',
+        ingredient: { label: 'Pistache', ingredientId: 'pistache' },
+        allergen: null,
+        participantIds: [],
+      },
+    ]);
+  });
+
   it("rejette une Recette que le Foyer n'a pas", () => {
     const { rejetes } = controler(
       [proposition(LUNDI, 'inventee')],
