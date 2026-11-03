@@ -169,18 +169,18 @@
       "categorie": "ia",
       "gravite": "critique",
       "titre": "La génération propose un plat contenant un allergène",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-03",
       "solutions": [
         {
           "texte": "Contrôle déterministe après génération : chaque ingrédient passe par le résolveur et est confronté aux allergies des Participants ; repas rejeté hors modèle",
           "ref": "",
-          "fait": false
+          "fait": true
         },
         {
           "texte": "Le prompt mentionne les allergies, mais n'est jamais la garantie",
           "ref": "",
-          "fait": false
+          "fait": true
         }
       ],
       "tickets": ["CUISINE-1", "CUISINE-16", "CUISINE-17", "FOYER-2"]
@@ -206,8 +206,8 @@
       "categorie": "ia",
       "gravite": "moyenne",
       "titre": "Sortie IA mal formée ou ingrédients inconnus",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-03",
       "solutions": [
         {
           "texte": "Sortie structurée validée par zod",
@@ -217,7 +217,7 @@
         {
           "texte": "Ingrédient inconnu : résolveur, puis demande à l'utilisateur",
           "ref": "PRD #1",
-          "fait": false
+          "fait": true
         }
       ],
       "tickets": ["CUISINE-14", "CUISINE-16", "CUISINE-3"]
