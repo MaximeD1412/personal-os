@@ -136,6 +136,11 @@ export class Stock {
   private readonly brouillons = new Map<string, Partial<Saisie>>();
   /** Les Ingrédients dont une correction est en route : une seule à la fois. */
   private readonly enRoute = new Set<string>();
+  /**
+   * Les retraits confirmés pendant une correction en route : ils partent à son
+   * retour, pour qu'aucune correction n'arrive après eux et ne recrée la ligne.
+   */
+  private readonly retraitsEnAttente = new Map<string, string>();
   /** La ligne en cours de suppression, le temps de la requête. */
   protected readonly suppression = signal<string | null>(null);
   /** Le refus de la dernière suppression, en bandeau : jamais en toast seul. */
@@ -192,12 +197,28 @@ export class Stock {
     });
     if (!confirme) return;
 
-    this.suppression.set(ligne.ingredient.id);
+    const { id } = ligne.ingredient;
+    // Ce qui n'est pas encore parti ne partira plus.
+    this.brouillons.delete(id);
+    this.suppression.set(id);
     this.refusDeSuppression.set(null);
-    this.service.supprimer(ligne.ingredient.id).subscribe({
+    if (this.enRoute.has(id)) {
+      this.retraitsEnAttente.set(id, nom);
+      return;
+    }
+    this.supprimer(id, nom);
+  }
+
+  private supprimer(id: string, nom: string): void {
+    this.service.supprimer(id).subscribe({
       next: () => {
         this.suppression.set(null);
         showToast({ message: `«\u00a0${nom}\u00a0» est retiré du stock.` });
+        // La ligne quitte l'écran sans attendre la relecture : plus rien ne
+        // s'y saisit.
+        this.lecture.update((lignes) =>
+          lignes.filter((l) => l.ingredient.id !== id),
+        );
         this.lecture.reload();
       },
       error: (erreur: ErreurApi) => {
@@ -211,6 +232,8 @@ export class Stock {
   /** Ajoute le champ modifié au brouillon de la ligne, puis l'envoie. */
   private corriger(ligne: PantryItem, champ: Partial<Saisie>): void {
     const { id } = ligne.ingredient;
+    // Une ligne retirée, ou sur le point de l'être, ne se corrige plus.
+    if (this.suppression() === id || this.retraitsEnAttente.has(id)) return;
     this.brouillons.set(id, { ...this.brouillons.get(id), ...champ });
     this.envoyer(id);
   }
@@ -234,6 +257,7 @@ export class Stock {
     this.service.corriger(id, saisie).subscribe({
       next: (corrigee) => {
         this.enRoute.delete(id);
+        if (this.retirerSiConfirme(id)) return;
         // Le brouillon a changé pendant l'envoi : il part à son tour, et
         // c'est sa réponse qui s'affichera.
         if (this.brouillons.get(id) !== brouillon) {
@@ -251,6 +275,7 @@ export class Stock {
       },
       error: (erreur: ErreurApi) => {
         this.enRoute.delete(id);
+        if (this.retirerSiConfirme(id)) return;
         const champs = erreursDeChamp(erreur);
         const champ =
           champs['expiresOn'] && !champs['quantity'] ? 'expiresOn' : 'quantity';
@@ -261,7 +286,27 @@ export class Stock {
         });
         // Un autre Compte a pu changer le stock entre-temps.
         this.lecture.reload();
+        // Le champ refusé a été repris pendant l'envoi : la reprise part sans
+        // attendre. Inchangé, il serait refusé de nouveau : il attend la
+        // prochaine modification.
+        const reprise = this.brouillons.get(id);
+        if (
+          reprise !== brouillon &&
+          reprise?.[champ] !== undefined &&
+          reprise[champ] !== saisie[champ]
+        ) {
+          this.envoyer(id);
+        }
       },
     });
+  }
+
+  /** Lance le retrait confirmé pendant l'envoi qui vient de revenir. */
+  private retirerSiConfirme(id: string): boolean {
+    const nom = this.retraitsEnAttente.get(id);
+    if (nom === undefined) return false;
+    this.retraitsEnAttente.delete(id);
+    this.supprimer(id, nom);
+    return true;
   }
 }

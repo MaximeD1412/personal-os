@@ -289,6 +289,89 @@ describe('Le Stock domestique', () => {
     expect(quantite.getAttribute('aria-invalid')).toBeNull();
   });
 
+  it('envoie la saisie corrigée avant le refus de la précédente, sans attendre une autre modification', async () => {
+    const ouvert = await ouvrir();
+    const { el, http } = ouvert;
+    const quantite = champ(el(), 'ingredient-lait', 'quantite');
+
+    await saisir(ouvert, quantite, '-3');
+    await saisir(ouvert, quantite, '300');
+    http.expectOne(`${BASE}/pantry-items/ingredient-lait`).flush(
+      {
+        status: 400,
+        code: 'validation.failed',
+        message: 'La saisie est invalide.',
+        fields: [
+          {
+            path: 'quantity',
+            code: 'too_small',
+            message: 'La quantité ne peut pas être négative.',
+          },
+        ],
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    TestBed.tick();
+
+    const corrigee = http.expectOne(
+      (r) =>
+        r.method === 'PUT' && r.url === `${BASE}/pantry-items/ingredient-lait`,
+    );
+    expect(corrigee.request.body).toEqual({
+      quantity: 300,
+      expiresOn: '2026-10-21',
+    });
+    const relecture = http.expectOne(`${BASE}/pantry-items`);
+    corrigee.flush({ ...LAIT, quantity: 300 });
+    TestBed.tick();
+    // La ligne enregistrée remplace la relecture que le refus avait lancée.
+    expect(relecture.cancelled).toBe(true);
+    await ouvert.harness.fixture.whenStable();
+
+    expect(quantite.value).toBe('300');
+    expect(
+      ligne(el(), 'ingredient-lait').querySelector('[data-test="refus"]'),
+    ).toBeNull();
+  });
+
+  it('ne recrée pas une ligne retirée pendant ses corrections : le retrait attend l’envoi en cours, et abandonne le reste', async () => {
+    const ouvert = await ouvrir();
+    const { el, http } = ouvert;
+
+    await saisir(ouvert, champ(el(), 'ingredient-lait', 'quantite'), '250');
+    await saisir(
+      ouvert,
+      champ(el(), 'ingredient-lait', 'peremption'),
+      '2026-10-25',
+    );
+    (
+      ligne(el(), 'ingredient-lait').querySelector(
+        '[data-test="retirer"]',
+      ) as HTMLButtonElement
+    ).click();
+    await apresLaConfirmation(ouvert);
+
+    const DELETE = (r: { method: string }) => r.method === 'DELETE';
+    http.expectNone(DELETE);
+    http
+      .expectOne(`${BASE}/pantry-items/ingredient-lait`)
+      .flush({ ...LAIT, quantity: 250 });
+    TestBed.tick();
+
+    // Le brouillon de la péremption est abandonné : aucun PUT ne suit.
+    const suppression = http.expectOne(DELETE);
+    expect(suppression.request.url).toBe(
+      `${BASE}/pantry-items/ingredient-lait`,
+    );
+    suppression.flush(null, { status: 204, statusText: 'No Content' });
+    TestBed.tick();
+    expect(ligne(el(), 'ingredient-lait')).toBeNull();
+
+    http.expectOne(`${BASE}/pantry-items`).flush([SPAGHETTI, YAOURT]);
+    await ouvert.harness.fixture.whenStable();
+    expect(ligne(el(), 'ingredient-lait')).toBeNull();
+  });
+
   it('retire une ligne après confirmation, puis relit le stock', async () => {
     const ouvert = await ouvrir();
     const { el, http, confirmations } = ouvert;
