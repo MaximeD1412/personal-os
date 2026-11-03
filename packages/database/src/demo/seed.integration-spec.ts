@@ -1,8 +1,8 @@
 import { ID_ESPACE_FOYER, ID_FOYER } from '../lib/espace/foyer';
 import { sousPortee, type PorteeEspace } from '../lib/espace/portee';
 import { PrismaService } from '../lib/prisma.service';
-import type { Semeur } from './semeur';
-import { semer } from './semis';
+import type { Semeur } from './seeder';
+import { semer } from './seed';
 
 const ADRESSE_A = 'a@demo.test';
 const ADRESSE_B = 'b@demo.test';

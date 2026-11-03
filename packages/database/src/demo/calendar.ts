@@ -1,5 +1,5 @@
 import type { Prisma } from '../generated/prisma/client';
-import type { Demo, Semeur } from './semeur';
+import type { Demo, Semeur } from './seeder';
 
 type Saisie = Omit<Prisma.EventUncheckedCreateInput, 'scopeId'> & {
   espace: 'a' | 'b' | 'foyer';

@@ -138,7 +138,7 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
 - **Un ticket qui ajoute un module ajoute son semeur** au jeu de démo
   (`packages/database/src/demo/`, un fichier par module, inscrit dans
   `SEMEURS`). Le staging est réinitialisé à partir de ce jeu (ADR 0031), et
-  `semeurs.spec.ts` échoue si un modèle cloisonné n'appartient à aucun semeur.
+  `seeders.spec.ts` échoue si un modèle cloisonné n'appartient à aucun semeur.
   Ses dates sont relatives au jour du semis (`demo.le(decalage, heure)`), jamais
   en dur. Vérifier : `pnpm exec nx test-integration database`.
 - **Revue visuelle** (`revue_visuelle: true` dans le ticket, label

@@ -1,4 +1,4 @@
-import { creerLaBase, migrerLaBase, urlDeLaBase } from './base-jetable';
+import { creerLaBase, migrerLaBase, urlDeLaBase } from './disposable-database';
 
 const BASE_PAR_DEFAUT =
   'postgresql://personalos:personalos@localhost:5432/postgres?schema=public';

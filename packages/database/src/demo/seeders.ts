@@ -1,5 +1,5 @@
 import { calendar } from './calendar';
-import type { Semeur } from './semeur';
+import type { Semeur } from './seeder';
 import { traces } from './traces';
 
 /**

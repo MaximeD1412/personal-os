@@ -14,7 +14,7 @@ Schéma Prisma, `PrismaService` et garde d'Espace (ADR 0016, 0028).
 
 `pnpm demo:seed` remet la base désignée par `DATABASE_URL` dans l'état du jeu
 de démo : il **vide les données métier** de tous les Espaces, puis sème, module
-par module (`src/demo/semeurs.ts`). Le staging s'en sert à chaque déploiement
+par module (`src/demo/seeders.ts`). Le staging s'en sert à chaque déploiement
 (ADR 0031).
 
 - `DEMO_ACCOUNT_EMAILS` : les deux Comptes réels admis par Authentik, séparés

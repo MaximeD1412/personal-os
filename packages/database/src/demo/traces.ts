@@ -1,4 +1,4 @@
-import type { Semeur } from './semeur';
+import type { Semeur } from './seeder';
 
 /**
  * L'entité jouet du fil traceur (#6) : une Trace par Espace suffit à montrer,

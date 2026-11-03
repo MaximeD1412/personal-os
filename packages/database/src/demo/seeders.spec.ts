@@ -1,6 +1,6 @@
 import { Prisma } from '../generated/prisma/client';
 import { MODELES_HORS_ESPACE } from '../lib/espace/modeles';
-import { SEMEURS } from './semeurs';
+import { SEMEURS } from './seeders';
 
 /**
  * Le staging est réinitialisé à partir du jeu de démo. Une donnée cloisonnée

@@ -2,8 +2,8 @@ import { ID_ESPACE_FOYER, ID_FOYER } from '../lib/espace/foyer';
 import { sousPortee, type PorteeEspace } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
 import { aParis, decalerLeJour, jourAParis } from './dates';
-import type { CompteDeDemo, Demo, Semeur } from './semeur';
-import { SEMEURS } from './semeurs';
+import type { CompteDeDemo, Demo, Semeur } from './seeder';
+import { SEMEURS } from './seeders';
 
 /** Les deux adresses de `DEMO_ACCOUNT_EMAILS`, dans l'ordre : A puis B. */
 export type ComptesDeDemo = readonly [string, string];

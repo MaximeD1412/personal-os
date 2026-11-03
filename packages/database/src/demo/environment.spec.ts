@@ -1,4 +1,4 @@
-import { comptesDeDemo, refuserLaProduction } from './environnement';
+import { comptesDeDemo, refuserLaProduction } from './environment';
 
 describe("L'environnement du jeu de démo", () => {
   describe('APP_ENV', () => {

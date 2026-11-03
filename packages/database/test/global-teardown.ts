@@ -1,4 +1,4 @@
-import { supprimerLaBase } from './base-jetable';
+import { supprimerLaBase } from './disposable-database';
 
 export default async function globalTeardown(): Promise<void> {
   const base = process.env['TEST_BASE_DATABASE_URL'];

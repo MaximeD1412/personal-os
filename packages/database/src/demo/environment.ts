@@ -1,4 +1,4 @@
-import type { ComptesDeDemo } from './semis';
+import type { ComptesDeDemo } from './seed';
 
 type Environnement = Readonly<Record<string, string | undefined>>;
 

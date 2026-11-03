@@ -1,6 +1,6 @@
 import { PrismaService } from '../lib/prisma.service';
-import { comptesDeDemo, refuserLaProduction } from './environnement';
-import { semer } from './semis';
+import { comptesDeDemo, refuserLaProduction } from './environment';
+import { semer } from './seed';
 
 /**
  * `pnpm demo:seed` : remet la base désignée par `DATABASE_URL` dans l'état du
