@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
   LIBELLES_DES_MOMENTS,
@@ -92,6 +92,12 @@ export class FormulaireDeGeneration {
   private readonly service = inject(MealPlanService);
 
   private readonly parametres = inject(ActivatedRoute).snapshot.queryParamMap;
+
+  /**
+   * Quitté pendant l'envoi : le tour se crée quand même, et son résumé
+   * s'annonce, mais il ne ramène plus au planning de sa semaine.
+   */
+  private quitte = false;
 
   protected readonly prefill = prefillDepuisRequete(
     zGenerationSlotInput,
@@ -220,6 +226,10 @@ export class FormulaireDeGeneration {
     return parCreneau;
   });
 
+  constructor() {
+    inject(DestroyRef).onDestroy(() => (this.quitte = true));
+  }
+
   protected readonly titre = libelleDeLaSemaine(this.semaine);
   protected readonly fil = [
     ...FIL_DU_PLANNING,
@@ -270,7 +280,7 @@ export class FormulaireDeGeneration {
       next: (tour) => {
         this.envoi.set(false);
         showToast({ tone: 'success', message: resumeDuTour(tour) });
-        this.fermer();
+        if (!this.quitte) this.fermer();
       },
       error: (erreur: ErreurApi) => {
         this.envoi.set(false);

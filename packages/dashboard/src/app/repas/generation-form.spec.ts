@@ -24,6 +24,7 @@ import {
 type Ouvert = Awaited<ReturnType<typeof ouvrirLePlanning>>;
 
 const GENERER = '/repas/planning/generer';
+const SEMAINE_SUIVANTE = '2026-10-26';
 
 function lectureDe(ouvert: Pick<Ouvert, 'http'>, semaine: string): TestRequest {
   return ouvert.http.expectOne(
@@ -249,6 +250,45 @@ describe('La génération de la semaine', () => {
     http.expectOne(`${BASE}/household`).flush(FOYER);
     lectureDe({ http }, LUNDI).flush(PLANNING);
     souhaitsDe({ http }, LUNDI).flush([]);
+  });
+
+  it('ne ramène pas au planning de sa semaine quand le tour répond après qu’on a quitté le formulaire', async () => {
+    const { el, http, router, harness } = await ouvrir(
+      `${GENERER}?semaine=${LUNDI}&day=2026-10-20&moment=LUNCH`,
+    );
+    soumettre(el());
+    const tour = http.expectOne(
+      `${BASE}/meal-plans/planning-1/generation-rounds`,
+    );
+
+    const annule = arrivee(router);
+    (
+      [...el().querySelectorAll('button[type="button"]')].find((bouton) =>
+        bouton.textContent?.includes('Annuler'),
+      ) as HTMLButtonElement
+    ).click();
+    await annule;
+    TestBed.tick();
+    http.expectOne(`${BASE}/household`).flush(FOYER);
+    lectureDe({ http }, LUNDI).flush(PLANNING);
+    souhaitsDe({ http }, LUNDI).flush([]);
+    TestBed.tick();
+
+    await router.navigateByUrl(`/repas/planning?semaine=${SEMAINE_SUIVANTE}`);
+    TestBed.tick();
+    lectureDe({ http }, SEMAINE_SUIVANTE).flush({
+      ...PLANNING,
+      id: 'planning-2',
+      week: SEMAINE_SUIVANTE,
+      entries: [],
+    });
+    souhaitsDe({ http }, SEMAINE_SUIVANTE).flush([]);
+    TestBed.tick();
+
+    tour.flush(TOUR_1);
+    await harness.fixture.whenStable();
+
+    expect(router.url).toBe(`/repas/planning?semaine=${SEMAINE_SUIVANTE}`);
   });
 
   it('n’envoie rien sans créneau coché', async () => {

@@ -748,6 +748,109 @@ describe('Tours de génération', () => {
       ).toEqual(['PROPOSED']);
     });
 
+    /*
+     * Le parcours de l'écran de génération (#78), avec les corps que le
+     * tableau de bord envoie : le premier tour depuis le formulaire, une
+     * décision par repas, la relance sans créneaux, puis l'arrêt.
+     */
+    it("mène le parcours de l'écran avec le double IA : générer, statuer, relancer, arrêter", async () => {
+      await preference(compteA, 'ALLERGY', 'TREE_NUTS');
+      const planning = await lire(jeu.a, '2029-09-03');
+      const tablee = { participantIds: [compteA, compteB], guestCount: 0 };
+      programmer([
+        { day: '2029-09-03', moment: 'LUNCH', recipeId: dahl.id, recipe: null },
+        nouvelle('2029-09-03', 'DINNER', 'Salade aux noix (parcours)', [
+          'Noix (génération)',
+        ]),
+        nouvelle('2029-09-04', 'LUNCH', 'Salade (parcours)', [
+          'Salade verte (génération)',
+        ]),
+      ]);
+
+      const premier = (
+        await lancer(jeu.a, planning, {
+          slots: [
+            { day: '2029-09-03', moment: 'LUNCH', ...tablee },
+            { day: '2029-09-03', moment: 'DINNER', ...tablee },
+            { day: '2029-09-04', moment: 'LUNCH', ...tablee },
+          ],
+        })
+          .expect(201)
+          .expect(conformeA(UN_TOUR))
+      ).body as GenerationRound;
+      expect(premier.rejected).toMatchObject([
+        {
+          slot: { day: '2029-09-03', moment: 'DINNER' },
+          reason: 'ALLERGEN',
+          allergen: 'TREE_NUTS',
+          participantIds: [compteA],
+        },
+      ]);
+      const [dahlDuLundi, saladeDuMardi] = premier.entries;
+      expect(saladeDuMardi).toMatchObject({ decision: 'PROPOSED' });
+
+      // Tant qu'un repas est proposé, ni relance ni arrêt.
+      await lancer(jeu.a, planning, { slots: [] }).expect(422);
+      await arreter(planning)
+        .expect(422)
+        .expect(codeDErreur('food.plan_has_pending'));
+
+      await decider(planning, dahlDuLundi.id, 'APPROVED');
+      await decider(planning, saladeDuMardi.id, 'REFUSED');
+
+      programmer([
+        nouvelle('2029-09-03', 'DINNER', 'Salade du soir (parcours)', [
+          'Salade verte (génération)',
+        ]),
+        { day: '2029-09-04', moment: 'LUNCH', recipeId: dahl.id, recipe: null },
+      ]);
+      const second = (
+        await lancer(jeu.a, planning, { slots: [] })
+          .expect(201)
+          .expect(conformeA(UN_TOUR))
+      ).body as GenerationRound;
+      expect(second).toMatchObject({ number: 2, rejected: [] });
+      expect(
+        second.entries.map(({ day, moment, decision }) => ({
+          day,
+          moment,
+          decision,
+        })),
+      ).toEqual([
+        { day: '2029-09-03', moment: 'DINNER', decision: 'PROPOSED' },
+        { day: '2029-09-04', moment: 'LUNCH', decision: 'PROPOSED' },
+      ]);
+
+      for (const repas of second.entries) {
+        await decider(planning, repas.id, 'APPROVED');
+      }
+      const arrete = (
+        await arreter(planning).expect(200).expect(conformeA(UN_PLANNING))
+      ).body as MealPlan;
+
+      expect(arrete.status).toBe('STOPPED');
+      expect(
+        arrete.entries.map(({ id, decision }) => ({ id, decision })),
+      ).toEqual([
+        { id: dahlDuLundi.id, decision: 'APPROVED' },
+        { id: second.entries[0].id, decision: 'APPROVED' },
+        { id: second.entries[1].id, decision: 'APPROVED' },
+      ]);
+      expect(
+        arrete.rounds.map(({ number, traceId }) => ({ number, traceId })),
+      ).toEqual([
+        { number: 1, traceId: premier.traceId },
+        { number: 2, traceId: second.traceId },
+      ]);
+      for (const tour of [premier, second]) {
+        await request(app.getHttpServer())
+          .get(`/api/ai-traces/${tour.traceId}`)
+          .set('Cookie', jeu.a.session)
+          .expect(200)
+          .expect(conformeA(zAiTrace));
+      }
+    });
+
     it("ne laisse aucun tour quand l'IA ne rend pas une sortie valide", async () => {
       const planning = await lire(jeu.a, '2028-12-11');
       fournisseur.programmerTexte(BUT_GENERATION, 'pas du JSON');
@@ -914,6 +1017,12 @@ describe('Tours de génération', () => {
       .set('Cookie', jeu.a.session)
       .send({ decision })
       .expect(200);
+  }
+
+  function arreter(planning: MealPlan) {
+    return request(app.getHttpServer())
+      .post(`/api/meal-plans/${planning.id}/stop`)
+      .set('Cookie', jeu.a.session);
   }
 
   function programmer(propositions: PropositionDeRepas[]): void {
