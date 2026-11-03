@@ -9,6 +9,7 @@
     "db:up": "docker compose up -d db",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "demo:seed": "nx run database:demo-seed",
     "postinstall": "prisma generate",
     "build": "nx run-many -t build",
     "lint": "nx run-many -t lint",

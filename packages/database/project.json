@@ -5,5 +5,21 @@
   "projectType": "library",
   "tags": [],
   "// targets": "to see all targets run: nx show project database --web",
-  "targets": {}
+  "targets": {
+    "test-integration": {
+      "executor": "@nx/jest:jest",
+      "cache": false,
+      "options": {
+        "jestConfig": "packages/database/jest.integration.config.cts",
+        "runInBand": true
+      }
+    },
+    "demo-seed": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "ts-node --transpile-only --project packages/database/tsconfig.lib.json packages/database/src/demo/main.ts"
+      }
+    }
+  }
 }
