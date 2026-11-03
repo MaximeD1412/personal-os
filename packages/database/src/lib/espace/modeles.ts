@@ -33,6 +33,8 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
       'recipes',
       'recipeLines',
       'pantryItems',
+      'shoppingLists',
+      'shoppingListItems',
       'mealPlans',
       'mealPlanEntries',
       'generationRounds',
@@ -66,9 +68,15 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   LoginTransaction: [],
   Household: ['members', 'scopes'],
   // Un Ingrédient est cité par les lignes de Recette, les Préférences
-  // alimentaires et le Stock domestique, qui sont cloisonnés : directement, ou
-  // depuis un Alias à travers son Ingrédient.
-  Ingredient: ['aliases', 'recipeLines', 'foodPreferences', 'pantryItems'],
+  // alimentaires, le Stock domestique et les Articles de courses, qui sont
+  // cloisonnés : directement, ou depuis un Alias à travers son Ingrédient.
+  Ingredient: [
+    'aliases',
+    'recipeLines',
+    'foodPreferences',
+    'pantryItems',
+    'shoppingListItems',
+  ],
   IngredientAlias: ['ingredient'],
   Scope: [
     'household',
@@ -82,6 +90,8 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'recipes',
     'recipeLines',
     'pantryItems',
+    'shoppingLists',
+    'shoppingListItems',
     'mealPlans',
     'mealPlanEntries',
     'generationRounds',

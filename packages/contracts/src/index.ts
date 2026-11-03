@@ -17,4 +17,5 @@ export * from './lib/project';
 export * from './lib/publication';
 export * from './lib/recipe';
 export * from './lib/scope';
+export * from './lib/shopping-list';
 export * from './lib/valeurs';
