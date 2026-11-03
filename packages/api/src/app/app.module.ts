@@ -7,6 +7,7 @@ import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { CommandBarModule } from './command-bar/command-bar.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { ErreursFilter } from './erreurs/erreurs.filter';
 import { EspaceModule } from './espace/espace.module';
 import { FoodModule } from './food/food.module';
@@ -23,6 +24,7 @@ import { ProjectsModule } from './projects/projects.module';
     HealthModule,
     CalendarModule,
     AgendaModule,
+    DashboardModule,
     HouseholdModule,
     AiModule,
     CommandBarModule,

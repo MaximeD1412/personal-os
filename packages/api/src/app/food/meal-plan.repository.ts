@@ -160,6 +160,30 @@ export class MealPlanRepository {
   }
 
   /** Les identifiants, parmi ceux-ci, de Comptes du Foyer de ce Compte. */
+  /**
+   * Le planning d'une semaine et les jours de ses repas encore proposés, dans
+   * l'ordre de la semaine. Rien n'est créé : un planning absent n'attend rien.
+   */
+  async proposesDeLaSemaine(
+    semaine: string,
+  ): Promise<{ id: string; jours: string[] } | null> {
+    const rangee = await this.prisma.mealPlan.findFirst({
+      where: { week: enDate(semaine) },
+      select: {
+        id: true,
+        entries: {
+          where: { decision: 'PROPOSED' },
+          orderBy: ORDRE_DES_REPAS,
+          select: { day: true },
+        },
+      },
+    });
+
+    return rangee
+      ? { id: rangee.id, jours: rangee.entries.map(({ day }) => enJour(day)) }
+      : null;
+  }
+
   async membresDuFoyer(
     ids: readonly string[],
     compteId: string,
