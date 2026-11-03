@@ -105,7 +105,11 @@ export async function ouvrirLePlanning(
   TestBed.configureTestingModule({
     providers: [
       provideRouter(
-        appRoutes.filter(({ path }) => path?.startsWith('repas/planning')),
+        // La liste de courses produite s'ouvre par sa route.
+        appRoutes.filter(
+          ({ path }) =>
+            path?.startsWith('repas/planning') || path?.startsWith('courses'),
+        ),
       ),
       provideHttpClient(withInterceptors(INTERCEPTEURS)),
       provideHttpClientTesting(),

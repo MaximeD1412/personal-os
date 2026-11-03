@@ -1,0 +1,233 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    [heading]="titre() ?? 'Liste de courses'"
+    [subtitle]="sousTitre()"
+    [breadcrumb]="fil"
+  >
+    @if (liste(); as liste) {
+    <span hlmBadge tone="neutral" class="tabular-nums" data-test="achetes"
+      >{{ achetes() }} / {{ liste.items.length }} achetés</span
+    >
+    }
+  </dccm-page-header>
+
+  @if (autres().length) {
+  <nav aria-label="Autres listes ouvertes" class="flex flex-wrap gap-space-sm">
+    @for (autre of autres(); track autre.id) {
+    <a
+      hlmBtn
+      variant="secondary"
+      size="sm"
+      data-test="autre-liste"
+      [routerLink]="['/courses', autre.id]"
+      >{{ nomDeListe(autre) }}</a
+    >
+    }
+  </nav>
+  } @if (refus(); as erreur) {
+  <div hlmAlert tone="error" data-test="refus">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>{{ erreur.message }}</p>
+    </div>
+  </div>
+  }
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture().error()"
+    emptyHeading="Aucune liste de courses ouverte"
+    emptyDescription="Une liste se produit depuis un planning de repas arrêté."
+    [emptyIcon]="iconeVide"
+    loadingLabel="Chargement de la liste…"
+    (retry)="lecture().reload()"
+  >
+    <a dccmStateEmpty hlmBtn routerLink="/repas/planning"
+      >Aller au planning de repas</a
+    >
+
+    @if (liste(); as liste) {
+    <div class="flex flex-col gap-space-lg md:max-w-2xl">
+      @if (ouverte()) {
+      <form
+        hlmCard
+        class="flex flex-col gap-space-sm"
+        data-test="ajout"
+        aria-label="Ajouter un article"
+        (submit)="ajouter($event)"
+      >
+        @if (refusSansChamp(); as erreur) {
+        <div hlmAlert tone="error" data-test="refus-ajout">
+          <hlm-alert-icon />
+          <div hlmAlertContent>
+            <p hlmAlertTitle>{{ erreur.message }}</p>
+          </div>
+        </div>
+        }
+        <div class="flex flex-col gap-space-sm sm:flex-row sm:items-start">
+          <div hlmField class="min-w-0 flex-1">
+            <label hlmFieldLabel for="courses-article"
+              >Ajouter un article</label
+            >
+            <input
+              #champDAjout
+              hlmInput
+              id="courses-article"
+              data-test="article"
+              autocomplete="off"
+              placeholder="Un ingrédient, ou « éponges »"
+              [value]="texte()"
+              [forceInvalid]="!!erreursDAjout()['label']"
+              (input)="saisirLeTexte($event)"
+            />
+            @if (erreursDAjout()['label']; as message) {
+            <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+            } @else if (choisi(); as ingredient) {
+            <p
+              hlmFieldDescription
+              class="flex items-center gap-space-xs"
+              data-test="choisi"
+            >
+              Ingrédient du catalogue : {{ ingredient.displayName }}
+              <button
+                hlmBtn
+                type="button"
+                variant="link"
+                size="sm"
+                data-test="oublier"
+                (click)="oublierLIngredient()"
+              >
+                Garder un simple libellé
+              </button>
+            </p>
+            }
+          </div>
+          <div hlmField class="sm:w-36">
+            <label hlmFieldLabel for="courses-quantite">Quantité</label>
+            <div hlmInputGroup>
+              <input
+                hlmInput
+                id="courses-quantite"
+                data-test="quantite"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                step="any"
+                class="tabular-nums"
+                placeholder="Facultatif"
+                [value]="quantite() ?? ''"
+                [forceInvalid]="!!erreursDAjout()['quantity']"
+                (input)="saisirLaQuantite($event)"
+              />
+              @if (unite(); as unite) {
+              <span class="text-label-regular text-outline" data-test="unite"
+                >{{ unite }}</span
+              >
+              }
+            </div>
+            @if (erreursDAjout()['quantity']; as message) {
+            <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+            }
+          </div>
+          <button
+            hlmBtn
+            type="submit"
+            class="sm:mt-6"
+            data-test="ajouter"
+            [loading]="envoi()"
+            [disabled]="!texte().trim()"
+          >
+            <ng-icon name="matAddOutline" aria-hidden="true" />
+            Ajouter
+          </button>
+        </div>
+        @if (suggestions().length) {
+        <ul class="flex flex-col" aria-label="Ingrédients du catalogue">
+          @for (ingredient of suggestions(); track ingredient.id) {
+          <li>
+            <button
+              dccmListRow
+              type="button"
+              data-test="suggestion"
+              [label]="ingredient.displayName"
+              [meta]="uniteDe(ingredient)"
+              (click)="choisir(ingredient)"
+            ></button>
+          </li>
+          }
+        </ul>
+        }
+      </form>
+      }
+
+      <section class="flex flex-col gap-space-xs" data-test="groupe-planning">
+        <h2 class="text-title-sm text-on-surface">
+          Issus du planning
+          <span class="tabular-nums text-outline"
+            >({{ duPlanning().length }})</span
+          >
+        </h2>
+        @if (duPlanning().length) {
+        <ul class="flex flex-col" aria-label="Articles issus du planning">
+          @for (article of duPlanning(); track article.id) {
+          <li data-test="article-de-liste" [attr.data-id]="article.id">
+            <dccm-list-row
+              [checkable]="ouverte()"
+              [label]="designation(article)"
+              [meta]="quantiteDArticle(article)"
+              [checked]="article.checked"
+              (checkedChange)="cocher(article, $event)"
+            />
+          </li>
+          }
+        </ul>
+        } @else {
+        <p class="text-body-dense text-outline">
+          Le stock couvrait tout ce que le planning demandait.
+        </p>
+        }
+      </section>
+
+      <section class="flex flex-col gap-space-xs" data-test="groupe-ajouts">
+        <h2 class="text-title-sm text-on-surface">
+          Ajouts manuels
+          <span class="tabular-nums text-outline">({{ ajouts().length }})</span>
+        </h2>
+        @if (ajouts().length) {
+        <ul class="flex flex-col" aria-label="Ajouts manuels">
+          @for (article of ajouts(); track article.id) {
+          <li data-test="article-de-liste" [attr.data-id]="article.id">
+            <dccm-list-row
+              [checkable]="ouverte()"
+              [label]="designation(article)"
+              [meta]="quantiteDArticle(article)"
+              [checked]="article.checked"
+              (checkedChange)="cocher(article, $event)"
+            >
+              @if (ouverte()) {
+              <button
+                hlmBtn
+                type="button"
+                variant="ghost"
+                size="icon"
+                data-test="retirer"
+                [attr.aria-label]="'Retirer ' + designation(article) + ' de la liste'"
+                (click)="retirer(article)"
+              >
+                <ng-icon name="matDeleteOutline" aria-hidden="true" />
+              </button>
+              }
+            </dccm-list-row>
+          </li>
+          }
+        </ul>
+        } @else {
+        <p class="text-body-dense text-outline">
+          Rien d'ajouté à la main pour l'instant.
+        </p>
+        }
+      </section>
+    </div>
+    }
+  </dccm-state>
+</div>

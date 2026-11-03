@@ -19,6 +19,16 @@
     } @else {
     <button
       hlmBtn
+      type="button"
+      data-test="produire"
+      [loading]="transition()"
+      (click)="produire()"
+    >
+      <ng-icon [svg]="icones.produire" aria-hidden="true" />
+      Produire la liste de courses
+    </button>
+    <button
+      hlmBtn
       variant="secondary"
       type="button"
       data-test="rouvrir"
@@ -80,6 +90,13 @@
     <hlm-alert-icon />
     <div hlmAlertContent>
       <p hlmAlertTitle>{{ erreur.message }}</p>
+      @if (erreur.fields?.length) {
+      <ul hlmAlertDescription class="list-disc ps-space-md">
+        @for (champ of erreur.fields; track champ.path) {
+        <li>{{ champ.message }}</li>
+        }
+      </ul>
+      }
     </div>
   </div>
   }
