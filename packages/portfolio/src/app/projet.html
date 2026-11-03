@@ -1,0 +1,47 @@
+<a
+  class="self-start py-space-md text-label-regular text-on-surface-variant hover:text-on-surface"
+  data-test="retour"
+  [routerLink]="['/', langue()]"
+  fragment="projets"
+  >← {{ textes().retour }}</a
+>
+
+@let lecture = projet(); @switch (lecture.etat) { @case ('present') {
+<article class="flex flex-col gap-space-md pb-space-xl" data-test="projet">
+  <header class="flex flex-col gap-space-sm">
+    <h1 class="text-headline-lg-mobile text-on-surface md:text-headline-lg">
+      {{ lecture.valeur.title }}
+    </h1>
+    <p class="text-body-default text-on-surface-variant">
+      {{ lecture.valeur.summary }}
+    </p>
+    <p class="text-label-regular text-outline" data-test="publie-le">
+      {{ publieLe() }}
+    </p>
+  </header>
+  <pos-texte-publie class="max-w-3xl" [texte]="lecture.valeur.body" />
+</article>
+} @case ('absent') {
+<dccm-empty-state
+  class="py-space-xl"
+  data-test="projet-absent"
+  [heading]="textes().projetAbsent"
+  [description]="textes().projetAbsentDetail"
+>
+  <a hlmBtn variant="secondary" [routerLink]="['/', langue()]"
+    >{{ textes().retour }}</a
+  >
+</dccm-empty-state>
+} @case ('chargement') {
+<p class="text-body-default text-outline" role="status">
+  {{ textes().chargement }}
+</p>
+} @case ('erreur') {
+<dccm-empty-state
+  class="py-space-xl"
+  role="alert"
+  variant="error"
+  [heading]="textes().echec"
+  [description]="lecture.message"
+/>
+} }

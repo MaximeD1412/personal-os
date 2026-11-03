@@ -287,6 +287,12 @@ describe('Portfolio public', () => {
         .expect('Content-Type', 'application/pdf');
 
       expect(Buffer.compare(reponse.body as Buffer, UN_PDF)).toBe(0);
+
+      // Le portfolio demande par un HEAD si le CV existe, sans le télécharger.
+      await request(app.getHttpServer())
+        .head('/api/public/cv/FR')
+        .expect(200)
+        .expect('Content-Type', 'application/pdf');
     });
 
     it("rend un 404 pour une langue sans CV, sans repli sur l'autre", async () => {
@@ -294,6 +300,7 @@ describe('Portfolio public', () => {
         .get('/api/public/cv/EN')
         .expect(404)
         .expect(codeDErreur('portfolio.cv_not_found'));
+      await request(app.getHttpServer()).head('/api/public/cv/EN').expect(404);
     });
   });
 
