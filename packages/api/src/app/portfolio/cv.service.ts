@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { LANGUES, type Cv, type Lang } from '@personal-os/contracts';
 import { ErreurMetier, Introuvable } from '../erreurs/erreur-metier';
-import { StockageObjet, type ObjetStocke } from '../storage/stockage-objet';
+import {
+  StockageObjet,
+  type DescriptionDObjet,
+  type ObjetStocke,
+} from '../storage/stockage-objet';
 import { CV_INVALIDE } from './cv.televersement';
 
 /** Tout PDF commence par cette signature, quel que soit le nom qu'on lui donne. */
@@ -47,13 +51,26 @@ export class CvService {
   async lire(lang: Lang): Promise<ObjetStocke> {
     const objet = await this.stockage.lire(cleDuCv(lang));
     if (!objet) {
-      throw new Introuvable(
-        'portfolio.cv_not_found',
-        "Aucun CV n'a été téléversé pour cette langue.",
-      );
+      throw cvIntrouvable();
     }
     return objet;
   }
+
+  /** Ce qu'on sait du CV de la langue, sans en lire le contenu. */
+  async decrire(lang: Lang): Promise<DescriptionDObjet> {
+    const description = await this.stockage.decrire(cleDuCv(lang));
+    if (!description) {
+      throw cvIntrouvable();
+    }
+    return description;
+  }
+}
+
+function cvIntrouvable(): Introuvable {
+  return new Introuvable(
+    'portfolio.cv_not_found',
+    "Aucun CV n'a été téléversé pour cette langue.",
+  );
 }
 
 function cleDuCv(lang: Lang): string {

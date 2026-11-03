@@ -90,7 +90,7 @@ section.lecture; @if (lecture.etat === 'present') {
   } }
 </section>
 
-@if (contenu.cv().etat === 'present') {
+@let cv = contenu.cv(); @if (cv.etat === 'present') {
 <section id="cv" class="scroll-mt-24 py-space-lg" data-test="cv">
   <div
     hlmCard
@@ -108,5 +108,14 @@ section.lecture; @if (lecture.etat === 'present') {
       {{ textes().telechargerLeCv }}
     </a>
   </div>
+</section>
+} @else if (cv.etat === 'erreur') {
+<section class="py-space-lg" data-test="cv">
+  <dccm-empty-state
+    role="alert"
+    variant="error"
+    [heading]="textes().echec"
+    [description]="cv.message"
+  />
 </section>
 }

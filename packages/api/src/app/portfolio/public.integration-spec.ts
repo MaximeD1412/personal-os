@@ -28,6 +28,7 @@ import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
 import { accepterLesCorpsJson } from '../../corps';
 import { AppModule } from '../app.module';
+import { StockageObjet } from '../storage/stockage-objet';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
 const DASHBOARD_URL = 'http://app.exemple.test/';
@@ -288,11 +289,29 @@ describe('Portfolio public', () => {
 
       expect(Buffer.compare(reponse.body as Buffer, UN_PDF)).toBe(0);
 
-      // Le portfolio demande par un HEAD si le CV existe, sans le télécharger.
+    });
+
+    it('répond au HEAD de présence sans lire le contenu du CV', async () => {
+      await request(app.getHttpServer())
+        .put('/api/cv/FR')
+        .set('Cookie', jeu.a.session)
+        .attach('file', UN_PDF, {
+          filename: 'cv.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(200);
+      const lecture = jest.spyOn(app.get(StockageObjet), 'lire');
+
+      // Le portfolio demande à chaque visite si le CV existe : le PDF, qui peut
+      // peser 5 Mo, ne quitte pas le stockage pour autant.
       await request(app.getHttpServer())
         .head('/api/public/cv/FR')
         .expect(200)
-        .expect('Content-Type', 'application/pdf');
+        .expect('Content-Type', 'application/pdf')
+        .expect('Content-Length', String(UN_PDF.length));
+
+      expect(lecture).not.toHaveBeenCalled();
+      lecture.mockRestore();
     });
 
     it("rend un 404 pour une langue sans CV, sans repli sur l'autre", async () => {

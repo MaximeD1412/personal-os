@@ -103,6 +103,28 @@ describe('L’accueil du portfolio', () => {
       'La base ne répond pas.',
     );
   });
+
+  it('dit que le CV n’a pas pu être vérifié, au lieu de le taire comme absent', async () => {
+    const { harness, http, el } = await ouvrirLePortfolio('/fr');
+    for (const slug of ['about', 'experience', 'skills'] as const) {
+      http
+        .expectOne(`${BASE}/public/FR/pages/${slug}`)
+        .flush(page(slug, 'FR', slug));
+    }
+    http.expectOne(`${BASE}/public/FR/projects`).flush([]);
+    // Un HEAD n'a pas de corps : la panne n'apporte aucune enveloppe.
+    http
+      .expectOne(`${BASE}/public/cv/FR`)
+      .flush(null, { status: 500, statusText: 'Internal Server Error' });
+    await harness.fixture.whenStable();
+
+    const cv = el().querySelector('[data-test="cv"]');
+    expect(cv?.querySelector('[role="alert"]')?.textContent).toContain(
+      'Le chargement a échoué',
+    );
+    expect(cv?.textContent).toContain("Le serveur n'a pas répondu.");
+    expect(el().querySelector('[data-test="telecharger-cv"]')).toBeNull();
+  });
 });
 
 function liensDeSection(racine: HTMLElement): string[] {
