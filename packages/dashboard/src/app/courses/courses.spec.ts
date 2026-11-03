@@ -659,6 +659,69 @@ describe('La Liste de courses', () => {
       await ouvert.harness.fixture.whenStable();
     });
 
+    it('attend la fin des cochages en route avant de clôturer, et fige les cases pendant l’envoi', async () => {
+      const ouvert = await ouvrir([{ ...LISTE, items: [FARINE] }]);
+      const { el, http } = ouvert;
+      const COCHAGE = `${BASE}/shopping-lists/${LISTE.id}/items/${FARINE.id}`;
+
+      // Cochée puis décochée avant la réponse du premier cochage.
+      caseDe(el(), FARINE.id).click();
+      TestBed.tick();
+      caseDe(el(), FARINE.id).click();
+      TestBed.tick();
+      const premier = http.expectOne(`${COCHAGE}/check`);
+      await ouvrirLeRecap(ouvert);
+      bouton(el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+
+      // La clôture attend : le serveur voit encore la farine cochée.
+      http.expectNone(CLOTURE);
+      expect(caseDe(el(), FARINE.id).disabled).toBe(true);
+      premier.flush({ ...FARINE, checked: true });
+      await apresLaConfirmation();
+      http.expectNone(CLOTURE);
+
+      http.expectOne(`${COCHAGE}/uncheck`).flush({ ...FARINE, checked: false });
+      await apresLaConfirmation();
+      const envoi = http.expectOne(CLOTURE);
+      expect(envoi.request.body).toEqual({ items: [] });
+      envoi.flush({ ...LISTE, items: [FARINE], status: 'CLOSED' });
+      await ouvert.harness.fixture.whenStable();
+    });
+
+    it('ne clôture pas si un cochage en route est refusé, et dit le refus', async () => {
+      const ouvert = await ouvrir([{ ...LISTE, items: [FARINE] }]);
+      const { el, http } = ouvert;
+
+      caseDe(el(), FARINE.id).click();
+      TestBed.tick();
+      const cochage = http.expectOne(
+        `${BASE}/shopping-lists/${LISTE.id}/items/${FARINE.id}/check`,
+      );
+      await ouvrirLeRecap(ouvert);
+      bouton(el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+
+      cochage.flush(
+        {
+          status: 422,
+          code: 'food.list_already_closed',
+          message:
+            'Cette Liste de courses est close : elle ne se modifie plus.',
+        },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+      await apresLaConfirmation();
+
+      http.expectNone(CLOTURE);
+      expect(texte(el().querySelector('[data-test="refus"]'))).toContain(
+        'Cette Liste de courses est close',
+      );
+      http.expectOne(OUVERTES).flush([{ ...LISTE, items: [FARINE] }]);
+      await ouvert.harness.fixture.whenStable();
+      expect(caseDe(el(), FARINE.id).disabled).toBe(false);
+    });
+
     it("ne clôt rien si l'on renonce, et le récapitulatif reste ouvert", async () => {
       const ouvert = await ouvrir([LISTE], { confirme: false });
       await ouvrirLeRecap(ouvert);

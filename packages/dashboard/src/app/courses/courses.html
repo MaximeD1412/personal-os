@@ -200,6 +200,7 @@
               [label]="designation(article)"
               [meta]="meta(article)"
               [checked]="article.checked"
+              [checkboxDisabled]="cloture()"
               (checkedChange)="cocher(article, $event)"
             />
           </li>
@@ -226,6 +227,7 @@
               [label]="designation(article)"
               [meta]="meta(article)"
               [checked]="article.checked"
+              [checkboxDisabled]="cloture()"
               (checkedChange)="cocher(article, $event)"
             >
               @if (ouverte()) {

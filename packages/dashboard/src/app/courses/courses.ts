@@ -335,8 +335,14 @@ export class Courses {
     });
     if (!confirme) return;
 
+    // Le récapitulatif montre l'état voulu des cases : la clôture attend que
+    // le serveur l'ait, et les cases restent figées jusqu'à sa réponse.
     this.cloture.set(true);
     this.refusDeCloture.set(null);
+    if (!(await this.cochagesAboutis())) {
+      this.cloture.set(false);
+      return;
+    }
     this.envoyes.set(saisie.items.map(({ itemId }) => itemId));
     this.service.cloturer(liste.id, saisie).subscribe({
       next: (close) => {
@@ -450,6 +456,23 @@ export class Courses {
    */
   private readonly voulus = new Map<string, boolean>();
   private readonly enRoute = new Set<string>();
+  /** La clôture qui attend les cochages en route, et si l'un a été refusé. */
+  private attenteDesCochages: ((aboutis: boolean) => void) | null = null;
+  private cochageRefuse = false;
+
+  /** Vrai quand plus aucun cochage n'est en route, faux si l'un a été refusé. */
+  private cochagesAboutis(): Promise<boolean> {
+    if (this.enRoute.size === 0) return Promise.resolve(true);
+    this.cochageRefuse = false;
+    return new Promise((resolve) => (this.attenteDesCochages = resolve));
+  }
+
+  private siPlusRienEnRoute(): void {
+    if (this.enRoute.size > 0 || !this.attenteDesCochages) return;
+    const resoudre = this.attenteDesCochages;
+    this.attenteDesCochages = null;
+    resoudre(!this.cochageRefuse);
+  }
 
   protected uniteDe(ingredient: Ingredient): string {
     return `En ${UNITES_CANONIQUES[ingredient.canonicalUnit]}`;
@@ -522,7 +545,7 @@ export class Courses {
   /** Coche ou décoche à l'instant ; l'envoi suit, et le refus revient en bandeau. */
   protected cocher(article: ShoppingListItem, coche: boolean): void {
     const liste = this.liste();
-    if (!liste) return;
+    if (!liste || this.cloture()) return;
     this.refus.set(null);
     this.remplacer(liste.id, { ...article, checked: coche });
     this.voulus.set(article.id, coche);
@@ -574,12 +597,15 @@ export class Courses {
         }
         this.voulus.delete(articleId);
         this.remplacer(listeId, article);
+        this.siPlusRienEnRoute();
       },
       error: (erreur: ErreurApi) => {
         this.enRoute.delete(articleId);
         this.voulus.delete(articleId);
+        this.cochageRefuse = true;
         this.refus.set(erreur);
         this.lecture().reload();
+        this.siPlusRienEnRoute();
       },
     });
   }
