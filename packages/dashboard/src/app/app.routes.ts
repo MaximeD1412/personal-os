@@ -110,4 +110,12 @@ export const appRoutes: Route[] = [
     path: 'portfolio/cv',
     loadComponent: async () => (await import('./portfolio/cv')).CurriculumVitae,
   },
+  // Les Pages de contenu du portfolio, chargées à la demande comme les
+  // Projets : leur aperçu rend du markdown. Préremplies par leur requête
+  // (ADR 0030).
+  {
+    path: 'portfolio/pages',
+    loadComponent: async () =>
+      (await import('./portfolio/pages')).PagesDuPortfolio,
+  },
 ];
