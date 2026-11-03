@@ -19,7 +19,11 @@ import { join } from 'node:path';
  */
 const VOISINS_PERMIS = ['agenda-port', 'espace'];
 
-const PAQUETS_PERMIS = ['@nestjs/', '@personal-os/contracts'];
+/**
+ * Nest, les contrats partagés, et `nestjs-zod`, qui porte ces contrats jusqu'à
+ * Nest (ADR 0030) : aucun n'est un domaine.
+ */
+const PAQUETS_PERMIS = ['@nestjs/', '@personal-os/contracts', 'nestjs-zod'];
 
 /** Les fichiers de l'Agenda, sans les campagnes qui l'exercent. */
 const FICHIERS = readdirSync(__dirname)

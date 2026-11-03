@@ -1,6 +1,7 @@
 import { ID_ESPACE_FOYER, ID_FOYER } from '../lib/espace/foyer';
 import { sousPortee, type PorteeEspace } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
+import { delegue } from './delegate';
 import { aParis, decalerLeJour, jourAParis } from './dates';
 import type { CompteDeDemo, Demo, Semeur } from './seeder';
 import { SEMEURS } from './seeders';
@@ -122,22 +123,4 @@ async function vider(
       await delegue(prisma, modele).deleteMany({});
     }
   });
-}
-
-interface DelegueVidable {
-  deleteMany(args: object): Promise<unknown>;
-}
-
-/** Le délégué Prisma d'un modèle : `Event` → `prisma.event`. */
-function delegue(prisma: PrismaService, modele: string): DelegueVidable {
-  const nom = modele.charAt(0).toLowerCase() + modele.slice(1);
-  const trouve = (
-    prisma as unknown as Record<string, DelegueVidable | undefined>
-  )[nom];
-  if (!trouve) {
-    throw new Error(
-      `PrismaService n'expose pas « ${nom} » : le semis ne peut pas vider ${modele}.`,
-    );
-  }
-  return trouve;
 }

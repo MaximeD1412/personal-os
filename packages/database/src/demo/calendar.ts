@@ -95,7 +95,7 @@ function evenements(demo: Demo): Saisie[] {
 
 export const calendar: Semeur = {
   module: 'calendar',
-  modeles: ['Event'],
+  modeles: ['Event', 'EventException'],
   espaces: ['PERSONAL', 'HOUSEHOLD'],
   async semer(prisma, demo) {
     const espaces = {

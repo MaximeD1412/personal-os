@@ -118,8 +118,8 @@ describe('Le jeu de démo', () => {
       modeles: [],
       espaces: ['HOUSEHOLD'],
       async semer(client, demo) {
-        await client.trace.create({
-          data: { label: 'Égarée', scopeId: demo.a.espacePersonnel },
+        await client.project.create({
+          data: { title: 'Égaré', scopeId: demo.a.espacePersonnel },
         });
         return 1;
       },
@@ -182,13 +182,44 @@ describe('Le jeu de démo', () => {
         orderBy: [{ startsAt: 'asc' }, { title: 'asc' }],
       }),
     );
-    const traces = await lireSousPortee(() =>
-      prisma.trace.findMany({
-        select: { label: true, scopeId: true },
-        orderBy: [{ scopeId: 'asc' }, { label: 'asc' }],
+    const projets = await lireSousPortee(() =>
+      prisma.project.findMany({
+        select: {
+          title: true,
+          notes: true,
+          scopeId: true,
+          expenses: {
+            select: { label: true, amountCents: true, spentOn: true },
+          },
+        },
+        orderBy: [{ scopeId: 'asc' }, { title: 'asc' }],
+      }),
+    );
+    const repas = await lireSousPortee(() =>
+      prisma.mealPlanEntry.findMany({
+        select: {
+          day: true,
+          moment: true,
+          title: true,
+          guestCount: true,
+          recipe: { select: { title: true } },
+        },
+        orderBy: [{ day: 'asc' }, { moment: 'asc' }],
+      }),
+    );
+    const articles = await lireSousPortee(() =>
+      prisma.shoppingListItem.findMany({
+        select: { label: true, quantity: true, checked: true, position: true },
+        orderBy: { position: 'asc' },
+      }),
+    );
+    const stock = await lireSousPortee(() =>
+      prisma.pantryItem.findMany({
+        select: { quantity: true, expiresOn: true, ingredientId: true },
+        orderBy: { ingredientId: 'asc' },
       }),
     );
 
-    return { comptes, espaces, evenements, traces };
+    return { comptes, espaces, evenements, projets, repas, articles, stock };
   }
 });

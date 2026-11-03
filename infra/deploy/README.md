@@ -251,6 +251,43 @@ dit — plutôt que d'échouer plus loin sur une signature.
 > **Ce nom d'hôte s'arrête une fois.** L'émetteur en dépend, et en changer après
 > coup oblige à refaire le client OIDC et à reconfigurer l'API.
 
+### 5. La clé de l'API Claude
+
+L'API refuse de démarrer en production sans `AI_PROVIDER=claude` : le double de
+test (`factice`) n'y est pas admis, et le staging le garde.
+
+1. Dans la console Anthropic, créer une clé **dédiée** à Personal OS, dans un
+   espace de travail qui porte sa propre **limite de dépense** mensuelle. C'est
+   le filet sous le plafond applicatif, qui n'est qu'une estimation.
+2. Reporter dans `/opt/personal-os/.env` : `AI_PROVIDER=claude`,
+   `ANTHROPIC_API_KEY`, `AI_MODEL`, le tarif du modèle en centimes par million
+   de jetons (`AI_PRICE_INPUT_PER_MTOK_CENTS`, `AI_PRICE_OUTPUT_PER_MTOK_CENTS` :
+   200 et 1000 pour `claude-sonnet-5-5`, à vérifier sur la grille du jour) et
+   `AI_MONTHLY_BUDGET_CENTS`.
+
+Changer de modèle, c'est changer son tarif dans le même geste : sans quoi le
+plafond se calcule sur le prix d'un autre.
+
+### 6. Le stockage objet OVH
+
+Les fichiers téléversés (le CV du portfolio) vivent dans un bucket OVH Object
+Storage, hors de la base et hors du VPS. L'API refuse de démarrer en production
+sans `STORAGE_PROVIDER=s3`.
+
+1. Dans le projet Public Cloud OVH, créer un bucket **Object Storage** (API S3,
+   classe Standard), privé, dans la région la plus proche du VPS.
+2. Créer un **utilisateur S3** dédié à Personal OS, puis lui importer une
+   politique qui ne lui ouvre **que ce bucket** (`s3:GetObject`,
+   `s3:PutObject`, `s3:DeleteObject` sur `arn:aws:s3:::<bucket>/*`,
+   `s3:ListBucket` sur `arn:aws:s3:::<bucket>`). Une clé fuitée n'atteint alors
+   rien d'autre du projet.
+3. Reporter dans `/opt/personal-os/.env` : `STORAGE_PROVIDER=s3`, `S3_ENDPOINT`
+   (celui de la région, `https://s3.<region>.io.cloud.ovh.net`), `S3_REGION`,
+   `S3_BUCKET`, `S3_ACCESS_KEY_ID` et `S3_SECRET_ACCESS_KEY`.
+4. Vérifier que la sauvegarde emporte le bucket : `S3_MIRROR_*` dans la
+   configuration de Restic, puis `backup.sh --dry-run`
+   ([`infra/backup`](../backup/README.md)).
+
 ## Exploitation courante
 
 ```bash

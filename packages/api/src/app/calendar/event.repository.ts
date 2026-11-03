@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { EventCategory } from '@personal-os/contracts';
-import { PrismaService } from '@personal-os/database';
+import type { EventCategory, Recurrence } from '@personal-os/contracts';
+import { DbNull, PrismaService } from '@personal-os/database';
+import type { ExceptionDOccurrence } from './recurrence/occurrences';
 
 export interface EventRecord {
   id: string;
@@ -9,19 +10,34 @@ export interface EventRecord {
   endsAt: Date | null;
   category: EventCategory;
   reminderLeadMinutes: number | null;
+  recurrence: Recurrence | null;
   scopeId: string;
   createdAt: Date;
 }
 
-/** Ce qu'une écriture pose, une fois la saisie validée par le service. */
+/** Ce qu'une écriture pose : la saisie du contrat, ses instants devenus des `Date`. */
 export interface EventWrite {
   title: string;
   startsAt: Date;
   endsAt: Date | null;
   category: EventCategory;
   reminderLeadMinutes: number | null;
+  recurrence: Recurrence | null;
   scopeId: string;
 }
+
+/** Une exception, rattachée à l'Événement dont elle vise une occurrence. */
+export interface EventExceptionRecord extends ExceptionDOccurrence {
+  eventId: string;
+}
+
+/** Ce qu'une exception pose sur l'occurrence qu'elle vise. */
+export type EventExceptionWrite = Omit<ExceptionDOccurrence, 'originalStart'>;
+
+/** La rangée telle que Prisma la rend : la règle n'y est qu'un JSON. */
+type RangeeEvenement = Omit<EventRecord, 'recurrence'> & {
+  recurrence: unknown;
+};
 
 /**
  * Aucun filtre par Espace n'apparaît ici, et c'est la preuve que le mécanisme
@@ -32,42 +48,162 @@ export interface EventWrite {
 export class EventRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  lister(): Promise<EventRecord[]> {
-    return this.prisma.event.findMany({ orderBy: { startsAt: 'asc' } });
-  }
-
   /**
-   * Les Événements qui **rencontrent** la période, et non ceux qui y
-   * commencent : des vacances entamées en juillet appartiennent bien à
-   * l'agenda du mois d'août. Un Événement sans fin distincte finit là où il
-   * commence.
+   * Les Événements qui **peuvent** avoir une occurrence dans la période. Le
+   * tri fin revient au moteur des occurrences ; la requête n'écarte que ce
+   * qui ne peut pas la rencontrer :
+   *
+   * - un Événement sans règle qui la rencontre lui-même (et non qui y
+   *   commence : des vacances entamées en juillet appartiennent bien à
+   *   l'agenda du mois d'août) ;
+   * - une série commencée avant sa fin, quelle que soit sa règle ;
+   * - un Événement dont une occurrence a été déplacée avant sa fin, au
+   *   besoin avant le début de la série elle-même ;
+   * - un Événement dont une occurrence a gardé son début mais a vu sa fin
+   *   prolongée jusque dans la période : sans règle (ou après qu'on la lui a
+   *   retirée), rien d'autre ne le ferait remonter.
    */
-  listerEntre(debut: Date, fin: Date): Promise<EventRecord[]> {
-    return this.prisma.event.findMany({
+  async listerEntre(debut: Date, fin: Date): Promise<EventRecord[]> {
+    const rangees = await this.prisma.event.findMany({
       where: {
-        startsAt: { lte: fin },
         OR: [
-          { endsAt: { gte: debut } },
-          { endsAt: null, startsAt: { gte: debut } },
+          {
+            startsAt: { lte: fin },
+            OR: [
+              { endsAt: { gte: debut } },
+              { endsAt: null, startsAt: { gte: debut } },
+            ],
+          },
+          { recurrence: { not: DbNull }, startsAt: { lte: fin } },
+          {
+            exceptions: {
+              some: {
+                kind: 'MODIFIED',
+                OR: [
+                  { startsAt: { lte: fin } },
+                  {
+                    startsAt: null,
+                    originalStart: { lte: fin },
+                    endsAt: { gte: debut },
+                  },
+                ],
+              },
+            },
+          },
         ],
       },
       orderBy: { startsAt: 'asc' },
     });
+
+    return rangees.map(enEvenement);
   }
 
-  lire(id: string): Promise<EventRecord | null> {
-    return this.prisma.event.findUnique({ where: { id } });
+  /**
+   * Le plus long délai de rappel des Échéances atteignables, en minutes : la
+   * plus lointaine qui puisse déjà se signaler (ADR 0017). `null` si aucune
+   * n'en porte.
+   */
+  async plusLongRappelDEcheance(): Promise<number | null> {
+    const { _max } = await this.prisma.event.aggregate({
+      where: { category: 'DEADLINE' },
+      _max: { reminderLeadMinutes: true },
+    });
+
+    return _max.reminderLeadMinutes;
   }
 
-  creer(saisie: EventWrite): Promise<EventRecord> {
-    return this.prisma.event.create({ data: saisie });
+  /** Les exceptions des Événements nommés, lues par la garde comme le reste. */
+  exceptionsDe(eventIds: readonly string[]): Promise<EventExceptionRecord[]> {
+    if (eventIds.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.prisma.eventException.findMany({
+      where: { eventId: { in: [...eventIds] } },
+      select: {
+        eventId: true,
+        originalStart: true,
+        kind: true,
+        startsAt: true,
+        endsAt: true,
+        title: true,
+      },
+    });
   }
 
-  modifier(id: string, saisie: Partial<EventWrite>): Promise<EventRecord> {
-    return this.prisma.event.update({ where: { id }, data: saisie });
+  async lire(id: string): Promise<EventRecord | null> {
+    const rangee = await this.prisma.event.findUnique({ where: { id } });
+
+    return rangee ? enEvenement(rangee) : null;
   }
 
-  supprimer(id: string): Promise<EventRecord> {
-    return this.prisma.event.delete({ where: { id } });
+  async creer(saisie: EventWrite): Promise<EventRecord> {
+    return enEvenement(
+      await this.prisma.event.create({
+        data: { ...saisie, recurrence: enJson(saisie.recurrence) },
+      }),
+    );
   }
+
+  async modifier(
+    id: string,
+    saisie: Partial<EventWrite>,
+  ): Promise<EventRecord> {
+    return enEvenement(
+      await this.prisma.event.update({
+        where: { id },
+        data: {
+          ...saisie,
+          recurrence:
+            saisie.recurrence === undefined
+              ? undefined
+              : enJson(saisie.recurrence),
+        },
+      }),
+    );
+  }
+
+  async supprimer(id: string): Promise<EventRecord> {
+    return enEvenement(await this.prisma.event.delete({ where: { id } }));
+  }
+
+  /**
+   * Pose l'exception d'une occurrence, ou remplace celle qui la visait déjà :
+   * une occurrence n'en a qu'une. Elle est dans l'Espace de son Événement.
+   */
+  async poserLException(
+    evenement: Pick<EventRecord, 'id' | 'scopeId'>,
+    originalStart: Date,
+    exception: EventExceptionWrite,
+  ): Promise<void> {
+    await this.prisma.eventException.upsert({
+      where: {
+        eventId_originalStart: { eventId: evenement.id, originalStart },
+      },
+      create: {
+        ...exception,
+        eventId: evenement.id,
+        scopeId: evenement.scopeId,
+        originalStart,
+      },
+      update: exception,
+    });
+  }
+}
+
+/**
+ * La règle n'arrive en base que par son schéma (`zRecurrence`), validée à
+ * l'entrée : la relire n'a pas à la revalider, et la sortie de chaque route
+ * passe de toute façon par le sien (ADR 0030).
+ */
+function enEvenement(rangee: RangeeEvenement): EventRecord {
+  return {
+    ...rangee,
+    recurrence: (rangee.recurrence as Recurrence | null) ?? null,
+  };
+}
+
+/** Une règle absente s'écrit en NULL SQL, que Prisma ne prend pas d'un `null` nu. */
+function enJson(recurrence: Recurrence | null) {
+  return recurrence ?? DbNull;
 }

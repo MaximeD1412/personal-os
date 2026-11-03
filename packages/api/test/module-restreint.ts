@@ -1,8 +1,9 @@
 import { Body, Controller, Module, Post } from '@nestjs/common';
+import { EventInputDto } from '../src/app/calendar/event.dto';
+import { EventRepository } from '../src/app/calendar/event.repository';
+import { EventService } from '../src/app/calendar/event.service';
 import { Espaces } from '../src/app/espace/espaces.decorator';
-import { TraceService } from '../src/app/traces/trace.service';
-import { TraceRepository } from '../src/app/traces/trace.repository';
-import type { Trace, TraceInput } from '@personal-os/contracts';
+import { PrismaService } from '@personal-os/database';
 
 /**
  * Un module qui n'accepte que l'Espace foyer — comme le feront les repas, les
@@ -13,27 +14,54 @@ import type { Trace, TraceInput } from '@personal-os/contracts';
 @Controller('foyer-seul')
 @Espaces('HOUSEHOLD')
 export class ControleurFoyerSeul {
-  constructor(private readonly traces: TraceService) {}
+  constructor(private readonly evenements: EventService) {}
 
   @Post()
-  creer(@Body() saisie: Partial<TraceInput>): Promise<Trace> {
-    return this.traces.creer(saisie);
+  creer(@Body() saisie: EventInputDto) {
+    return this.evenements.creer(saisie);
   }
 }
 
 /** Un module qui touche à des données cloisonnées sans rien déclarer. */
 @Controller('sans-declaration')
 export class ControleurSansDeclaration {
-  constructor(private readonly traces: TraceService) {}
+  constructor(private readonly evenements: EventService) {}
 
   @Post()
-  creer(@Body() saisie: Partial<TraceInput>): Promise<Trace> {
-    return this.traces.creer(saisie);
+  creer(@Body() saisie: EventInputDto) {
+    return this.evenements.creer(saisie);
+  }
+}
+
+/**
+ * Un module qui rattache une exception à son Événement par un geste imbriqué,
+ * au lieu de l'écrire par le dépôt du modèle concerné (ADR 0028).
+ */
+@Controller('rattachement-imbrique')
+@Espaces('PERSONAL', 'HOUSEHOLD')
+export class ControleurRattachementImbrique {
+  constructor(private readonly prisma: PrismaService) {}
+
+  @Post()
+  async rattacher(@Body() saisie: { scopeId: string }): Promise<void> {
+    await this.prisma.event.create({
+      data: {
+        title: 'Réunion',
+        startsAt: new Date(),
+        category: 'OTHER',
+        scopeId: saisie.scopeId,
+        exceptions: { connect: { id: 'exception-quelconque' } },
+      },
+    });
   }
 }
 
 @Module({
-  controllers: [ControleurFoyerSeul, ControleurSansDeclaration],
-  providers: [TraceService, TraceRepository],
+  controllers: [
+    ControleurFoyerSeul,
+    ControleurSansDeclaration,
+    ControleurRattachementImbrique,
+  ],
+  providers: [EventService, EventRepository],
 })
 export class ModuleRestreint {}

@@ -6,6 +6,7 @@ import {
   demarrerFauxAuthentik,
   type FauxAuthentik,
 } from '../../../test/faux-authentik';
+import { codeDErreur } from '../../../test/code-d-erreur';
 import { AppModule } from '../app.module';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
@@ -45,7 +46,10 @@ describe('Authentification OIDC', () => {
 
   describe('Garde de session', () => {
     it('refuse une requête API présentée sans session', async () => {
-      await request(app.getHttpServer()).get('/api/auth/me').expect(401);
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .expect(401)
+        .expect(codeDErreur('auth.required'));
     });
 
     it('laisse la sonde de santé joignable sans session', async () => {

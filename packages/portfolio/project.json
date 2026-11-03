@@ -8,9 +8,7 @@
   "targets": {
     "build": {
       "executor": "@angular/build:application",
-      "outputs": [
-        "{options.outputPath}"
-      ],
+      "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/packages/portfolio",
@@ -23,6 +21,8 @@
           }
         ],
         "styles": [
+          "node_modules/@fontsource-variable/inter/index.css",
+          "node_modules/@fontsource-variable/jetbrains-mono/index.css",
           "packages/portfolio/src/styles.css"
         ]
       },
@@ -63,7 +63,8 @@
       },
       "options": {
         "port": 4201,
-        "host": "localhost"
+        "host": "localhost",
+        "proxyConfig": "packages/portfolio/proxy.conf.json"
       }
     },
     "lint": {
@@ -71,9 +72,7 @@
     },
     "test": {
       "executor": "@nx/jest:jest",
-      "outputs": [
-        "{workspaceRoot}/coverage/{projectRoot}"
-      ],
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
       "options": {
         "jestConfig": "packages/portfolio/jest.config.cts",
         "tsConfig": "packages/portfolio/tsconfig.spec.json"

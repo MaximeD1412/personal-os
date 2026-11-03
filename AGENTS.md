@@ -18,15 +18,32 @@ Monorepo Nx, pnpm.
   (ADR 0016, 0028).
 - `packages/dashboard` (tableau de bord privé) et `packages/portfolio` (public) :
   Angular, Tailwind v4, spartan/ui (ADR 0029).
-- `packages/ui` : les composants du design system. `packages/theme/tokens.css`
-  porte les jetons, nommés par rôle.
-- `infra/` : `deploy` (agent de déploiement), `backup` (Restic), `edge` (proxy
-  de tête). Chaque dossier a son README, qui fait foi pour l'exploitation.
+- `packages/ui` : les composants du design system, spartan (`hlm`) ou propres
+  (`dccm`), et leur Storybook (`nx run dccm:storybook`).
+  `packages/theme/tokens.css` porte les jetons, sous les noms de pen.dev.
+  **Avant de toucher un écran ou un composant, lis
+  [`docs/design-system.md`](docs/design-system.md).**
+- `infra/` : `provision` (la machine elle-même), `deploy` (agent de
+  déploiement), `backup` (Restic), `edge` (proxy de tête). Chaque dossier a
+  son README, qui fait foi pour l'exploitation.
 
 ## Conventions
 
 Les conventions d'API sont dans l'**[ADR 0030](docs/adr/0030-conventions-d-api.md)**,
-à lire avant de toucher une route. L'essentiel :
+à lire avant de toucher une route. **Le module à imiter est
+`packages/api/src/app/calendar/`** : contrats zod dans `contracts`, DTO
+`createZodDto`, `@ZodResponse` sur chaque route, `ErreurMetier` pour les règles,
+tests d'intégration au socle ci-dessous. La section « État actuel du code »
+d'un ticket peut se contenter de dire « imite `packages/api/src/app/calendar/` ».
+L'OpenAPI se déduit des schémas : `pnpm exec nx run api:openapi` l'écrit dans
+`packages/api/openapi.json` (non versionné), et l'API le sert en
+`/api/openapi.json` hors production. Le catalogue de la barre de commande en
+est tiré : un endpoint n'y entre que s'il porte `@Command(...)`
+(`packages/api/src/app/command-bar/command.decorator.ts`, ADR 0018), et
+`pnpm exec nx run api:command-catalog` réécrit
+`packages/contracts/src/generated/command-catalog.json`, versionné et comparé
+en CI à sa régénération. Il passe avant le build de l'API et du tableau de
+bord. L'essentiel :
 
 - **Les contrats sont des schémas zod** dans `contracts`, validés par le pipe
   global, avec un schéma de sortie par route. Pas de validation de forme dans
@@ -65,28 +82,61 @@ et lève `food.list_already_closed`.
 
 ### Du domaine au code
 
-| Domaine (`CONTEXT.md`) | Code |
-| --- | --- |
-| Espace, Espace personnel, Espace foyer | `Scope`, `PERSONAL`, `HOUSEHOLD` |
-| Foyer, Compte | `Household`, `User` |
-| Participant, Invités | `participantIds` (des `User`), `guestCount` |
-| Événement, Échéance | `Event`, catégorie `DEADLINE` |
-| Agenda | `agenda`, port `AgendaContributor` |
-| Séance, Objectif | `TrainingSession`, `TrainingGoal` |
-| Ingrédient, Alias, Unité canonique | `Ingredient`, `IngredientAlias`, `canonicalUnit` |
-| Recette | `Recipe` |
-| Planning de repas, Repas planifié | `MealPlan`, `MealPlanEntry` |
-| Tour de génération, Souhait | `GenerationRound`, `MealWish` |
-| Préférence alimentaire, Allergène | `FoodPreference`, `Allergen` |
-| Liste de courses, Article de courses | `ShoppingList`, `ShoppingListItem` |
-| Produit, Produit préféré | `Product`, `preferredProduct` |
-| Stock domestique | `PantryItem` |
-| Repas cuisiné | `CookedMeal` |
-| Projet, Présentation publique | `Project`, `PublicPresentation` |
-| Page de contenu | `PageContent` |
+| Domaine (`CONTEXT.md`)                   | Code                                                             |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| Espace, Espace personnel, Espace foyer   | `Scope`, `PERSONAL`, `HOUSEHOLD`                                 |
+| Foyer, Compte                            | `Household`, `User`                                              |
+| Participant, Invités                     | `participantIds` (des `User`), `guestCount`                      |
+| Événement, Échéance                      | `Event`, catégorie `DEADLINE`                                    |
+| Récurrence, Occurrence, Exception        | `recurrence` (`Recurrence`), `EventOccurrence`, `EventException` |
+| Portée (occurrence ou série)             | `DccmScope`, `'occurrence'`, `'series'`                          |
+| Agenda                                   | `agenda`, port `AgendaContributor`                               |
+| Période (d'une lecture datée)            | `zPeriod` (`from`, `to`)                                         |
+| Séance, Objectif                         | `TrainingSession`, `TrainingGoal`                                |
+| Ingrédient, Alias, Unité canonique       | `Ingredient`, `IngredientAlias`, `canonicalUnit`                 |
+| Résolveur d'ingrédients                  | `resoudre`, `IngredientResolution`                               |
+| Unité de recette                         | `RecipeUnit`, `UNITES_DE_RECETTE`                                |
+| Recette                                  | `Recipe`                                                         |
+| Ligne (d'une Recette), Origine           | `RecipeLine`, `RecipeSource` (`MANUAL`, `GENERATED`)             |
+| Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |
+| Moment (déjeuner, dîner)                 | `MealMoment` : `LUNCH`, `DINNER`                                 |
+| Décision (approuvé, proposé, refusé)     | `MealPlanEntryDecision` : `APPROVED`, `PROPOSED`, `REFUSED`      |
+| Planning ouvert, arrêté                  | `MealPlanStatus` : `OPEN`, `STOPPED`                             |
+| Portions (d'un Repas planifié)           | `servings`, `portions()`                                         |
+| Tour de génération, Souhait              | `GenerationRound`, `MealWish`                                    |
+| Contrôle (d'un tour), créneau écarté     | `controler`, `RejectedSlot` (`rejected`), `RejectionReason`      |
+| Préférence alimentaire, Allergène        | `FoodPreference`, `Allergen`                                     |
+| Allergie, aliment exclu, peu apprécié    | `FoodPreferenceKind` : `ALLERGY`, `EXCLUDED`, `DISLIKED`         |
+| Contraintes d'un repas                   | `contraintesDuRepas` : `interdits`, `evites`                     |
+| Liste de courses, Article de courses     | `ShoppingList`, `ShoppingListItem`                               |
+| Liste ouverte, close                     | `ShoppingListStatus` : `OPEN`, `CLOSED`                          |
+| Origine d'un Article (planning, manuel)  | `ShoppingListItemOrigin` : `PLAN`, `MANUAL`                      |
+| Consolidateur, Article coché             | `consolider`, `checked`                                          |
+| Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
+| Stock domestique                         | `PantryItem`                                                     |
+| Péremption (d'une ligne de stock)        | `expiresOn`                                                      |
+| Recaleur, mouvement de stock             | `recaler`, `ACHAT`, `CONSOMMATION`, `CORRECTION`                 |
+| Repas cuisiné                            | `CookedMeal`                                                     |
+| Ligne (d'un Repas cuisiné)               | `CookedMealLine`                                                 |
+| Manque (ce que le stock n'avait pas)     | `shortfalls` (`CookedMealShortfall`), `consommer`                |
+| Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
+| État de publication                      | `PublicationState` : `UNPUBLISHED`, `READY`, `PUBLISHED`         |
+| Langue (du portfolio)                    | `Lang` : `FR`, `EN`                                              |
+| Dépense de projet, Lien de projet        | `ProjectExpense`, `links` (`ProjectLink`)                        |
+| Page de contenu                          | `PageContent`                                                    |
+| CV (du portfolio)                        | `Cv`, routes `/cv/:lang`                                         |
+| Portfolio public (lecture sans session)  | routes `/public/…`, `@LecturePublique()`, `PORTEE_PUBLIQUE`      |
+| Stockage objet                           | `StockageObjet`, module `storage`, `STORAGE_PROVIDER`            |
+| Présentation, Expériences, Compétences   | `slug` : `about`, `experience`, `skills`                         |
+| Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
+| Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
+| Commande non comprise                    | `UnresolvedCommand`                                              |
+| À faire, Calculateur d'À faire           | `Todo`, `aFaire`                                                 |
+| Résumé de module, Résumeur de module     | `ModuleSummary`, `ResumeurDeModule`, `SummaryRegistry`           |
+| Signal, Indicateur (d'un Résumé)         | `Signal`, `SummaryIndicator`                                     |
 
-Les modules Nest : `calendar`, `agenda`, `training`, `food`, `projects`,
-`portfolio`, `dashboard`, `command-bar`. Un terme absent de cette table se
+Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
+`portfolio`, `dashboard`, `command-bar`, `ai`, `storage`. Un terme absent de cette table se
 traduit en restant au plus près du glossaire, et la traduction s'ajoute ici
 dans la même PR.
 
@@ -141,6 +191,10 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
   `seeders.spec.ts` échoue si un modèle cloisonné n'appartient à aucun semeur.
   Ses dates sont relatives au jour du semis (`demo.le(decalage, heure)`), jamais
   en dur. Vérifier : `pnpm exec nx test-integration database`.
+- **Aucun secret commité**, même factice au format réel : la CI scanne
+  l'historique de la PR (gitleaks). Une exception s'écrit dans
+  `.gitleaks.toml`, jamais par un commentaire dans le code ni par un
+  `.gitleaksignore`.
 - **Revue visuelle** (`revue_visuelle: true` dans le ticket, label
   `revue-visuelle`) : joins à la PR des captures mobile (390 px) et desktop
   (1280 px) de chaque écran touché, ouvert par son URL préremplie. Le merge

@@ -18,7 +18,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "ts-node --transpile-only --project packages/database/tsconfig.lib.json packages/database/src/demo/main.ts"
+        "command": "TS_NODE_PROJECT=packages/database/tsconfig.lib.json TS_NODE_BASEURL=\"$PWD\" ts-node --transpile-only -r tsconfig-paths/register packages/database/src/demo/main.ts"
       }
     }
   }

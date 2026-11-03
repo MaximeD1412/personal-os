@@ -25,6 +25,12 @@ par module (`src/demo/seeders.ts`). Le staging s'en sert à chaque déploiement
 - Les dates sont relatives au jour du semis, à l'heure de Paris : deux semis le
   même jour donnent le même état.
 
+La commande tourne sous `ts-node`, qui ne lit pas les alias du dépôt
+(`@personal-os/contracts`) : `tsconfig-paths` les résout, depuis la racine
+(`TS_NODE_BASEURL`), où la cible Nx `database:demo-seed` est lancée.
+
 Un module nouveau ajoute son semeur : un fichier `src/demo/<module>.ts`, inscrit
 dans `SEMEURS`, qui déclare les modèles qu'il possède et les Espaces qu'il
-accepte.
+accepte. Un module dont le jeu ne sème rien encore (`ai`, `command-bar`,
+`portfolio`) possède quand même ses modèles, dans `modules-without-data.ts` :
+le semis les vide.
