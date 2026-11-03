@@ -130,6 +130,9 @@ et lève `food.list_already_closed`.
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 | Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
 | Commande non comprise                    | `UnresolvedCommand`                                              |
+| À faire, Calculateur d'À faire           | `Todo`, `aFaire`                                                 |
+| Résumé de module, Résumeur de module     | `ModuleSummary`, `ResumeurDeModule`, `SummaryRegistry`           |
+| Signal, Indicateur (d'un Résumé)         | `Signal`, `SummaryIndicator`                                     |
 
 Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
 `portfolio`, `dashboard`, `command-bar`, `ai`, `storage`. Un terme absent de cette table se

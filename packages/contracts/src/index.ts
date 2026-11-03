@@ -4,6 +4,7 @@ export * from './lib/auth';
 export * from './lib/command-bar';
 export * from './lib/cooked-meal';
 export * from './lib/cv';
+export * from './lib/dashboard';
 export * from './lib/erreur';
 export * from './lib/event';
 export * from './lib/food-preference';
