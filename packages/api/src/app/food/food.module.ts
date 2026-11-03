@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AgendaPortModule } from '../agenda-port/agenda-port.module';
+import { AiModule } from '../ai/ai.module';
 import { FoodPreferenceController } from './food-preference.controller';
 import { FoodPreferenceRepository } from './food-preference.repository';
 import { FoodPreferenceService } from './food-preference.service';
+import { GenerationRoundController } from './generation-round.controller';
+import { GenerationRoundRepository } from './generation-round.repository';
+import { GenerationRoundService } from './generation-round.service';
 import { IngredientAliasController } from './ingredient-alias.controller';
 import { IngredientAliasRepository } from './ingredient-alias.repository';
 import { IngredientAliasService } from './ingredient-alias.service';
@@ -32,16 +36,19 @@ import { ShoppingListService } from './shopping-list.service';
 /**
  * La Cuisine. Le catalogue d'Ingrédients et ses Alias sont globaux ; les
  * Recettes, les Préférences alimentaires, le Stock domestique, le Planning de
- * repas, ses Souhaits et les Listes de courses vivent dans l'Espace foyer. Les Repas planifiés se présentent à l'Agenda (ADR 0011).
+ * repas, ses Souhaits et les Listes de courses vivent dans l'Espace foyer.
+ * Les Repas planifiés se présentent à l'Agenda (ADR 0011) ; les Tours de
+ * génération passent par le port IA.
  */
 @Module({
-  imports: [AgendaPortModule],
+  imports: [AgendaPortModule, AiModule],
   controllers: [
     IngredientController,
     IngredientAliasController,
     FoodPreferenceController,
     RecipeController,
     MealPlanController,
+    GenerationRoundController,
     MealWishController,
     PantryItemController,
     ShoppingListController,
@@ -58,6 +65,8 @@ import { ShoppingListService } from './shopping-list.service';
     RecipeRepository,
     MealPlanService,
     MealPlanRepository,
+    GenerationRoundService,
+    GenerationRoundRepository,
     MealWishService,
     MealWishRepository,
     MealPlanEntryAgendaContributor,

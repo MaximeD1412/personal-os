@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { FournisseurIA, type AppelIA, type ReponseIA } from './fournisseur-ia';
 
 type Jetons = Pick<ReponseIA, 'jetonsEntree' | 'jetonsSortie'>;
+type Reponse = ReponseIA | Error | (() => Promise<ReponseIA>);
 
 /**
  * Le double de test du fournisseur : il rend ce qu'on lui a programmé pour un
@@ -10,7 +11,7 @@ type Jetons = Pick<ReponseIA, 'jetonsEntree' | 'jetonsSortie'>;
 @Injectable()
 export class GenerateurIAFactice extends FournisseurIA {
   readonly modele = 'factice';
-  readonly #reponses = new Map<string, (ReponseIA | Error)[]>();
+  readonly #reponses = new Map<string, Reponse[]>();
 
   /**
    * Programme la prochaine réponse à ce but : une valeur, rendue en JSON. Les
@@ -40,6 +41,26 @@ export class GenerateurIAFactice extends FournisseurIA {
     this.#file(but).push(erreur);
   }
 
+  /**
+   * Programme une réponse qui n'arrive qu'après `pendant` : de quoi faire
+   * changer les données pendant que l'appel au modèle est en cours.
+   */
+  programmerPendant(
+    but: string,
+    valeur: unknown,
+    pendant: () => Promise<unknown>,
+  ): void {
+    this.#file(but).push(async () => {
+      await pendant();
+      return {
+        modele: this.modele,
+        texte: JSON.stringify(valeur),
+        jetonsEntree: 0,
+        jetonsSortie: 0,
+      };
+    });
+  }
+
   async appeler(appel: AppelIA): Promise<ReponseIA> {
     const reponse = this.#file(appel.but).shift();
     if (!reponse) {
@@ -48,10 +69,10 @@ export class GenerateurIAFactice extends FournisseurIA {
     if (reponse instanceof Error) {
       throw reponse;
     }
-    return reponse;
+    return typeof reponse === 'function' ? await reponse() : reponse;
   }
 
-  #file(but: string): (ReponseIA | Error)[] {
+  #file(but: string): Reponse[] {
     const file = this.#reponses.get(but) ?? [];
     this.#reponses.set(but, file);
     return file;

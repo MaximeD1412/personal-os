@@ -68,6 +68,7 @@ export const PLANNING: MealPlan = {
   week: LUNDI,
   status: 'OPEN',
   entries: [DAHL_DU_LUNDI, RESTES_DU_MERCREDI],
+  rounds: [],
   createdAt: '2026-10-18T08:00:00.000Z',
 };
 

@@ -104,6 +104,7 @@ et lève `food.list_already_closed`.
 | Planning ouvert, arrêté                  | `MealPlanStatus` : `OPEN`, `STOPPED`                             |
 | Portions (d'un Repas planifié)           | `servings`, `portions()`                                         |
 | Tour de génération, Souhait              | `GenerationRound`, `MealWish`                                    |
+| Contrôle (d'un tour), créneau écarté     | `controler`, `RejectedSlot` (`rejected`), `RejectionReason`      |
 | Préférence alimentaire, Allergène        | `FoodPreference`, `Allergen`                                     |
 | Allergie, aliment exclu, peu apprécié    | `FoodPreferenceKind` : `ALLERGY`, `EXCLUDED`, `DISLIKED`         |
 | Contraintes d'un repas                   | `contraintesDuRepas` : `interdits`, `evites`                     |
