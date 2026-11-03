@@ -1,10 +1,12 @@
 <div class="flex flex-col gap-margin">
   <dccm-page-header
-    [heading]="titre() ?? 'Liste de courses'"
+    heading="Liste de courses"
     [subtitle]="sousTitre()"
     [breadcrumb]="fil"
   >
-    @if (liste(); as liste) {
+    @if (liste(); as liste) { @if (!ouverte()) {
+    <span hlmBadge tone="neutral" data-test="close">Close</span>
+    }
     <span hlmBadge tone="neutral" class="tabular-nums" data-test="achetes"
       >{{ achetes() }} / {{ liste.items.length }} achetés</span
     >
@@ -174,7 +176,7 @@
             <dccm-list-row
               [checkable]="ouverte()"
               [label]="designation(article)"
-              [meta]="quantiteDArticle(article)"
+              [meta]="meta(article)"
               [checked]="article.checked"
               (checkedChange)="cocher(article, $event)"
             />
@@ -200,7 +202,7 @@
             <dccm-list-row
               [checkable]="ouverte()"
               [label]="designation(article)"
-              [meta]="quantiteDArticle(article)"
+              [meta]="meta(article)"
               [checked]="article.checked"
               (checkedChange)="cocher(article, $event)"
             >

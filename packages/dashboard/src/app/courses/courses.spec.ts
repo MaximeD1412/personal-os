@@ -94,9 +94,11 @@ describe('La Liste de courses', () => {
   it('montre la plus récente des listes ouvertes, les articles du planning puis les ajouts manuels', async () => {
     const { el } = await ouvrir([LISTE, LISTE_PRECEDENTE]);
 
-    expect(el().querySelector('h1')?.textContent).toContain(
-      'Semaine du 2 novembre',
+    const entete = el().querySelector('dccm-page-header') as HTMLElement;
+    expect(entete.querySelector('h1')?.textContent).toContain(
+      'Liste de courses',
     );
+    expect(texte(entete)).toContain('Semaine du 2 novembre · figée le');
     expect(articles(el(), 'planning').map(titre)).toEqual([
       'Farine de blé',
       'Lait demi-écrémé',
@@ -129,9 +131,9 @@ describe('La Liste de courses', () => {
       .flush({ ...LISTE_PRECEDENTE, items: [EPONGES] });
     await ouvert.harness.fixture.whenStable();
 
-    expect(ouvert.el().querySelector('h1')?.textContent).toContain(
-      'Semaine du 26 octobre',
-    );
+    expect(
+      texte(ouvert.el().querySelector('dccm-page-header') as HTMLElement),
+    ).toContain('Semaine du 26 octobre');
     expect(articles(ouvert.el(), 'ajouts').map(titre)).toEqual(['Éponges']);
     expect(
       ouvert.el().querySelector('[data-test="autre-liste"]')?.textContent,
@@ -431,22 +433,27 @@ describe('La Liste de courses', () => {
     });
   });
 
-  it('montre une liste close sans rien à cocher ni à ajouter', async () => {
+  it('montre une liste close sans rien à cocher ni à ajouter, et ce qui a été acheté', async () => {
     const ouvert = await ouvrirLesCourses(`/courses/${LISTE.id}`);
     ouvert.http.expectOne(OUVERTES).flush([]);
-    ouvert.http
-      .expectOne(`${BASE}/shopping-lists/${LISTE.id}`)
-      .flush({
-        ...LISTE,
-        status: 'CLOSED',
-        closedAt: '2026-11-03T10:00:00.000Z',
-      });
+    ouvert.http.expectOne(`${BASE}/shopping-lists/${LISTE.id}`).flush({
+      ...LISTE,
+      status: 'CLOSED',
+      closedAt: '2026-11-03T10:00:00.000Z',
+    });
     await ouvert.harness.fixture.whenStable();
 
     expect(articles(ouvert.el(), 'planning')).toHaveLength(2);
     expect(ouvert.el().querySelector('[role="checkbox"]')).toBeNull();
     expect(ouvert.el().querySelector('[data-test="ajout"]')).toBeNull();
     expect(ouvert.el().querySelector('[data-test="retirer"]')).toBeNull();
+    const entete = ouvert.el().querySelector('dccm-page-header') as HTMLElement;
+    expect(entete.querySelector('[data-test="close"]')?.textContent).toContain(
+      'Close',
+    );
+    expect(texte(entete)).toContain('close le 3 novembre');
+    expect(texte(article(ouvert.el(), LAIT.id))).toContain('1 000 ml · acheté');
+    expect(texte(article(ouvert.el(), FARINE.id))).not.toContain('acheté');
   });
 
   it('sans liste ouverte, renvoie au planning de repas', async () => {

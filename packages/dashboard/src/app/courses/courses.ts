@@ -155,23 +155,29 @@ export class Courses {
     () => (this.liste()?.items ?? []).filter(({ checked }) => checked).length,
   );
 
-  protected readonly titre = computed(() => {
-    const liste = this.liste();
-    return liste ? nomDeListe(liste) : undefined;
-  });
   protected readonly sousTitre = computed(() => {
     const liste = this.liste();
     if (!liste) {
       return 'Figée depuis un planning de repas arrêté, à cocher en magasin.';
     }
+    const quand = { day: 'numeric', month: 'long' } as const;
+    if (liste.status === 'CLOSED' && liste.closedAt) {
+      return `${nomDeListe(liste)} · close le ${formaterInstant(liste.closedAt, quand)} : elle ne se modifie plus.`;
+    }
     const produite = formaterInstant(liste.producedAt, {
-      day: 'numeric',
-      month: 'long',
+      ...quand,
       hour: '2-digit',
       minute: '2-digit',
     });
-    return `Figée le ${produite}, à cocher en magasin. Une modification du planning ne la change plus.`;
+    return `${nomDeListe(liste)} · figée le ${produite}, à cocher en magasin. Une modification du planning ne la change plus.`;
   });
+
+  /** Sur une liste close, la case ne se coche plus : l'achat se lit dans la ligne. */
+  protected meta(article: ShoppingListItem): string | undefined {
+    const quantite = quantiteDArticle(article);
+    if (this.ouverte() || !article.checked) return quantite;
+    return quantite ? `${quantite} · acheté` : 'Acheté';
+  }
 
   protected readonly fil: readonly DccmCrumb[] = [
     FIL_DES_COURSES[0],
