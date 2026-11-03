@@ -1,11 +1,15 @@
 import { Module } from '@nestjs/common';
 import { AgendaPortModule } from '../agenda-port/agenda-port.module';
+import { AiModule } from '../ai/ai.module';
 import { CookedMealController } from './cooked-meal.controller';
 import { CookedMealRepository } from './cooked-meal.repository';
 import { CookedMealService } from './cooked-meal.service';
 import { FoodPreferenceController } from './food-preference.controller';
 import { FoodPreferenceRepository } from './food-preference.repository';
 import { FoodPreferenceService } from './food-preference.service';
+import { GenerationRoundController } from './generation-round.controller';
+import { GenerationRoundRepository } from './generation-round.repository';
+import { GenerationRoundService } from './generation-round.service';
 import { IngredientAliasController } from './ingredient-alias.controller';
 import { IngredientAliasRepository } from './ingredient-alias.repository';
 import { IngredientAliasService } from './ingredient-alias.service';
@@ -30,11 +34,12 @@ import { RecipeService } from './recipe.service';
 /**
  * La Cuisine. Le catalogue d'Ingrédients et ses Alias sont globaux ; les
  * Recettes, les Préférences alimentaires, le Stock domestique, le Planning de
- * repas, ses Souhaits et ses Repas cuisinés vivent dans l'Espace foyer, où les Courses les
- * rejoindront. Les Repas planifiés se présentent à l'Agenda (ADR 0011).
+ * repas, ses Souhaits et ses Repas cuisinés vivent dans l'Espace foyer, où les
+ * Courses les rejoindront. Les Repas planifiés se présentent à l'Agenda
+ * (ADR 0011) ; les Tours de génération passent par le port IA.
  */
 @Module({
-  imports: [AgendaPortModule],
+  imports: [AgendaPortModule, AiModule],
   controllers: [
     IngredientController,
     IngredientAliasController,
@@ -42,6 +47,7 @@ import { RecipeService } from './recipe.service';
     RecipeController,
     MealPlanController,
     MealPlanEntryController,
+    GenerationRoundController,
     MealWishController,
     PantryItemController,
     CookedMealController,
@@ -57,6 +63,8 @@ import { RecipeService } from './recipe.service';
     RecipeRepository,
     MealPlanService,
     MealPlanRepository,
+    GenerationRoundService,
+    GenerationRoundRepository,
     MealWishService,
     MealWishRepository,
     MealPlanEntryAgendaContributor,

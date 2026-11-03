@@ -43,11 +43,24 @@ export class FoodPreferenceRepository {
     });
   }
 
-  creer(saisie: FoodPreferenceWrite): Promise<FoodPreferenceRecord> {
-    return this.prisma.foodPreference.create({
-      data: saisie,
-      include: AVEC_L_INGREDIENT,
-    });
+  /**
+   * La version des Préférences du Compte grandit dans la même écriture : un
+   * Tour de génération contrôlé avant elle n'écrit plus (CUISINE-16).
+   */
+  async creer(saisie: FoodPreferenceWrite): Promise<FoodPreferenceRecord> {
+    const [preference] = await this.prisma.$transaction([
+      this.prisma.foodPreference.create({
+        data: saisie,
+        include: AVEC_L_INGREDIENT,
+      }),
+      this.prisma.user.update({
+        where: { id: saisie.userId },
+        data: { foodPreferencesVersion: { increment: 1 } },
+        select: { id: true },
+      }),
+    ]);
+
+    return preference;
   }
 
   /** Le nombre de Préférences supprimées : aucune si l'identifiant est inconnu. */

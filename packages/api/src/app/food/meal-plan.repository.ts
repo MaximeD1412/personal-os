@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  MealMoment,
-  MealPlanEntryDecision,
-  MealPlanStatus,
+import {
+  zRejectedSlot,
+  type MealMoment,
+  type MealPlanEntryDecision,
+  type MealPlanStatus,
+  type RejectedSlot,
 } from '@personal-os/contracts';
 import { ID_ESPACE_FOYER, PrismaService } from '@personal-os/database';
 
@@ -19,11 +21,24 @@ export interface MealPlanEntryRecord {
   createdAt: Date;
 }
 
+/** Un Tour de génération, sans ses repas : ceux-ci sont au planning. */
+export interface GenerationRoundRecord {
+  id: string;
+  number: number;
+  traceId: string | null;
+  rejected: RejectedSlot[];
+  createdAt: Date;
+}
+
 export interface MealPlanRecord {
   id: string;
   week: string;
   status: MealPlanStatus;
+  /** Grandit à chaque écriture : un Tour de génération écrit sur celle qu'il a lue. */
+  version: number;
   entries: MealPlanEntryRecord[];
+  /** Ses Tours de génération, dans leur ordre. */
+  rounds: GenerationRoundRecord[];
   createdAt: Date;
 }
 
@@ -38,13 +53,13 @@ export interface MealPlanEntryWrite {
 }
 
 /** Les repas dans l'ordre de la semaine : par jour, le déjeuner avant le dîner. */
-const ORDRE_DES_REPAS = [
+export const ORDRE_DES_REPAS = [
   { day: 'asc' as const },
   { moment: 'asc' as const },
   { createdAt: 'asc' as const },
 ];
 
-const CHAMPS_DU_REPAS = {
+export const CHAMPS_DU_REPAS = {
   id: true,
   mealPlanId: true,
   day: true,
@@ -57,8 +72,17 @@ const CHAMPS_DU_REPAS = {
   recipe: { select: { id: true, title: true } },
 };
 
+export const CHAMPS_DU_TOUR = {
+  id: true,
+  number: true,
+  traceId: true,
+  rejected: true,
+  createdAt: true,
+};
+
 const AVEC_LES_REPAS = {
   entries: { orderBy: ORDRE_DES_REPAS, select: CHAMPS_DU_REPAS },
+  rounds: { orderBy: { number: 'asc' as const }, select: CHAMPS_DU_TOUR },
 };
 
 /**
@@ -248,7 +272,7 @@ export class MealPlanRepository {
           status: 'OPEN',
           entries: { none: { decision: 'PROPOSED' } },
         },
-        data: { status: 'STOPPED' },
+        data: { status: 'STOPPED', version: { increment: 1 } },
         select: { id: true },
       }),
       this.prisma.mealPlanEntry.deleteMany({
@@ -267,17 +291,20 @@ export class MealPlanRepository {
     return enPlanning(
       await this.prisma.mealPlan.update({
         where: { id, status: 'STOPPED' },
-        data: { status: 'OPEN' },
+        data: { status: 'OPEN', version: { increment: 1 } },
         include: AVEC_LES_REPAS,
       }),
     );
   }
 
-  /** Une écriture qui ne change rien, sinon le verrou de la rangée. */
-  private verrouillerOuvert(id: string) {
+  /**
+   * Le verrou de la rangée, et sa version qui grandit : un Tour de génération
+   * en cours sait que le planning a changé sous lui.
+   */
+  verrouillerOuvert(id: string) {
     return this.prisma.mealPlan.update({
       where: { id, status: 'OPEN' },
-      data: { status: 'OPEN' },
+      data: { version: { increment: 1 } },
       select: { id: true },
     });
   }
@@ -291,7 +318,7 @@ function codePrisma(erreur: unknown): unknown {
 
 // Un jour civil s'écrit à minuit UTC dans une colonne `date`, qui n'a pas de
 // fuseau : il en ressort tel qu'il est entré.
-function enDate(jour: string): Date {
+export function enDate(jour: string): Date {
   return new Date(`${jour}T00:00:00Z`);
 }
 
@@ -301,22 +328,39 @@ function enJour(date: Date): string {
 
 type RangeeRepas = Omit<MealPlanEntryRecord, 'day'> & { day: Date };
 
-function enRepas(rangee: RangeeRepas): MealPlanEntryRecord {
+export function enRepas(rangee: RangeeRepas): MealPlanEntryRecord {
   return { ...rangee, day: enJour(rangee.day) };
+}
+
+type RangeeTour = Omit<GenerationRoundRecord, 'rejected'> & {
+  rejected: unknown;
+};
+
+/**
+ * Les créneaux écartés sont écrits par l'API seule, d'après le contrat : ils
+ * se relisent par lui, et une rangée qui ne le respecte plus fait une erreur
+ * plutôt qu'un créneau inventé.
+ */
+export function enTour(rangee: RangeeTour): GenerationRoundRecord {
+  return { ...rangee, rejected: zRejectedSlot.array().parse(rangee.rejected) };
 }
 
 function enPlanning(rangee: {
   id: string;
   week: Date;
   status: MealPlanStatus;
+  version: number;
   entries: RangeeRepas[];
+  rounds: RangeeTour[];
   createdAt: Date;
 }): MealPlanRecord {
   return {
     id: rangee.id,
     week: enJour(rangee.week),
     status: rangee.status,
+    version: rangee.version,
     entries: rangee.entries.map(enRepas),
+    rounds: rangee.rounds.map(enTour),
     createdAt: rangee.createdAt,
   };
 }
