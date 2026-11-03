@@ -24,6 +24,8 @@
     }
   </dccm-page-header>
 
+  <pos-project-tabs [projectId]="id" />
+
   @if (refus(); as refus) {
   <div hlmAlert tone="error" data-test="refus">
     <hlm-alert-icon />

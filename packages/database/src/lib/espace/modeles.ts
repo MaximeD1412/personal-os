@@ -86,6 +86,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'mealWishes',
     'projects',
     'projectExpenses',
+    'publicPresentations',
   ],
 };
 
