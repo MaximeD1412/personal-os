@@ -6,7 +6,13 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { NavigationEnd, provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import type { MealPlan, MealPlanEntry, MealWish } from '@personal-os/contracts';
+import type {
+  GenerationRoundSummary,
+  MealPlan,
+  MealPlanEntry,
+  MealWish,
+  RejectedSlot,
+} from '@personal-os/contracts';
 import { DccmConfirm, type DccmConfirmOptions } from '@personal-os/ui/dccm';
 import { filter, firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../app/api-base-url';
@@ -72,6 +78,40 @@ export const PLANNING: MealPlan = {
   createdAt: '2026-10-18T08:00:00.000Z',
 };
 
+/** Un planning dont chaque repas est statué : il peut s'arrêter. */
+export const PLANNING_STATUE: MealPlan = {
+  ...PLANNING,
+  entries: [DAHL_DU_LUNDI],
+};
+
+/** Le dîner du jeudi, vidé par le contrôle : Maxime est allergique aux fruits à coque. */
+export const NOIX_DU_JEUDI: RejectedSlot = {
+  slot: {
+    day: '2026-10-22',
+    moment: 'DINNER',
+    participantIds: ['compte-a', 'compte-b'],
+    guestCount: 0,
+  },
+  reason: 'ALLERGEN',
+  ingredient: { label: 'noix de cajou', ingredientId: 'ingredient-cajou' },
+  allergen: 'TREE_NUTS',
+  participantIds: ['compte-a'],
+};
+
+export const PREMIER_TOUR: GenerationRoundSummary = {
+  id: 'tour-1',
+  number: 1,
+  traceId: 'trace-1',
+  rejected: [NOIX_DU_JEUDI],
+  createdAt: '2026-10-18T09:00:00.000Z',
+};
+
+/** Le planning après un premier tour : un repas proposé, un créneau écarté. */
+export const PLANNING_GENERE: MealPlan = {
+  ...PLANNING,
+  rounds: [PREMIER_TOUR],
+};
+
 /** Une envie de Léa, puis une Recette souhaitée par Maxime. */
 export const ENVIE_DE_POISSON: MealWish = {
   id: 'souhait-1',
@@ -106,7 +146,11 @@ export async function ouvrirLePlanning(
   TestBed.configureTestingModule({
     providers: [
       provideRouter(
-        appRoutes.filter(({ path }) => path?.startsWith('repas/planning')),
+        appRoutes.filter(
+          ({ path }) =>
+            path?.startsWith('repas/planning') ||
+            path?.startsWith('repas/generation'),
+        ),
       ),
       provideHttpClient(withInterceptors(INTERCEPTEURS)),
       provideHttpClientTesting(),

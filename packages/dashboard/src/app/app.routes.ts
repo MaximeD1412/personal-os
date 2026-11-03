@@ -54,6 +54,17 @@ export const appRoutes: Route[] = [
     loadComponent: async () =>
       (await import('./repas/meal-plan-entry-form')).FormulaireDeRepas,
   },
+  {
+    path: 'repas/planning/generer',
+    loadComponent: async () =>
+      (await import('./repas/generation-form')).FormulaireDeGeneration,
+  },
+  // La Trace IA d'un Tour de génération, ouverte depuis le planning.
+  {
+    path: 'repas/generation/traces/:traceId',
+    loadComponent: async () =>
+      (await import('./repas/trace-de-generation')).TraceDeGeneration,
+  },
   { path: 'repas/recettes/:id', component: FicheDeRecette },
   // Le Stock domestique, éditable en place ; l'ajout d'un Ingrédient est un
   // formulaire, prérempli par sa requête (ADR 0030).
