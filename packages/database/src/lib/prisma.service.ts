@@ -99,6 +99,10 @@ export class PrismaService {
     return this.#client.recipeLine;
   }
 
+  get pantryItem() {
+    return this.#client.pantryItem;
+  }
+
   get mealPlan() {
     return this.#client.mealPlan;
   }
