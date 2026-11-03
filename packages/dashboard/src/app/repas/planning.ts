@@ -16,6 +16,7 @@ import {
   matLockOutline,
   matReceiptLongOutline,
   matScheduleOutline,
+  matSkilletOutline,
   matShoppingCartOutline,
   matStarsOutline,
 } from '@ng-icons/material-symbols/outline';
@@ -134,6 +135,8 @@ interface VueDeRepas {
   participants: string;
   portions: string;
   invites: string | null;
+  /** Seul un repas approuvé se déclare cuisiné. */
+  approuve: boolean;
 }
 
 interface Creneau {
@@ -177,8 +180,9 @@ interface Jour {
  *
  * Au-dessus de la grille, les Souhaits de la semaine. L'ajout d'un repas
  * passe par le formulaire de sa route, prérempli du jour et du moment du
- * créneau. Arrêter et rouvrir le planning sont des transitions,
- * confirmées par `DccmConfirm`.
+ * créneau. Un repas approuvé se déclare cuisiné par son propre formulaire
+ * (`/repas/cuisine/nouveau?mealPlanEntryId=…`). Arrêter et rouvrir le
+ * planning sont des transitions, confirmées par `DccmConfirm`.
  *
  * La génération : « Générer la semaine » mène au formulaire du premier tour.
  * Chaque repas proposé s'approuve ou se refuse à sa place. « Relancer un
@@ -223,6 +227,7 @@ export class PlanningDeRepas {
     refuser: matCloseOutline,
     ecarte: matGppMaybeOutline,
     trace: matReceiptLongOutline,
+    cuisine: matSkilletOutline,
     produire: matShoppingCartOutline,
   };
 
@@ -552,6 +557,7 @@ export class PlanningDeRepas {
         repas.guestCount > 0
           ? `dont ${repas.guestCount} invité${repas.guestCount > 1 ? 's' : ''}`
           : null,
+      approuve: repas.decision === 'APPROVED',
     };
   }
 }

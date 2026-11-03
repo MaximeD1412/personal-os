@@ -38,6 +38,18 @@ export class MealPlanService {
     return exposer(await this.repository.lireOuCreer(week));
   }
 
+  /** Un repas lu seul, hors de son planning : l'écran qui le cuisine ne reçoit que lui. */
+  async lireLeRepas(id: string): Promise<MealPlanEntry> {
+    const repas = await this.repository.lireLeRepas(id);
+    if (!repas) {
+      throw new Introuvable(
+        'food.entry_not_found',
+        'Aucun Repas planifié de cet identifiant.',
+      );
+    }
+    return exposerLeRepas(repas);
+  }
+
   async ajouter(
     planId: string,
     saisie: MealPlanEntryInput,

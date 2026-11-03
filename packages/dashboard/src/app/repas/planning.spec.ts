@@ -172,6 +172,24 @@ describe('Le Planning de repas', () => {
     );
   });
 
+  it('propose de déclarer cuisiné un repas approuvé, et lui seul, par son formulaire', async () => {
+    const { el } = await ouvrir();
+
+    const dahl = creneau(el(), LUNDI, 'DINNER').querySelector(
+      '[data-test="repas"]',
+    ) as HTMLElement;
+    const cuisine = dahl.querySelector('[data-test="cuisine"]');
+    expect(cuisine?.textContent).toContain('Cuisiné');
+    expect(cuisine?.getAttribute('href')).toBe(
+      '/repas/cuisine/nouveau?mealPlanEntryId=repas-1',
+    );
+
+    const restes = creneau(el(), '2026-10-21', 'LUNCH').querySelector(
+      '[data-test="repas"]',
+    ) as HTMLElement;
+    expect(restes.querySelector('[data-test="cuisine"]')).toBeNull();
+  });
+
   it('passe à la semaine suivante, puis revient à aujourd’hui', async () => {
     const ouvert = await ouvrir();
     const { el, router, harness } = ouvert;

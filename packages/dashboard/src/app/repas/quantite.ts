@@ -34,6 +34,11 @@ export function quantiteDeLigne({
   return `${nombre}\u00a0${ABREVIATIONS[unit]}`;
 }
 
+/** L'unité d'une ligne seule, telle qu'elle suit un champ de quantité. */
+export function uniteDeLigne(unit: RecipeUnit): string {
+  return unit === 'PIECE' ? 'pièce(s)' : ABREVIATIONS[unit];
+}
+
 /** « 1 portion », « 4 portions ». */
 export function portions(servings: number): string {
   return `${servings}\u00a0${servings >= 2 ? 'portions' : 'portion'}`;
