@@ -185,6 +185,12 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
   pousse jamais directement, et la PR `develop` → `main` est faite à la main.
 - Une migration ne retire jamais ce que la version précédente utilise encore
   (ADR 0024).
+- **Un ticket qui ajoute un module ajoute son semeur** au jeu de démo
+  (`packages/database/src/demo/`, un fichier par module, inscrit dans
+  `SEMEURS`). Le staging est réinitialisé à partir de ce jeu (ADR 0031), et
+  `seeders.spec.ts` échoue si un modèle cloisonné n'appartient à aucun semeur.
+  Ses dates sont relatives au jour du semis (`demo.le(decalage, heure)`), jamais
+  en dur. Vérifier : `pnpm exec nx test-integration database`.
 - **Aucun secret commité**, même factice au format réel : la CI scanne
   l'historique de la PR (gitleaks). Une exception s'écrit dans
   `.gitleaks.toml`, jamais par un commentaire dans le code ni par un
