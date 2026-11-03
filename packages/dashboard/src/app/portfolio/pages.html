@@ -3,7 +3,13 @@
     heading="Pages du portfolio"
     subtitle="Les textes du portfolio public, rédigés en français et en anglais. Chaque langue se publie à part."
     [breadcrumb]="fil"
-  />
+  >
+    <!-- L'entrée « Portfolio » mène ici : le CV, l'autre écran, s'ouvre d'ici. -->
+    <a hlmBtn variant="secondary" routerLink="/portfolio/cv" data-test="cv">
+      <ng-icon name="matDescriptionOutline" aria-hidden="true" />
+      CV
+    </a>
+  </dccm-page-header>
 
   @if (ignores.length > 0) {
   <div hlmAlert tone="warning" data-test="ignores">

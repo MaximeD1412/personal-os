@@ -171,6 +171,13 @@ describe('L’ajout d’un Repas planifié', () => {
     TestBed.tick();
     http.expectOne(`${BASE}/household`).flush(FOYER);
     lectureDe({ http } as Ouvert, LUNDI).flush(PLANNING);
+    http
+      .expectOne(
+        (requete) =>
+          requete.url === `${BASE}/meal-wishes` &&
+          requete.params.get('week') === LUNDI,
+      )
+      .flush([]);
   });
 
   it('envoie un intitulé sans recette', async () => {

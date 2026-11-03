@@ -6,7 +6,7 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import type { PageContent } from '@personal-os/contracts';
+import type { Cv, PageContent } from '@personal-os/contracts';
 import { DccmConfirm, type DccmConfirmOptions } from '@personal-os/ui/dccm';
 import { API_BASE_URL } from '../app/api-base-url';
 import { INTERCEPTEURS } from '../app/app.config';
@@ -18,6 +18,12 @@ import { appRoutes } from '../app/app.routes';
  */
 
 export const BASE = 'http://api.test/api';
+
+export const CV_FR: Cv = {
+  lang: 'FR',
+  size: 480 * 1024,
+  uploadedAt: '2026-05-15T08:00:00.000Z',
+};
 
 /** La présentation, en français, en ligne. */
 export const PRESENTATION_EN_LIGNE: PageContent = {

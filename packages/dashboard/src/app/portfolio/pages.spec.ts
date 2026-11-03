@@ -1,8 +1,10 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import type { PageContent, PageSlug } from '@personal-os/contracts';
 import {
   BASE,
+  CV_FR,
   ouvrirLePortfolio,
   PRESENTATION_EN_LIGNE,
 } from '../../testing/portfolio';
@@ -71,6 +73,19 @@ describe('Les Pages de contenu du portfolio', () => {
     expect((partie(en, 'enregistrer') as HTMLButtonElement).disabled).toBe(
       true,
     );
+  });
+
+  it('mène au CV, l’autre écran du portfolio', async () => {
+    const { el, harness, http } = await ouvrir('/portfolio/pages', []);
+
+    (partie(el(), 'cv') as HTMLAnchorElement).click();
+    // L'écran du CV demande ses fichiers dès qu'il s'ouvre.
+    await new Promise((fin) => setTimeout(fin));
+    harness.fixture.detectChanges();
+    http.expectOne(`${BASE}/cv`).flush([CV_FR]);
+    await harness.fixture.whenStable();
+
+    expect(TestBed.inject(Router).url).toBe('/portfolio/cv');
   });
 
   it('enregistre un texte sans le publier, puis le marque prêt', async () => {

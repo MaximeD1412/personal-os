@@ -1,5 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { matDescriptionOutline } from '@ng-icons/material-symbols/outline';
 import {
   LANGUES,
   LIBELLES_DES_LANGUES,
@@ -14,6 +16,7 @@ import {
   type PageSlug,
 } from '@personal-os/contracts';
 import { HlmAlertImports } from '@personal-os/ui/alert';
+import { HlmButton } from '@personal-os/ui/button';
 import { HlmCardImports } from '@personal-os/ui/card';
 import {
   DccmPageHeader,
@@ -47,13 +50,17 @@ export const FIL_DU_PORTFOLIO: readonly DccmCrumb[] = [{ label: 'Portfolio' }];
  */
 @Component({
   imports: [
+    RouterLink,
+    NgIcon,
     HlmAlertImports,
+    HlmButton,
     HlmCardImports,
     HlmToggleGroupImports,
     DccmPageHeader,
     DccmState,
     EditeurDePageDeContenu,
   ],
+  providers: [provideIcons({ matDescriptionOutline })],
   templateUrl: './pages.html',
 })
 export class PagesDuPortfolio {
