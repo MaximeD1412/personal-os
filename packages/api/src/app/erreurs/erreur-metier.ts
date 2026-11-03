@@ -1,13 +1,18 @@
+import type { ApiFieldError } from '@personal-os/contracts';
+
 /**
  * Une règle métier violée (ADR 0030). `code` suit `<module>.<cas>`, en anglais ;
  * `message` est en français et s'affiche tel quel. Le filtre global en fait
- * l'enveloppe, en 422 sauf statut déclaré.
+ * l'enveloppe, en 422 sauf statut déclaré. `fields` nomme, quand la règle en
+ * vise plusieurs, les objets en cause (les Ingrédients qu'une consolidation ne
+ * sait pas convertir).
  */
 export class ErreurMetier extends Error {
   constructor(
     readonly code: string,
     message: string,
     readonly status = 422,
+    readonly fields?: readonly ApiFieldError[],
   ) {
     super(message);
     this.name = new.target.name;

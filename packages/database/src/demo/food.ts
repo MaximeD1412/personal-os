@@ -694,3 +694,117 @@ function jourApres(lundi: string, decalage: number): string {
   jour.setUTCDate(jour.getUTCDate() + decalage);
   return jour.toISOString().slice(0, 10);
 }
+
+/** Un article de la liste de démo, en Unité canonique de son Ingrédient. */
+export interface ArticleDeDemo {
+  ingredient: string;
+  quantity: number;
+  /** Déjà dans le chariot. */
+  coche?: boolean;
+}
+
+/**
+ * Ce que la production donne du planning de démo, moins le stock de démo :
+ * le consolidateur de l'API (`courses/consolider.ts`) ne se lit pas d'ici,
+ * son résultat est recopié, dans l'ordre alphabétique de la liste. Les
+ * quantités ne sont pas arrondies au conditionnement (CUISINE-12).
+ */
+export const LISTE_DE_DEMO: readonly ArticleDeDemo[] = [
+  { ingredient: 'Ail', quantity: 2.667 },
+  { ingredient: 'Blanc de poulet', quantity: 300 },
+  { ingredient: 'Citron jaune', quantity: 1 },
+  { ingredient: 'Courgette', quantity: 250, coche: true },
+  { ingredient: 'Crème fraîche épaisse', quantity: 133.334 },
+  { ingredient: 'Graines de sésame', quantity: 5 },
+  { ingredient: 'Huile d’olive', quantity: 37.5 },
+  { ingredient: 'Lentilles corail', quantity: 125 },
+  { ingredient: 'Oignon jaune', quantity: 0.5 },
+  { ingredient: 'Oignon rouge', quantity: 0.5 },
+  { ingredient: 'Pavé de saumon', quantity: 300 },
+  { ingredient: 'Pomme de terre', quantity: 1000, coche: true },
+  { ingredient: 'Sauce soja', quantity: 22.5 },
+  { ingredient: 'Sel fin', quantity: 10.334 },
+  { ingredient: 'Sucre en poudre', quantity: 10 },
+];
+
+/** L'ajout manuel de la liste de démo : un simple libellé, hors catalogue. */
+export const AJOUT_DE_DEMO = 'Liquide vaisselle';
+
+/**
+ * Une Liste de courses ouverte, issue du planning de la semaine en cours. Elle
+ * passe après `semerLePlanning`, dont elle lit le planning. Le planning de
+ * démo reste ouvert : une liste figée n'en dépend plus.
+ *
+ * Un planning qui a déjà une liste n'en reçoit pas d'autre : deux semis de
+ * suite donnent la même liste, et ce qu'on y a coché entre-temps reste.
+ */
+export async function semerLaListe(
+  prisma: PrismaService,
+  maintenant = new Date(),
+): Promise<void> {
+  const lundi = lundiDe(aujourdhui(FUSEAU, maintenant));
+
+  // Une requête Prisma ne part qu'à l'`await` : il se fait sous la portée.
+  await sousPortee(ESPACE_FOYER, async () => {
+    const planning = await prisma.mealPlan.findUnique({
+      where: {
+        scopeId_week: { scopeId: ID_ESPACE_FOYER, week: enDate(lundi) },
+      },
+      select: { id: true, _count: { select: { shoppingLists: true } } },
+    });
+    if (!planning || planning._count.shoppingLists > 0) {
+      return;
+    }
+
+    const catalogue = await prisma.ingredient.findMany({
+      where: {
+        name: {
+          in: LISTE_DE_DEMO.map(({ ingredient }) =>
+            normaliserLibelle(ingredient),
+          ),
+        },
+      },
+      select: { id: true, name: true, canonicalUnit: true },
+    });
+    const parNom = new Map(catalogue.map((ligne) => [ligne.name, ligne]));
+    const ids = new Map(catalogue.map(({ id, name }) => [name, id] as const));
+
+    const articles = LISTE_DE_DEMO.map(
+      ({ ingredient, quantity, coche }, position) => {
+        const nom = normaliserLibelle(ingredient);
+        return {
+          ingredientId: idDe(nom, ids, ingredient),
+          label: null,
+          quantity,
+          unit: parNom.get(nom)?.canonicalUnit ?? null,
+          origin: 'PLAN' as const,
+          checked: coche ?? false,
+          position,
+        };
+      },
+    );
+
+    await prisma.shoppingList.create({
+      data: {
+        scopeId: ID_ESPACE_FOYER,
+        mealPlanId: planning.id,
+        // Un article prend l'Espace de sa liste, par leur clé étrangère.
+        items: {
+          create: [
+            ...articles,
+            {
+              ingredientId: null,
+              label: AJOUT_DE_DEMO,
+              quantity: null,
+              unit: null,
+              origin: 'MANUAL' as const,
+              checked: false,
+              position: articles.length,
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+  });
+}

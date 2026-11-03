@@ -109,6 +109,9 @@ et lève `food.list_already_closed`.
 | Allergie, aliment exclu, peu apprécié    | `FoodPreferenceKind` : `ALLERGY`, `EXCLUDED`, `DISLIKED`         |
 | Contraintes d'un repas                   | `contraintesDuRepas` : `interdits`, `evites`                     |
 | Liste de courses, Article de courses     | `ShoppingList`, `ShoppingListItem`                               |
+| Liste ouverte, close                     | `ShoppingListStatus` : `OPEN`, `CLOSED`                          |
+| Origine d'un Article (planning, manuel)  | `ShoppingListItemOrigin` : `PLAN`, `MANUAL`                      |
+| Consolidateur, Article coché             | `consolider`, `checked`                                          |
 | Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
 | Stock domestique                         | `PantryItem`                                                     |
 | Péremption (d'une ligne de stock)        | `expiresOn`                                                      |

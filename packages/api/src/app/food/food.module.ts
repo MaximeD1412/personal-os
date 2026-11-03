@@ -26,13 +26,19 @@ import { PantryItemService } from './pantry-item.service';
 import { RecipeController } from './recipe.controller';
 import { RecipeRepository } from './recipe.repository';
 import { RecipeService } from './recipe.service';
+import {
+  MealPlanShoppingListController,
+  ShoppingListController,
+} from './shopping-list.controller';
+import { ShoppingListRepository } from './shopping-list.repository';
+import { ShoppingListService } from './shopping-list.service';
 
 /**
  * La Cuisine. Le catalogue d'Ingrédients et ses Alias sont globaux ; les
  * Recettes, les Préférences alimentaires, le Stock domestique, le Planning de
- * repas et ses Souhaits vivent dans l'Espace foyer, où les Courses les
- * rejoindront. Les Repas planifiés se présentent à l'Agenda (ADR 0011) ; les
- * Tours de génération passent par le port IA.
+ * repas, ses Souhaits et les Listes de courses vivent dans l'Espace foyer.
+ * Les Repas planifiés se présentent à l'Agenda (ADR 0011) ; les Tours de
+ * génération passent par le port IA.
  */
 @Module({
   imports: [AgendaPortModule, AiModule],
@@ -45,6 +51,8 @@ import { RecipeService } from './recipe.service';
     GenerationRoundController,
     MealWishController,
     PantryItemController,
+    ShoppingListController,
+    MealPlanShoppingListController,
   ],
   providers: [
     IngredientService,
@@ -64,6 +72,8 @@ import { RecipeService } from './recipe.service';
     MealPlanEntryAgendaContributor,
     PantryItemService,
     PantryItemRepository,
+    ShoppingListService,
+    ShoppingListRepository,
   ],
 })
 export class FoodModule {}
