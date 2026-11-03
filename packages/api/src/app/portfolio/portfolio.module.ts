@@ -2,19 +2,28 @@ import { Module } from '@nestjs/common';
 import { StorageModule } from '../storage/storage.module';
 import { CvController } from './cv.controller';
 import { CvService } from './cv.service';
+import { PageContentController } from './page-content.controller';
+import { PageContentRepository } from './page-content.repository';
+import { PageContentService } from './page-content.service';
 import { PresentationController } from './presentation.controller';
 import { PresentationRepository } from './presentation.repository';
 import { PresentationService } from './presentation.service';
 
 /**
- * Ce qui part vers le portfolio public : le CV en PDF, rangé dans le stockage
- * objet, et les Présentations publiques des Projets avec leur État de
- * publication. Le portfolio lui-même les servira (PORTFOLIO-5), sans jamais
- * toucher aux notes privées.
+ * Ce qui part vers le portfolio public : les Présentations publiques des
+ * Projets et les Pages de contenu, chacune avec son État de publication, et le
+ * CV en PDF, rangé dans le stockage objet. Le portfolio lui-même les lira
+ * (PORTFOLIO-5), sans jamais toucher aux notes privées.
  */
 @Module({
   imports: [StorageModule],
-  controllers: [CvController, PresentationController],
-  providers: [CvService, PresentationService, PresentationRepository],
+  controllers: [PresentationController, PageContentController, CvController],
+  providers: [
+    PresentationService,
+    PresentationRepository,
+    PageContentService,
+    PageContentRepository,
+    CvService,
+  ],
 })
 export class PortfolioModule {}
