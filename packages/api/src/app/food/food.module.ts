@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import { AgendaPortModule } from '../agenda-port/agenda-port.module';
 import { AiModule } from '../ai/ai.module';
+import { DashboardPortModule } from '../dashboard-port/dashboard-port.module';
 import { CookedMealController } from './cooked-meal.controller';
 import { CookedMealRepository } from './cooked-meal.repository';
 import { CookedMealService } from './cooked-meal.service';
+import { FoodResumeur } from './food.resumeur';
 import { FoodPreferenceController } from './food-preference.controller';
 import { FoodPreferenceRepository } from './food-preference.repository';
 import { FoodPreferenceService } from './food-preference.service';
@@ -41,11 +43,12 @@ import { ShoppingListService } from './shopping-list.service';
  * La Cuisine. Le catalogue d'Ingrédients et ses Alias sont globaux ; les
  * Recettes, les Préférences alimentaires, le Stock domestique, le Planning de
  * repas, ses Souhaits, ses Repas cuisinés et les Listes de courses vivent dans
- * l'Espace foyer. Les Repas planifiés se présentent à l'Agenda (ADR 0011) ;
- * les Tours de génération passent par le port IA.
+ * l'Espace foyer. Les Repas planifiés se présentent à l'Agenda, et la Cuisine
+ * se résume au tableau de bord (ADR 0011) ; les Tours de génération passent
+ * par le port IA.
  */
 @Module({
-  imports: [AgendaPortModule, AiModule],
+  imports: [AgendaPortModule, DashboardPortModule, AiModule],
   controllers: [
     IngredientController,
     IngredientAliasController,
@@ -76,6 +79,7 @@ import { ShoppingListService } from './shopping-list.service';
     MealWishService,
     MealWishRepository,
     MealPlanEntryAgendaContributor,
+    FoodResumeur,
     PantryItemService,
     PantryItemRepository,
     CookedMealService,

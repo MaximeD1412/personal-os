@@ -24,7 +24,7 @@ import {
 
 /**
  * Le CV du portfolio, téléversé en PDF, un par langue. Ces routes sont
- * privées : le portfolio public le servira par sa propre route (PORTFOLIO-5).
+ * privées : le portfolio public le sert par `GET /public/cv/:lang`.
  * Le CV n'appartient à aucun Espace, et ne touche à aucune donnée cloisonnée.
  */
 @Controller('cv')

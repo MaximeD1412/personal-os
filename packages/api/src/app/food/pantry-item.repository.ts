@@ -48,6 +48,21 @@ export class PantryItemRepository {
     });
   }
 
+  /**
+   * Les lignes encore en stock dont la péremption tombe ce jour-là ou avant,
+   * la plus proche d'abord.
+   */
+  perimantAuPlusTard(jour: string): Promise<PantryItemRecord[]> {
+    return this.prisma.pantryItem.findMany({
+      where: {
+        quantity: { gt: 0 },
+        expiresOn: { lte: new Date(`${jour}T00:00:00Z`) },
+      },
+      include: AVEC_L_INGREDIENT,
+      orderBy: [{ expiresOn: 'asc' }, { ingredient: { name: 'asc' } }],
+    });
+  }
+
   /** Remplace la ligne de l'Ingrédient, ou la crée. */
   poser(
     ingredientId: string,

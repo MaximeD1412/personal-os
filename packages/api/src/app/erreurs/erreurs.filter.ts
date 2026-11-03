@@ -130,6 +130,12 @@ function refusDEspace(raison: RaisonDuRefus, message: string): ApiError {
         code: 'scope.nested_write',
         message: MESSAGE_DE_DEFAUT,
       };
+    case 'lecture-publique':
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: 'scope.public_read',
+        message: MESSAGE_DE_DEFAUT,
+      };
   }
 }
 

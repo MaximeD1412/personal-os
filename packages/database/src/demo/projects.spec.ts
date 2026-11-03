@@ -1,5 +1,5 @@
 import { zProjectExpenseInput, zProjectInput } from '@personal-os/contracts';
-import { porteeCourante } from '../lib/espace/portee';
+import { estPublique, porteeCourante } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
 import { PROJETS_DE_DEMO, semerLesProjets } from './projects';
 
@@ -33,7 +33,9 @@ function prismaFactice(existants: Record<string, string> = {}) {
     },
     project: {
       findFirst: jest.fn(({ where }: { where: { title: string } }) => {
-        const scopeId = porteeCourante()?.espaces[0]?.id ?? '';
+        const portee = porteeCourante();
+        const scopeId =
+          portee && !estPublique(portee) ? (portee.espaces[0]?.id ?? '') : '';
         const id = existants[`${scopeId}/${where.title}`];
         return Promise.resolve(id ? { id, scopeId } : null);
       }),
