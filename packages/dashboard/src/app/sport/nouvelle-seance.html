@@ -1,0 +1,91 @@
+<dccm-form-page
+  [heading]="titre()"
+  subtitle="Le prévu d'une séance à venir, ou le réalisé d'une sortie déjà faite."
+  [breadcrumb]="[{ label: 'Sport', link: '/sport' }, { label: titre() }]"
+  submitLabel="Enregistrer la séance"
+  [ignored]="prefill.ignores"
+  [error]="refus()"
+  [pending]="envoi()"
+  (submitted)="enregistrer()"
+  (cancelled)="fermer()"
+>
+  <div hlmField>
+    <span hlmFieldLabel id="nouvelle-seance-statut">Statut</span>
+    <hlm-toggle-group
+      size="md"
+      aria-labelledby="nouvelle-seance-statut"
+      data-test="statut"
+      [value]="statut()"
+      (valueChange)="choisirLeStatut($event)"
+    >
+      <button hlmToggleGroupItem value="PLANNED" data-test="statut-prevue">
+        Prévue
+      </button>
+      <button hlmToggleGroupItem value="DONE" data-test="statut-realisee">
+        Déjà réalisée
+      </button>
+    </hlm-toggle-group>
+  </div>
+
+  <div class="grid gap-gutter md:grid-cols-3">
+    <div hlmField>
+      <label hlmFieldLabel for="nouvelle-seance-sport">Sport</label>
+      <hlm-select
+        data-test="sport"
+        [value]="sport()"
+        [itemToString]="nomDuSport"
+        (valueChange)="choisirLeSport($event)"
+      >
+        <hlm-select-trigger buttonId="nouvelle-seance-sport" class="w-full">
+          <hlm-select-value />
+        </hlm-select-trigger>
+        <hlm-select-content *hlmSelectPortal>
+          @for (sport of sports; track sport.valeur) {
+          <hlm-select-item [value]="sport.valeur"
+            >{{ sport.libelle }}</hlm-select-item
+          >
+          }
+        </hlm-select-content>
+      </hlm-select>
+      @if (erreurs()['sport']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+
+    <div hlmField class="md:col-span-2">
+      <label hlmFieldLabel for="nouvelle-seance-debut">Date et heure</label>
+      <input
+        hlmInput
+        id="nouvelle-seance-debut"
+        type="datetime-local"
+        data-test="debut"
+        [value]="debut()"
+        [forceInvalid]="!!erreurs()['startsAt']"
+        (input)="saisirLeDebut($event)"
+      />
+      @if (erreurs()['startsAt']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+  </div>
+
+  @if (statut() === 'PLANNED') {
+  <fieldset class="flex flex-col gap-space-sm">
+    <legend class="text-label-micro uppercase text-outline">Prévu</legend>
+    <pos-champs-de-mesures
+      volet="planned"
+      [(saisie)]="prevu"
+      [erreurs]="erreurs()"
+    />
+  </fieldset>
+  } @else {
+  <fieldset class="flex flex-col gap-space-sm">
+    <legend class="text-label-micro uppercase text-outline">Réalisé</legend>
+    <pos-champs-de-mesures
+      volet="actual"
+      [(saisie)]="realise"
+      [erreurs]="erreurs()"
+    />
+  </fieldset>
+  }
+</dccm-form-page>

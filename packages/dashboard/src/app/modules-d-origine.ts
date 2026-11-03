@@ -1,10 +1,14 @@
-import { SOURCE_CALENDRIER, type AgendaItem } from '@personal-os/contracts';
+import {
+  SOURCE_CALENDRIER,
+  SOURCE_SPORT,
+  type AgendaItem,
+} from '@personal-os/contracts';
 import { moisDe } from './mois';
 
 /** Où mène une Entrée d'agenda, et sous quel nom son module se présente. */
 export interface ModuleDOrigine {
   /** Le chemin de l'écran qui possède l'objet. */
-  chemin: string;
+  chemin(entree: AgendaItem): string;
   /** Les paramètres par lesquels l'écran retrouve l'objet à ouvrir. */
   parametres(entree: AgendaItem): Record<string, string>;
   libelle: string;
@@ -35,12 +39,18 @@ export const PARAMETRE_DE_MOIS = 'mois';
 
 const MODULES: Readonly<Record<string, ModuleDOrigine>> = {
   [SOURCE_CALENDRIER]: {
-    chemin: '/calendrier',
+    chemin: () => '/calendrier',
     parametres: (entree) => ({
       [PARAMETRE_D_EVENEMENT]: entree.sourceId,
       [PARAMETRE_DE_MOIS]: moisDe(entree.startsAt),
     }),
     libelle: 'Calendrier',
+  },
+  // Une Séance a son écran : on y atterrit directement.
+  [SOURCE_SPORT]: {
+    chemin: (entree) => `/sport/seances/${entree.sourceId}`,
+    parametres: () => ({}),
+    libelle: 'Sport',
   },
 };
 

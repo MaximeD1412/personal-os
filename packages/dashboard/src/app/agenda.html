@@ -58,7 +58,7 @@
               @if (origine(entree); as module) {
               <a
                 class="hover:underline"
-                [routerLink]="module.chemin"
+                [routerLink]="module.chemin(entree)"
                 [queryParams]="retour(entree)"
                 >{{ entree.title }}</a
               >

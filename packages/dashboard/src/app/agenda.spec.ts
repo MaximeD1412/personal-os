@@ -170,6 +170,15 @@ describe('Agenda', () => {
       );
     });
 
+    it('renvoie une Séance vers son propre écran', async () => {
+      const fixture = await monter([
+        { ...SEANCE, source: 'training', sourceId: 'seance-1' },
+      ]);
+      const lien = entrees(fixture)[0].querySelector('a') as HTMLAnchorElement;
+
+      expect(lien.getAttribute('href')).toBe('/sport/seances/seance-1');
+    });
+
     it("affiche sans lien l'entrée d'un module que l'écran ne connaît pas", async () => {
       const [, seance] = entrees(await monter());
 
