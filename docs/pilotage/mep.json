@@ -23,7 +23,7 @@
     {
       "id": "dep",
       "titre": "Livraison",
-      "description": "La PR develop → main, faite à la main."
+      "description": "La mise en prod depuis la console (onglet Versions) : tag vX.Y.Z, puis main avancé sur ce commit."
     },
     {
       "id": "chk",

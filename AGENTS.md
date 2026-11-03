@@ -182,7 +182,9 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
 
 - Une branche `feat/<n>-<slug>` (ou `fix/`) depuis `develop`, et une PR vers
   `develop` avec `Closes #<n>`. `main` est la branche de livraison : on n'y
-  pousse jamais directement, et la PR `develop` → `main` est faite à la main.
+  pousse jamais directement. La mise en prod passe par l'outil partagé
+  `release`, depuis l'onglet Versions de la console : il pose le tag
+  `vX.Y.Z` et avance `main` sur ce commit.
 - Une migration ne retire jamais ce que la version précédente utilise encore
   (ADR 0024).
 - **Aucun secret commité**, même factice au format réel : la CI scanne
@@ -200,7 +202,7 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
 
 Ils se mettent à jour **dans la PR du ticket**. Codex les relit avec le reste.
 Ils alimentent l'artifact [Pilotage Personal OS](https://claude.ai/artifact/HQqnhrKxc7crEEKayomxP9),
-republié après chaque merge par `pilotage publish` (`.pilotage.json`, outil
+republié après chaque merge par `pilotage publish` (`.process.json`, outil
 partagé `~/.agents/tools/pilotage`). Les formats sont décrits dans son README.
 
 - `docs/pilotage/mep.json` : ce que la mise en production exige (variable,

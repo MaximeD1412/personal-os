@@ -1,0 +1,31 @@
+{
+  "projectName": "Personal OS",
+  "repo": "MaximeD1412/personal-os",
+  "branches": {
+    "integration": "develop",
+    "release": "main"
+  },
+  "agentLoop": {
+    "conventionsFile": "AGENTS.md",
+    "setupCmd": "scripts/worktree.sh setup",
+    "dropCmd": "scripts/worktree.sh drop",
+    "pilotagePublish": true,
+    "extraImplementPrompt": ""
+  },
+  "pilotage": {
+    "dataDir": "docs/pilotage",
+    "out": "dist/pilotage",
+    "boardUrl": "https://github.com/users/MaximeD1412/projects/3",
+    "parallelism": 2,
+    "theme": {
+      "file": "packages/theme/tokens.css",
+      "light": ":root",
+      "dark": ":root.dark"
+    },
+    "artifactUrl": "https://claude.ai/artifact/HQqnhrKxc7crEEKayomxP9"
+  },
+  "release": {
+    "prodWorkflow": "livraison.yml",
+    "firstVersion": "0.1.0"
+  }
+}
