@@ -7,8 +7,17 @@ import {
 import { GenerateurIA } from '../ai/generateur-ia';
 import { ErreurMetier, Introuvable } from '../erreurs/erreur-metier';
 import { FoodPreferenceRepository } from './food-preference.repository';
-import { GenerationRoundRepository } from './generation-round.repository';
-import { controler } from './generation/controler';
+import {
+  GenerationRoundRepository,
+  type CatalogueDuTour,
+  type LecturesDuTour,
+} from './generation-round.repository';
+import {
+  controler,
+  type ContexteDuControle,
+  type RecetteDuControle,
+  type Retenue,
+} from './generation/controler';
 import {
   construireLaDemande,
   type RepasDeLaDemande,
@@ -45,6 +54,10 @@ const JOURS_POUR_VARIER = 14;
  * de chaque proposition (`generation/controler.ts`), hors du modèle. Seul ce
  * qui passe le contrôle devient un repas proposé. Rien ne s'écrit avant la
  * réponse du modèle : un appel qui échoue ne laisse aucun tour.
+ *
+ * L'appel au modèle dure : le contrôle relit, à sa réponse, les Recettes, les
+ * Ingrédients et les Préférences, et l'écriture n'a lieu que si ni eux ni le
+ * planning n'ont changé depuis leur lecture (`LecturesDuTour`).
  */
 @Injectable()
 export class GenerationRoundService {
@@ -83,26 +96,16 @@ export class GenerationRoundService {
     }
 
     const creneaux = creneauxDuTour(etat, demandes);
-    const [catalogue, preferences, souhaits, stock, recettes, approuvesAvant] =
-      await Promise.all([
-        this.tours.catalogue(),
-        this.preferences.lister(),
-        this.souhaits.lister(planning.week),
-        this.stock.lister(),
-        this.recettes.lister([]),
-        this.plannings.approuvesEntre(
-          decaler(planning.week, -JOURS_POUR_VARIER),
-          decaler(planning.week, -1),
-        ),
-      ]);
-    const recettesDuFoyer = recettes.map(({ id, title, lines }) => ({
-      id,
-      title,
-      lines: lines.map(({ ingredient }) => ({
-        ingredientId: ingredient.id,
-        label: ingredient.displayName,
-      })),
-    }));
+    const [donnees, souhaits, stock, approuvesAvant] = await Promise.all([
+      this.donneesDuControle([]),
+      this.souhaits.lister(planning.week),
+      this.stock.lister(),
+      this.plannings.approuvesEntre(
+        decaler(planning.week, -JOURS_POUR_VARIER),
+        decaler(planning.week, -1),
+      ),
+    ]);
+    const { catalogue, preferences, recettes } = donnees;
 
     const demande = construireLaDemande({
       semaine: planning.week,
@@ -116,7 +119,7 @@ export class GenerationRoundService {
         quantity: quantity.toNumber(),
         expiresOn: expiresOn ? expiresOn.toISOString().slice(0, 10) : null,
       })),
-      recettes: recettesDuFoyer,
+      recettes,
       repas: planning.entries.map(enRepasDeLaDemande),
       approuvesAvant: approuvesAvant.map(enRepasDeLaDemande),
     });
@@ -129,17 +132,22 @@ export class GenerationRoundService {
       maxTokens: JETONS_D_UN_TOUR,
     });
 
-    const { retenues, rejetes } = controler(valeur.propositions, creneaux, {
-      catalogue,
-      recettes: recettesDuFoyer,
-      preferences,
-    });
+    // Ce qui a changé pendant l'appel compte : le contrôle relit tout.
+    const aJour = await this.donneesDuControle(
+      unique(creneaux.flatMap(({ participantIds }) => participantIds)),
+    );
+    const { retenues, rejetes } = controler(
+      valeur.propositions,
+      creneaux,
+      aJour,
+    );
 
     const tour = await this.ecrire(
       this.tours.enregistrer(planId, {
         number: etat.toursLances + 1,
         traceId,
         rejected: rejetes,
+        lectures: lecturesDuTour(planning, retenues, aJour),
         repas: retenues.map(({ creneau, recette }) => ({
           day: creneau.day,
           moment: creneau.moment,
@@ -154,6 +162,37 @@ export class GenerationRoundService {
     return {
       ...exposerLeTour(tour),
       entries: tour.entries.map(exposerLeRepas),
+    };
+  }
+
+  /**
+   * Ce que le contrôle confronte, avec la version de chaque donnée. Celle des
+   * Préférences de ces Comptes se lit d'abord : une Préférence ajoutée
+   * pendant la lecture fait échouer l'écriture, au lieu de passer inaperçue.
+   */
+  private async donneesDuControle(
+    comptes: readonly string[],
+  ): Promise<DonneesDuControle> {
+    const versions = await this.tours.versionsDesPreferences(comptes);
+    const [catalogue, preferences, recettes] = await Promise.all([
+      this.tours.catalogue(),
+      this.preferences.lister(),
+      this.recettes.lister([]),
+    ]);
+
+    return {
+      catalogue,
+      preferences,
+      versions,
+      recettes: recettes.map(({ id, title, updatedAt, lines }) => ({
+        id,
+        title,
+        updatedAt,
+        lines: lines.map(({ ingredient }) => ({
+          ingredientId: ingredient.id,
+          label: ingredient.displayName,
+        })),
+      })),
     };
   }
 
@@ -189,7 +228,9 @@ export class GenerationRoundService {
         'Un repas a au moins un Participant.',
       );
     }
-    const ids = unique(demandes.flatMap(({ participantIds }) => participantIds));
+    const ids = unique(
+      demandes.flatMap(({ participantIds }) => participantIds),
+    );
     const membres = await this.plannings.membresDuFoyer(ids, compteId);
     if (membres.size !== ids.length) {
       throw new ErreurMetier(
@@ -200,27 +241,88 @@ export class GenerationRoundService {
   }
 
   /**
-   * L'écriture échoue si, pendant l'appel au modèle, le planning a été arrêté
-   * ou un autre tour lancé : on relit pour dire pourquoi. Une Recette du Foyer
-   * supprimée entre-temps fait céder sa clé étrangère.
+   * L'écriture échoue si, depuis leur lecture, le planning ou une donnée du
+   * contrôle a changé, ou si un autre tour a été lancé (P2025, P2002), ou si
+   * une Recette ou un Ingrédient a disparu (P2003) : on relit le planning pour
+   * dire pourquoi. Un tour encore possible est à relancer.
    */
   private async ecrire<T>(operation: Promise<T>, planId: string): Promise<T> {
     try {
       return await operation;
     } catch (erreur) {
       const code = codePrisma(erreur);
-      if (code === 'P2003') {
-        throw new ErreurMetier(
-          'food.entry_unknown_recipe',
-          "Ce repas cite une Recette qui n'existe pas.",
-        );
+      if (code !== 'P2002' && code !== 'P2025' && code !== 'P2003') {
+        throw erreur;
       }
-      if (code === 'P2002' || code === 'P2025') {
-        throw tourImpossible(enPlanningDuTour(await this.planning(planId)));
+      const etat = enPlanningDuTour(await this.planning(planId));
+      if (
+        etat.status === 'STOPPED' ||
+        etat.entries.some(({ decision }) => decision === 'PROPOSED')
+      ) {
+        throw tourImpossible(etat);
       }
-      throw erreur;
+      throw tourPerime();
     }
   }
+}
+
+/** Le contexte du contrôle, avec la version de chaque donnée lue. */
+interface DonneesDuControle extends ContexteDuControle {
+  catalogue: CatalogueDuTour;
+  recettes: (RecetteDuControle & { title: string; updatedAt: Date })[];
+  versions: LecturesDuTour['comptes'];
+}
+
+/**
+ * Les versions sur lesquelles le contrôle s'est fondé : le planning lu avant
+ * l'appel au modèle, et ce que les repas retenus citent, lu à sa réponse.
+ */
+function lecturesDuTour(
+  planning: MealPlanRecord,
+  retenues: readonly Retenue[],
+  donnees: DonneesDuControle,
+): LecturesDuTour {
+  const recettes = retenues.flatMap(({ recette }) =>
+    'recipeId' in recette
+      ? donnees.recettes.filter(({ id }) => id === recette.recipeId)
+      : [],
+  );
+  const ingredientIds = new Set(
+    retenues.flatMap(({ recette }) =>
+      'recipeId' in recette
+        ? recettes
+            .filter(({ id }) => id === recette.recipeId)
+            .flatMap(({ lines }) =>
+              lines.map(({ ingredientId }) => ingredientId),
+            )
+        : recette.nouvelle.lignes.map(({ ingredientId }) => ingredientId),
+    ),
+  );
+
+  return {
+    planning: planning.version,
+    recettes: uniqueParId(recettes).map(({ id, updatedAt }) => ({
+      id,
+      updatedAt,
+    })),
+    ingredients: donnees.catalogue.ingredients
+      .filter(({ id }) => ingredientIds.has(id))
+      .map(({ id, updatedAt }) => ({ id, updatedAt })),
+    comptes: donnees.versions,
+  };
+}
+
+function uniqueParId<T extends { id: string }>(elements: readonly T[]): T[] {
+  return [
+    ...new Map(elements.map((element) => [element.id, element])).values(),
+  ];
+}
+
+function tourPerime(): ErreurMetier {
+  return new ErreurMetier(
+    'food.round_outdated',
+    'Le planning, une Recette ou des Préférences ont changé pendant la génération : relancez le tour.',
+  );
 }
 
 /** Ce que la machine à tours lit du planning. */

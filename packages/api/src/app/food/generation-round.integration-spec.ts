@@ -30,6 +30,10 @@ import { FournisseurIA } from '../ai/fournisseur-ia';
 import { GenerateurIAFactice } from '../ai/generateur-ia.factice';
 import { AppModule } from '../app.module';
 import {
+  GenerationRoundRepository,
+  type LecturesDuTour,
+} from './generation-round.repository';
+import {
   BUT_GENERATION,
   type PropositionDeRepas,
 } from './generation/proposition';
@@ -276,7 +280,7 @@ describe('Tours de génération', () => {
       expect(await recettesNommees('Salade aux noix du 13')).toBe(0);
     });
 
-    it("ne présente pas une proposition dont un libellé est inconnu, et ne crée aucun Ingrédient", async () => {
+    it('ne présente pas une proposition dont un libellé est inconnu, et ne crée aucun Ingrédient', async () => {
       const planning = await lire(jeu.a, '2028-11-20');
       programmer([
         nouvelle('2028-11-20', 'LUNCH', 'Salade mystère', [
@@ -345,7 +349,12 @@ describe('Tours de génération', () => {
       const planning = await lire(jeu.a, '2028-12-04');
       programmer([
         { day: '2028-12-04', moment: 'LUNCH', recipeId: dahl.id, recipe: null },
-        { day: '2028-12-04', moment: 'DINNER', recipeId: dahl.id, recipe: null },
+        {
+          day: '2028-12-04',
+          moment: 'DINNER',
+          recipeId: dahl.id,
+          recipe: null,
+        },
         nouvelle('2028-12-05', 'LUNCH', 'Mystère', ['Sauce mystère']),
       ]);
       const premier = (
@@ -429,6 +438,233 @@ describe('Tours de génération', () => {
         },
       ]);
       expect(relu.rounds.map(({ number }) => number)).toEqual([1, 2]);
+    });
+
+    it('contrôle la Recette du Foyer telle qu’elle est à la réponse du modèle : des noix ajoutées pendant la génération l’écartent', async () => {
+      await preference(compteB, 'ALLERGY', 'TREE_NUTS');
+      const pesto = (
+        await request(app.getHttpServer())
+          .post('/api/recipes')
+          .set('Cookie', jeu.a.session)
+          .send({
+            title: 'Pesto (génération)',
+            servings: 2,
+            lines: [{ ingredientId: salade.id, quantity: 100, unit: 'G' }],
+          })
+          .expect(201)
+      ).body as Recipe;
+      const planning = await lire(jeu.a, '2029-06-04');
+      fournisseur.programmerPendant(
+        BUT_GENERATION,
+        {
+          propositions: [
+            {
+              day: '2029-06-04',
+              moment: 'LUNCH',
+              recipeId: pesto.id,
+              recipe: null,
+            },
+          ],
+        },
+        () =>
+          request(app.getHttpServer())
+            .patch(`/api/recipes/${pesto.id}`)
+            .set('Cookie', jeu.b.session)
+            .send({
+              lines: [
+                { ingredientId: salade.id, quantity: 100, unit: 'G' },
+                { ingredientId: noix.id, quantity: 30, unit: 'G' },
+              ],
+            })
+            .expect(200),
+      );
+
+      const reponse = await lancer(jeu.a, planning, {
+        slots: [
+          {
+            day: '2029-06-04',
+            moment: 'LUNCH',
+            participantIds: [compteA, compteB],
+          },
+        ],
+      }).expect(201);
+
+      expect(reponse.body).toMatchObject({
+        entries: [],
+        rejected: [
+          {
+            reason: 'ALLERGEN',
+            ingredient: { ingredientId: noix.id },
+            allergen: 'TREE_NUTS',
+            participantIds: [compteB],
+          },
+        ],
+      });
+      expect((await lire(jeu.a, '2029-06-04')).entries).toEqual([]);
+    });
+
+    it('écarte le plat aux noix quand l’allergie est déclarée pendant la génération', async () => {
+      const planning = await lire(jeu.a, '2029-06-11');
+      fournisseur.programmerPendant(
+        BUT_GENERATION,
+        {
+          propositions: [
+            nouvelle('2029-06-11', 'DINNER', 'Salade aux noix du 11 juin', [
+              'Salade verte (génération)',
+              'Noix (génération)',
+            ]),
+          ],
+        },
+        () => preference(compteB, 'ALLERGY', 'TREE_NUTS'),
+      );
+
+      const reponse = await lancer(jeu.a, planning, {
+        slots: [
+          {
+            day: '2029-06-11',
+            moment: 'DINNER',
+            participantIds: [compteB],
+          },
+        ],
+      }).expect(201);
+
+      expect(reponse.body).toMatchObject({
+        entries: [],
+        rejected: [{ reason: 'ALLERGEN', participantIds: [compteB] }],
+      });
+      expect(await recettesNommees('Salade aux noix du 11 juin')).toBe(0);
+    });
+
+    it('refuse en 422 un tour dont le planning a changé pendant la génération, sans rien écrire', async () => {
+      const planning = await lire(jeu.a, '2029-06-18');
+      fournisseur.programmerPendant(
+        BUT_GENERATION,
+        {
+          propositions: [
+            {
+              day: '2029-06-18',
+              moment: 'DINNER',
+              recipeId: dahl.id,
+              recipe: null,
+            },
+          ],
+        },
+        () =>
+          request(app.getHttpServer())
+            .post(`/api/meal-plans/${planning.id}/entries`)
+            .set('Cookie', jeu.b.session)
+            .send({
+              day: '2029-06-18',
+              moment: 'DINNER',
+              title: 'Restes',
+              participantIds: [compteB],
+            })
+            .expect(201),
+      );
+
+      await lancer(jeu.a, planning, {
+        slots: [
+          {
+            day: '2029-06-18',
+            moment: 'DINNER',
+            participantIds: [compteA, compteB],
+          },
+        ],
+      })
+        .expect(422)
+        .expect(codeDErreur('food.round_outdated'));
+
+      const relu = await lire(jeu.a, '2029-06-18');
+      expect(relu.rounds).toEqual([]);
+      expect(relu.entries).toMatchObject([
+        { title: 'Restes', decision: 'APPROVED' },
+      ]);
+    });
+
+    it("n'écrit rien quand le planning, une Recette, un Ingrédient ou les Préférences d'un Participant ont changé depuis la lecture du contrôle", async () => {
+      // Une Trace IA réelle, que le tour écrit à la main citera.
+      const temoin = await lire(jeu.a, '2029-07-02');
+      programmer([
+        { day: '2029-07-02', moment: 'LUNCH', recipeId: dahl.id, recipe: null },
+      ]);
+      const { traceId } = (
+        await lancer(jeu.a, temoin, {
+          slots: [
+            { day: '2029-07-02', moment: 'LUNCH', participantIds: [compteA] },
+          ],
+        }).expect(201)
+      ).body as GenerationRound;
+
+      const planning = await lire(jeu.a, '2029-06-25');
+      const lu = await dansLeFoyer(async () => ({
+        planning: (
+          await prisma.mealPlan.findUniqueOrThrow({
+            where: { id: planning.id },
+            select: { version: true },
+          })
+        ).version,
+        recettes: [
+          await prisma.recipe.findUniqueOrThrow({
+            where: { id: dahl.id },
+            select: { id: true, updatedAt: true },
+          }),
+        ],
+        ingredients: [
+          await prisma.ingredient.findUniqueOrThrow({
+            where: { id: lentilles.id },
+            select: { id: true, updatedAt: true },
+          }),
+        ],
+        comptes: [
+          await prisma.user.findUniqueOrThrow({
+            where: { id: compteB },
+            select: { id: true, foodPreferencesVersion: true },
+          }),
+        ],
+      }));
+      const tours = app.get(GenerationRoundRepository);
+      const ecrire = (lectures: LecturesDuTour) =>
+        dansLeFoyer(() =>
+          tours.enregistrer(planning.id, {
+            number: 1,
+            traceId: traceId ?? '',
+            rejected: [],
+            lectures,
+            repas: [
+              {
+                day: '2029-06-25',
+                moment: 'LUNCH',
+                participantIds: [compteA, compteB],
+                guestCount: 0,
+                recette: { recipeId: dahl.id },
+              },
+            ],
+          }),
+        );
+      const avant = new Date(0);
+
+      for (const perime of [
+        { ...lu, planning: lu.planning - 1 },
+        { ...lu, recettes: [{ id: dahl.id, updatedAt: avant }] },
+        { ...lu, ingredients: [{ id: lentilles.id, updatedAt: avant }] },
+        {
+          ...lu,
+          comptes: [{ id: compteB, foodPreferencesVersion: -1 }],
+        },
+      ]) {
+        await expect(ecrire(perime)).rejects.toMatchObject({ code: 'P2025' });
+        expect(await lire(jeu.a, '2029-06-25')).toMatchObject({
+          entries: [],
+          rounds: [],
+        });
+      }
+
+      await ecrire(lu);
+      expect(
+        (await lire(jeu.a, '2029-06-25')).entries.map(
+          ({ decision }) => decision,
+        ),
+      ).toEqual(['PROPOSED']);
     });
 
     it("ne laisse aucun tour quand l'IA ne rend pas une sortie valide", async () => {

@@ -17,11 +17,28 @@ import {
   type MealPlanEntryRecord,
 } from './meal-plan.repository';
 
-/** Le catalogue du contrôle, avec le libellé qu'on montre au modèle. */
+/**
+ * Le catalogue du contrôle, avec le libellé qu'on montre au modèle et la
+ * version de chaque Ingrédient.
+ */
 export interface CatalogueDuTour extends CatalogueDuControle {
   ingredients: (CatalogueDuControle['ingredients'][number] & {
     displayName: string;
+    updatedAt: Date;
   })[];
+}
+
+/**
+ * Ce sur quoi le contrôle s'est fondé, à la version où il l'a lu : le
+ * planning, les Recettes du Foyer et les Ingrédients des repas retenus, les
+ * Préférences de chaque Participant. L'écriture du tour échoue si l'un d'eux
+ * a changé depuis.
+ */
+export interface LecturesDuTour {
+  planning: number;
+  recettes: readonly { id: string; updatedAt: Date }[];
+  ingredients: readonly { id: string; updatedAt: Date }[];
+  comptes: readonly { id: string; foodPreferencesVersion: number }[];
 }
 
 /** Un repas proposé par le tour : une Recette du Foyer, ou une nouvelle. */
@@ -38,6 +55,7 @@ export interface TourAEcrire {
   number: number;
   traceId: string;
   rejected: RejectedSlot[];
+  lectures: LecturesDuTour;
   repas: readonly RepasDuTourAEcrire[];
 }
 
@@ -63,7 +81,13 @@ export class GenerationRoundRepository {
   async catalogue(): Promise<CatalogueDuTour> {
     const [ingredients, alias] = await Promise.all([
       this.prisma.ingredient.findMany({
-        select: { id: true, name: true, displayName: true, allergens: true },
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          allergens: true,
+          updatedAt: true,
+        },
         orderBy: { name: 'asc' },
       }),
       this.prisma.ingredientAlias.findMany({
@@ -75,10 +99,30 @@ export class GenerationRoundRepository {
   }
 
   /**
+   * La version des Préférences alimentaires de ces Comptes. Elle se lit avant
+   * les Préférences elles-mêmes : une Préférence ajoutée entre les deux
+   * lectures fait échouer l'écriture du tour, au lieu de passer inaperçue.
+   */
+  async versionsDesPreferences(
+    ids: readonly string[],
+  ): Promise<LecturesDuTour['comptes']> {
+    return this.prisma.user.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, foodPreferencesVersion: true },
+    });
+  }
+
+  /**
    * Le tour en une seule écriture, qui s'ouvre sur le verrou du planning
-   * **ouvert et sans repas proposé** : un arrêt ou un autre tour simultané
-   * passe avant ou après, jamais entre. Le numéro du tour est unique dans son
-   * planning : deux tours lancés ensemble ne passent pas tous les deux.
+   * **ouvert, sans repas proposé, et tel que le tour l'a lu** : un arrêt, un
+   * repas saisi ou un autre tour simultané passe avant ou après, jamais entre.
+   * Le numéro du tour est unique dans son planning : deux tours lancés
+   * ensemble ne passent pas tous les deux.
+   *
+   * Chaque Recette, Ingrédient et Compte dont le contrôle a lu la version se
+   * réécrit à cette version-là, ce qui verrouille sa rangée jusqu'au commit :
+   * si l'un a changé depuis le contrôle, l'écriture entière échoue (P2025),
+   * et une modification simultanée passe après le tour.
    *
    * Les repas refusés cèdent leur créneau aux repas du tour, qui sont
    * proposés ; les recettes nouvelles entrent au Foyer, générées.
@@ -99,11 +143,33 @@ export class GenerationRoundRepository {
         where: {
           id: planId,
           status: 'OPEN',
+          version: tour.lectures.planning,
           entries: { none: { decision: 'PROPOSED' } },
         },
-        data: { status: 'OPEN' },
+        data: { version: { increment: 1 } },
         select: { id: true },
       }),
+      ...tour.lectures.comptes.map(({ id, foodPreferencesVersion }) =>
+        this.prisma.user.update({
+          where: { id, foodPreferencesVersion },
+          data: { foodPreferencesVersion },
+          select: { id: true },
+        }),
+      ),
+      ...tour.lectures.recettes.map(({ id, updatedAt }) =>
+        this.prisma.recipe.update({
+          where: { id, updatedAt },
+          data: { updatedAt },
+          select: { id: true },
+        }),
+      ),
+      ...tour.lectures.ingredients.map(({ id, updatedAt }) =>
+        this.prisma.ingredient.update({
+          where: { id, updatedAt },
+          data: { updatedAt },
+          select: { id: true },
+        }),
+      ),
       this.prisma.generationRound.create({
         data: {
           id,

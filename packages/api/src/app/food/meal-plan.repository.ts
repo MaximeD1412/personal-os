@@ -34,6 +34,8 @@ export interface MealPlanRecord {
   id: string;
   week: string;
   status: MealPlanStatus;
+  /** Grandit à chaque écriture : un Tour de génération écrit sur celle qu'il a lue. */
+  version: number;
   entries: MealPlanEntryRecord[];
   /** Ses Tours de génération, dans leur ordre. */
   rounds: GenerationRoundRecord[];
@@ -261,7 +263,7 @@ export class MealPlanRepository {
           status: 'OPEN',
           entries: { none: { decision: 'PROPOSED' } },
         },
-        data: { status: 'STOPPED' },
+        data: { status: 'STOPPED', version: { increment: 1 } },
         select: { id: true },
       }),
       this.prisma.mealPlanEntry.deleteMany({
@@ -280,17 +282,20 @@ export class MealPlanRepository {
     return enPlanning(
       await this.prisma.mealPlan.update({
         where: { id, status: 'STOPPED' },
-        data: { status: 'OPEN' },
+        data: { status: 'OPEN', version: { increment: 1 } },
         include: AVEC_LES_REPAS,
       }),
     );
   }
 
-  /** Une écriture qui ne change rien, sinon le verrou de la rangée. */
+  /**
+   * Le verrou de la rangée, et sa version qui grandit : un Tour de génération
+   * en cours sait que le planning a changé sous lui.
+   */
   verrouillerOuvert(id: string) {
     return this.prisma.mealPlan.update({
       where: { id, status: 'OPEN' },
-      data: { status: 'OPEN' },
+      data: { version: { increment: 1 } },
       select: { id: true },
     });
   }
@@ -335,6 +340,7 @@ function enPlanning(rangee: {
   id: string;
   week: Date;
   status: MealPlanStatus;
+  version: number;
   entries: RangeeRepas[];
   rounds: RangeeTour[];
   createdAt: Date;
@@ -343,6 +349,7 @@ function enPlanning(rangee: {
     id: rangee.id,
     week: enJour(rangee.week),
     status: rangee.status,
+    version: rangee.version,
     entries: rangee.entries.map(enRepas),
     rounds: rangee.rounds.map(enTour),
     createdAt: rangee.createdAt,
