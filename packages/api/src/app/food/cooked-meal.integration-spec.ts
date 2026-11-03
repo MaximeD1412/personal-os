@@ -66,7 +66,7 @@ const INCONNU = '00000000-0000-4000-8000-000000000000';
  *
  * La campagne partage sa base entre les fichiers, et chaque Ingrédient n'a
  * qu'une ligne de stock : chaque test pose ses propres Ingrédients, et prend
- * une semaine de 2031 qui n'appartient qu'à lui.
+ * une semaine de 2033 qui n'appartient qu'à lui (2031 est aux Listes de courses).
  */
 describe('Repas cuisiné', () => {
   let authentik: FauxAuthentik;
@@ -121,7 +121,7 @@ describe('Repas cuisiné', () => {
         { ingredientId: farine.id, quantity: 250, unit: 'G' },
         { ingredientId: lait.id, quantity: 0.5, unit: 'L' },
       ]);
-      const repas = await approuve('2031-01-06', { recipeId: recette.id });
+      const repas = await approuve('2033-01-06', { recipeId: recette.id });
 
       // On a mis un peu moins de farine et un peu plus de lait que prévu.
       const reponse = await request(app.getHttpServer())
@@ -165,7 +165,7 @@ describe('Repas cuisiné', () => {
       const farine = await ingredient('Farine (manque)');
       const sucre = await ingredient('Sucre (manque)');
       await stocker(farine, 200, '2027-03-01');
-      const repas = await approuve('2031-01-13', { title: 'Gâteau improvisé' });
+      const repas = await approuve('2033-01-13', { title: 'Gâteau improvisé' });
 
       const reponse = await request(app.getHttpServer())
         .post('/api/cooked-meals')
@@ -209,7 +209,7 @@ describe('Repas cuisiné', () => {
     it('déclare les lignes libres d’un repas sans recette', async () => {
       const riz = await ingredient('Riz (libre)');
       await stocker(riz, 500, null);
-      const repas = await approuve('2031-01-20', { title: 'Riz sauté' });
+      const repas = await approuve('2033-01-20', { title: 'Riz sauté' });
 
       await request(app.getHttpServer())
         .post('/api/cooked-meals')
@@ -227,7 +227,7 @@ describe('Repas cuisiné', () => {
     it('refuse un repas déjà cuisiné, sans toucher au stock une seconde fois', async () => {
       const pates = await ingredient('Pâtes (deux fois)');
       await stocker(pates, 500, null);
-      const repas = await approuve('2031-01-27', { title: 'Pâtes' });
+      const repas = await approuve('2033-01-27', { title: 'Pâtes' });
       const declaration = {
         mealPlanEntryId: repas.id,
         lines: [{ ingredientId: pates.id, quantity: 100, unit: 'G' }],
@@ -251,7 +251,7 @@ describe('Repas cuisiné', () => {
     it('ne cuisine qu’une fois un repas déclaré deux fois en même temps', async () => {
       const oeufs = await ingredient('Œufs (simultané)', 'PIECE');
       await stocker(oeufs, 12, null);
-      const repas = await approuve('2031-02-03', { title: 'Omelette' });
+      const repas = await approuve('2033-02-03', { title: 'Omelette' });
       const declaration = {
         mealPlanEntryId: repas.id,
         lines: [{ ingredientId: oeufs.id, quantity: 3, unit: 'PIECE' }],
@@ -276,8 +276,8 @@ describe('Repas cuisiné', () => {
     it('retire deux repas cuisinés en même temps du même stock, sans perdre de consommation', async () => {
       const beurre = await ingredient('Beurre (simultané)');
       await stocker(beurre, 250, null);
-      const premier = await approuve('2031-02-10', { title: 'Tartines' });
-      const second = await approuve('2031-02-11', { title: 'Purée' });
+      const premier = await approuve('2033-02-10', { title: 'Tartines' });
+      const second = await approuve('2033-02-11', { title: 'Purée' });
 
       await Promise.all(
         [premier, second].map((repas) =>
@@ -304,7 +304,7 @@ describe('Repas cuisiné', () => {
       // s'interbloquent : Postgres en abat une, en 500. Pas plus de quatre :
       // chacune ne manque son stock qu'après qu'une autre a écrit, et reste
       // sous les cinq essais.
-      const jours = ['2031-03-24', '2031-03-25', '2031-03-26', '2031-03-27'];
+      const jours = ['2033-03-24', '2033-03-25', '2033-03-26', '2033-03-27'];
       const repas: MealPlanEntry[] = [];
       for (const jour of jours) {
         repas.push(await approuve(jour, { title: 'Crêpes croisées' }));
@@ -335,7 +335,7 @@ describe('Repas cuisiné', () => {
     it('renonce en food.pantry_busy quand le stock change à chaque essai, sans rien déclarer ni déstocker', async () => {
       const riz = await ingredient('Riz (stock agité)');
       await stocker(riz, 250, null);
-      const repas = await approuve('2031-03-17', { title: 'Riz agité' });
+      const repas = await approuve('2033-03-17', { title: 'Riz agité' });
       const declaration = {
         mealPlanEntryId: repas.id,
         lines: [{ ingredientId: riz.id, quantity: 100, unit: 'G' }],
@@ -372,7 +372,7 @@ describe('Repas cuisiné', () => {
 
     it('refuse un repas qui n’est pas approuvé', async () => {
       const sel = await ingredient('Sel (proposé)');
-      const repas = await approuve('2031-02-17', { title: 'Soupe proposée' });
+      const repas = await approuve('2033-02-17', { title: 'Soupe proposée' });
       // Attendue dans la portée : une requête Prisma ne part qu'à son `then`.
       await dansLeFoyer(
         async () =>
@@ -396,7 +396,7 @@ describe('Repas cuisiné', () => {
     it('refuse une ligne dont l’unité ne se convertit pas, sans rien déstocker', async () => {
       const farine = await ingredient('Farine (inconvertible)');
       await stocker(farine, 500, null);
-      const repas = await approuve('2031-02-24', { title: 'Pain' });
+      const repas = await approuve('2033-02-24', { title: 'Pain' });
 
       await request(app.getHttpServer())
         .post('/api/cooked-meals')
@@ -415,7 +415,7 @@ describe('Repas cuisiné', () => {
     });
 
     it('refuse un Ingrédient absent du catalogue', async () => {
-      const repas = await approuve('2031-03-03', { title: 'Mystère' });
+      const repas = await approuve('2033-03-03', { title: 'Mystère' });
 
       await request(app.getHttpServer())
         .post('/api/cooked-meals')
@@ -476,7 +476,7 @@ describe('Repas cuisiné', () => {
 
   describe('GET /meal-plan-entries/:id', () => {
     it('lit un Repas planifié par son identifiant, conforme au contrat', async () => {
-      const repas = await approuve('2031-03-10', { title: 'Gratin' });
+      const repas = await approuve('2033-03-10', { title: 'Gratin' });
 
       const reponse = await request(app.getHttpServer())
         .get(`/api/meal-plan-entries/${repas.id}`)

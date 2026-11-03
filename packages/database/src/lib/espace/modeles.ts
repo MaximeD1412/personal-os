@@ -23,6 +23,9 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
     // Ses Alias le sont aussi : un libellé rattaché vaut pour le Foyer entier
     // (CUISINE-3).
     IngredientAlias: [],
+    // Les Pages de contenu du portfolio sont globales : un seul portfolio,
+    // rédigé depuis l'un ou l'autre Compte (PORTFOLIO-3).
+    PageContent: [],
     Scope: [
       'traces',
       'events',
@@ -35,6 +38,8 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
       'pantryItems',
       'cookedMeals',
       'cookedMealLines',
+      'shoppingLists',
+      'shoppingListItems',
       'mealPlans',
       'mealPlanEntries',
       'generationRounds',
@@ -68,16 +73,19 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   LoginTransaction: [],
   Household: ['members', 'scopes'],
   // Un Ingrédient est cité par les lignes de Recette, les Préférences
-  // alimentaires, le Stock domestique et les lignes de Repas cuisiné, qui sont
-  // cloisonnés : directement, ou depuis un Alias à travers son Ingrédient.
+  // alimentaires, le Stock domestique, les lignes de Repas cuisiné et les
+  // Articles de courses, qui sont cloisonnés : directement, ou depuis un Alias
+  // à travers son Ingrédient.
   Ingredient: [
     'aliases',
     'recipeLines',
     'foodPreferences',
     'pantryItems',
     'cookedMealLines',
+    'shoppingListItems',
   ],
   IngredientAlias: ['ingredient'],
+  PageContent: [],
   Scope: [
     'household',
     'holder',
@@ -92,6 +100,8 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'pantryItems',
     'cookedMeals',
     'cookedMealLines',
+    'shoppingLists',
+    'shoppingListItems',
     'mealPlans',
     'mealPlanEntries',
     'generationRounds',

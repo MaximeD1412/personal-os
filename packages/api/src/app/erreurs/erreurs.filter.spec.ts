@@ -51,6 +51,25 @@ describe("ErreursFilter : l'enveloppe unique (ADR 0030)", () => {
       });
     });
 
+    it('porte en `fields` les objets en cause qu’elle nomme', () => {
+      const champs = [
+        { path: 'oeuf', code: 'facteur_manquant', message: 'Œuf : …' },
+      ];
+      const erreur = new ErreurMetier(
+        'food.conversion_missing',
+        'Des Ingrédients ne se convertissent pas.',
+        422,
+        champs,
+      );
+
+      expect(envelopper(erreur)).toEqual({
+        status: 422,
+        code: 'food.conversion_missing',
+        message: 'Des Ingrédients ne se convertissent pas.',
+        fields: champs,
+      });
+    });
+
     it('ne laisse pas filer son message quand elle se déclare en 500', () => {
       const enveloppe = envelopper(
         new ErreurMetier('test.failure', MESSAGE_INTERNE, 500),
@@ -129,7 +148,9 @@ describe("ErreursFilter : l'enveloppe unique (ADR 0030)", () => {
   describe('une HttpException restante', () => {
     it('garde son statut et son message, sous le code `http.<status>`', () => {
       expect(
-        envelopper(new NotFoundException('Aucune ressource de cet identifiant.')),
+        envelopper(
+          new NotFoundException('Aucune ressource de cet identifiant.'),
+        ),
       ).toEqual({
         status: 404,
         code: 'http.404',

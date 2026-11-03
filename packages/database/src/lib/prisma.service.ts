@@ -111,6 +111,14 @@ export class PrismaService {
     return this.#client.cookedMealLine;
   }
 
+  get shoppingList() {
+    return this.#client.shoppingList;
+  }
+
+  get shoppingListItem() {
+    return this.#client.shoppingListItem;
+  }
+
   get mealPlan() {
     return this.#client.mealPlan;
   }
@@ -137,6 +145,10 @@ export class PrismaService {
 
   get publicPresentation() {
     return this.#client.publicPresentation;
+  }
+
+  get pageContent() {
+    return this.#client.pageContent;
   }
 
   get session() {

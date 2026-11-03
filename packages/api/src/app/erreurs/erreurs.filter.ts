@@ -51,6 +51,7 @@ function envelopper(erreur: unknown, horsDeRoute: boolean): ApiError {
       status: erreur.status,
       code: erreur.code,
       message: erreur.message,
+      ...(erreur.fields ? { fields: [...erreur.fields] } : {}),
     };
   }
   if (erreur instanceof ZodValidationException) {

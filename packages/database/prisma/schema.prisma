@@ -62,6 +62,8 @@ model Scope {
   pantryItems         PantryItem[]
   cookedMeals         CookedMeal[]
   cookedMealLines     CookedMealLine[]
+  shoppingLists       ShoppingList[]
+  shoppingListItems   ShoppingListItem[]
 
   @@index([householdId])
 }
@@ -255,25 +257,27 @@ enum Allergen {
 /// hors Espace : les deux Comptes du Foyer le partagent. Deux libellés qui ne
 /// se cuisinent ni ne s'achètent pareil sont deux Ingrédients.
 model Ingredient {
-  id              String            @id @default(uuid())
+  id                String             @id @default(uuid())
   /// Le libellé normalisé (`normaliserLibelle` de `contracts`) : deux noms qui
   /// ne diffèrent que par la casse ou les accents sont le même Ingrédient.
-  name            String            @unique
-  displayName     String
-  canonicalUnit   CanonicalUnit
+  name              String             @unique
+  displayName       String
+  canonicalUnit     CanonicalUnit
   /// Le poids d'une pièce, en grammes ; n'a de sens qu'en `GRAM` ou `PIECE`.
-  gramsPerPiece   Decimal?          @db.Decimal(10, 2)
-  allergens       Allergen[]
-  perishable      Boolean           @default(false)
-  createdAt       DateTime          @default(now())
+  gramsPerPiece     Decimal?           @db.Decimal(10, 2)
+  allergens         Allergen[]
+  perishable        Boolean            @default(false)
+  createdAt         DateTime           @default(now())
   /// Un Tour de génération n'écrit que si l'Ingrédient (ses Allergènes) n'a
   /// pas changé depuis son contrôle (CUISINE-16).
-  updatedAt       DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
-  aliases         IngredientAlias[]
-  recipeLines     RecipeLine[]
-  foodPreferences FoodPreference[]
-  pantryItems     PantryItem[]
-  cookedMealLines CookedMealLine[]
+  updatedAt         DateTime           @default(now()) @updatedAt @db.Timestamptz(3)
+  aliases           IngredientAlias[]
+  recipeLines       RecipeLine[]
+  foodPreferences   FoodPreference[]
+  pantryItems       PantryItem[]
+  cookedMealLines   CookedMealLine[]
+  /// Les Articles de courses qui l'achètent.
+  shoppingListItems ShoppingListItem[]
 }
 
 /// Un libellé rattaché à un Ingrédient (CUISINE-3) : une fois rattaché, le
@@ -413,19 +417,21 @@ enum MealPlanEntryDecision {
 /// Le Planning de repas d'une semaine : un par semaine et par Espace (le
 /// Foyer). Arrêté, il refuse toute modification de ses repas (CUISINE-7).
 model MealPlan {
-  id        String            @id @default(uuid())
-  scopeId   String
-  scope     Scope             @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  id            String            @id @default(uuid())
+  scopeId       String
+  scope         Scope             @relation(fields: [scopeId], references: [id], onDelete: Cascade)
   /// Le lundi de la semaine (`zWeek`), un jour civil sans fuseau.
-  week      DateTime          @db.Date
-  status    MealPlanStatus    @default(OPEN)
+  week          DateTime          @db.Date
+  status        MealPlanStatus    @default(OPEN)
   /// Grandit à chaque écriture du planning ou de ses repas : un Tour de
   /// génération n'écrit que sur le planning qu'il a lu (CUISINE-16).
-  version   Int               @default(0)
-  entries   MealPlanEntry[]
-  rounds    GenerationRound[]
+  version       Int               @default(0)
+  entries       MealPlanEntry[]
+  rounds        GenerationRound[]
+  /// Les Listes de courses tirées de lui, figées à leur production (ADR 0012).
+  shoppingLists ShoppingList[]
   /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
-  createdAt DateTime          @default(now()) @db.Timestamptz(3)
+  createdAt     DateTime          @default(now()) @db.Timestamptz(3)
 
   @@unique([scopeId, week])
   /// La cible de la clé étrangère des repas, qui porte l'Espace.
@@ -614,6 +620,28 @@ model PublicPresentation {
   @@index([scopeId])
 }
 
+/// Une Page de contenu du portfolio (`PAGES_DE_CONTENU` de `contracts`).
+enum PageSlug {
+  about
+  experience
+  skills
+}
+
+/// Le texte rédigé d'une page du portfolio, dans une langue : de la prose, ni
+/// entité Expérience ni entité Compétence (ADR 0019). Globale, hors Espace.
+model PageContent {
+  id               String           @id @default(uuid())
+  slug             PageSlug
+  lang             Lang
+  title            String
+  /// Le texte, en markdown, rendu côté front.
+  body             String           @default("")
+  publicationState PublicationState @default(UNPUBLISHED)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@unique([slug, lang])
+}
+
 /// Session applicative. Seule l'empreinte du jeton est stockée.
 model Session {
   id        String    @id @default(uuid())
@@ -700,6 +728,74 @@ model CookedMealLine {
   position     Int
 
   @@unique([cookedMealId, position])
+  @@index([scopeId])
+  @@index([ingredientId])
+}
+
+/// L'état d'une Liste de courses : ouverte au magasin, puis close (CUISINE-10).
+enum ShoppingListStatus {
+  OPEN
+  CLOSED
+}
+
+/// D'où vient un Article de courses : du Planning de repas, ou d'un ajout à la
+/// main.
+enum ShoppingListItemOrigin {
+  PLAN
+  MANUAL
+}
+
+/// Une Liste de courses (CUISINE-9), figée à sa production (ADR 0012) : une
+/// modification ultérieure du planning ne la change jamais, et la produire de
+/// nouveau en crée une autre.
+model ShoppingList {
+  id         String             @id @default(uuid())
+  scopeId    String
+  scope      Scope              @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  /// Le Planning de repas dont elle est tirée. La clé étrangère porte
+  /// l'Espace : une liste est toujours dans l'Espace de son planning.
+  mealPlanId String?
+  mealPlan   MealPlan?          @relation(fields: [mealPlanId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  status     ShoppingListStatus @default(OPEN)
+  items      ShoppingListItem[]
+  /// Des instants (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  producedAt DateTime           @default(now()) @db.Timestamptz(3)
+  closedAt   DateTime?          @db.Timestamptz(3)
+
+  /// La cible de la clé étrangère des articles, qui porte l'Espace.
+  @@unique([id, scopeId])
+  @@index([scopeId, status])
+  @@index([mealPlanId])
+}
+
+/// Un Article de courses : un Ingrédient, ou un simple libellé ajouté à la main
+/// (« liquide vaisselle »), jamais les deux ni aucun. Issu du planning, il
+/// porte toujours un Ingrédient et sa quantité consolidée. Des contraintes
+/// CHECK de la migration le gardent.
+model ShoppingListItem {
+  id             String                 @id @default(uuid())
+  scopeId        String
+  scope          Scope                  @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  shoppingListId String
+  shoppingList   ShoppingList           @relation(fields: [shoppingListId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  /// Un Ingrédient sur une liste ne se supprime pas : il se fusionne
+  /// (CUISINE-4).
+  ingredientId   String?
+  ingredient     Ingredient?            @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  label          String?
+  /// Strictement positive, au millième près.
+  quantity       Decimal?               @db.Decimal(12, 3)
+  /// L'Unité canonique de l'Ingrédient au moment de l'ajout : la quantité
+  /// figée garde son sens si l'Ingrédient change d'unité. Vide sans
+  /// Ingrédient ou sans quantité.
+  unit           CanonicalUnit?
+  origin         ShoppingListItemOrigin
+  checked        Boolean                @default(false)
+  /// Le rang de l'article dans sa liste, à partir de 0 : ceux du planning
+  /// d'abord, puis les ajouts dans leur ordre.
+  position       Int
+
+  @@unique([shoppingListId, position])
   @@index([scopeId])
   @@index([ingredientId])
 }
