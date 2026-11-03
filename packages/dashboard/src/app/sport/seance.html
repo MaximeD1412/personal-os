@@ -75,8 +75,13 @@
                   <td hlmTableCell class="tabular-nums">
                     {{ mesure.realise ?? '—' }}
                   </td>
-                  <td hlmTableCell class="text-secondary tabular-nums">
-                    {{ mesure.ecart ?? '' }}
+                  <td
+                    hlmTableCell
+                    class="tabular-nums"
+                    [class.text-secondary]="mesure.ecart"
+                    [class.text-outline]="!mesure.ecart"
+                  >
+                    {{ mesure.ecart ?? '—' }}
                   </td>
                 </tr>
                 }
@@ -138,7 +143,7 @@
           (cancelled)="fermer()"
         >
           <fieldset class="flex flex-col gap-space-sm">
-            <legend class="text-label-micro uppercase text-outline">
+            <legend class="mb-space-sm text-label-micro uppercase text-outline">
               Prévu
             </legend>
             <pos-champs-de-mesures
@@ -150,7 +155,7 @@
           </fieldset>
           @if (vue.seance.status === 'DONE') {
           <fieldset class="flex flex-col gap-space-sm">
-            <legend class="text-label-micro uppercase text-outline">
+            <legend class="mb-space-sm text-label-micro uppercase text-outline">
               Réalisé
             </legend>
             <pos-champs-de-mesures

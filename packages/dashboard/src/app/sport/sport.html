@@ -87,7 +87,7 @@
         [attr.data-statut]="vue.seance.status"
         [class.opacity-70]="vue.seance.status === 'MISSED'"
       >
-        <div class="flex items-start gap-space-md">
+        <div class="flex flex-wrap items-start gap-space-md">
           <div
             class="flex w-12 shrink-0 flex-col items-center rounded bg-surface-container-high py-space-xs"
           >
@@ -124,10 +124,12 @@
           </div>
 
           @if (vue.seance.status === 'PLANNED') {
+          <!-- Sous 768 px, le geste passe sous le titre, sur toute la largeur. -->
           <a
             hlmBtn
             size="sm"
             variant="secondary"
+            class="w-full md:w-auto"
             [routerLink]="['/sport/seances', vue.seance.id]"
             data-test="saisir-le-realise"
             >Saisir le réalisé</a
