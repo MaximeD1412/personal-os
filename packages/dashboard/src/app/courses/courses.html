@@ -58,7 +58,21 @@
         aria-label="Ajouter un article"
         (submit)="ajouter($event)"
       >
-        @if (refusSansChamp(); as erreur) {
+        @if (ignores().length > 0) {
+        <div hlmAlert tone="warning" data-test="ignores">
+          <hlm-alert-icon />
+          <div hlmAlertContent>
+            <p hlmAlertTitle>
+              Certaines valeurs du lien n'ont pas été reprises : {{
+              ignores().join(', ') }}
+            </p>
+            <p hlmAlertDescription>
+              Elles ne correspondent à aucune valeur admise : l'ajout garde les
+              siennes.
+            </p>
+          </div>
+        </div>
+        } @if (refusSansChamp(); as erreur) {
         <div hlmAlert tone="error" data-test="refus-ajout">
           <hlm-alert-icon />
           <div hlmAlertContent>

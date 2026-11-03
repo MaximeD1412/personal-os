@@ -117,6 +117,50 @@ describe('consolider', () => {
     expect(articlesDe(resultat)).toEqual([]);
   });
 
+  it('un stock égal à la somme exacte de besoins fractionnaires ne donne pas d’article', () => {
+    const sel: IngredientAConsolider = {
+      id: 'sel',
+      canonicalUnit: 'GRAM',
+      gramsPerPiece: null,
+    };
+    const soupe: RecetteAConsolider = {
+      id: 'soupe',
+      servings: 3,
+      lignes: [{ ingredientId: 'sel', quantite: 5, unite: 'G' }],
+    };
+    // 5/3 + 5/3 + 5/3 = 5 : arrondir chaque tiers laisserait un résidu à acheter.
+    const resultat = consolider(
+      [1, 1, 1].map((portions) => ({ recipeId: 'soupe', portions })),
+      [soupe],
+      [{ ingredientId: 'sel', quantite: '5' }],
+      [sel],
+    );
+
+    expect(articlesDe(resultat)).toEqual([]);
+  });
+
+  it('reste exact à travers le poids à la pièce', () => {
+    const oeuf: IngredientAConsolider = {
+      id: 'oeuf',
+      canonicalUnit: 'PIECE',
+      gramsPerPiece: '60',
+    };
+    const cake: RecetteAConsolider = {
+      id: 'cake',
+      servings: 1,
+      lignes: [{ ingredientId: 'oeuf', quantite: 20, unite: 'G' }],
+    };
+    // 20/60 × 3 = 1 pièce tout juste, que le stock couvre.
+    const resultat = consolider(
+      [1, 1, 1].map((portions) => ({ recipeId: 'cake', portions })),
+      [cake],
+      [{ ingredientId: 'oeuf', quantite: '1' }],
+      [oeuf],
+    );
+
+    expect(articlesDe(resultat)).toEqual([]);
+  });
+
   it('un repas sans recette (un intitulé) ne demande rien', () => {
     const resultat = consolider(
       [

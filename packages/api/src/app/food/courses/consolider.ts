@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js';
 import {
-  convertir,
+  facteurDeConversion,
   type EchecDeConversion,
   type IngredientAConvertir,
   type QuantiteDeRecette,
@@ -67,7 +67,7 @@ export function consolider(
   const ingredientDe = new Map(
     ingredients.map((ingredient) => [ingredient.id, ingredient]),
   );
-  const besoins = new Map<string, Decimal>();
+  const besoins = new Map<string, Rationnel>();
   const echecs = new Map<string, EchecDeConversion>();
 
   for (const { recipeId, portions } of repas) {
@@ -75,14 +75,8 @@ export function consolider(
     const recette = connu(recetteDe, recipeId, 'Recette');
 
     for (const { ingredientId, quantite, unite } of recette.lignes) {
-      const conversion = convertir(
-        // Multiplier avant de diviser : la division seule arrondit.
-        {
-          quantite: new Decimal(quantite)
-            .times(portions)
-            .dividedBy(recette.servings),
-          unite,
-        },
+      const conversion = facteurDeConversion(
+        unite,
         connu(ingredientDe, ingredientId, 'Ingrédient'),
       );
       if ('echec' in conversion) {
@@ -90,9 +84,17 @@ export function consolider(
           echecs.set(ingredientId, conversion.echec);
         continue;
       }
+      // quantité × portions × facteur / (portions de référence × diviseur)
+      const besoin = diviser(
+        multiplier(
+          rationnel(new Decimal(quantite).times(portions)),
+          rationnel(conversion.facteur),
+        ),
+        multiplier(rationnel(recette.servings), rationnel(conversion.diviseur)),
+      );
       besoins.set(
         ingredientId,
-        (besoins.get(ingredientId) ?? new Decimal(0)).plus(conversion.quantite),
+        additionner(besoins.get(ingredientId) ?? rationnel(0), besoin),
       );
     }
   }
@@ -109,17 +111,86 @@ export function consolider(
   const enStock = new Map(
     stock.map(({ ingredientId, quantite }) => [
       ingredientId,
-      new Decimal(quantite),
+      rationnel(quantite),
     ]),
   );
   const articles: ArticleConsolide[] = [];
   for (const [ingredientId, besoin] of besoins) {
-    const reste = besoin
-      .minus(enStock.get(ingredientId) ?? 0)
-      .toDecimalPlaces(3, Decimal.ROUND_UP);
-    if (reste.greaterThan(0)) articles.push({ ingredientId, quantite: reste });
+    const reste = soustraire(besoin, enStock.get(ingredientId) ?? rationnel(0));
+    if (reste.numerateur > ZERO) {
+      articles.push({ ingredientId, quantite: auMillemeSuperieur(reste) });
+    }
   }
   return { articles };
+}
+
+/**
+ * Une fraction exacte d'entiers, dénominateur positif. Les quantités d'une
+ * recette, du stock et du poids à la pièce sont des décimaux finis, mais
+ * diviser par les portions de référence ou par le poids à la pièce ne l'est
+ * pas : 5 g pour 3 portions, trois fois, font 5 g tout juste, et non un
+ * résidu qu'arrondir au supérieur transformerait en achat.
+ */
+interface Rationnel {
+  numerateur: bigint;
+  denominateur: bigint;
+}
+
+const ZERO = BigInt(0);
+const MILLE = BigInt(1000);
+
+function rationnel(valeur: Decimal.Value): Rationnel {
+  const [n, d] = new Decimal(valeur).toFraction();
+  return reduire(BigInt(n.toFixed()), BigInt(d.toFixed()));
+}
+
+function pgcd(a: bigint, b: bigint): bigint {
+  let [x, y] = [a < ZERO ? -a : a, b];
+  while (y !== ZERO) [x, y] = [y, x % y];
+  return x;
+}
+
+function reduire(numerateur: bigint, denominateur: bigint): Rationnel {
+  const signe = denominateur < ZERO ? -BigInt(1) : BigInt(1);
+  const commun = pgcd(
+    numerateur,
+    denominateur < ZERO ? -denominateur : denominateur,
+  );
+  return {
+    numerateur: (signe * numerateur) / commun,
+    denominateur: (signe * denominateur) / commun,
+  };
+}
+
+function multiplier(a: Rationnel, b: Rationnel): Rationnel {
+  return reduire(a.numerateur * b.numerateur, a.denominateur * b.denominateur);
+}
+
+function diviser(a: Rationnel, b: Rationnel): Rationnel {
+  return reduire(a.numerateur * b.denominateur, a.denominateur * b.numerateur);
+}
+
+function additionner(a: Rationnel, b: Rationnel): Rationnel {
+  return reduire(
+    a.numerateur * b.denominateur + b.numerateur * a.denominateur,
+    a.denominateur * b.denominateur,
+  );
+}
+
+function soustraire(a: Rationnel, b: Rationnel): Rationnel {
+  return additionner(a, {
+    numerateur: -b.numerateur,
+    denominateur: b.denominateur,
+  });
+}
+
+/** Une quantité positive, arrondie au millième supérieur : on n'achète pas moins que le besoin. */
+function auMillemeSuperieur({ numerateur, denominateur }: Rationnel): Decimal {
+  const milliemes = numerateur * MILLE;
+  const quotient =
+    milliemes / denominateur +
+    (milliemes % denominateur === ZERO ? ZERO : BigInt(1));
+  return new Decimal(quotient.toString()).dividedBy(1000);
 }
 
 /** Un repas qui cite une recette absente des données est un défaut de l'appelant. */

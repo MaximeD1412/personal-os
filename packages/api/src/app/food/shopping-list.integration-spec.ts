@@ -503,6 +503,26 @@ describe('Listes de courses', () => {
         .expect(codeDErreur('food.list_already_closed'));
     });
 
+    it('refuse en 422 de décocher sur une liste close, et l’article reste coché', async () => {
+      const liste = await uneListe();
+      const [article] = liste.items;
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/items/${article.id}/check`)
+        .set('Cookie', jeu.a.session)
+        .expect(200);
+      await clore(liste);
+
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/items/${article.id}/uncheck`)
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('food.list_already_closed'));
+      expect((await lire(liste.id)).items[0]).toEqual({
+        ...article,
+        checked: true,
+      });
+    });
+
     it('refuse en 401 un cochage sans session', async () => {
       for (const action of ['check', 'uncheck']) {
         await request(app.getHttpServer())
@@ -535,6 +555,19 @@ describe('Listes de courses', () => {
         .expect(422)
         .expect(codeDErreur('food.item_not_manual'));
       expect(await lire(liste.id)).toEqual(liste);
+    });
+
+    it('refuse en 422 de retirer un ajout manuel d’une liste close, qui le garde', async () => {
+      const liste = await uneListe();
+      const article = await ajout(liste, { label: 'Essuie-tout' });
+      await clore(liste);
+
+      await request(app.getHttpServer())
+        .delete(`/api/shopping-lists/${liste.id}/items/${article.id}`)
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('food.list_already_closed'));
+      expect((await lire(liste.id)).items).toEqual([...liste.items, article]);
     });
 
     it('refuse en 404 un article inconnu', async () => {

@@ -303,6 +303,62 @@ describe('La Liste de courses', () => {
       expect(texte(article(el(), 'article-beurre'))).toContain('250 g');
     });
 
+    it('se préremplit depuis le lien, sans rien enregistrer', async () => {
+      const ouvert = await ouvrirLesCourses(
+        '/courses?label=Sacs%20poubelle&quantity=2',
+      );
+      ouvert.http.expectOne(OUVERTES).flush([LISTE]);
+      TestBed.tick();
+      ouvert.http.expectOne(`${BASE}/ingredients?q=Sacs%20poubelle`).flush([]);
+      await ouvert.harness.fixture.whenStable();
+
+      expect(champ(ouvert.el(), 'article').value).toBe('Sacs poubelle');
+      expect(champ(ouvert.el(), 'quantite').value).toBe('2');
+      expect(ouvert.el().querySelector('[data-test="ignores"]')).toBeNull();
+      // Aucun POST : le contrôle des requêtes ouvertes le vérifie.
+    });
+
+    it('préremplit un Ingrédient du catalogue par son identifiant', async () => {
+      const ouvert = await ouvrirLesCourses(
+        `/courses?ingredientId=${BEURRE.id}&quantity=250`,
+      );
+      ouvert.http.expectOne(OUVERTES).flush([LISTE]);
+      ouvert.http.expectOne(`${BASE}/ingredients/${BEURRE.id}`).flush(BEURRE);
+      await ouvert.harness.fixture.whenStable();
+
+      expect(champ(ouvert.el(), 'article').value).toBe('Beurre doux');
+      expect(
+        texte(ouvert.el().querySelector('[data-test="choisi"]')),
+      ).toContain('Beurre doux');
+      expect(
+        ouvert.el().querySelector('[data-test="unite"]')?.textContent,
+      ).toBe('g');
+      expect(champ(ouvert.el(), 'quantite').value).toBe('250');
+    });
+
+    it('signale les valeurs du lien écartées, sans les appliquer', async () => {
+      const ouvert = await ouvrirLesCourses(
+        '/courses?quantity=-3&ingredientId=inconnu',
+      );
+      ouvert.http.expectOne(OUVERTES).flush([LISTE]);
+      ouvert.http.expectOne(`${BASE}/ingredients/inconnu`).flush(
+        {
+          status: 404,
+          code: 'food.ingredient_not_found',
+          message: "Cet Ingrédient n'existe pas.",
+        },
+        { status: 404, statusText: 'Not Found' },
+      );
+      await ouvert.harness.fixture.whenStable();
+
+      const ignores = texte(ouvert.el().querySelector('[data-test="ignores"]'));
+      expect(ignores).toContain('quantity=-3');
+      expect(ignores).toContain('ingredientId=inconnu');
+      expect(champ(ouvert.el(), 'article').value).toBe('');
+      expect(champ(ouvert.el(), 'quantite').value).toBe('');
+      expect(ouvert.el().querySelector('[data-test="choisi"]')).toBeNull();
+    });
+
     it('revient au simple libellé quand on retouche le texte', async () => {
       const ouvert = await ouvrir();
       const { el, http } = ouvert;

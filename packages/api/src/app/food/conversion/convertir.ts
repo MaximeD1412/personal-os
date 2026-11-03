@@ -46,21 +46,24 @@ const DIMENSION_CANONIQUE: Readonly<Record<CanonicalUnit, Dimension>> = {
 };
 
 /**
- * Ramène une quantité de recette à l'Unité canonique de l'Ingrédient, en
- * décimal exact. Masse et volume se convertissent dans leur dimension ; les
- * pièces et les grammes passent de l'une à l'autre par le poids à la pièce
- * validé sur l'Ingrédient ; un volume et une masse jamais (pas de densité).
- * Plutôt que d'approximer, la conversion échoue et dit pourquoi.
+ * Ce que vaut une unité de recette dans l'Unité canonique de l'Ingrédient,
+ * en fraction exacte (`facteur / diviseur`) : passer des grammes aux pièces
+ * divise par le poids à la pièce, et une division décimale arrondit. Masse et
+ * volume se convertissent dans leur dimension ; les pièces et les grammes
+ * passent de l'une à l'autre par le poids à la pièce validé sur l'Ingrédient ;
+ * un volume et une masse jamais (pas de densité). Plutôt que d'approximer, la
+ * conversion échoue et dit pourquoi.
  */
-export function convertir(
-  { quantite, unite }: QuantiteDeRecette,
+export function facteurDeConversion(
+  unite: RecipeUnit,
   ingredient: IngredientAConvertir,
-): Conversion {
+): { facteur: Decimal; diviseur: Decimal } | { echec: EchecDeConversion } {
   const source = UNITES[unite];
   const cible = DIMENSION_CANONIQUE[ingredient.canonicalUnit];
-  const enBase = new Decimal(quantite).times(source.facteur);
+  const un = new Decimal(1);
 
-  if (source.dimension === cible) return { quantite: enBase };
+  if (source.dimension === cible)
+    return { facteur: source.facteur, diviseur: un };
 
   const entrePiecesEtGrammes =
     (source.dimension === 'piece' && cible === 'masse') ||
@@ -71,10 +74,21 @@ export function convertir(
   const grammesParPiece = new Decimal(ingredient.gramsPerPiece);
   if (!grammesParPiece.greaterThan(0)) return { echec: 'facteur_manquant' };
 
+  return cible === 'masse'
+    ? { facteur: source.facteur.times(grammesParPiece), diviseur: un }
+    : { facteur: source.facteur, diviseur: grammesParPiece };
+}
+
+/** Ramène une quantité de recette à l'Unité canonique de l'Ingrédient (voir `facteurDeConversion`). */
+export function convertir(
+  { quantite, unite }: QuantiteDeRecette,
+  ingredient: IngredientAConvertir,
+): Conversion {
+  const conversion = facteurDeConversion(unite, ingredient);
+  if ('echec' in conversion) return conversion;
   return {
-    quantite:
-      cible === 'masse'
-        ? enBase.times(grammesParPiece)
-        : enBase.dividedBy(grammesParPiece),
+    quantite: new Decimal(quantite)
+      .times(conversion.facteur)
+      .dividedBy(conversion.diviseur),
   };
 }

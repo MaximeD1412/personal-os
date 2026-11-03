@@ -3,6 +3,7 @@ import {
   computed,
   ElementRef,
   inject,
+  linkedSignal,
   signal,
   viewChild,
 } from '@angular/core';
@@ -20,6 +21,7 @@ import {
   type ShoppingList,
   type ShoppingListItem,
   type ShoppingListItemInput,
+  zShoppingListItemInput,
 } from '@personal-os/contracts';
 import { HlmAlertImports } from '@personal-os/ui/alert';
 import { HlmBadge } from '@personal-os/ui/badge';
@@ -40,7 +42,7 @@ import { showToast } from '@personal-os/ui/sonner';
 import { map } from 'rxjs';
 import { formaterInstant, formaterJour } from '../dates';
 import type { ErreurApi } from '../erreur-api.interceptor';
-import { erreursDeChamp } from '../formulaire';
+import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { IngredientService } from '../repas/ingredient.service';
 import { quantiteCanonique, UNITES_CANONIQUES } from '../repas/quantite';
 import { ShoppingListService } from './shopping-list.service';
@@ -187,12 +189,38 @@ export class Courses {
   /** Le refus d'un geste sur la liste (cocher, retirer), en bandeau. */
   protected readonly refus = signal<ErreurApi | null>(null);
 
-  // L'ajout manuel.
+  // L'ajout manuel, prérempli par le lien (ADR 0030) : `label`, ou
+  // `ingredientId`, et `quantity`. Il n'enregistre rien de lui-même.
   private readonly champ =
     viewChild<ElementRef<HTMLInputElement>>('champDAjout');
-  protected readonly texte = signal('');
-  protected readonly quantite = signal<number | null>(null);
-  protected readonly choisi = signal<Ingredient | null>(null);
+  private readonly prefill = prefillDepuisRequete(
+    zShoppingListItemInput,
+    inject(ActivatedRoute).snapshot.queryParamMap,
+  );
+  /** L'Ingrédient du lien, lu pour le nommer. */
+  private readonly duLien = this.ingredients.ingredient(
+    () => this.prefill.valeurs.ingredientId ?? null,
+  );
+  private readonly ingredientDuLien = computed(() =>
+    this.duLien.hasValue() ? (this.duLien.value() ?? null) : null,
+  );
+  protected readonly choisi = linkedSignal<Ingredient | null>(
+    this.ingredientDuLien,
+  );
+  protected readonly texte = linkedSignal(
+    () =>
+      this.ingredientDuLien()?.displayName ?? this.prefill.valeurs.label ?? '',
+  );
+  protected readonly quantite = signal<number | null>(
+    this.prefill.valeurs.quantity ?? null,
+  );
+  /** Les valeurs du lien écartées : par le contrat, ou un Ingrédient inconnu. */
+  protected readonly ignores = computed(() => [
+    ...this.prefill.ignores,
+    ...(this.duLien.error()
+      ? [`ingredientId=${this.prefill.valeurs.ingredientId}`]
+      : []),
+  ]);
   protected readonly envoi = signal(false);
   protected readonly refusDAjout = signal<ErreurApi | null>(null);
   protected readonly erreursDAjout = computed(() =>
