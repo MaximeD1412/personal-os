@@ -124,6 +124,7 @@ et lève `food.list_already_closed`.
 | Page de contenu                          | `PageContent`                                                    |
 | CV (du portfolio)                        | `Cv`, routes `/cv/:lang`                                         |
 | Stockage objet                           | `StockageObjet`, module `storage`, `STORAGE_PROVIDER`            |
+| Présentation, Expériences, Compétences   | `slug` : `about`, `experience`, `skills`                         |
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 | Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
 | Commande non comprise                    | `UnresolvedCommand`                                              |

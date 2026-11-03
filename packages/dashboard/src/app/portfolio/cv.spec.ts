@@ -92,16 +92,14 @@ describe('Le CV du portfolio', () => {
   it('affiche le message de l’API quand la lecture échoue', async () => {
     const { harness, http, el } = await ouvrirLePortfolio('/portfolio/cv');
 
-    http
-      .expectOne(`${BASE}/cv`)
-      .flush(
-        {
-          status: 500,
-          code: 'internal',
-          message: 'Le stockage ne répond pas.',
-        },
-        { status: 500, statusText: 'Internal Server Error' },
-      );
+    http.expectOne(`${BASE}/cv`).flush(
+      {
+        status: 500,
+        code: 'internal',
+        message: 'Le stockage ne répond pas.',
+      },
+      { status: 500, statusText: 'Internal Server Error' },
+    );
     await harness.fixture.whenStable();
 
     expect(el().textContent).toContain('Le stockage ne répond pas.');
