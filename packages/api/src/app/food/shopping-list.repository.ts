@@ -336,9 +336,10 @@ export class ShoppingListRepository {
    *
    * Les achats ont été comptés sur l'état lu de la liste et du stock ; la
    * transaction échoue (P2025, ou P2002 pour une ligne créée entre-temps) si
-   * cet état a changé, et le service recommence sur l'état relu. Chaque
-   * article garde l'état coché qu'on lui a lu : un article coché ou décoché
-   * entre la lecture et la clôture la fait échouer. Chaque ligne de stock
+   * cet état a changé, et le service recommence sur l'état relu. La liste
+   * garde les articles qu'on lui a lus, ni plus ni moins, et chacun l'état
+   * coché qu'on lui a lu : un article ajouté, retiré, coché ou décoché entre
+   * la lecture et la clôture la fait échouer. Chaque ligne de stock
    * garde l'état lu, ou n'existe toujours pas.
    *
    * Les lignes de stock s'écrivent dans l'ordre de leur Ingrédient, comme pour
@@ -355,6 +356,16 @@ export class ShoppingListRepository {
         where: { id: listeId, status: 'OPEN' },
         data: { status: 'CLOSED', closedAt: new Date() },
         include: AVEC_LES_ARTICLES,
+      }),
+      // Sous le verrou de la liste, plus aucun article ne s'y ajoute : elle ne
+      // doit en compter aucun qu'on n'ait lu.
+      this.prisma.shoppingList.update({
+        where: {
+          id: listeId,
+          items: { every: { id: { in: articlesLus.map(({ id }) => id) } } },
+        },
+        data: { status: 'CLOSED' },
+        select: { id: true },
       }),
       ...articlesLus.map(({ id, checked }) =>
         this.prisma.shoppingListItem.update({

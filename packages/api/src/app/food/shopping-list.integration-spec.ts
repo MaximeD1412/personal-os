@@ -27,6 +27,7 @@ import {
 import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
 import { AppModule } from '../app.module';
+import { ShoppingListRepository } from './shopping-list.repository';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
 const DASHBOARD_URL = 'http://app.exemple.test/';
@@ -781,6 +782,70 @@ describe('Listes de courses', () => {
       expect(await stockDe([idDe(tomates)])).toEqual({
         [idDe(tomates)]: { quantity: 400, expiresOn: null },
       });
+    });
+
+    // Une autre session ajoute et coche un article entre la lecture de la liste
+    // et sa clôture : la clôture recommence sur la liste relue.
+    async function cloturerApresUnAjout(
+      liste: ShoppingList,
+      saisie: Record<string, unknown>,
+    ) {
+      const original = ShoppingListRepository.prototype.lignesDeStock;
+      const depot = app.get(ShoppingListRepository);
+      const lecture = jest
+        .spyOn(depot, 'lignesDeStock')
+        .mockImplementationOnce(async (ids) => {
+          await cocher(liste, await ajout(liste, saisie));
+          return original.call(depot, ids);
+        });
+      try {
+        return await request(app.getHttpServer())
+          .post(`/api/shopping-lists/${liste.id}/close`)
+          .set('Cookie', jeu.a.session)
+          .send({ items: [] });
+      } finally {
+        lecture.mockRestore();
+      }
+    }
+
+    it('monte au stock un article ajouté et coché pendant la clôture', async () => {
+      const liste = await uneListe();
+      const [, tomates] = liste.items;
+      await cocher(liste, tomates);
+      const riz = await ingredient(`Riz ${semaines} tard (courses)`, 'GRAM');
+
+      const reponse = await cloturerApresUnAjout(liste, {
+        ingredientId: riz.id,
+        quantity: 300,
+      });
+
+      expect(reponse.status).toBe(200);
+      expect(reponse.body.items).toHaveLength(liste.items.length + 1);
+      expect(await stockDe([idDe(tomates), riz.id])).toEqual({
+        [idDe(tomates)]: { quantity: 400, expiresOn: null },
+        [riz.id]: { quantity: 300, expiresOn: null },
+      });
+    });
+
+    it('refuse en 422 un périssable ajouté et coché pendant la clôture, sans sa péremption', async () => {
+      const liste = await uneListe();
+      const [, tomates] = liste.items;
+      await cocher(liste, tomates);
+      const creme = await ingredient(
+        `Crème ${semaines} tard (courses)`,
+        'MILLILITER',
+        true,
+      );
+
+      const reponse = await cloturerApresUnAjout(liste, {
+        ingredientId: creme.id,
+        quantity: 200,
+      });
+
+      expect(reponse.status).toBe(422);
+      expect(reponse.body.code).toBe('food.expiry_required');
+      expect(await lire(liste.id)).toMatchObject({ status: 'OPEN' });
+      expect(await stockDe([idDe(tomates), creme.id])).toEqual({});
     });
 
     it('rend une liste close aux autres gestes : on ne coche plus', async () => {
