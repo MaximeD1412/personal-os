@@ -277,7 +277,7 @@ export class PlanningDeRepas {
       this.repas().map(({ day, moment }) => cleDuCreneau(day, moment)),
     );
     return new Map(
-      (this.tours().at(-1)?.rejected ?? [])
+      (this.tours()[this.tours().length - 1]?.rejected ?? [])
         .filter(({ slot }) => !occupes.has(cleDuCreneau(slot.day, slot.moment)))
         .map((rejet) => [
           cleDuCreneau(rejet.slot.day, rejet.slot.moment),

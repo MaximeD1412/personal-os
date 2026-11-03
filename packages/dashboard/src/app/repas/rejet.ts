@@ -6,7 +6,7 @@ import {
 /** « Maxime », « Maxime et Léa », « Maxime, Léa et Sam ». */
 function enumerer(noms: readonly string[]): string {
   return noms.length > 1
-    ? `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}`
+    ? `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`
     : (noms[0] ?? '');
 }
 
