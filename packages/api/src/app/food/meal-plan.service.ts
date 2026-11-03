@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   portions,
+  type GenerationRoundSummary,
   type MealPlan,
   type MealPlanEntry,
   type MealPlanEntryInput,
@@ -10,6 +11,7 @@ import {
 import { ErreurMetier, Introuvable } from '../erreurs/erreur-metier';
 import {
   MealPlanRepository,
+  type GenerationRoundRecord,
   type MealPlanEntryRecord,
   type MealPlanEntryWrite,
   type MealPlanRecord,
@@ -331,7 +333,7 @@ function enChangements({
   };
 }
 
-function exposerLeRepas(repas: MealPlanEntryRecord): MealPlanEntry {
+export function exposerLeRepas(repas: MealPlanEntryRecord): MealPlanEntry {
   return {
     id: repas.id,
     day: repas.day,
@@ -352,6 +354,17 @@ function exposer(planning: MealPlanRecord): MealPlan {
     week: planning.week,
     status: planning.status,
     entries: planning.entries.map(exposerLeRepas),
+    rounds: planning.rounds.map(exposerLeTour),
     createdAt: planning.createdAt.toISOString(),
+  };
+}
+
+export function exposerLeTour(tour: GenerationRoundRecord): GenerationRoundSummary {
+  return {
+    id: tour.id,
+    number: tour.number,
+    traceId: tour.traceId,
+    rejected: tour.rejected,
+    createdAt: tour.createdAt.toISOString(),
   };
 }
