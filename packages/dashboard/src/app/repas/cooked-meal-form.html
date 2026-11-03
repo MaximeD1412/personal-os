@@ -1,0 +1,197 @@
+@if (declare(); as declare) {
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    heading="Repas cuisiné"
+    [subtitle]="titre()"
+    [breadcrumb]="fil"
+  />
+  <div hlmAlert tone="warning" data-test="manques">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>
+        Le repas est déclaré cuisiné, mais le stock n'avait pas tout.
+      </p>
+      <ul
+        hlmAlertDescription
+        class="list-disc space-y-space-xs ps-gutter text-on-surface"
+      >
+        @for (manque of manques(); track $index) {
+        <li data-test="manque">{{ manque }}</li>
+        }
+      </ul>
+      <p hlmAlertDescription>
+        Le stock est descendu à zéro pour ces Ingrédients. S'il en restait, il
+        se corrige dans l'écran de stock.
+      </p>
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-space-sm">
+    <a
+      hlmBtn
+      data-test="retour"
+      routerLink="/repas/planning"
+      [queryParams]="retour()"
+      >Retour au planning</a
+    >
+    <a hlmBtn variant="secondary" routerLink="/repas/stock">Voir le stock</a>
+  </div>
+</div>
+} @else {
+<dccm-state
+  [status]="etat()"
+  [error]="erreurDeLecture()"
+  skeleton="detail"
+  emptyHeading="Aucun repas à déclarer"
+  emptyDescription="Ce formulaire s'ouvre depuis un repas approuvé du planning, par « Cuisiné »."
+  errorHeading="Le repas n'a pas pu être lu"
+  (retry)="lectureDuRepas.reload(); lectureDeLaRecette.reload()"
+>
+  <dccm-form-page
+    heading="Repas cuisiné"
+    subtitle="Les quantités réellement utilisées : le stock baisse d'autant, pas de ce que prévoyait la recette."
+    [breadcrumb]="fil"
+    submitLabel="Valider et déstocker"
+    [ignored]="prefill.ignores"
+    [error]="refus()"
+    [pending]="envoi()"
+    [submitDisabled]="lignes().length === 0"
+    (submitted)="enregistrer()"
+    (cancelled)="fermer()"
+  >
+    <section
+      class="flex flex-col gap-space-xs rounded-md bg-surface-container p-space-sm"
+      data-test="repas"
+      aria-label="Repas planifié"
+    >
+      <p
+        class="text-label-micro font-semibold uppercase text-on-surface-variant"
+      >
+        {{ quand() }}
+      </p>
+      <p class="text-title-sm text-on-surface">{{ titre() }}</p>
+      <p class="text-body-dense text-outline">{{ prevuPour() }}</p>
+    </section>
+
+    <div hlmField>
+      <span hlmFieldLabel id="cuisine-lignes">Ingrédients utilisés</span>
+      @if (lignes().length === 0) {
+      <p hlmFieldDescription data-test="aucune-ligne">
+        Ajoutez au moins un Ingrédient : ce que le repas a pris au stock.
+      </p>
+      }
+      <ul class="flex flex-col gap-space-sm" aria-labelledby="cuisine-lignes">
+        @for (ligne of lignes(); track ligne.cle; let rang = $index) {
+        <li
+          data-test="ligne"
+          class="flex flex-col gap-space-xs rounded-md border border-surface-container-highest p-space-sm md:flex-row md:items-center md:gap-gutter"
+        >
+          <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span
+              class="break-words text-label-regular font-semibold text-on-surface"
+              [id]="'cuisine-ligne-' + ligne.cle"
+              >{{ ligne.nom }}</span
+            >
+            @if (ligne.prevu) {
+            <span class="text-label-micro text-outline" data-test="prevu"
+              >{{ ligne.prevu }}</span
+            >
+            }
+          </div>
+          <div class="flex items-center gap-space-sm">
+            <label
+              class="text-label-regular text-on-surface-variant"
+              [for]="'cuisine-quantite-' + ligne.cle"
+              >Utilisé</label
+            >
+            <div hlmInputGroup class="w-40">
+              <input
+                hlmInput
+                data-test="quantite"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                step="any"
+                class="tabular-nums"
+                [id]="'cuisine-quantite-' + ligne.cle"
+                [attr.aria-describedby]="'cuisine-ligne-' + ligne.cle"
+                [value]="ligne.quantite ?? ''"
+                [forceInvalid]="!!erreurDeLigne(rang)"
+                (input)="saisirLaQuantite(ligne.cle, $event)"
+              />
+              <span class="text-label-regular text-outline" data-test="unite"
+                >{{ uniteDe(ligne) }}</span
+              >
+            </div>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="icon"
+              type="button"
+              data-test="retirer"
+              [attr.aria-label]="'Retirer ' + ligne.nom"
+              (click)="retirer(ligne.cle)"
+            >
+              <ng-icon name="matCloseOutline" aria-hidden="true" />
+            </button>
+          </div>
+          @if (erreurDeLigne(rang); as message) {
+          <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+          }
+        </li>
+        }
+      </ul>
+      @if (erreurs()['lines']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+
+    <div hlmField>
+      <label hlmFieldLabel for="cuisine-recherche">Ajouter un ingrédient</label>
+      <div hlmInputGroup class="md:max-w-md">
+        <ng-icon name="matSearchOutline" aria-hidden="true" />
+        <input
+          hlmInput
+          id="cuisine-recherche"
+          type="search"
+          data-test="recherche"
+          autocomplete="off"
+          placeholder="Rechercher un ingrédient"
+          [value]="recherche()"
+          (input)="chercher($event)"
+        />
+      </div>
+      <p hlmFieldDescription>
+        Ce que la recette ne prévoyait pas, dans son unité canonique.
+      </p>
+      @if (recherche().trim()) {
+      <dccm-state
+        data-test="trouves"
+        [status]="etatDuCatalogue()"
+        [error]="catalogue.error()"
+        [rows]="3"
+        emptyHeading="Aucun Ingrédient du catalogue ne correspond"
+        loadingLabel="Recherche dans le catalogue…"
+        (retry)="catalogue.reload()"
+      >
+        <ul
+          class="flex max-h-72 flex-col overflow-y-auto md:max-w-md"
+          aria-label="Ingrédients trouvés"
+        >
+          @for (ingredient of trouves(); track ingredient.id) {
+          <li>
+            <button
+              dccmListRow
+              type="button"
+              data-test="ingredient"
+              [label]="ingredient.displayName"
+              (click)="ajouter(ingredient)"
+            ></button>
+          </li>
+          }
+        </ul>
+      </dccm-state>
+      }
+    </div>
+  </dccm-form-page>
+</dccm-state>
+}

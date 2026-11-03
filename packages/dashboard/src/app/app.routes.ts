@@ -54,11 +54,28 @@ export const appRoutes: Route[] = [
     loadComponent: async () =>
       (await import('./repas/meal-plan-entry-form')).FormulaireDeRepas,
   },
+  // La déclaration d'un Repas cuisiné (`?mealPlanEntryId=`), ouverte depuis
+  // un repas approuvé du planning, et chargée à la demande comme lui.
+  {
+    path: 'repas/cuisine/nouveau',
+    loadComponent: async () =>
+      (await import('./repas/cooked-meal-form')).FormulaireDeRepasCuisine,
+  },
   { path: 'repas/recettes/:id', component: FicheDeRecette },
   // Le Stock domestique, éditable en place ; l'ajout d'un Ingrédient est un
   // formulaire, prérempli par sa requête (ADR 0030).
   { path: 'repas/stock', component: Stock },
   { path: 'repas/stock/nouveau', component: FormulaireDeStock },
+  // La Liste de courses : la plus récente des listes ouvertes, ou une liste
+  // donnée. Chargée à la demande, pour que le bundle initial tienne son budget.
+  {
+    path: 'courses',
+    loadComponent: async () => (await import('./courses/courses')).Courses,
+  },
+  {
+    path: 'courses/:id',
+    loadComponent: async () => (await import('./courses/courses')).Courses,
+  },
   // Les Préférences alimentaires du Foyer, et l'ajout d'une Préférence,
   // prérempli par sa requête (ADR 0030). Chargées à la demande, comme les
   // Projets : le bundle initial reste sous son budget.

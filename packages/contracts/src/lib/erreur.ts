@@ -6,7 +6,11 @@ import * as z from 'zod';
  * logique du front. `message` est en français et s'affiche tel quel.
  */
 
-/** Un champ refusé par le schéma d'entrée. `path` est joint par des points. */
+/**
+ * Un champ refusé par le schéma d'entrée, `path` joint par des points ; ou,
+ * pour une règle métier qui en vise plusieurs, un objet en cause, `path` étant
+ * son identifiant.
+ */
 export const zApiFieldError = /* @__PURE__ */ z.object({
   path: /* @__PURE__ */ z.string(),
   code: /* @__PURE__ */ z.string(),
@@ -17,7 +21,10 @@ export const zApiError = /* @__PURE__ */ z.object({
   status: /* @__PURE__ */ z.int(),
   code: /* @__PURE__ */ z.string(),
   message: /* @__PURE__ */ z.string(),
-  /** N'apparaît que pour une erreur de validation. */
+  /**
+   * N'apparaît que pour une erreur de validation, ou une règle métier qui
+   * nomme ses objets en cause.
+   */
   fields: /* @__PURE__ */ z.array(zApiFieldError).optional(),
 });
 

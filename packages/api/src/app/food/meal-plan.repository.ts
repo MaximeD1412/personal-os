@@ -142,6 +142,15 @@ export class MealPlanRepository {
     return rangee ? enPlanning(rangee) : null;
   }
 
+  async lireLeRepas(id: string): Promise<MealPlanEntryRecord | null> {
+    const rangee = await this.prisma.mealPlanEntry.findUnique({
+      where: { id },
+      select: CHAMPS_DU_REPAS,
+    });
+
+    return rangee ? enRepas(rangee) : null;
+  }
+
   /** Les Repas planifiés approuvés dont le jour est entre ces deux-là, inclus. */
   async approuvesEntre(
     premier: string,
@@ -160,6 +169,30 @@ export class MealPlanRepository {
   }
 
   /** Les identifiants, parmi ceux-ci, de Comptes du Foyer de ce Compte. */
+  /**
+   * Le planning d'une semaine et les jours de ses repas encore proposés, dans
+   * l'ordre de la semaine. Rien n'est créé : un planning absent n'attend rien.
+   */
+  async proposesDeLaSemaine(
+    semaine: string,
+  ): Promise<{ id: string; jours: string[] } | null> {
+    const rangee = await this.prisma.mealPlan.findFirst({
+      where: { week: enDate(semaine) },
+      select: {
+        id: true,
+        entries: {
+          where: { decision: 'PROPOSED' },
+          orderBy: ORDRE_DES_REPAS,
+          select: { day: true },
+        },
+      },
+    });
+
+    return rangee
+      ? { id: rangee.id, jours: rangee.entries.map(({ day }) => enJour(day)) }
+      : null;
+  }
+
   async membresDuFoyer(
     ids: readonly string[],
     compteId: string,

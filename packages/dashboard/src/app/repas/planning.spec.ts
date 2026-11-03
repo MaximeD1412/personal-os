@@ -3,7 +3,7 @@ import {
   type TestRequest,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { MealPlan } from '@personal-os/contracts';
+import type { MealPlan, ShoppingList } from '@personal-os/contracts';
 import {
   arrivee,
   BASE,
@@ -160,6 +160,24 @@ describe('Le Planning de repas', () => {
     expect(ajout?.getAttribute('href')).toBe(
       `/repas/planning/nouveau?semaine=${LUNDI}&day=2026-10-20&moment=LUNCH`,
     );
+  });
+
+  it('propose de déclarer cuisiné un repas approuvé, et lui seul, par son formulaire', async () => {
+    const { el } = await ouvrir();
+
+    const dahl = creneau(el(), LUNDI, 'DINNER').querySelector(
+      '[data-test="repas"]',
+    ) as HTMLElement;
+    const cuisine = dahl.querySelector('[data-test="cuisine"]');
+    expect(cuisine?.textContent).toContain('Cuisiné');
+    expect(cuisine?.getAttribute('href')).toBe(
+      '/repas/cuisine/nouveau?mealPlanEntryId=repas-1',
+    );
+
+    const restes = creneau(el(), '2026-10-21', 'LUNCH').querySelector(
+      '[data-test="repas"]',
+    ) as HTMLElement;
+    expect(restes.querySelector('[data-test="cuisine"]')).toBeNull();
   });
 
   it('passe à la semaine suivante, puis revient à aujourd’hui', async () => {
@@ -338,6 +356,98 @@ describe('Le Planning de repas', () => {
 
     expect(bouton(el(), 'statut').textContent).toContain('Ouvert');
     expect(el().querySelector('[data-test="ajouter"]')).not.toBeNull();
+  });
+
+  describe('la liste de courses', () => {
+    const ARRETE: MealPlan = { ...PLANNING, status: 'STOPPED' };
+
+    it('ne se produit que d’un planning arrêté', async () => {
+      const { el } = await ouvrir();
+
+      expect(bouton(el(), 'produire')).toBeNull();
+    });
+
+    it('se produit après confirmation, puis s’ouvre', async () => {
+      const ouvert = await ouvrir(undefined, { planning: ARRETE });
+      const { el, http, confirmations, router } = ouvert;
+
+      bouton(el(), 'produire').click();
+      await apresLaConfirmation(ouvert);
+
+      expect(confirmations[0].confirmLabel).toBe('Produire la liste');
+      const production = http.expectOne(
+        `${BASE}/meal-plans/planning-1/shopping-lists`,
+      );
+      expect(production.request.method).toBe('POST');
+      const arrive = arrivee(router);
+      production.flush({
+        id: 'liste-1',
+        mealPlan: { id: 'planning-1', week: LUNDI },
+        status: 'OPEN',
+        producedAt: '2026-10-20T10:00:00.000Z',
+        closedAt: null,
+        items: [],
+      } satisfies ShoppingList);
+      await arrive;
+
+      expect(router.url).toBe('/courses/liste-1');
+      // L'écran de la liste la lit, avec les autres listes ouvertes.
+      http.match(({ url }) => url.startsWith(`${BASE}/shopping-lists`));
+    });
+
+    it('nomme chaque Ingrédient qui ne se convertit pas', async () => {
+      const ouvert = await ouvrir(undefined, { planning: ARRETE });
+      const { el, http, harness, router } = ouvert;
+
+      bouton(el(), 'produire').click();
+      await apresLaConfirmation(ouvert);
+      http.expectOne(`${BASE}/meal-plans/planning-1/shopping-lists`).flush(
+        {
+          status: 422,
+          code: 'food.conversion_missing',
+          message:
+            "Aucune liste n'est produite : 2 Ingrédients ne se convertissent pas en Unité canonique.",
+          fields: [
+            {
+              path: 'ingredient-huile',
+              code: 'dimension',
+              message: 'Huile d’olive : une recette le donne en grammes.',
+            },
+            {
+              path: 'ingredient-oeuf',
+              code: 'facteur_manquant',
+              message: 'Œuf : il faudrait son poids à la pièce.',
+            },
+          ],
+        },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+      await harness.fixture.whenStable();
+
+      const refus = el().querySelector('[data-test="refus"]');
+      expect(refus?.textContent).toContain("Aucune liste n'est produite");
+      expect(
+        [...(refus?.querySelectorAll('li') ?? [])].map((li) =>
+          li.textContent?.trim(),
+        ),
+      ).toEqual([
+        'Huile d’olive : une recette le donne en grammes.',
+        'Œuf : il faudrait son poids à la pièce.',
+      ]);
+      expect(router.url).toBe(`/repas/planning?semaine=${LUNDI}`);
+    });
+
+    it('ne se produit pas quand on renonce', async () => {
+      const ouvert = await ouvrir(undefined, {
+        planning: ARRETE,
+        confirme: false,
+      });
+
+      bouton(ouvert.el(), 'produire').click();
+      await apresLaConfirmation(ouvert);
+
+      ouvert.http.expectNone(`${BASE}/meal-plans/planning-1/shopping-lists`);
+    });
   });
 
   it('montre le message de l’API quand la lecture échoue', async () => {

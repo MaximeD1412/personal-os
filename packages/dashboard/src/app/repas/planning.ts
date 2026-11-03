@@ -10,6 +10,8 @@ import {
   matLockOpenOutline,
   matLockOutline,
   matScheduleOutline,
+  matSkilletOutline,
+  matShoppingCartOutline,
   matCancelOutline,
 } from '@ng-icons/material-symbols/outline';
 import {
@@ -39,6 +41,7 @@ import { map } from 'rxjs';
 import { decaler, formaterJour } from '../dates';
 import type { ErreurApi } from '../erreur-api.interceptor';
 import { HouseholdService } from '../household.service';
+import { ShoppingListService } from '../courses/shopping-list.service';
 import { MealPlanService } from './meal-plan.service';
 import { SouhaitsDeLaSemaine } from './souhaits';
 
@@ -99,6 +102,8 @@ interface VueDeRepas {
   participants: string;
   portions: string;
   invites: string | null;
+  /** Seul un repas approuvé se déclare cuisiné. */
+  approuve: boolean;
 }
 
 interface Creneau {
@@ -123,8 +128,9 @@ interface Jour {
  *
  * Au-dessus de la grille, les Souhaits de la semaine. L'ajout d'un repas
  * passe par le formulaire de sa route, prérempli du jour et du moment du
- * créneau. Arrêter et rouvrir le planning sont des transitions,
- * confirmées par `DccmConfirm`.
+ * créneau. Un repas approuvé se déclare cuisiné par son propre formulaire
+ * (`/repas/cuisine/nouveau?mealPlanEntryId=…`). Arrêter et rouvrir le
+ * planning sont des transitions, confirmées par `DccmConfirm`.
  */
 @Component({
   imports: [
@@ -143,6 +149,7 @@ export class PlanningDeRepas {
   private readonly router = inject(Router);
   private readonly service = inject(MealPlanService);
   private readonly confirmation = inject(DccmConfirm);
+  private readonly listes = inject(ShoppingListService);
 
   protected readonly fil: readonly DccmCrumb[] = [
     FIL_DU_PLANNING[0],
@@ -155,6 +162,8 @@ export class PlanningDeRepas {
     ajouter: matAddOutline,
     arreter: matLockOutline,
     rouvrir: matLockOpenOutline,
+    cuisine: matSkilletOutline,
+    produire: matShoppingCartOutline,
   };
 
   private readonly aujourdhui = aujourdhui();
@@ -247,6 +256,40 @@ export class PlanningDeRepas {
     }
   }
 
+  /**
+   * Fige la liste de courses du planning arrêté, puis l'ouvre. Un Ingrédient
+   * qui ne se convertit pas fait refuser la liste entière : le bandeau nomme
+   * chacun.
+   */
+  protected async produire(): Promise<void> {
+    const planning = this.planning();
+    if (!planning) return;
+    const confirme = await this.confirmation.confirm({
+      title: 'Produire la liste de courses ?',
+      description:
+        'Les besoins des repas approuvés, moins le Stock domestique. La liste se fige : une modification du planning ne la changera plus.',
+      confirmLabel: 'Produire la liste',
+    });
+    if (!confirme) return;
+
+    this.transition.set(true);
+    this.refus.set(null);
+    this.listes.produire(planning.id).subscribe({
+      next: (liste) => {
+        this.transition.set(false);
+        showToast({
+          tone: 'success',
+          message: 'La liste de courses est produite.',
+        });
+        void this.router.navigate(['/courses', liste.id]);
+      },
+      error: (erreur: ErreurApi) => {
+        this.transition.set(false);
+        if (this.semaine() === planning.week) this.refus.set(erreur);
+      },
+    });
+  }
+
   protected parametresDAjout(jour: string, moment: MealMoment) {
     return { [PARAMETRE_DE_SEMAINE]: this.semaine(), day: jour, moment };
   }
@@ -298,6 +341,7 @@ export class PlanningDeRepas {
         repas.guestCount > 0
           ? `dont ${repas.guestCount} invité${repas.guestCount > 1 ? 's' : ''}`
           : null,
+      approuve: repas.decision === 'APPROVED',
     };
   }
 }

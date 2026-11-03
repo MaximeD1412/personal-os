@@ -109,11 +109,16 @@ et lève `food.list_already_closed`.
 | Allergie, aliment exclu, peu apprécié    | `FoodPreferenceKind` : `ALLERGY`, `EXCLUDED`, `DISLIKED`         |
 | Contraintes d'un repas                   | `contraintesDuRepas` : `interdits`, `evites`                     |
 | Liste de courses, Article de courses     | `ShoppingList`, `ShoppingListItem`                               |
+| Liste ouverte, close                     | `ShoppingListStatus` : `OPEN`, `CLOSED`                          |
+| Origine d'un Article (planning, manuel)  | `ShoppingListItemOrigin` : `PLAN`, `MANUAL`                      |
+| Consolidateur, Article coché             | `consolider`, `checked`                                          |
 | Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
 | Stock domestique                         | `PantryItem`                                                     |
 | Péremption (d'une ligne de stock)        | `expiresOn`                                                      |
 | Recaleur, mouvement de stock             | `recaler`, `ACHAT`, `CONSOMMATION`, `CORRECTION`                 |
 | Repas cuisiné                            | `CookedMeal`                                                     |
+| Ligne (d'un Repas cuisiné)               | `CookedMealLine`                                                 |
+| Manque (ce que le stock n'avait pas)     | `shortfalls` (`CookedMealShortfall`), `consommer`                |
 | Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
 | État de publication                      | `PublicationState` : `UNPUBLISHED`, `READY`, `PUBLISHED`         |
 | Langue (du portfolio)                    | `Lang` : `FR`, `EN`                                              |
@@ -126,6 +131,9 @@ et lève `food.list_already_closed`.
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 | Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
 | Commande non comprise                    | `UnresolvedCommand`                                              |
+| À faire, Calculateur d'À faire           | `Todo`, `aFaire`                                                 |
+| Résumé de module, Résumeur de module     | `ModuleSummary`, `ResumeurDeModule`, `SummaryRegistry`           |
+| Signal, Indicateur (d'un Résumé)         | `Signal`, `SummaryIndicator`                                     |
 
 Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
 `portfolio`, `dashboard`, `command-bar`, `ai`, `storage`. Un terme absent de cette table se

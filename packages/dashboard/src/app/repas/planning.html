@@ -17,17 +17,30 @@
       Arrêter le planning
     </button>
     } @else {
-    <button
-      hlmBtn
-      variant="secondary"
-      type="button"
-      data-test="rouvrir"
-      [loading]="transition()"
-      (click)="rouvrir()"
-    >
-      <ng-icon [svg]="icones.rouvrir" aria-hidden="true" />
-      Rouvrir le planning
-    </button>
+    <!-- Deux actions : elles passent à la ligne sur un téléphone. -->
+    <div class="flex flex-wrap gap-space-sm">
+      <button
+        hlmBtn
+        type="button"
+        data-test="produire"
+        [loading]="transition()"
+        (click)="produire()"
+      >
+        <ng-icon [svg]="icones.produire" aria-hidden="true" />
+        Produire la liste de courses
+      </button>
+      <button
+        hlmBtn
+        variant="secondary"
+        type="button"
+        data-test="rouvrir"
+        [loading]="transition()"
+        (click)="rouvrir()"
+      >
+        <ng-icon [svg]="icones.rouvrir" aria-hidden="true" />
+        Rouvrir le planning
+      </button>
+    </div>
     } }
   </dccm-page-header>
 
@@ -80,6 +93,13 @@
     <hlm-alert-icon />
     <div hlmAlertContent>
       <p hlmAlertTitle>{{ erreur.message }}</p>
+      @if (erreur.fields?.length) {
+      <ul hlmAlertDescription class="list-disc ps-space-md">
+        @for (champ of erreur.fields; track champ.path) {
+        <li>{{ champ.message }}</li>
+        }
+      </ul>
+      }
     </div>
   </div>
   }
@@ -178,6 +198,21 @@
                   }
                 </span>
               </div>
+              @if (repas.approuve) {
+              <a
+                hlmBtn
+                variant="ghost"
+                size="sm"
+                class="self-start"
+                data-test="cuisine"
+                routerLink="/repas/cuisine/nouveau"
+                [queryParams]="{ mealPlanEntryId: repas.id }"
+                [attr.aria-label]="'Déclarer cuisiné : ' + repas.titre"
+              >
+                <ng-icon [svg]="icones.cuisine" aria-hidden="true" />
+                Cuisiné
+              </a>
+              }
             </article>
             } @if (ouvert()) {
             <a

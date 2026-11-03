@@ -9,11 +9,14 @@ import { ID_ESPACE_FOYER } from '../lib/espace/foyer';
 import { porteeCourante } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
 import {
+  AJOUT_DE_DEMO,
   CORIANDRE_DE_DEMO,
   INGREDIENTS_DE_DEMO,
+  LISTE_DE_DEMO,
   RECETTES_DE_DEMO,
   REPAS_DE_DEMO,
   semerLaCuisine,
+  semerLaListe,
   semerLePlanning,
   semerLesPreferences,
   semerLeStock,
@@ -582,5 +585,134 @@ describe('semerLeStock', () => {
       /n'est pas dans le catalogue de démo/,
     );
     expect(posees).toEqual([]);
+  });
+});
+
+describe('semerLaListe', () => {
+  /** Un Prisma qui connaît le planning de démo, déjà doté de tant de listes, et note la liste créée. */
+  function prismaDeDemo({ planning = true, listes = 0 } = {}) {
+    const creees: { data: Record<string, unknown> }[] = [];
+    const lectures: unknown[] = [];
+    const portees: unknown[] = [];
+    const prisma = {
+      mealPlan: {
+        findUnique: (requete: unknown) => {
+          portees.push(porteeCourante());
+          lectures.push(requete);
+          return Promise.resolve(
+            planning
+              ? { id: 'planning', _count: { shoppingLists: listes } }
+              : null,
+          );
+        },
+      },
+      ingredient: {
+        findMany: () =>
+          Promise.resolve(
+            INGREDIENTS_DE_DEMO.map(({ displayName, canonicalUnit }) => ({
+              id: `id-${displayName}`,
+              name: normaliserLibelle(displayName),
+              canonicalUnit,
+            })),
+          ),
+      },
+      shoppingList: {
+        create: (requete: { data: Record<string, unknown> }) => {
+          portees.push(porteeCourante());
+          creees.push(requete);
+          return Promise.resolve({ id: 'liste' });
+        },
+      },
+    } as unknown as PrismaService;
+
+    return { prisma, creees, lectures, portees };
+  }
+
+  // Un mercredi soir à Paris : la semaine en cours est celle du lundi 18.
+  const MAINTENANT = new Date('2027-10-20T19:00:00Z');
+
+  it('ne cite que des Ingrédients du catalogue, une fois chacun, dans l’ordre alphabétique', () => {
+    const noms = LISTE_DE_DEMO.map(({ ingredient }) => ingredient);
+    for (const nom of noms) {
+      expect(() => trouver(nom)).not.toThrow();
+    }
+    expect(new Set(noms).size).toBe(noms.length);
+    expect(noms).toEqual(
+      [...noms].sort((a, b) =>
+        normaliserLibelle(a).localeCompare(normaliserLibelle(b), 'fr'),
+      ),
+    );
+  });
+
+  it("fige une liste ouverte du planning de la semaine, deux articles cochés et un ajout manuel, dans l'Espace foyer", async () => {
+    const { prisma, creees, lectures, portees } = prismaDeDemo();
+
+    await semerLaListe(prisma, MAINTENANT);
+
+    expect(lectures).toEqual([
+      expect.objectContaining({
+        where: {
+          scopeId_week: {
+            scopeId: ID_ESPACE_FOYER,
+            week: new Date('2027-10-18T00:00:00Z'),
+          },
+        },
+      }),
+    ]);
+    expect(creees).toHaveLength(1);
+    const { data } = creees[0];
+    expect(data).toMatchObject({
+      scopeId: ID_ESPACE_FOYER,
+      mealPlanId: 'planning',
+    });
+    expect(data['status']).toBeUndefined();
+    const articles = (data['items'] as { create: Record<string, unknown>[] })
+      .create;
+    expect(articles).toHaveLength(LISTE_DE_DEMO.length + 1);
+    expect(articles.map(({ position }) => position)).toEqual(
+      articles.map((_, rang) => rang),
+    );
+    expect(articles.filter(({ checked }) => checked)).toHaveLength(2);
+    expect(articles.slice(0, -1).every(({ origin }) => origin === 'PLAN')).toBe(
+      true,
+    );
+    expect(articles[0]).toEqual({
+      ingredientId: `id-${LISTE_DE_DEMO[0].ingredient}`,
+      label: null,
+      quantity: LISTE_DE_DEMO[0].quantity,
+      unit: trouver(LISTE_DE_DEMO[0].ingredient).canonicalUnit,
+      origin: 'PLAN',
+      checked: false,
+      position: 0,
+    });
+    expect(articles.at(-1)).toMatchObject({
+      ingredientId: null,
+      label: AJOUT_DE_DEMO,
+      quantity: null,
+      unit: null,
+      origin: 'MANUAL',
+    });
+    for (const portee of portees) {
+      expect(portee).toEqual({
+        espaces: [{ id: ID_ESPACE_FOYER, kind: 'HOUSEHOLD' }],
+        typesAcceptes: ['HOUSEHOLD'],
+      });
+    }
+  });
+
+  it('ne donne pas une seconde liste à un planning qui en a une', async () => {
+    const { prisma, creees } = prismaDeDemo({ listes: 1 });
+
+    await semerLaListe(prisma, MAINTENANT);
+
+    expect(creees).toEqual([]);
+  });
+
+  it('ne fait rien sans planning de la semaine', async () => {
+    const { prisma, creees } = prismaDeDemo({ planning: false });
+
+    await semerLaListe(prisma, MAINTENANT);
+
+    expect(creees).toEqual([]);
   });
 });
