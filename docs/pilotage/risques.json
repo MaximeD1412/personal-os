@@ -531,6 +531,11 @@
           "texte": "Écrans regroupés par ticket",
           "ref": "#60",
           "fait": true
+        },
+        {
+          "texte": "Captures authentifiées sans Authentik, en une commande (Session de démo le temps de la capture)",
+          "ref": "scripts/captures.sh, #86",
+          "fait": true
         }
       ],
       "tickets": ["INFRA-10", "UI-1", "UI-2", "UI-3", "UI-4", "UI-5", "UI-6"]
