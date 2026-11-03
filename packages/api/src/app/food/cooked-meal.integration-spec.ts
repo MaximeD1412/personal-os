@@ -25,6 +25,7 @@ import {
 import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
 import { AppModule } from '../app.module';
+import { CookedMealRepository } from './cooked-meal.repository';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
 const DASHBOARD_URL = 'http://app.exemple.test/';
@@ -292,6 +293,81 @@ describe('Repas cuisiné', () => {
       );
 
       expect(await enStock(beurre)).toEqual({ quantity: 150, expiresOn: null });
+    });
+
+    it('cuisine en même temps des repas qui déclarent les mêmes Ingrédients dans des ordres inverses', async () => {
+      const farine = await ingredient('Farine (croisée)');
+      const lait = await ingredient('Lait (croisé)', 'MILLILITER');
+      await stocker(farine, 1000, null);
+      await stocker(lait, 1000, null);
+      // Sans ordre commun des écritures, deux de ces déclarations
+      // s'interbloquent : Postgres en abat une, en 500. Pas plus de quatre :
+      // chacune ne manque son stock qu'après qu'une autre a écrit, et reste
+      // sous les cinq essais.
+      const jours = ['2031-03-24', '2031-03-25', '2031-03-26', '2031-03-27'];
+      const repas: MealPlanEntry[] = [];
+      for (const jour of jours) {
+        repas.push(await approuve(jour, { title: 'Crêpes croisées' }));
+      }
+      const deFarine = { ingredientId: farine.id, quantity: 50, unit: 'G' };
+      const deLait = { ingredientId: lait.id, quantity: 50, unit: 'ML' };
+
+      const statuts = await Promise.all(
+        repas.map(
+          async ({ id }, i) =>
+            (
+              await request(app.getHttpServer())
+                .post('/api/cooked-meals')
+                .set('Cookie', jeu.a.session)
+                .send({
+                  mealPlanEntryId: id,
+                  lines: i % 2 ? [deLait, deFarine] : [deFarine, deLait],
+                })
+            ).status,
+        ),
+      );
+
+      expect(statuts).toEqual(jours.map(() => 201));
+      expect(await enStock(farine)).toEqual({ quantity: 800, expiresOn: null });
+      expect(await enStock(lait)).toEqual({ quantity: 800, expiresOn: null });
+    });
+
+    it('renonce en food.pantry_busy quand le stock change à chaque essai, sans rien déclarer ni déstocker', async () => {
+      const riz = await ingredient('Riz (stock agité)');
+      await stocker(riz, 250, null);
+      const repas = await approuve('2031-03-17', { title: 'Riz agité' });
+      const declaration = {
+        mealPlanEntryId: repas.id,
+        lines: [{ ingredientId: riz.id, quantity: 100, unit: 'G' }],
+      };
+      // Le stock relu à chaque essai n'est jamais celui de la base : c'est ce
+      // que verrait une déclaration devancée, à chaque fois, par une autre.
+      const lecture = jest
+        .spyOn(app.get(CookedMealRepository), 'stock')
+        .mockResolvedValue(
+          new Map([[riz.id, { quantite: '999', expireLe: null }]]),
+        );
+
+      try {
+        await request(app.getHttpServer())
+          .post('/api/cooked-meals')
+          .set('Cookie', jeu.a.session)
+          .send(declaration)
+          .expect(422)
+          .expect(codeDErreur('food.pantry_busy'));
+        expect(lecture).toHaveBeenCalledTimes(5);
+      } finally {
+        lecture.mockRestore();
+      }
+
+      expect(await enStock(riz)).toEqual({ quantity: 250, expiresOn: null });
+      // Le repas n'a pas été déclaré : il se déclare maintenant.
+      await request(app.getHttpServer())
+        .post('/api/cooked-meals')
+        .set('Cookie', jeu.a.session)
+        .send(declaration)
+        .expect(201);
+      expect(await enStock(riz)).toEqual({ quantity: 150, expiresOn: null });
     });
 
     it('refuse un repas qui n’est pas approuvé', async () => {

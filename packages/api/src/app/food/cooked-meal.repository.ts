@@ -123,6 +123,13 @@ export class CookedMealRepository {
    * Chaque ligne de stock ne s'écrit que si elle a encore l'état lu : une
    * écriture passée entre-temps fait échouer le tout (P2025), et le service
    * recommence sur le stock relu.
+   *
+   * Les lignes de stock s'écrivent dans l'ordre de leur Ingrédient, quel que
+   * soit celui de la déclaration : deux déclarations simultanées verrouillent
+   * alors leurs lignes communes dans le même ordre, et l'une attend l'autre
+   * au lieu de s'interbloquer avec elle (Postgres en abattrait une : P2039,
+   * cause 40P01, qu'on ne réessaie pas). Les autres écritures du stock n'en
+   * touchent qu'une ligne : elles ne ferment pas de cycle.
    */
   async declarer(
     mealPlanEntryId: string,
@@ -145,23 +152,33 @@ export class CookedMealRepository {
           ...AVEC_LES_LIGNES,
         },
       }),
-      ...ecritures.map(({ ingredientId, avant, apres }) =>
-        this.prisma.pantryItem.update({
-          where: {
-            scopeId_ingredientId: { scopeId: ID_ESPACE_FOYER, ingredientId },
-            quantity: avant.quantity,
-            expiresOn: versLaBase(avant.expiresOn),
-          },
-          data: {
-            quantity: apres.quantity,
-            expiresOn: versLaBase(apres.expiresOn),
-          },
-          select: { id: true },
-        }),
-      ),
+      ...[...ecritures]
+        .sort(parIngredient)
+        .map(({ ingredientId, avant, apres }) =>
+          this.prisma.pantryItem.update({
+            where: {
+              scopeId_ingredientId: { scopeId: ID_ESPACE_FOYER, ingredientId },
+              quantity: avant.quantity,
+              expiresOn: versLaBase(avant.expiresOn),
+            },
+            data: {
+              quantity: apres.quantity,
+              expiresOn: versLaBase(apres.expiresOn),
+            },
+            select: { id: true },
+          }),
+        ),
     ]);
     return repas;
   }
+}
+
+function parIngredient(a: EcritureDeStock, b: EcritureDeStock): number {
+  return a.ingredientId < b.ingredientId
+    ? -1
+    : a.ingredientId > b.ingredientId
+      ? 1
+      : 0;
 }
 
 function enJour(date: Date | null): string | null {
