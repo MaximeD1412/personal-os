@@ -29,6 +29,14 @@ export class MealPlanService {
     }));
   }
 
+  /** Un Repas planifié lu seul ; rien n'est lu tant que l'identifiant est vide. */
+  repas(id: () => string | null): HttpResourceRef<MealPlanEntry | undefined> {
+    return httpResource<MealPlanEntry>(() => {
+      const actuel = id();
+      return actuel ? `${this.baseUrl}/meal-plan-entries/${actuel}` : undefined;
+    });
+  }
+
   ajouter(
     planId: string,
     saisie: MealPlanEntryInput,
