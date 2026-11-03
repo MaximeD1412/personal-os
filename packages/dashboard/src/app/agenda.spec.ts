@@ -303,7 +303,7 @@ describe('Agenda', () => {
 
       expect(lien.textContent).toContain('Ouvrir dans Calendrier');
       expect(lien.getAttribute('href')).toBe(
-        '/calendrier/evenements/event-1?mois=2026-09&occurrence=2026-09-14T09:30:00.000Z',
+        '/calendrier/evenements/event-1?mois=2026-09&debut=2026-09-14T09:30:00.000Z',
       );
     });
 

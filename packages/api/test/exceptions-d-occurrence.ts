@@ -16,8 +16,8 @@ export interface ExceptionDeTest {
 }
 
 /**
- * Pose des exceptions à la règle d'un Événement. Aucune route ne les écrit
- * encore (AGENDA-2) : elles passent par l'accès aux données, mais sous une
+ * Pose des exceptions à la règle d'un Événement, sans passer par les routes
+ * qui les écrivent (AGENDA-2) : par l'accès aux données, mais sous une
  * portée, comme tout le monde — il n'existe pas de client nu (ADR 0028).
  */
 export function poserDesExceptions(

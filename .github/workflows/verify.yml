@@ -200,6 +200,15 @@ jobs:
       - name: Installer restic
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends restic
 
+      # La copie du bucket s'éprouve sous un /tmp privé, comme sous
+      # PrivateTmp=yes : le test l'isole par `unshare --user`, qu'AppArmor
+      # refuse sans privilège sur les runners Ubuntu récents.
+      - name: Autoriser les espaces de noms utilisateur
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
       - name: Tests d'intégration sur base jetable
         run: pnpm exec nx $NX -t test-integration --exclude=deploy
 

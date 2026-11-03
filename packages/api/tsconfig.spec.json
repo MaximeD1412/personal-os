@@ -6,6 +6,7 @@
     "moduleResolution": "bundler",
     "types": [
       "jest",
+      "multer",
       "node"
     ]
   },

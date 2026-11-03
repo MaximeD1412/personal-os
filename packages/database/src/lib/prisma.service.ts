@@ -103,6 +103,34 @@ export class PrismaService {
     return this.#client.pantryItem;
   }
 
+  get mealPlan() {
+    return this.#client.mealPlan;
+  }
+
+  get mealPlanEntry() {
+    return this.#client.mealPlanEntry;
+  }
+
+  get generationRound() {
+    return this.#client.generationRound;
+  }
+
+  get mealWish() {
+    return this.#client.mealWish;
+  }
+
+  get project() {
+    return this.#client.project;
+  }
+
+  get projectExpense() {
+    return this.#client.projectExpense;
+  }
+
+  get publicPresentation() {
+    return this.#client.publicPresentation;
+  }
+
   get session() {
     return this.#client.session;
   }

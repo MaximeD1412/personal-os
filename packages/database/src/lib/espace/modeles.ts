@@ -33,6 +33,12 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
       'recipes',
       'recipeLines',
       'pantryItems',
+      'mealPlans',
+      'mealPlanEntries',
+      'generationRounds',
+      'mealWishes',
+      'projects',
+      'projectExpenses',
     ],
   };
 
@@ -49,7 +55,13 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   Record<string, readonly string[]>
 > = {
   HealthProbe: [],
-  User: ['household', 'personalScope', 'sessions', 'foodPreferences'],
+  User: [
+    'household',
+    'personalScope',
+    'sessions',
+    'foodPreferences',
+    'mealWishes',
+  ],
   Session: ['user'],
   LoginTransaction: [],
   Household: ['members', 'scopes'],
@@ -70,6 +82,13 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'recipes',
     'recipeLines',
     'pantryItems',
+    'mealPlans',
+    'mealPlanEntries',
+    'generationRounds',
+    'mealWishes',
+    'projects',
+    'projectExpenses',
+    'publicPresentations',
   ],
 };
 

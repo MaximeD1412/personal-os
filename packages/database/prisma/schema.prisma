@@ -36,23 +36,30 @@ model Household {
 /// L'Espace, seule chose qui détermine qui voit une donnée. Il en existe trois :
 /// un Espace personnel par Compte, et l'Espace du Foyer.
 model Scope {
-  id                 String              @id @default(uuid())
-  kind               ScopeKind
-  label              String
-  householdId        String
-  household          Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  id                  String               @id @default(uuid())
+  kind                ScopeKind
+  label               String
+  householdId         String
+  household           Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
   /// Le Compte dont c'est l'Espace personnel ; vide pour l'Espace foyer.
-  holderId           String?             @unique
-  holder             User?               @relation(fields: [holderId], references: [id], onDelete: Cascade)
-  traces             Trace[]
-  events             Event[]
-  eventExceptions    EventException[]
-  aiTraces           AiTrace[]
-  unresolvedCommands UnresolvedCommand[]
-  foodPreferences    FoodPreference[]
-  recipes            Recipe[]
-  recipeLines        RecipeLine[]
-  pantryItems        PantryItem[]
+  holderId            String?              @unique
+  holder              User?                @relation(fields: [holderId], references: [id], onDelete: Cascade)
+  traces              Trace[]
+  events              Event[]
+  eventExceptions     EventException[]
+  aiTraces            AiTrace[]
+  unresolvedCommands  UnresolvedCommand[]
+  foodPreferences     FoodPreference[]
+  recipes             Recipe[]
+  recipeLines         RecipeLine[]
+  mealPlans           MealPlan[]
+  mealPlanEntries     MealPlanEntry[]
+  generationRounds    GenerationRound[]
+  mealWishes          MealWish[]
+  projects            Project[]
+  projectExpenses     ProjectExpense[]
+  publicPresentations PublicPresentation[]
+  pantryItems         PantryItem[]
 
   @@index([householdId])
 }
@@ -73,6 +80,7 @@ model User {
   household       Household        @relation(fields: [householdId], references: [id])
   personalScope   Scope?
   foodPreferences FoodPreference[]
+  mealWishes      MealWish[]
 }
 
 /// Entité jouet du fil traceur de l'issue #6, retirée du code par #99 : plus
@@ -168,28 +176,32 @@ model EventException {
 /// du mois. Une réponse rejetée par son schéma, comme un appel resté sans
 /// réponse, est tracée comme les autres, avec sa raison dans `error`.
 model AiTrace {
-  id           String   @id @default(uuid())
-  scopeId      String
-  scope        Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  id               String            @id @default(uuid())
+  scopeId          String
+  scope            Scope             @relation(fields: [scopeId], references: [id], onDelete: Cascade)
   /// Le but de l'appel (`meal-plan.generate`…), qui dit quel module l'a fait.
-  purpose      String
+  purpose          String
   /// Le modèle qui a répondu, tel que le fournisseur le nomme.
-  model        String
-  system       String
-  input        String
+  model            String
+  system           String
+  input            String
   /// La réponse brute, avant toute validation ; vide quand le fournisseur n'a
   /// pas répondu.
-  output       String?
+  output           String?
   /// Inconnus quand le fournisseur n'a pas répondu.
-  inputTokens  Int?
-  outputTokens Int?
+  inputTokens      Int?
+  outputTokens     Int?
   /// Le coût estimé, arrondi au centime supérieur : le plafond ne se sous-estime jamais.
-  costCents    Int
+  costCents        Int
   /// Pourquoi l'appel n'a rien rendu d'utilisable (panne, sortie hors schéma) ;
   /// vide pour une réponse retenue.
-  error        String?
-  createdAt    DateTime @default(now())
+  error            String?
+  createdAt        DateTime          @default(now())
+  /// Les Tours de génération dont c'est l'appel.
+  generationRounds GenerationRound[]
 
+  /// La cible de la clé étrangère des Tours de génération, qui porte l'Espace.
+  @@unique([id, scopeId])
   @@index([scopeId])
   @@index([createdAt])
 }
@@ -292,19 +304,23 @@ enum RecipeSource {
 /// référence. Elle ne connaît que des Ingrédients, jamais des Produits. Elle
 /// vit dans l'Espace foyer, que la Cuisine pose elle-même.
 model Recipe {
-  id        String       @id @default(uuid())
-  scopeId   String
-  scope     Scope        @relation(fields: [scopeId], references: [id], onDelete: Cascade)
-  title     String
+  id              String          @id @default(uuid())
+  scopeId         String
+  scope           Scope           @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  title           String
   /// Les portions de référence, au moins une.
-  servings  Int
+  servings        Int
   /// Les étapes, dans leur ordre.
-  steps     String[]
-  source    RecipeSource @default(MANUAL)
-  lines     RecipeLine[]
+  steps           String[]
+  source          RecipeSource    @default(MANUAL)
+  lines           RecipeLine[]
+  /// Les Repas planifiés qui la cuisinent.
+  mealPlanEntries MealPlanEntry[]
+  /// Les Souhaits qui la demandent.
+  mealWishes      MealWish[]
   /// Des instants (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
-  createdAt DateTime     @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime     @updatedAt @db.Timestamptz(3)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(3)
 
   /// La cible de la clé étrangère des lignes, qui porte l'Espace.
   @@unique([id, scopeId])
@@ -366,6 +382,216 @@ model FoodPreference {
   @@unique([userId, kind, allergen, ingredientId])
   @@index([scopeId])
   @@index([ingredientId])
+}
+
+enum MealPlanStatus {
+  OPEN
+  STOPPED
+}
+
+enum MealMoment {
+  LUNCH
+  DINNER
+}
+
+enum MealPlanEntryDecision {
+  APPROVED
+  PROPOSED
+  REFUSED
+}
+
+/// Le Planning de repas d'une semaine : un par semaine et par Espace (le
+/// Foyer). Arrêté, il refuse toute modification de ses repas (CUISINE-7).
+model MealPlan {
+  id        String            @id @default(uuid())
+  scopeId   String
+  scope     Scope             @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  /// Le lundi de la semaine (`zWeek`), un jour civil sans fuseau.
+  week      DateTime          @db.Date
+  status    MealPlanStatus    @default(OPEN)
+  entries   MealPlanEntry[]
+  rounds    GenerationRound[]
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@unique([scopeId, week])
+  /// La cible de la clé étrangère des repas, qui porte l'Espace.
+  @@unique([id, scopeId])
+}
+
+/// Un Repas planifié : une Recette ou un intitulé libre, jamais les deux ni
+/// aucun (une contrainte CHECK de la migration le garde), pour des
+/// Participants du Foyer et des Invités. La clé étrangère porte l'Espace avec
+/// le planning : un repas est toujours dans l'Espace de son planning (ADR
+/// 0028).
+model MealPlanEntry {
+  id                String                @id @default(uuid())
+  scopeId           String
+  scope             Scope                 @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  mealPlanId        String
+  mealPlan          MealPlan              @relation(fields: [mealPlanId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  /// Un jour civil (`zDay`) de la semaine du planning.
+  day               DateTime              @db.Date
+  moment            MealMoment
+  /// Une Recette cuisinée par un repas à venir ne se supprime pas ; celle
+  /// d'un repas passé laisse son titre à sa place (CUISINE-7).
+  recipeId          String?
+  recipe            Recipe?               @relation(fields: [recipeId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  title             String?
+  /// Des Comptes du Foyer, au moins un.
+  participantIds    String[]
+  /// Au moins zéro.
+  guestCount        Int                   @default(0)
+  decision          MealPlanEntryDecision
+  /// Le Tour de génération qui l'a proposé ; vide pour un repas saisi à la main.
+  generationRoundId String?
+  generationRound   GenerationRound?      @relation(fields: [generationRoundId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt         DateTime              @default(now()) @db.Timestamptz(3)
+
+  @@index([scopeId])
+  @@index([mealPlanId])
+  @@index([recipeId])
+  @@index([day])
+  @@index([generationRoundId])
+}
+
+/// Un Tour de génération d'un Planning de repas : l'IA propose, on statue sur
+/// chacun des repas proposés, puis on relance ; le tour suivant ne régénère
+/// que les refusés (CUISINE-15). Ses tours se numérotent à partir de 1. La clé
+/// étrangère porte l'Espace avec le planning (ADR 0028).
+model GenerationRound {
+  id         String          @id @default(uuid())
+  scopeId    String
+  scope      Scope           @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  mealPlanId String
+  mealPlan   MealPlan        @relation(fields: [mealPlanId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  number     Int
+  /// La Trace IA de l'appel au modèle ; vide tant qu'il n'a pas eu lieu. Un
+  /// journal en ajout seul ne perd pas ses traces : la clé ne prévoit pas
+  /// leur suppression.
+  traceId    String?
+  trace      AiTrace?        @relation(fields: [traceId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  entries    MealPlanEntry[]
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@unique([mealPlanId, number])
+  /// La cible de la clé étrangère des repas, qui porte l'Espace.
+  @@unique([id, scopeId])
+  @@index([scopeId])
+  @@index([traceId])
+}
+
+/// Un Souhait : une Recette ou une envie en texte libre, jamais les deux ni
+/// aucun (une contrainte CHECK de la migration le garde), déposée avant la
+/// génération d'une semaine, que son Planning de repas doit honorer. Il vise
+/// une semaine, pas un planning : il se dépose avant que le planning existe,
+/// et honoré, il reste lié à sa semaine (CUISINE-18). La clé étrangère vers la
+/// Recette porte l'Espace avec elle (ADR 0028).
+model MealWish {
+  id        String   @id @default(uuid())
+  scopeId   String
+  scope     Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  /// Le lundi de la semaine (`zWeek`), un jour civil sans fuseau.
+  week      DateTime @db.Date
+  /// Une Recette souhaitée laisse son titre au Souhait quand on la supprime
+  /// (CUISINE-18) : un déclencheur de la migration s'en charge, pour que la
+  /// version précédente de l'API puisse encore supprimer (ADR 0024).
+  recipeId  String?
+  recipe    Recipe?  @relation(fields: [recipeId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  text      String?
+  /// Le Compte du Foyer qui l'a déposé.
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([scopeId, week])
+  @@index([recipeId])
+  @@index([authorId])
+}
+
+/// Un Projet : un travail suivi dans l'application, avec ses notes, ses liens
+/// et ses dépenses. Il vit dans un Espace personnel et n'en sort jamais ; ses
+/// notes ne vont jamais vers le portfolio (ADR 0019).
+model Project {
+  id            String               @id @default(uuid())
+  scopeId       String
+  scope         Scope                @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  title         String
+  /// Les notes, en markdown, rendues côté front.
+  notes         String               @default("")
+  /// Les liens (`zProjectLink` de `contracts`) : `{ label, url }[]`.
+  links         Json                 @default("[]")
+  expenses      ProjectExpense[]
+  presentations PublicPresentation[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  /// La cible de la clé étrangère des dépenses, qui porte l'Espace.
+  @@unique([id, scopeId])
+  @@index([scopeId])
+}
+
+/// Une dépense engagée pour un Projet. La clé étrangère porte l'Espace avec le
+/// Projet : une dépense est toujours dans l'Espace de son Projet, c'est la base
+/// qui le garantit.
+model ProjectExpense {
+  id          String   @id @default(uuid())
+  scopeId     String
+  scope       Scope    @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  projectId   String
+  project     Project  @relation(fields: [projectId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  label       String
+  /// Le montant, en centimes : un total se calcule sans arrondi.
+  amountCents Int
+  currency    String   @default("EUR")
+  /// Le jour de la dépense, jamais converti en instant.
+  spentOn     DateTime @db.Date
+  createdAt   DateTime @default(now())
+
+  @@index([scopeId])
+  @@index([projectId])
+}
+
+/// Une langue du portfolio. Il n'y a pas de repli de l'une sur l'autre.
+enum Lang {
+  FR
+  EN
+}
+
+/// L'État de publication d'un contenu destiné au portfolio. Il dit si le
+/// contenu est sorti sur Internet, jamais qui le voit : c'est le rôle de
+/// l'Espace.
+enum PublicationState {
+  UNPUBLISHED
+  READY
+  PUBLISHED
+}
+
+/// La Présentation publique d'un Projet, dans une langue : le texte destiné au
+/// portfolio, distinct des notes privées. Elle est dans l'Espace de son
+/// Projet, et la clé étrangère le garantit.
+model PublicPresentation {
+  id               String           @id @default(uuid())
+  scopeId          String
+  scope            Scope            @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project          @relation(fields: [projectId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  lang             Lang
+  title            String
+  /// L'accroche, une ou deux phrases.
+  summary          String
+  /// Le texte, en markdown, rendu côté front.
+  body             String           @default("")
+  publicationState PublicationState @default(UNPUBLISHED)
+  /// L'instant de la mise en ligne ; vide hors de l'état « publié ».
+  publishedAt      DateTime?        @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
+
+  @@unique([projectId, lang])
+  @@index([scopeId])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.

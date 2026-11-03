@@ -5,18 +5,26 @@ describe('restore.sh --dry-run', () => {
     const result = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/tmp/restauration'],
-      makeFixture()
+      makeFixture(),
     );
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('plan: restic restore latest --target /var/tmp/restauration');
+    expect(result.stdout).toContain(
+      'plan: restic restore latest --target /var/tmp/restauration',
+    );
   });
 
   it('accepte un instantané précis', () => {
     const result = run(
       'restore.sh',
-      ['--dry-run', '--snapshot', 'a1b2c3d4', '--target', '/var/tmp/restauration'],
-      makeFixture()
+      [
+        '--dry-run',
+        '--snapshot',
+        'a1b2c3d4',
+        '--target',
+        '/var/tmp/restauration',
+      ],
+      makeFixture(),
     );
 
     expect(result.stdout).toContain('restic restore a1b2c3d4');
@@ -26,10 +34,12 @@ describe('restore.sh --dry-run', () => {
     const result = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/tmp/restauration', '--into-postgres'],
-      makeFixture()
+      makeFixture(),
     );
 
-    expect(result.stdout).toContain('plan: conteneur jetable personal-os-restore-');
+    expect(result.stdout).toContain(
+      'plan: conteneur jetable personal-os-restore-',
+    );
     expect(result.stdout).toMatch(/^plan: dsn: postgresql:\/\//m);
   });
 
@@ -37,7 +47,7 @@ describe('restore.sh --dry-run', () => {
     const result = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/tmp/restauration', '--into-postgres'],
-      makeFixture()
+      makeFixture(),
     );
 
     expect(result.stdout).toContain('postgres/personalos.dump');
@@ -59,7 +69,7 @@ describe('restore.sh --dry-run', () => {
           'POSTGRES_DB=personalos',
           'POSTGRES_DATABASES="personalos authentik"',
         ].join('\n'),
-      })
+      }),
     );
 
     expect(result.status).toBe(0);
@@ -77,7 +87,7 @@ describe('restore.sh --dry-run', () => {
         '--database',
         'inexistante',
       ],
-      makeFixture()
+      makeFixture(),
     );
 
     expect(result.status).not.toBe(0);
@@ -88,12 +98,12 @@ describe('restore.sh --dry-run', () => {
     const sans = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/tmp/restauration'],
-      makeFixture()
+      makeFixture(),
     );
     const avec = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/tmp/restauration', '--read-data'],
-      makeFixture()
+      makeFixture(),
     );
 
     expect(sans.stdout).not.toContain('--read-data');
@@ -104,7 +114,7 @@ describe('restore.sh --dry-run', () => {
     const result = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/tmp/restauration', '--into-postgres'],
-      makeFixture()
+      makeFixture(),
     );
 
     expect(result.output).not.toContain(SECRET);
@@ -119,21 +129,26 @@ describe('restore.sh — garde-fous', () => {
     expect(result.stderr).toContain('--target');
   });
 
-  it.each(['/var/lib/postgresql', '/var/lib/postgresql/18/main', '/etc/personal-os'])(
-    'refuse de restaurer vers %s',
-    (target) => {
-      const result = run('restore.sh', ['--dry-run', '--target', target], makeFixture());
+  it.each([
+    '/var/lib/postgresql',
+    '/var/lib/postgresql/18/main',
+    '/etc/personal-os',
+  ])('refuse de restaurer vers %s', (target) => {
+    const result = run(
+      'restore.sh',
+      ['--dry-run', '--target', target],
+      makeFixture(),
+    );
 
-      expect(result.status).not.toBe(0);
-      expect(result.stderr).toContain('interdite');
-    }
-  );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('interdite');
+  });
 
   it('vérifie le garde-fou avant tout effet de bord, y compris en --dry-run', () => {
     const result = run(
       'restore.sh',
       ['--dry-run', '--target', '/var/lib/postgresql'],
-      makeFixture()
+      makeFixture(),
     );
 
     expect(result.stdout).not.toContain('plan:');

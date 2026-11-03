@@ -269,7 +269,7 @@ export class Calendrier {
         chemin: `/calendrier/evenements/${occurrence.eventId}`,
         parametres: {
           [PARAMETRE_DE_MOIS]: this.mois(),
-          [PARAMETRE_D_OCCURRENCE]: occurrence.startsAt,
+          [PARAMETRE_D_OCCURRENCE]: occurrence.originalStart,
         },
       },
     };

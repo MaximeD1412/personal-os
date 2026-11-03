@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  Recipe,
-  RecipeInput,
-  RecipeLineInput,
-  RecipeListQuery,
-  RecipeUpdate,
+import {
+  aujourdhui,
+  type Recipe,
+  type RecipeInput,
+  type RecipeLineInput,
+  type RecipeListQuery,
+  type RecipeUpdate,
 } from '@personal-os/contracts';
 import { ErreurMetier, Introuvable } from '../erreurs/erreur-metier';
 import {
@@ -16,7 +17,8 @@ import {
 /**
  * Les saisies arrivent validées par leur schéma (ADR 0030) : il ne reste ici
  * que ce qu'un schéma ne peut pas juger seul. Un Ingrédient absent du
- * catalogue, une modification vide, une recette introuvable.
+ * catalogue, une modification vide, une recette introuvable ou qu'un repas
+ * à venir cuisine.
  */
 @Injectable()
 export class RecipeService {
@@ -65,13 +67,21 @@ export class RecipeService {
   }
 
   /**
-   * `food.recipe_in_use` refusera la suppression d'une recette qu'un Repas
-   * planifié à venir utilise. Le Planning de repas n'existe pas encore
-   * (CUISINE-7) : rien ne peut aujourd'hui retenir une recette, et la règle
-   * arrivera avec lui.
+   * Une recette qu'un Repas planifié à venir cuisine, aujourd'hui compris, ne
+   * se supprime pas. Celle d'un repas passé lui laisse son titre.
    */
   async supprimer(id: string): Promise<void> {
-    await introuvableSinon(this.repository.supprimer(id));
+    try {
+      await introuvableSinon(this.repository.supprimer(id, aujourdhui()));
+    } catch (erreur) {
+      if (codePrisma(erreur) === 'P2003') {
+        throw new ErreurMetier(
+          'food.recipe_in_use',
+          'Un repas à venir cuisine cette recette : retirez-la du planning avant de la supprimer.',
+        );
+      }
+      throw erreur;
+    }
   }
 
   /** Une ligne ne cite qu'un Ingrédient du catalogue : un libellé libre se résout avant. */
@@ -102,16 +112,17 @@ async function introuvableSinon<T>(operation: Promise<T>): Promise<T> {
   try {
     return await operation;
   } catch (erreur) {
-    if (
-      typeof erreur === 'object' &&
-      erreur !== null &&
-      'code' in erreur &&
-      erreur.code === 'P2025'
-    ) {
+    if (codePrisma(erreur) === 'P2025') {
       throw introuvable();
     }
     throw erreur;
   }
+}
+
+function codePrisma(erreur: unknown): unknown {
+  return typeof erreur === 'object' && erreur !== null && 'code' in erreur
+    ? erreur.code
+    : undefined;
 }
 
 /** Une modification ne porte que ce qu'elle change. */

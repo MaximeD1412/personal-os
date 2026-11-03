@@ -21,7 +21,7 @@ const toujoursFocalisable: Partial<InteractivityChecker> = {
 class Ecran {
   private readonly _confirm = inject(DccmConfirm);
   choix: Promise<unknown> | undefined;
-  forme: 'simple' | 'portee' = 'simple';
+  forme: 'simple' | 'portee' | 'choix' = 'simple';
 
   ouvrir() {
     this.choix =
@@ -31,10 +31,20 @@ class Ecran {
             description: 'Les articles cochés passent au stock.',
             confirmLabel: 'Clôturer la liste',
           })
-        : this._confirm.chooseScope({
-            title: "Modifier l'événement récurrent",
-            confirmLabel: 'Valider la modification',
-          });
+        : this.forme === 'portee'
+          ? this._confirm.chooseScope({
+              title: "Modifier l'événement récurrent",
+              confirmLabel: 'Valider la modification',
+            })
+          : this._confirm.choose({
+              title: 'Quelle occurrence ?',
+              confirmLabel: 'Continuer',
+              choicesLabel: 'Occurrences',
+              choices: [
+                { value: 'a', label: 'Piscine', description: 'Prévue le 5 octobre' },
+                { value: 'b', label: 'Piscine', description: 'Prévue le 12 octobre' },
+              ],
+            });
   }
 }
 
@@ -144,5 +154,24 @@ describe('DccmConfirm', () => {
     bouton('Valider la modification').click();
 
     expect(await fermeture()).toBe<DccmScope>('series');
+  });
+
+  it("pose un choix parmi d'autres options, nommé pour les lecteurs d'écran", async () => {
+    const { dialogue, bouton, fermeture } = await ouvrir('choix');
+
+    expect(dialogue.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(
+      'Occurrences',
+    );
+    const options = [
+      ...dialogue.querySelectorAll<HTMLInputElement>('input[type="radio"]'),
+    ];
+    expect(options.some((o) => o.checked)).toBe(false);
+    expect(bouton('Continuer').disabled).toBe(true);
+
+    options[1].click();
+    await TestBed.inject(ApplicationRef).whenStable();
+    bouton('Continuer').click();
+
+    expect(await fermeture()).toBe('b');
   });
 });

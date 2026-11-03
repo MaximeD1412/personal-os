@@ -24,6 +24,7 @@ import { API_BASE_URL } from './api-base-url';
 import { INTERCEPTEURS } from './app.config';
 import { appRoutes } from './app.routes';
 import { EspaceCourant } from './espace-courant';
+import { versChampLocal } from './formulaire-d-evenement';
 
 const BASE = 'http://api.test/api';
 
@@ -113,6 +114,9 @@ const PISCINES: EventOccurrence[] = [
 
 const MOIS: (Event | EventOccurrence)[] = [DENTISTE, IMPOTS, ...PISCINES];
 
+/** Ce que `GET /events/:id` connaît ; tout autre identifiant y est introuvable. */
+const EVENEMENTS: Event[] = [DENTISTE, IMPOTS, DECLARATION, PISCINE];
+
 // jsdom ne calcule aucune mise en page : tout élément y paraît invisible, et
 // le piège de focus de la feuille n'y trouverait rien à focaliser.
 const atteignable = (element: HTMLElement) =>
@@ -191,7 +195,39 @@ describe('Calendrier', () => {
       ({ method, url }) => method === 'GET' && url === `${BASE}/events`,
     );
 
-  /** Ouvre une adresse sous `/calendrier`, et sert les Espaces puis le mois. */
+  /** La lecture d'un seul Événement, que fait le formulaire de modification. */
+  const lectureDeLEvenement = (id: string): TestRequest =>
+    httpMock.expectOne(
+      ({ method, url }) => method === 'GET' && url === `${BASE}/events/${id}`,
+    );
+
+  /** Sert les lectures d'un Événement en cours : celui qu'on connaît, ou un 404. */
+  function servirLesEvenements(): void {
+    const prefixe = `${BASE}/events/`;
+    for (const demande of httpMock.match(
+      ({ method, url }) => method === 'GET' && url.startsWith(prefixe),
+    )) {
+      const id = demande.request.url.slice(prefixe.length);
+      const evenement = EVENEMENTS.find((candidat) => candidat.id === id);
+      if (evenement) {
+        demande.flush(evenement);
+      } else {
+        demande.flush(
+          {
+            status: 404,
+            code: 'event.not_found',
+            message: "Cet Événement n'existe pas.",
+          },
+          { status: 404, statusText: 'Not Found' },
+        );
+      }
+    }
+  }
+
+  /**
+   * Ouvre une adresse sous `/calendrier`, et sert les Espaces, le mois et
+   * l'Événement qu'un formulaire de modification lit.
+   */
   async function ouvrir(
     url: string,
     { largeur = 1280, evenements = MOIS } = {},
@@ -203,9 +239,50 @@ describe('Calendrier', () => {
 
     httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
     lecture().flush(evenements.map(enOccurrence));
+    servirLesEvenements();
     await harnais.fixture.whenStable();
     harnais.detectChanges();
     return harnais;
+  }
+
+  /** Une navigation dans l'écran (une pastille, un choix de portée) : l'Événement qu'elle ouvre est servi. */
+  async function suivre(
+    harnais: RouterTestingHarness,
+    cible: HTMLElement,
+  ): Promise<void> {
+    await cliquer(harnais, cible);
+    servirLesEvenements();
+    await harnais.fixture.whenStable();
+    harnais.detectChanges();
+  }
+
+  const dialogue = () =>
+    document.body.querySelector<HTMLElement>('[role="alertdialog"]');
+
+  const boutonDuDialogue = (libelle: string) =>
+    [...(dialogue()?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
+      (candidat) => texte(candidat) === libelle,
+    ) as HTMLButtonElement;
+
+  const optionsDuDialogue = () => [
+    ...(dialogue()?.querySelectorAll<HTMLInputElement>('input[type="radio"]') ??
+      []),
+  ];
+
+  /** Un choix dans le dialogue (la portée, l'occurrence) : coche l'option, puis confirme. */
+  async function choisirLaPortee(
+    harnais: RouterTestingHarness,
+    option: string,
+    confirmer: string,
+  ): Promise<void> {
+    const radio = optionsDuDialogue().find((candidat) =>
+      texte(candidat.labels?.[0] ?? null).startsWith(option),
+    );
+    if (!radio) {
+      throw new Error(`Le dialogue n'offre pas « ${option} ».`);
+    }
+    await cliquer(harnais, radio);
+    await suivre(harnais, boutonDuDialogue(confirmer));
   }
 
   /** La relecture du mois qui suit une écriture, servie avec ce que l'API renvoie. */
@@ -293,6 +370,18 @@ describe('Calendrier', () => {
     }
     return trouve;
   };
+
+  /** L'interrupteur « Répétition » du formulaire d'un Événement. */
+  const interrupteur = (harnais: RouterTestingHarness) =>
+    racine(harnais).querySelector<HTMLElement>(
+      '[data-test="repeter"] [role="switch"]',
+    ) as HTMLElement;
+
+  /** Un jour actif de la répétition, par son nom. */
+  const jour = (harnais: RouterTestingHarness, nom: string) =>
+    racine(harnais).querySelector<HTMLButtonElement>(
+      `[data-test="jours"] button[aria-label="${nom}"]`,
+    ) as HTMLButtonElement;
 
   const caseDu = (harnais: RouterTestingHarness, libelle: string) =>
     tous(harnais, 'jour').find(
@@ -699,6 +788,7 @@ describe('Calendrier', () => {
         endsAt: null,
         category: 'APPOINTMENT',
         reminderLeadMinutes: 1_440,
+        recurrence: null,
         scopeId: 'espace-a',
       });
       const vaccin: Event = {
@@ -796,11 +886,13 @@ describe('Calendrier', () => {
         harnais,
         'lundi 14 septembre 2026',
       ).querySelectorAll<HTMLElement>('a');
-      await cliquer(harnais, dentiste);
+      await suivre(harnais, dentiste);
 
       expect(url()).toBe(
         '/calendrier/evenements/event-1?mois=2026-09&occurrence=2026-09-14T09:30:00.000Z',
       );
+      // Un Événement qui n'a lieu qu'une fois n'a pas de portée à choisir.
+      expect(dialogue()).toBeNull();
       expect(texte(formulaire(harnais)?.querySelector('h2') ?? null)).toBe(
         "Modifier l'événement",
       );
@@ -822,6 +914,7 @@ describe('Calendrier', () => {
       await laisserFiler();
       httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
       lecture().flush(MOIS.map(enOccurrence));
+      servirLesEvenements();
       await harnais.fixture.whenStable();
       harnais.detectChanges();
 
@@ -865,26 +958,59 @@ describe('Calendrier', () => {
       expect(url()).toBe('/calendrier?mois=2026-09');
     });
 
-    it("verrouille les horaires d'une occurrence de série, et ne les envoie jamais", async () => {
+    it('modifie toute la série : ses horaires et sa répétition, repris de la série', async () => {
       const harnais = await ouvrir(
-        '/calendrier/evenements/event-serie?mois=2026-09&occurrence=2026-09-14T16:00:00.000Z',
+        '/calendrier/evenements/event-serie?mois=2026-09',
       );
 
+      expect(texte(formulaire(harnais)?.querySelector('h2') ?? null)).toBe(
+        'Modifier la série',
+      );
+      expect(interrupteur(harnais).getAttribute('aria-checked')).toBe('true');
+      expect(segmentChoisi(harnais, 'frequence')).toBe('Hebdomadaire');
+      expect(champ<HTMLInputElement>(harnais, 'intervalle').value).toBe('1');
+      expect(segmentChoisi(harnais, 'fin-de-repetition')).toBe('Jamais');
       const debut = champ<HTMLInputElement>(harnais, 'debut');
-      expect(debut.disabled).toBe(true);
+      expect(debut.disabled).toBe(false);
       expect(new Date(debut.value).getTime()).toBe(
-        new Date('2026-09-14T16:00:00.000Z').getTime(),
+        new Date(PISCINE.startsAt).getTime(),
       );
-      expect(champ(harnais, 'horaires-verrouilles')).not.toBeNull();
 
-      saisir(harnais, 'titre', 'Piscine municipale');
+      saisir(harnais, 'debut', versChampLocal('2026-09-07T15:30:00.000Z'));
+      saisir(harnais, 'intervalle', '2');
+      await choisirLeSegment(harnais, 'fin-de-repetition', 'Après un nombre');
+      await cliquer(harnais, bouton(harnais, 'Enregistrer'));
+
+      const modification = httpMock.expectOne(
+        ({ method, url }) =>
+          method === 'PATCH' && url === `${BASE}/events/event-serie`,
+      );
+      expect(modification.request.body).toEqual({
+        startsAt: '2026-09-07T15:30:00.000Z',
+        recurrence: { freq: 'WEEKLY', interval: 2, count: 10 },
+      });
+      modification.flush({
+        ...PISCINE,
+        startsAt: '2026-09-07T15:30:00.000Z',
+        recurrence: { freq: 'WEEKLY', interval: 2, count: 10 },
+      });
+      await relire(harnais);
+
+      expect(url()).toBe('/calendrier?mois=2026-09');
+    });
+
+    it("arrête la répétition d'une série : elle n'a plus lieu qu'une fois", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-serie?mois=2026-09',
+      );
+
+      await cliquer(harnais, interrupteur(harnais));
+      expect(champ(harnais, 'frequence')).toBeNull();
       await cliquer(harnais, bouton(harnais, 'Enregistrer'));
 
       const modification = httpMock.expectOne(`${BASE}/events/event-serie`);
-      expect(modification.request.body).toEqual({
-        title: 'Piscine municipale',
-      });
-      modification.flush({ ...PISCINE, title: 'Piscine municipale' });
+      expect(modification.request.body).toEqual({ recurrence: null });
+      modification.flush({ ...PISCINE, recurrence: null });
       await relire(harnais);
     });
 
@@ -896,6 +1022,8 @@ describe('Calendrier', () => {
       );
       await laisserFiler();
       httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
+      lecture().flush(MOIS.map(enOccurrence));
+      await laisserFiler();
       harnais.detectChanges();
 
       expect(
@@ -910,7 +1038,7 @@ describe('Calendrier', () => {
       await laisserFiler();
       httpMock.expectNone(({ method }) => method !== 'GET');
 
-      lecture().flush(MOIS.map(enOccurrence));
+      lectureDeLEvenement('event-1').flush(DENTISTE);
       await harnais.fixture.whenStable();
       harnais.detectChanges();
       expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Dentiste');
@@ -924,7 +1052,8 @@ describe('Calendrier', () => {
       );
       await laisserFiler();
       httpMock.expectOne(`${BASE}/espaces`).flush(ESPACES);
-      lecture().flush(
+      lecture().flush(MOIS.map(enOccurrence));
+      lectureDeLEvenement('event-1').flush(
         {
           status: 503,
           code: 'database.unavailable',
@@ -946,12 +1075,11 @@ describe('Calendrier', () => {
       const reessayer = [...panneau.querySelectorAll('button')].find(
         (candidat) => texte(candidat) === 'Réessayer',
       ) as HTMLButtonElement;
-      await cliquer(harnais, reessayer);
-      await relire(harnais);
+      await suivre(harnais, reessayer);
       expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Dentiste');
     });
 
-    it("revient au mois, sans un mot, quand l'Événement désigné n'y est pas", async () => {
+    it("revient au mois, sans un mot, quand l'Événement désigné n'existe pas", async () => {
       const harnais = await ouvrir(
         '/calendrier/evenements/inconnu?mois=2026-09',
       );
@@ -961,17 +1089,436 @@ describe('Calendrier', () => {
       expect(url()).toBe('/calendrier?mois=2026-09');
       expect(formulaire(harnais)).toBeNull();
     });
+
+    it("ne garde rien de l'Événement précédent quand le suivant n'a pas pu être lu", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-1?mois=2026-09',
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Dentiste');
+
+      await harnais.navigateByUrl(
+        '/calendrier/evenements/event-2?mois=2026-09',
+      );
+      await laisserFiler();
+      lectureDeLEvenement('event-2').flush(
+        {
+          status: 503,
+          code: 'database.unavailable',
+          message: 'La base de données ne répond pas.',
+        },
+        { status: 503, statusText: 'Service Unavailable' },
+      );
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
+
+      const panneau = formulaire(harnais) as HTMLElement;
+      expect(texte(panneau)).toContain('La base de données ne répond pas.');
+      expect(champ(harnais, 'titre')).toBeNull();
+      expect(champ(harnais, 'supprimer')).toBeNull();
+      expect(bouton(harnais, 'Enregistrer').disabled).toBe(true);
+      panneau.querySelector('form')?.requestSubmit();
+      await laisserFiler();
+      httpMock.expectNone(({ method }) => method !== 'GET');
+    });
+  });
+
+  describe("Le choix de portée, sur l'occurrence d'une série", () => {
+    /** Le lundi 14 : la seconde pastille est la Piscine de 18 h. */
+    async function ouvrirLaPiscineDu14() {
+      const harnais = await ouvrir('/calendrier');
+      const [, piscine] = caseDu(
+        harnais,
+        'lundi 14 septembre 2026',
+      ).querySelectorAll<HTMLElement>('a');
+      await suivre(harnais, piscine);
+      return harnais;
+    }
+
+    it("est posé avant tout formulaire, sans option choisie d'avance", async () => {
+      const harnais = await ouvrirLaPiscineDu14();
+
+      expect(texte(dialogue())).toContain('Modifier « Piscine » ?');
+      expect(texte(dialogue())).toContain(
+        "Seule l'occurrence du lundi 14 septembre change",
+      );
+      expect(
+        optionsDuDialogue().map((option) => texte(option.labels?.[0] ?? null)),
+      ).toEqual([
+        expect.stringContaining('Cette occurrence uniquement'),
+        expect.stringContaining('Toute la série'),
+      ]);
+      expect(optionsDuDialogue().some((option) => option.checked)).toBe(false);
+      expect(boutonDuDialogue('Modifier').disabled).toBe(true);
+      expect(champ(harnais, 'titre')).toBeNull();
+    });
+
+    it("« Cette occurrence » ouvre l'occurrence, dont l'enregistrement pose une exception", async () => {
+      const harnais = await ouvrirLaPiscineDu14();
+
+      await choisirLaPortee(harnais, 'Cette occurrence uniquement', 'Modifier');
+
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09',
+      );
+      expect(texte(formulaire(harnais)?.querySelector('h2') ?? null)).toBe(
+        "Modifier l'occurrence",
+      );
+      expect(texte(formulaire(harnais))).toContain(
+        'Occurrence du lundi 14 septembre',
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Piscine');
+      // La règle appartient à la série : l'occurrence ne la montre pas.
+      expect(champ(harnais, 'repetition')).toBeNull();
+
+      saisir(harnais, 'titre', 'Piscine avec Léa');
+      saisir(harnais, 'debut', versChampLocal('2026-09-14T17:00:00.000Z'));
+      await cliquer(harnais, bouton(harnais, 'Enregistrer'));
+
+      const exception = httpMock.expectOne(
+        ({ method, url }) =>
+          method === 'PATCH' &&
+          url ===
+            `${BASE}/events/event-serie/occurrences/2026-09-14T16:00:00.000Z`,
+      );
+      expect(exception.request.body).toEqual({
+        title: 'Piscine avec Léa',
+        startsAt: '2026-09-14T17:00:00.000Z',
+      });
+      const deplacee = {
+        ...PISCINES[1],
+        title: 'Piscine avec Léa',
+        startsAt: '2026-09-14T17:00:00.000Z',
+        endsAt: '2026-09-14T18:00:00.000Z',
+      };
+      exception.flush(deplacee);
+      await relire(harnais, [DENTISTE, IMPOTS, PISCINES[0], deplacee]);
+
+      expect(url()).toBe('/calendrier?mois=2026-09');
+      expect(texte(caseDu(harnais, 'lundi 14 septembre 2026'))).toContain(
+        'Piscine avec Léa',
+      );
+      expect(texte(caseDu(harnais, 'lundi 7 septembre 2026'))).not.toContain(
+        'Léa',
+      );
+    });
+
+    it("affiche le refus de l'API dans le formulaire de l'occurrence", async () => {
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09',
+      );
+
+      saisir(harnais, 'fin', versChampLocal('2026-09-14T15:00:00.000Z'));
+      await cliquer(harnais, bouton(harnais, 'Enregistrer'));
+      httpMock
+        .expectOne(
+          `${BASE}/events/event-serie/occurrences/2026-09-14T16:00:00.000Z`,
+        )
+        .flush(
+          {
+            status: 422,
+            code: 'event.period_reversed',
+            message: 'La fin ne peut pas précéder le début.',
+          },
+          { status: 422, statusText: 'Unprocessable Entity' },
+        );
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
+
+      expect(texte(champ(harnais, 'refus'))).toContain(
+        'La fin ne peut pas précéder le début.',
+      );
+      expect(url()).toContain('/occurrences/');
+    });
+
+    it('« Toute la série » ouvre le formulaire de la série, avec ses propres valeurs', async () => {
+      const harnais = await ouvrirLaPiscineDu14();
+
+      await choisirLaPortee(harnais, 'Toute la série', 'Modifier');
+
+      expect(url()).toBe('/calendrier/evenements/event-serie?mois=2026-09');
+      expect(texte(formulaire(harnais)?.querySelector('h2') ?? null)).toBe(
+        'Modifier la série',
+      );
+      // Les horaires sont ceux de la série, et non de l'occurrence du 14.
+      expect(
+        new Date(champ<HTMLInputElement>(harnais, 'debut').value).getTime(),
+      ).toBe(new Date(PISCINE.startsAt).getTime());
+
+      saisir(harnais, 'titre', 'Natation');
+      await cliquer(harnais, bouton(harnais, 'Enregistrer'));
+      const modification = httpMock.expectOne(
+        ({ method, url }) =>
+          method === 'PATCH' && url === `${BASE}/events/event-serie`,
+      );
+      expect(modification.request.body).toEqual({ title: 'Natation' });
+      modification.flush({ ...PISCINE, title: 'Natation' });
+      await relire(harnais);
+    });
+
+    it('« Annuler » referme sans rien ouvrir ni envoyer', async () => {
+      const harnais = await ouvrirLaPiscineDu14();
+
+      await cliquer(harnais, boutonDuDialogue('Annuler'));
+      await harnais.fixture.whenStable();
+
+      expect(url()).toBe('/calendrier?mois=2026-09');
+      expect(formulaire(harnais)).toBeNull();
+    });
+
+    it('est reposé à chaque fois : le choix précédent ne vaut pas pour la suite', async () => {
+      const harnais = await ouvrirLaPiscineDu14();
+      await choisirLaPortee(harnais, 'Toute la série', 'Modifier');
+      await cliquer(harnais, bouton(harnais, 'Annuler'));
+
+      const [, piscine] = caseDu(
+        harnais,
+        'lundi 14 septembre 2026',
+      ).querySelectorAll<HTMLElement>('a');
+      await suivre(harnais, piscine);
+
+      expect(texte(dialogue())).toContain('Modifier « Piscine » ?');
+      expect(optionsDuDialogue().some((option) => option.checked)).toBe(false);
+      expect(champ(harnais, 'titre')).toBeNull();
+    });
+
+    it("revient au mois, sans un mot, quand le mois n'a pas l'occurrence désignée", async () => {
+      await ouvrir(
+        '/calendrier/evenements/event-serie?mois=2026-09&occurrence=2026-09-21T16:00:00.000Z',
+      );
+
+      expect(dialogue()).toBeNull();
+      expect(url()).toBe('/calendrier?mois=2026-09');
+    });
+
+    it('reprend l’occurrence par son identité, quand une autre a été déplacée au même instant', async () => {
+      // Celle du 14, déplacée sur l'horaire de celle du 7.
+      const deplacee = occurrenceDe(PISCINE, {
+        originalStart: '2026-09-14T16:00:00.000Z',
+        title: 'Piscine déplacée',
+      });
+      const harnais = await ouvrir('/calendrier', {
+        evenements: [PISCINES[0], deplacee],
+      });
+
+      const pastille = [
+        ...caseDu(harnais, 'lundi 7 septembre 2026').querySelectorAll('a'),
+      ].find((lien) => texte(lien).includes('Piscine déplacée')) as HTMLElement;
+      await suivre(harnais, pastille);
+
+      expect(texte(dialogue())).toContain('Modifier « Piscine déplacée » ?');
+      await choisirLaPortee(harnais, 'Cette occurrence uniquement', 'Modifier');
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09',
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe(
+        'Piscine déplacée',
+      );
+    });
+
+    it("demande depuis l'Agenda laquelle est visée, quand plusieurs occurrences tombent à son début", async () => {
+      // Celle du 14, déplacée sur l'horaire de celle du 7 : l'Agenda ne les
+      // distingue que par leur début, qui est le même.
+      const deplacee = occurrenceDe(PISCINE, {
+        originalStart: '2026-09-14T16:00:00.000Z',
+        title: 'Piscine déplacée',
+      });
+      const lien =
+        '/calendrier/evenements/event-serie?mois=2026-09&debut=2026-09-07T16:00:00.000Z';
+
+      let harnais = await ouvrir(lien, { evenements: [PISCINES[0], deplacee] });
+      expect(texte(dialogue())).toContain('Quelle occurrence de « Piscine » ?');
+      expect(
+        optionsDuDialogue().map((option) => texte(option.labels?.[0] ?? null)),
+      ).toEqual([
+        'PiscinePrévue par la série le lundi 7 septembre.',
+        'Piscine déplacéePrévue par la série le lundi 14 septembre.',
+      ]);
+      expect(optionsDuDialogue().some((option) => option.checked)).toBe(false);
+      expect(boutonDuDialogue('Continuer').disabled).toBe(true);
+      expect(champ(harnais, 'titre')).toBeNull();
+
+      await choisirLaPortee(harnais, 'Piscine déplacée', 'Continuer');
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie?mois=2026-09&occurrence=2026-09-14T16:00:00.000Z',
+      );
+      expect(texte(dialogue())).toContain('Modifier « Piscine déplacée » ?');
+      await choisirLaPortee(harnais, 'Cette occurrence uniquement', 'Modifier');
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09',
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe(
+        'Piscine déplacée',
+      );
+
+      // « Annuler » ne choisit rien, et referme.
+      TestBed.resetTestingModule();
+      harnais = await ouvrir(lien, { evenements: [PISCINES[0], deplacee] });
+      await cliquer(harnais, boutonDuDialogue('Annuler'));
+      await harnais.fixture.whenStable();
+      expect(url()).toBe('/calendrier?mois=2026-09');
+      expect(httpMock.match(({ method }) => method !== 'GET')).toEqual([]);
+    });
+
+    it("retrouve depuis l'Agenda l'occurrence par son début, seul connu de l'Agenda", async () => {
+      await ouvrir(
+        '/calendrier/evenements/event-serie?mois=2026-09&debut=2026-09-14T16:00:00.000Z',
+      );
+
+      expect(texte(dialogue())).toContain(
+        "Seule l'occurrence du lundi 14 septembre change",
+      );
+    });
+
+    it('garde le préremplissage du lien, quel que soit le choix', async () => {
+      const lien =
+        '/calendrier/evenements/event-serie?mois=2026-09&occurrence=2026-09-14T16:00:00.000Z&title=Aquagym';
+
+      let harnais = await ouvrir(`${lien}&category=SPORT`);
+      await choisirLaPortee(harnais, 'Cette occurrence uniquement', 'Modifier');
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09&title=Aquagym&category=SPORT',
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Aquagym');
+      // La catégorie est celle de la série : l'occurrence le dit, sans l'oublier.
+      expect(texte(champ(harnais, 'ignores'))).toContain('category=SPORT');
+
+      TestBed.resetTestingModule();
+      harnais = await ouvrir(lien);
+      await choisirLaPortee(harnais, 'Toute la série', 'Modifier');
+      expect(url()).toBe(
+        '/calendrier/evenements/event-serie?mois=2026-09&title=Aquagym',
+      );
+      expect(champ<HTMLInputElement>(harnais, 'titre').value).toBe('Aquagym');
+      expect(httpMock.match(() => true)).toEqual([]);
+    });
+
+    it("efface la fin propre d'une occurrence : elle reprend la durée de la série", async () => {
+      const longue = { ...PISCINES[1], endsAt: '2026-09-14T18:30:00.000Z' };
+      const harnais = await ouvrir(
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09',
+        { evenements: [PISCINES[0], longue] },
+      );
+
+      saisir(harnais, 'fin', '');
+      await cliquer(harnais, bouton(harnais, 'Enregistrer'));
+
+      const exception = httpMock.expectOne(
+        ({ method, url }) =>
+          method === 'PATCH' &&
+          url ===
+            `${BASE}/events/event-serie/occurrences/2026-09-14T16:00:00.000Z`,
+      );
+      expect(exception.request.body).toEqual({ endsAt: null });
+      exception.flush(PISCINES[1]);
+      await relire(harnais);
+    });
+  });
+
+  describe('La répétition, à la création', () => {
+    const NOUVEAU =
+      '/calendrier/evenements/nouveau?mois=2026-09&title=Piscine' +
+      '&startsAt=2026-09-21T16:00:00.000Z&scopeId=espace-a';
+
+    function creation() {
+      return httpMock.expectOne(
+        ({ method, url }) => method === 'POST' && url === `${BASE}/events`,
+      );
+    }
+
+    it('crée une série : fréquence, intervalle, jours et fin à une date', async () => {
+      const harnais = await ouvrir(NOUVEAU);
+
+      expect(interrupteur(harnais).getAttribute('aria-checked')).toBe('false');
+      expect(champ(harnais, 'frequence')).toBeNull();
+
+      await cliquer(harnais, interrupteur(harnais));
+      expect(segmentChoisi(harnais, 'frequence')).toBe('Hebdomadaire');
+      saisir(harnais, 'intervalle', '2');
+      await cliquer(harnais, jour(harnais, 'jeudi'));
+      await cliquer(harnais, jour(harnais, 'lundi'));
+      expect(jour(harnais, 'lundi').getAttribute('aria-pressed')).toBe('true');
+      await choisirLeSegment(harnais, 'fin-de-repetition', 'À une date');
+      expect(bouton(harnais, "Créer l'événement").disabled).toBe(true);
+      saisir(harnais, 'jusqu-au', '2026-12-31');
+      await cliquer(harnais, bouton(harnais, "Créer l'événement"));
+
+      const demande = creation();
+      expect(demande.request.body.recurrence).toEqual({
+        freq: 'WEEKLY',
+        interval: 2,
+        byWeekday: ['MO', 'TH'],
+        until: '2026-12-31',
+      });
+      demande.flush({
+        ...PISCINE,
+        id: 'event-5',
+        recurrence: demande.request.body.recurrence,
+      });
+      await relire(harnais);
+    });
+
+    it("ne choisit pas de jours pour une série mensuelle, et finit après un nombre d'occurrences", async () => {
+      const harnais = await ouvrir(NOUVEAU);
+      await cliquer(harnais, interrupteur(harnais));
+
+      await choisirLeSegment(harnais, 'frequence', 'Mensuelle');
+      expect(champ(harnais, 'jours')).toBeNull();
+      expect(texte(champ(harnais, 'repetition'))).toContain('mois');
+      await choisirLeSegment(harnais, 'fin-de-repetition', 'Après un nombre');
+      saisir(harnais, 'nombre', '6');
+      await cliquer(harnais, bouton(harnais, "Créer l'événement"));
+
+      const demande = creation();
+      expect(demande.request.body.recurrence).toEqual({
+        freq: 'MONTHLY',
+        interval: 1,
+        count: 6,
+      });
+      demande.flush({ ...PISCINE, id: 'event-5' });
+      await relire(harnais);
+    });
+
+    it("n'enregistre pas un intervalle vide", async () => {
+      const harnais = await ouvrir(NOUVEAU);
+      await cliquer(harnais, interrupteur(harnais));
+
+      saisir(harnais, 'intervalle', '');
+
+      expect(bouton(harnais, "Créer l'événement").disabled).toBe(true);
+    });
+
+    it('affiche sous la répétition le refus qui vise la règle', async () => {
+      const harnais = await ouvrir(NOUVEAU);
+      await cliquer(harnais, interrupteur(harnais));
+      await choisirLeSegment(harnais, 'fin-de-repetition', 'À une date');
+      saisir(harnais, 'jusqu-au', '2026-09-01');
+      await cliquer(harnais, bouton(harnais, "Créer l'événement"));
+
+      creation().flush(
+        {
+          status: 400,
+          code: 'request.invalid',
+          message: 'La requête ne respecte pas le schéma attendu.',
+          fields: [
+            {
+              path: 'recurrence.until',
+              code: 'custom',
+              message: 'La fin de la répétition précède le début.',
+            },
+          ],
+        },
+        { status: 400, statusText: 'Bad Request' },
+      );
+      await harnais.fixture.whenStable();
+      harnais.detectChanges();
+
+      expect(texte(champ(harnais, 'erreur-recurrence'))).toBe(
+        'La fin de la répétition précède le début.',
+      );
+    });
   });
 
   describe('La suppression', () => {
-    const dialogue = () =>
-      document.body.querySelector<HTMLElement>('[role="alertdialog"]');
-
-    const boutonDuDialogue = (libelle: string) =>
-      [
-        ...(dialogue()?.querySelectorAll<HTMLButtonElement>('button') ?? []),
-      ].find((candidat) => texte(candidat) === libelle) as HTMLButtonElement;
-
     async function demanderLaSuppression(harnais: RouterTestingHarness) {
       await cliquer(harnais, champ(harnais, 'supprimer'));
       await harnais.fixture.whenStable();
@@ -1000,9 +1547,9 @@ describe('Calendrier', () => {
       expect(url()).toBe('/calendrier/evenements/event-1?mois=2026-09');
     });
 
-    it('supprime la série entière, une fois confirmée, puis relit le mois', async () => {
+    it('supprime la série entière depuis son formulaire, une fois confirmée, puis relit le mois', async () => {
       const harnais = await ouvrir(
-        '/calendrier/evenements/event-serie?mois=2026-09&occurrence=2026-09-14T16:00:00.000Z',
+        '/calendrier/evenements/event-serie?mois=2026-09',
       );
 
       await demanderLaSuppression(harnais);
@@ -1021,6 +1568,72 @@ describe('Calendrier', () => {
 
       expect(url()).toBe('/calendrier?mois=2026-09');
       expect(texte(racine(harnais))).not.toContain('Piscine');
+    });
+
+    describe("d'une occurrence", () => {
+      const OCCURRENCE =
+        '/calendrier/evenements/event-serie/occurrences/2026-09-14T16:00:00.000Z?mois=2026-09';
+
+      it('demande encore ce qu’elle touche, sans option choisie, et n’envoie rien sur « Annuler »', async () => {
+        const harnais = await ouvrir(OCCURRENCE);
+
+        await demanderLaSuppression(harnais);
+        expect(texte(dialogue())).toContain('Supprimer « Piscine » ?');
+        expect(optionsDuDialogue().some((option) => option.checked)).toBe(
+          false,
+        );
+        expect(boutonDuDialogue('Supprimer').disabled).toBe(true);
+
+        await cliquer(harnais, boutonDuDialogue('Annuler'));
+        await harnais.fixture.whenStable();
+        expect(url()).toBe(OCCURRENCE);
+      });
+
+      it('« Cette occurrence » ne supprime que celle-ci : les autres restent', async () => {
+        const harnais = await ouvrir(OCCURRENCE);
+
+        await demanderLaSuppression(harnais);
+        await choisirLaPortee(
+          harnais,
+          'Cette occurrence uniquement',
+          'Supprimer',
+        );
+
+        httpMock
+          .expectOne(
+            ({ method, url }) =>
+              method === 'DELETE' &&
+              url ===
+                `${BASE}/events/event-serie/occurrences/2026-09-14T16:00:00.000Z`,
+          )
+          .flush(null);
+        await relire(harnais, [DENTISTE, IMPOTS, PISCINES[0]]);
+
+        expect(url()).toBe('/calendrier?mois=2026-09');
+        expect(texte(caseDu(harnais, 'lundi 14 septembre 2026'))).not.toContain(
+          'Piscine',
+        );
+        expect(texte(caseDu(harnais, 'lundi 7 septembre 2026'))).toContain(
+          'Piscine',
+        );
+      });
+
+      it('« Toute la série » supprime la série', async () => {
+        const harnais = await ouvrir(OCCURRENCE);
+
+        await demanderLaSuppression(harnais);
+        await choisirLaPortee(harnais, 'Toute la série', 'Supprimer');
+
+        httpMock
+          .expectOne(
+            ({ method, url }) =>
+              method === 'DELETE' && url === `${BASE}/events/event-serie`,
+          )
+          .flush(null);
+        await relire(harnais, [DENTISTE, IMPOTS]);
+
+        expect(texte(racine(harnais))).not.toContain('Piscine');
+      });
     });
   });
 });

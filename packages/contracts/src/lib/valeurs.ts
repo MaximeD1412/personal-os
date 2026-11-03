@@ -99,6 +99,30 @@ export function periodeDeLaSemaine(
 }
 
 /**
+ * L'instant d'une heure murale d'un jour civil, dans le fuseau donné : le
+ * déjeuner de midi à Paris, en UTC. L'heure ne doit pas tomber dans un
+ * changement d'heure (entre 2 h et 3 h à Paris), où elle serait ambiguë.
+ */
+export function instantDans(
+  jour: string,
+  heure: number,
+  minute: number,
+  fuseau = FUSEAU,
+): string {
+  const date = enMinuitUtc(zDay.parse(jour));
+  const muraleUtc = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    heure,
+    minute,
+  );
+  const premier = muraleUtc - decalage(fuseau, muraleUtc);
+
+  return new Date(muraleUtc - decalage(fuseau, premier)).toISOString();
+}
+
+/**
  * Un jour à minuit, heure du fuseau (`Date.UTC` reporte un jour qui déborde
  * du mois). Minuit ne tombe jamais dans un changement d'heure à Paris : un
  * seul décalage le désigne.

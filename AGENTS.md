@@ -99,6 +99,10 @@ et lève `food.list_already_closed`.
 | Recette                                  | `Recipe`                                                         |
 | Ligne (d'une Recette), Origine           | `RecipeLine`, `RecipeSource` (`MANUAL`, `GENERATED`)             |
 | Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |
+| Moment (déjeuner, dîner)                 | `MealMoment` : `LUNCH`, `DINNER`                                 |
+| Décision (approuvé, proposé, refusé)     | `MealPlanEntryDecision` : `APPROVED`, `PROPOSED`, `REFUSED`      |
+| Planning ouvert, arrêté                  | `MealPlanStatus` : `OPEN`, `STOPPED`                             |
+| Portions (d'un Repas planifié)           | `servings`, `portions()`                                         |
 | Tour de génération, Souhait              | `GenerationRound`, `MealWish`                                    |
 | Préférence alimentaire, Allergène        | `FoodPreference`, `Allergen`                                     |
 | Allergie, aliment exclu, peu apprécié    | `FoodPreferenceKind` : `ALLERGY`, `EXCLUDED`, `DISLIKED`         |
@@ -110,13 +114,18 @@ et lève `food.list_already_closed`.
 | Recaleur, mouvement de stock             | `recaler`, `ACHAT`, `CONSOMMATION`, `CORRECTION`                 |
 | Repas cuisiné                            | `CookedMeal`                                                     |
 | Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
+| État de publication                      | `PublicationState` : `UNPUBLISHED`, `READY`, `PUBLISHED`         |
+| Langue (du portfolio)                    | `Lang` : `FR`, `EN`                                              |
+| Dépense de projet, Lien de projet        | `ProjectExpense`, `links` (`ProjectLink`)                        |
 | Page de contenu                          | `PageContent`                                                    |
+| CV (du portfolio)                        | `Cv`, routes `/cv/:lang`                                         |
+| Stockage objet                           | `StockageObjet`, module `storage`, `STORAGE_PROVIDER`            |
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 | Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
 | Commande non comprise                    | `UnresolvedCommand`                                              |
 
 Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
-`portfolio`, `dashboard`, `command-bar`, `ai`. Un terme absent de cette table se
+`portfolio`, `dashboard`, `command-bar`, `ai`, `storage`. Un terme absent de cette table se
 traduit en restant au plus près du glossaire, et la traduction s'ajoute ici
 dans la même PR.
 
