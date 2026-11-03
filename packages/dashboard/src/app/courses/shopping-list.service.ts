@@ -6,6 +6,7 @@ import {
 import { Injectable, inject } from '@angular/core';
 import type {
   ShoppingList,
+  ShoppingListClosure,
   ShoppingListItem,
   ShoppingListItemInput,
 } from '@personal-os/contracts';
@@ -73,6 +74,17 @@ export class ShoppingListService {
   retirer(listeId: string, articleId: string): Observable<void> {
     return this.http.delete<void>(
       `${this.baseUrl}/shopping-lists/${listeId}/items/${articleId}`,
+    );
+  }
+
+  /** Clôt la liste : ses articles cochés entrent au Stock domestique. */
+  cloturer(
+    listeId: string,
+    saisie: ShoppingListClosure,
+  ): Observable<ShoppingList> {
+    return this.http.post<ShoppingList>(
+      `${this.baseUrl}/shopping-lists/${listeId}/close`,
+      saisie,
     );
   }
 }

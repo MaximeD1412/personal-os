@@ -112,6 +112,7 @@ et lève `food.list_already_closed`.
 | Liste ouverte, close                     | `ShoppingListStatus` : `OPEN`, `CLOSED`                          |
 | Origine d'un Article (planning, manuel)  | `ShoppingListItemOrigin` : `PLAN`, `MANUAL`                      |
 | Consolidateur, Article coché             | `consolider`, `checked`                                          |
+| Clôture (d'une liste), quantité achetée  | `cloturer`, `ShoppingListClosure`, `purchasedQuantity`           |
 | Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
 | Stock domestique                         | `PantryItem`                                                     |
 | Péremption (d'une ligne de stock)        | `expiresOn`                                                      |

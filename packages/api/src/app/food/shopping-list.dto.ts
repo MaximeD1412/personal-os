@@ -1,5 +1,6 @@
 import {
   zShoppingList,
+  zShoppingListClosure,
   zShoppingListItem,
   zShoppingListItemInput,
   zShoppingListQuery,
@@ -19,4 +20,8 @@ export class ShoppingListQueryDto extends createZodDto(zShoppingListQuery) {}
 
 export class ShoppingListItemInputDto extends createZodDto(
   zShoppingListItemInput,
+) {}
+
+export class ShoppingListClosureDto extends createZodDto(
+  zShoppingListClosure,
 ) {}

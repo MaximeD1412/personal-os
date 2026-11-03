@@ -7,6 +7,7 @@ import type {
   ShoppingListStatus,
 } from '@personal-os/contracts';
 import { ID_ESPACE_FOYER, PrismaService } from '@personal-os/database';
+import type { LigneDeStock } from './stock/recaler';
 
 interface Decimal {
   toNumber(): number;
@@ -15,7 +16,12 @@ interface Decimal {
 
 export interface ShoppingListItemRecord {
   id: string;
-  ingredient: { id: string; displayName: string } | null;
+  ingredient: {
+    id: string;
+    displayName: string;
+    canonicalUnit: CanonicalUnit;
+    perishable: boolean;
+  } | null;
   label: string | null;
   quantity: Decimal | null;
   unit: CanonicalUnit | null;
@@ -71,7 +77,14 @@ export interface ShoppingListItemWrite {
 
 const CHAMPS_DE_L_ARTICLE = {
   id: true,
-  ingredient: { select: { id: true, displayName: true } },
+  ingredient: {
+    select: {
+      id: true,
+      displayName: true,
+      canonicalUnit: true,
+      perishable: true,
+    },
+  },
   label: true,
   quantity: true,
   unit: true,
@@ -87,6 +100,23 @@ const AVEC_LES_ARTICLES = {
     select: CHAMPS_DE_L_ARTICLE,
   },
 } as const;
+
+/** Une ligne de stock telle qu'elle se lit et s'écrit : la quantité en texte, sans flottant. */
+export interface LigneDeStockEcrite {
+  quantity: string;
+  expiresOn: string | null;
+}
+
+/**
+ * Ce que la clôture fait à la ligne de stock d'un Ingrédient. `avant` est
+ * l'état lu, aucun si la ligne n'existait pas : l'écriture n'a lieu que si la
+ * ligne l'a encore.
+ */
+export interface AchatEcrit {
+  ingredientId: string;
+  avant: LigneDeStockEcrite | null;
+  apres: LigneDeStockEcrite;
+}
 
 /** Combien de fois un ajout reprend son rang quand un ajout simultané l'a pris. */
 const ESSAIS_D_AJOUT = 5;
@@ -168,6 +198,25 @@ export class ShoppingListRepository {
       where: { ingredientId: { in: [...ingredientIds] } },
       select: { ingredientId: true, quantity: true },
     });
+  }
+
+  /** Les lignes de stock de ces Ingrédients, par Ingrédient, péremption comprise. */
+  async lignesDeStock(
+    ingredientIds: readonly string[],
+  ): Promise<Map<string, LigneDeStock>> {
+    const lignes = await this.prisma.pantryItem.findMany({
+      where: { ingredientId: { in: [...ingredientIds] } },
+      select: { ingredientId: true, quantity: true, expiresOn: true },
+    });
+    return new Map(
+      lignes.map(({ ingredientId, quantity, expiresOn }) => [
+        ingredientId,
+        {
+          quantite: quantity.toString(),
+          expireLe: expiresOn?.toISOString().slice(0, 10) ?? null,
+        },
+      ]),
+    );
   }
 
   /** L'Unité canonique d'un Ingrédient du catalogue, ou rien s'il n'y est pas. */
@@ -280,6 +329,75 @@ export class ShoppingListRepository {
     return count;
   }
 
+  /**
+   * Clôt la liste et monte le stock de ses achats, dans une seule transaction
+   * qui s'ouvre sur l'écriture de la liste **ouverte** : une seconde clôture
+   * attend la première, puis échoue (P2025), avant d'avoir touché au stock.
+   *
+   * Les achats ont été comptés sur l'état lu de la liste et du stock ; la
+   * transaction échoue (P2025, ou P2002 pour une ligne créée entre-temps) si
+   * cet état a changé, et le service recommence sur l'état relu. Chaque
+   * article garde l'état coché qu'on lui a lu : un article coché ou décoché
+   * entre la lecture et la clôture la fait échouer. Chaque ligne de stock
+   * garde l'état lu, ou n'existe toujours pas.
+   *
+   * Les lignes de stock s'écrivent dans l'ordre de leur Ingrédient, comme pour
+   * un Repas cuisiné : deux écritures simultanées de plusieurs lignes les
+   * verrouillent dans le même ordre, et l'une attend l'autre.
+   */
+  async cloturer(
+    listeId: string,
+    articlesLus: readonly { id: string; checked: boolean }[],
+    achats: readonly AchatEcrit[],
+  ): Promise<ShoppingListRecord> {
+    const [liste] = await this.prisma.$transaction([
+      this.prisma.shoppingList.update({
+        where: { id: listeId, status: 'OPEN' },
+        data: { status: 'CLOSED', closedAt: new Date() },
+        include: AVEC_LES_ARTICLES,
+      }),
+      ...articlesLus.map(({ id, checked }) =>
+        this.prisma.shoppingListItem.update({
+          where: { id, shoppingListId: listeId, checked },
+          data: { checked },
+          select: { id: true },
+        }),
+      ),
+      ...[...achats]
+        .sort((a, b) =>
+          a.ingredientId < b.ingredientId
+            ? -1
+            : a.ingredientId > b.ingredientId
+              ? 1
+              : 0,
+        )
+        .map(({ ingredientId, avant, apres }) => {
+          const ligne = {
+            quantity: apres.quantity,
+            expiresOn: versLaBase(apres.expiresOn),
+          };
+          return avant === null
+            ? this.prisma.pantryItem.create({
+                data: { scopeId: ID_ESPACE_FOYER, ingredientId, ...ligne },
+                select: { id: true },
+              })
+            : this.prisma.pantryItem.update({
+                where: {
+                  scopeId_ingredientId: {
+                    scopeId: ID_ESPACE_FOYER,
+                    ingredientId,
+                  },
+                  quantity: avant.quantity,
+                  expiresOn: versLaBase(avant.expiresOn),
+                },
+                data: ligne,
+                select: { id: true },
+              });
+        }),
+    ]);
+    return liste;
+  }
+
   /** Une écriture qui ne change rien, sinon le verrou de la rangée. */
   private verrouillerOuverte(id: string) {
     return this.prisma.shoppingList.update({
@@ -294,4 +412,9 @@ export function codePrisma(erreur: unknown): unknown {
   return typeof erreur === 'object' && erreur !== null && 'code' in erreur
     ? erreur.code
     : undefined;
+}
+
+/** Un jour civil part en base comme le minuit UTC de ce jour, que `DATE` garde tel quel. */
+function versLaBase(jour: string | null): Date | null {
+  return jour === null ? null : new Date(`${jour}T00:00:00Z`);
 }

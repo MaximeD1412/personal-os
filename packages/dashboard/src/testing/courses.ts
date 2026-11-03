@@ -23,7 +23,12 @@ export { BASE };
 
 export const FARINE: ShoppingListItem = {
   id: 'article-farine',
-  ingredient: { id: 'ingredient-farine', displayName: 'Farine de blé' },
+  ingredient: {
+    id: 'ingredient-farine',
+    displayName: 'Farine de blé',
+    canonicalUnit: 'GRAM',
+    perishable: false,
+  },
   label: null,
   quantity: 550,
   unit: 'GRAM',
@@ -34,7 +39,12 @@ export const FARINE: ShoppingListItem = {
 
 export const LAIT: ShoppingListItem = {
   id: 'article-lait',
-  ingredient: { id: 'ingredient-lait', displayName: 'Lait demi-écrémé' },
+  ingredient: {
+    id: 'ingredient-lait',
+    displayName: 'Lait demi-écrémé',
+    canonicalUnit: 'MILLILITER',
+    perishable: true,
+  },
   label: null,
   quantity: 1000,
   unit: 'MILLILITER',
