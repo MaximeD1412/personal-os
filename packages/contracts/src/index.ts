@@ -10,6 +10,7 @@ export * from './lib/health';
 export * from './lib/household';
 export * from './lib/ingredient';
 export * from './lib/meal-plan';
+export * from './lib/meal-wish';
 export * from './lib/project';
 export * from './lib/publication';
 export * from './lib/recipe';

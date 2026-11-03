@@ -13,14 +13,17 @@ import { MealPlanEntryAgendaContributor } from './meal-plan-entry-agenda.contrib
 import { MealPlanController } from './meal-plan.controller';
 import { MealPlanRepository } from './meal-plan.repository';
 import { MealPlanService } from './meal-plan.service';
+import { MealWishController } from './meal-wish.controller';
+import { MealWishRepository } from './meal-wish.repository';
+import { MealWishService } from './meal-wish.service';
 import { RecipeController } from './recipe.controller';
 import { RecipeRepository } from './recipe.repository';
 import { RecipeService } from './recipe.service';
 
 /**
  * La Cuisine. Le catalogue d'Ingrédients et ses Alias sont globaux ; les
- * Recettes, les Préférences alimentaires et le Planning de repas vivent dans
- * l'Espace foyer, où les Courses les rejoindront. Les Repas planifiés se
+ * Recettes, les Préférences alimentaires, le Planning de repas et ses Souhaits
+ * vivent dans l'Espace foyer, où les Courses les rejoindront. Les Repas planifiés se
  * présentent à l'Agenda (ADR 0011).
  */
 @Module({
@@ -31,6 +34,7 @@ import { RecipeService } from './recipe.service';
     FoodPreferenceController,
     RecipeController,
     MealPlanController,
+    MealWishController,
   ],
   providers: [
     IngredientService,
@@ -43,6 +47,8 @@ import { RecipeService } from './recipe.service';
     RecipeRepository,
     MealPlanService,
     MealPlanRepository,
+    MealWishService,
+    MealWishRepository,
     MealPlanEntryAgendaContributor,
   ],
 })
