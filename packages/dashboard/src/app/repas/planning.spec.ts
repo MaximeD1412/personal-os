@@ -3,15 +3,25 @@ import {
   type TestRequest,
 } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { MealPlan, ShoppingList } from '@personal-os/contracts';
+import type {
+  GenerationRound,
+  MealPlan,
+  MealPlanEntry,
+  ShoppingList,
+} from '@personal-os/contracts';
 import {
   arrivee,
   BASE,
+  DAHL_DU_LUNDI,
   FOYER,
   LUNDI,
   MAINTENANT,
   ouvrirLePlanning,
   PLANNING,
+  PLANNING_GENERE,
+  PLANNING_STATUE,
+  PREMIER_TOUR,
+  RESTES_DU_MERCREDI,
 } from '../../testing/planning';
 
 type Ouvert = Awaited<ReturnType<typeof ouvrirLePlanning>>;
@@ -211,7 +221,7 @@ describe('Le Planning de repas', () => {
   });
 
   it('arrête le planning après confirmation, puis ne propose plus d’ajout', async () => {
-    const ouvert = await ouvrir();
+    const ouvert = await ouvrir(undefined, { planning: PLANNING_STATUE });
     const { el, http, confirmations, harness } = ouvert;
 
     expect(bouton(el(), 'statut').textContent).toContain('Ouvert');
@@ -221,7 +231,7 @@ describe('Le Planning de repas', () => {
     expect(confirmations[0].confirmLabel).toBe('Arrêter le planning');
     const arret = http.expectOne(`${BASE}/meal-plans/planning-1/stop`);
     expect(arret.request.method).toBe('POST');
-    arret.flush({ ...PLANNING, status: 'STOPPED' } satisfies MealPlan);
+    arret.flush({ ...PLANNING_STATUE, status: 'STOPPED' } satisfies MealPlan);
     await harness.fixture.whenStable();
 
     expect(bouton(el(), 'statut').textContent).toContain('Arrêté');
@@ -231,7 +241,7 @@ describe('Le Planning de repas', () => {
   });
 
   it('dit pourquoi l’API refuse d’arrêter le planning', async () => {
-    const ouvert = await ouvrir();
+    const ouvert = await ouvrir(undefined, { planning: PLANNING_STATUE });
     const { el, http, harness } = ouvert;
 
     bouton(el(), 'arreter').click();
@@ -246,7 +256,7 @@ describe('Le Planning de repas', () => {
     );
     // Le refus relit le planning : un repas a pu changer entre-temps.
     TestBed.tick();
-    lectureDe(ouvert, LUNDI).flush(PLANNING);
+    lectureDe(ouvert, LUNDI).flush(PLANNING_STATUE);
     await harness.fixture.whenStable();
 
     expect(el().querySelector('[data-test="refus"]')?.textContent).toContain(
@@ -256,7 +266,7 @@ describe('Le Planning de repas', () => {
   });
 
   it('laisse la semaine affichée en paix quand l’arrêt d’une autre répond après', async () => {
-    const ouvert = await ouvrir();
+    const ouvert = await ouvrir(undefined, { planning: PLANNING_STATUE });
     const { el, http, router, harness } = ouvert;
 
     bouton(el(), 'arreter').click();
@@ -294,7 +304,7 @@ describe('Le Planning de repas', () => {
   });
 
   it('ne montre pas sur une autre semaine le refus d’un arrêt', async () => {
-    const ouvert = await ouvrir();
+    const ouvert = await ouvrir(undefined, { planning: PLANNING_STATUE });
     const { el, http, router, harness } = ouvert;
 
     bouton(el(), 'arreter').click();
@@ -331,7 +341,10 @@ describe('Le Planning de repas', () => {
   });
 
   it('n’arrête rien quand on renonce', async () => {
-    const ouvert = await ouvrir(undefined, { confirme: false });
+    const ouvert = await ouvrir(undefined, {
+      planning: PLANNING_STATUE,
+      confirme: false,
+    });
 
     bouton(ouvert.el(), 'arreter').click();
     await apresLaConfirmation(ouvert);
@@ -461,5 +474,297 @@ describe('Le Planning de repas', () => {
     await ouvert.harness.fixture.whenStable();
 
     expect(ouvert.el().textContent).toContain('La base ne répond pas.');
+  });
+});
+
+describe('La génération du Planning de repas', () => {
+  beforeEach(figerLHorloge);
+
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
+    jest.useRealTimers();
+  });
+
+  /** Le repas proposé du mercredi midi. */
+  function restes(el: HTMLElement): HTMLElement {
+    return creneau(el, '2026-10-21', 'LUNCH').querySelector(
+      '[data-test="repas"]',
+    ) as HTMLElement;
+  }
+
+  const REFUSES: MealPlan = {
+    ...PLANNING_GENERE,
+    entries: [DAHL_DU_LUNDI, { ...RESTES_DU_MERCREDI, decision: 'REFUSED' }],
+  };
+
+  it('propose de générer la semaine tant qu’aucun tour n’est lancé', async () => {
+    const { el } = await ouvrir();
+
+    expect(bouton(el(), 'generer').getAttribute('href')).toBe(
+      `/repas/planning/generer?semaine=${LUNDI}`,
+    );
+    expect(bouton(el(), 'relancer')).toBeNull();
+    expect(el().querySelector('[data-test="tours"]')).toBeNull();
+  });
+
+  it('ne propose plus de générer une fois le premier tour lancé', async () => {
+    const { el } = await ouvrir(undefined, { planning: PLANNING_GENERE });
+
+    expect(bouton(el(), 'generer')).toBeNull();
+    expect(bouton(el(), 'relancer')).not.toBeNull();
+  });
+
+  it('approuve un repas proposé', async () => {
+    const { el, http, harness } = await ouvrir(undefined, {
+      planning: PLANNING_GENERE,
+    });
+
+    expect(
+      creneau(el(), LUNDI, 'DINNER').querySelector('[data-test="approuver"]'),
+    ).toBeNull();
+    bouton(restes(el()), 'approuver').click();
+
+    const decision = http.expectOne(
+      `${BASE}/meal-plans/planning-1/entries/repas-2/decision`,
+    );
+    expect(decision.request.method).toBe('POST');
+    expect(decision.request.body).toEqual({ decision: 'APPROVED' });
+    decision.flush({
+      ...RESTES_DU_MERCREDI,
+      decision: 'APPROVED',
+    } satisfies MealPlanEntry);
+    await harness.fixture.whenStable();
+
+    expect(restes(el()).textContent).toContain('Approuvé');
+    expect(bouton(restes(el()), 'approuver')).toBeNull();
+    expect(bouton(restes(el()), 'refuser')).toBeNull();
+  });
+
+  it('refuse un repas proposé, qui reste au planning jusqu’au tour suivant', async () => {
+    const { el, http, harness } = await ouvrir(undefined, {
+      planning: PLANNING_GENERE,
+    });
+
+    bouton(restes(el()), 'refuser').click();
+    const decision = http.expectOne(
+      `${BASE}/meal-plans/planning-1/entries/repas-2/decision`,
+    );
+    expect(decision.request.body).toEqual({ decision: 'REFUSED' });
+    decision.flush({
+      ...RESTES_DU_MERCREDI,
+      decision: 'REFUSED',
+    } satisfies MealPlanEntry);
+    await harness.fixture.whenStable();
+
+    expect(restes(el()).textContent).toContain('Refusé');
+    expect(restes(el()).textContent).toContain('Restes du dahl');
+    expect(bouton(el(), 'relancer').disabled).toBe(false);
+  });
+
+  it('dit pourquoi l’API refuse une décision, et relit le planning', async () => {
+    const ouvert = await ouvrir(undefined, { planning: PLANNING_GENERE });
+    const { el, http, harness } = ouvert;
+
+    bouton(restes(el()), 'approuver').click();
+    http
+      .expectOne(`${BASE}/meal-plans/planning-1/entries/repas-2/decision`)
+      .flush(
+        {
+          status: 422,
+          code: 'food.entry_not_proposed',
+          message:
+            "Ce repas n'est pas proposé : il est déjà approuvé ou refusé.",
+        },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+    TestBed.tick();
+    lectureDe(ouvert, LUNDI).flush(REFUSES);
+    await harness.fixture.whenStable();
+
+    expect(el().querySelector('[data-test="refus"]')?.textContent).toContain(
+      "Ce repas n'est pas proposé : il est déjà approuvé ou refusé.",
+    );
+    expect(restes(el()).textContent).toContain('Refusé');
+  });
+
+  it('ne relance pas un tour, ni n’arrête le planning, tant qu’un repas attend une décision', async () => {
+    const { el, http, harness } = await ouvrir(undefined, {
+      planning: PLANNING_GENERE,
+    });
+
+    expect(bouton(el(), 'relancer').disabled).toBe(true);
+    expect(bouton(el(), 'arreter').disabled).toBe(true);
+    expect(
+      el().querySelector('[data-test="en-attente"]')?.textContent,
+    ).toContain('1 repas attend une décision');
+
+    bouton(restes(el()), 'approuver').click();
+    http
+      .expectOne(`${BASE}/meal-plans/planning-1/entries/repas-2/decision`)
+      .flush({ ...RESTES_DU_MERCREDI, decision: 'APPROVED' });
+    await harness.fixture.whenStable();
+
+    // Le créneau écarté du jeudi reste à remplir : on peut relancer.
+    expect(bouton(el(), 'relancer').disabled).toBe(false);
+    expect(bouton(el(), 'arreter').disabled).toBe(false);
+    expect(el().querySelector('[data-test="en-attente"]')).toBeNull();
+  });
+
+  it('n’a plus rien à relancer quand chaque créneau généré est approuvé', async () => {
+    const { el } = await ouvrir(undefined, {
+      planning: {
+        ...PLANNING_STATUE,
+        rounds: [{ ...PREMIER_TOUR, rejected: [] }],
+      },
+    });
+
+    expect(bouton(el(), 'relancer').disabled).toBe(true);
+    expect(bouton(el(), 'arreter').disabled).toBe(false);
+  });
+
+  it('relance un tour après confirmation, sans créneau, puis relit le planning', async () => {
+    const ouvert = await ouvrir(undefined, { planning: REFUSES });
+    const { el, http, confirmations, harness } = ouvert;
+
+    bouton(el(), 'relancer').click();
+    await apresLaConfirmation(ouvert);
+
+    expect(confirmations[0].confirmLabel).toBe('Relancer un tour');
+    const tour = http.expectOne(
+      `${BASE}/meal-plans/planning-1/generation-rounds`,
+    );
+    expect(tour.request.method).toBe('POST');
+    expect(tour.request.body).toEqual({ slots: [] });
+    const nouveau: MealPlanEntry = {
+      ...RESTES_DU_MERCREDI,
+      id: 'repas-3',
+      title: 'Soupe de potimarron',
+    };
+    tour.flush({
+      id: 'tour-2',
+      number: 2,
+      traceId: 'trace-2',
+      rejected: [],
+      createdAt: '2026-10-20T10:00:00.000Z',
+      entries: [nouveau],
+    } satisfies GenerationRound);
+    TestBed.tick();
+    lectureDe(ouvert, LUNDI).flush({
+      ...PLANNING,
+      entries: [DAHL_DU_LUNDI, nouveau],
+      rounds: [
+        PREMIER_TOUR,
+        {
+          id: 'tour-2',
+          number: 2,
+          traceId: 'trace-2',
+          rejected: [],
+          createdAt: '2026-10-20T10:00:00.000Z',
+        },
+      ],
+    } satisfies MealPlan);
+    await harness.fixture.whenStable();
+
+    expect(restes(el()).textContent).toContain('Soupe de potimarron');
+    expect(restes(el()).textContent).toContain('Proposé');
+    expect(el().querySelector('[data-test="tours"]')?.textContent).toContain(
+      'Tour 2',
+    );
+  });
+
+  it('montre tel quel le refus de l’API quand le plafond de l’IA est atteint', async () => {
+    const ouvert = await ouvrir(undefined, { planning: REFUSES });
+    const { el, http, harness } = ouvert;
+
+    bouton(el(), 'relancer').click();
+    await apresLaConfirmation(ouvert);
+    http.expectOne(`${BASE}/meal-plans/planning-1/generation-rounds`).flush(
+      {
+        status: 422,
+        code: 'ai.budget_exceeded',
+        message:
+          'Le plafond mensuel de dépense en IA est atteint : plus aucun appel jusqu’au mois prochain.',
+      },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+    TestBed.tick();
+    lectureDe(ouvert, LUNDI).flush(REFUSES);
+    await harness.fixture.whenStable();
+
+    expect(el().querySelector('[data-test="refus"]')?.textContent).toContain(
+      'Le plafond mensuel de dépense en IA est atteint : plus aucun appel jusqu’au mois prochain.',
+    );
+  });
+
+  it('ne relance rien quand on renonce', async () => {
+    const ouvert = await ouvrir(undefined, {
+      planning: REFUSES,
+      confirme: false,
+    });
+
+    bouton(ouvert.el(), 'relancer').click();
+    await apresLaConfirmation(ouvert);
+
+    ouvert.http.expectNone(`${BASE}/meal-plans/planning-1/generation-rounds`);
+  });
+
+  it('dit, à sa place, pourquoi le contrôle a vidé un créneau', async () => {
+    const { el } = await ouvrir(undefined, { planning: PLANNING_GENERE });
+
+    const ecarte = creneau(el(), '2026-10-22', 'DINNER').querySelector(
+      '[data-test="ecarte"]',
+    );
+    expect(ecarte?.textContent).toContain(
+      'Écarté : contient noix de cajou (fruits à coque), allergie de Maxime.',
+    );
+    expect(
+      creneau(el(), '2026-10-22', 'LUNCH').querySelector(
+        '[data-test="ecarte"]',
+      ),
+    ).toBeNull();
+  });
+
+  it('ne montre plus l’écart d’un créneau rempli depuis', async () => {
+    const { el } = await ouvrir(undefined, {
+      planning: {
+        ...PLANNING_GENERE,
+        entries: [
+          ...PLANNING.entries,
+          { ...DAHL_DU_LUNDI, id: 'repas-4', day: '2026-10-22' },
+        ],
+      },
+    });
+
+    expect(
+      creneau(el(), '2026-10-22', 'DINNER').querySelector(
+        '[data-test="ecarte"]',
+      ),
+    ).toBeNull();
+  });
+
+  it('mène à la trace de chaque tour', async () => {
+    const { el } = await ouvrir(undefined, { planning: PLANNING_GENERE });
+
+    const tours = el().querySelector('[data-test="tours"]') as HTMLElement;
+    expect(tours.textContent).toContain('Tour 1');
+    expect(tours.textContent).toContain('1 créneau écarté');
+    expect(
+      tours.querySelector('[data-test="trace"]')?.getAttribute('href'),
+    ).toBe(`/repas/generation/traces/trace-1?semaine=${LUNDI}`);
+  });
+
+  it('prévient, avant d’arrêter, que les repas refusés seront retirés', async () => {
+    const ouvert = await ouvrir(undefined, { planning: REFUSES });
+
+    bouton(ouvert.el(), 'arreter').click();
+    await apresLaConfirmation(ouvert);
+
+    expect(ouvert.confirmations[0].description).toContain(
+      'Le repas refusé est retiré.',
+    );
+    ouvert.http
+      .expectOne(`${BASE}/meal-plans/planning-1/stop`)
+      .flush({ ...PLANNING_STATUE, status: 'STOPPED' } satisfies MealPlan);
+    await ouvert.harness.fixture.whenStable();
   });
 });
