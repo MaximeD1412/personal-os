@@ -279,7 +279,7 @@ describe('Tableau de bord', () => {
   });
 
   describe('Le Calendrier', () => {
-    describe('une Échéance dans les sept jours', () => {
+    describe('une Échéance sans rappel, dans les sept jours', () => {
       it("produit un À faire vers l'Événement, qui disparaît quand ce n'est plus une Échéance", async () => {
         const impots = await creerUnEvenement(jeu.a, {
           title: 'Impôts (tableau de bord)',
@@ -295,7 +295,7 @@ describe('Tableau de bord', () => {
             ref: impots.id,
             label: 'Échéance : Impôts (tableau de bord)',
             dueOn: '2034-03-12',
-            link: `/calendrier/evenements/${impots.id}`,
+            link: `/calendrier/evenements/${impots.id}?mois=2034-03`,
           },
         ]);
 
@@ -371,8 +371,75 @@ describe('Tableau de bord', () => {
           ref: `${releve.id}@2034-03-09T10:00:00.000Z`,
           label: 'Échéance : Relevé (tableau de bord)',
           dueOn: '2034-03-09',
-          link: `/calendrier/evenements/${releve.id}?occurrence=2034-03-09T10%3A00%3A00.000Z`,
+          link: `/calendrier/evenements/${releve.id}?mois=2034-03&occurrence=2034-03-09T10%3A00%3A00.000Z`,
         });
+      });
+    });
+
+    describe('une Échéance dont le délai de rappel est atteint', () => {
+      it("ne se signale qu'une fois son rappel atteint, et non sept jours avant", async () => {
+        const declaration = await creerUnEvenement(jeu.a, {
+          title: 'Déclaration (tableau de bord)',
+          startsAt: '2034-03-12T10:00:00.000Z',
+          category: 'DEADLINE',
+          reminderLeadMinutes: 30,
+          scopeId: jeu.a.espacePersonnel,
+        });
+        const imminente = await creerUnEvenement(jeu.a, {
+          title: 'Imminente (tableau de bord)',
+          startsAt: '2034-03-08T09:20:00.000Z',
+          category: 'DEADLINE',
+          reminderLeadMinutes: 30,
+          scopeId: jeu.a.espacePersonnel,
+        });
+
+        expect(await aFaireDe(jeu.a, declaration.id)).toEqual([]);
+        expect(await aFaireDe(jeu.a, imminente.id)).toHaveLength(1);
+
+        // Quatre jours avant, un rappel d'une semaine est atteint.
+        await request(app.getHttpServer())
+          .patch(`/api/events/${declaration.id}`)
+          .set('Cookie', jeu.a.session)
+          .send({ reminderLeadMinutes: 10_080 })
+          .expect(200);
+        expect(await aFaireDe(jeu.a, declaration.id)).toHaveLength(1);
+      });
+
+      it('se signale plus de sept jours avant quand son rappel le veut', async () => {
+        const renouvellement = await creerUnEvenement(jeu.a, {
+          title: 'Renouvellement (tableau de bord)',
+          startsAt: '2034-03-20T10:00:00.000Z',
+          category: 'DEADLINE',
+          reminderLeadMinutes: 20_160,
+          scopeId: jeu.a.espacePersonnel,
+        });
+
+        expect(await aFaireDe(jeu.a, renouvellement.id)).toEqual([
+          expect.objectContaining({ dueOn: '2034-03-20' }),
+        ]);
+      });
+
+      it("mène au mois, à Paris, où tombe l'occurrence, même le mois suivant", async () => {
+        // Le 31 mars à 22 h 30 UTC, c'est déjà le 1er avril à Paris.
+        const cotisation = await creerUnEvenement(jeu.a, {
+          title: 'Cotisation (tableau de bord)',
+          startsAt: '2034-03-31T22:30:00.000Z',
+          category: 'DEADLINE',
+          reminderLeadMinutes: 43_200,
+          recurrence: { freq: 'MONTHLY', interval: 1 },
+          scopeId: jeu.a.espacePersonnel,
+        });
+
+        const todos = (await aFaire(jeu.a)).filter(({ ref }) =>
+          ref.startsWith(cotisation.id),
+        );
+        expect(todos).toEqual([
+          expect.objectContaining({
+            ref: `${cotisation.id}@2034-03-31T22:30:00.000Z`,
+            dueOn: '2034-04-01',
+            link: `/calendrier/evenements/${cotisation.id}?mois=2034-04&occurrence=2034-03-31T22%3A30%3A00.000Z`,
+          }),
+        ]);
       });
     });
   });

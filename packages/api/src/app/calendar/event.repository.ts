@@ -98,6 +98,20 @@ export class EventRepository {
     return rangees.map(enEvenement);
   }
 
+  /**
+   * Le plus long délai de rappel des Échéances atteignables, en minutes : la
+   * plus lointaine qui puisse déjà se signaler (ADR 0017). `null` si aucune
+   * n'en porte.
+   */
+  async plusLongRappelDEcheance(): Promise<number | null> {
+    const { _max } = await this.prisma.event.aggregate({
+      where: { category: 'DEADLINE' },
+      _max: { reminderLeadMinutes: true },
+    });
+
+    return _max.reminderLeadMinutes;
+  }
+
   /** Les exceptions des Événements nommés, lues par la garde comme le reste. */
   exceptionsDe(eventIds: readonly string[]): Promise<EventExceptionRecord[]> {
     if (eventIds.length === 0) {
