@@ -60,6 +60,8 @@ model Scope {
   projectExpenses     ProjectExpense[]
   publicPresentations PublicPresentation[]
   pantryItems         PantryItem[]
+  cookedMeals         CookedMeal[]
+  cookedMealLines     CookedMealLine[]
 
   @@index([householdId])
 }
@@ -264,6 +266,7 @@ model Ingredient {
   recipeLines     RecipeLine[]
   foodPreferences FoodPreference[]
   pantryItems     PantryItem[]
+  cookedMealLines CookedMealLine[]
 }
 
 /// Un libellé rattaché à un Ingrédient (CUISINE-3) : une fois rattaché, le
@@ -448,7 +451,11 @@ model MealPlanEntry {
   generationRound   GenerationRound?      @relation(fields: [generationRoundId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
   /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
   createdAt         DateTime              @default(now()) @db.Timestamptz(3)
+  /// Sa déclaration une fois cuisiné : il n'en a qu'une.
+  cookedMeal        CookedMeal?
 
+  /// La cible de la clé étrangère du Repas cuisiné, qui porte l'Espace.
+  @@unique([id, scopeId])
   @@index([scopeId])
   @@index([mealPlanId])
   @@index([recipeId])
@@ -635,5 +642,51 @@ model PantryItem {
   updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
 
   @@unique([scopeId, ingredientId])
+  @@index([ingredientId])
+}
+
+/// Un Repas cuisiné (CUISINE-11) : un Repas planifié déclaré réalisé, avec
+/// les quantités réellement utilisées. Il n'y en a qu'un par repas, et il ne
+/// se modifie pas ; sa déclaration a fait baisser le stock, qu'une erreur
+/// corrige à la main. La clé étrangère porte l'Espace avec le repas (ADR
+/// 0028) ; il suit son repas s'il est supprimé, le stock restant tel quel.
+model CookedMeal {
+  id              String           @id @default(uuid())
+  scopeId         String
+  scope           Scope            @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  mealPlanEntryId String
+  mealPlanEntry   MealPlanEntry    @relation(fields: [mealPlanEntryId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
+  cookedAt        DateTime         @default(now()) @db.Timestamptz(3)
+  lines           CookedMealLine[]
+
+  /// Un repas ne se cuisine qu'une fois. Le repas a un seul Espace, que la
+  /// clé étrangère vérifie : l'unicité de la paire est celle du repas.
+  @@unique([mealPlanEntryId, scopeId])
+  /// La cible de la clé étrangère des lignes, qui porte l'Espace.
+  @@unique([id, scopeId])
+  @@index([scopeId])
+}
+
+/// Une ligne d'un Repas cuisiné : un Ingrédient, la quantité réellement
+/// utilisée et l'unité dans laquelle on l'a dite, conservée telle quelle. La
+/// clé étrangère porte l'Espace avec le repas (ADR 0028).
+model CookedMealLine {
+  id           String     @id @default(uuid())
+  scopeId      String
+  scope        Scope      @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  cookedMealId String
+  cookedMeal   CookedMeal @relation(fields: [cookedMealId, scopeId], references: [id, scopeId], onDelete: Cascade, onUpdate: Cascade)
+  /// Un Ingrédient cité ne se supprime pas : il se fusionne (CUISINE-4).
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  /// Strictement positive, au millième près.
+  quantity     Decimal    @db.Decimal(12, 3)
+  unit         RecipeUnit
+  /// Le rang de la ligne dans la déclaration, à partir de 0.
+  position     Int
+
+  @@unique([cookedMealId, position])
+  @@index([scopeId])
   @@index([ingredientId])
 }

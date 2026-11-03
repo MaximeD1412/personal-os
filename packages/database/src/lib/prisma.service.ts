@@ -103,6 +103,14 @@ export class PrismaService {
     return this.#client.pantryItem;
   }
 
+  get cookedMeal() {
+    return this.#client.cookedMeal;
+  }
+
+  get cookedMealLine() {
+    return this.#client.cookedMealLine;
+  }
+
   get mealPlan() {
     return this.#client.mealPlan;
   }

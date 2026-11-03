@@ -113,6 +113,8 @@ et lève `food.list_already_closed`.
 | Péremption (d'une ligne de stock)        | `expiresOn`                                                      |
 | Recaleur, mouvement de stock             | `recaler`, `ACHAT`, `CONSOMMATION`, `CORRECTION`                 |
 | Repas cuisiné                            | `CookedMeal`                                                     |
+| Ligne (d'un Repas cuisiné)               | `CookedMealLine`                                                 |
+| Manque (ce que le stock n'avait pas)     | `shortfalls` (`CookedMealShortfall`), `consommer`                |
 | Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
 | État de publication                      | `PublicationState` : `UNPUBLISHED`, `READY`, `PUBLISHED`         |
 | Langue (du portfolio)                    | `Lang` : `FR`, `EN`                                              |

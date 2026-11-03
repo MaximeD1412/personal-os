@@ -178,6 +178,21 @@
                   }
                 </span>
               </div>
+              @if (repas.approuve) {
+              <a
+                hlmBtn
+                variant="ghost"
+                size="sm"
+                class="self-start"
+                data-test="cuisine"
+                routerLink="/repas/cuisine/nouveau"
+                [queryParams]="{ mealPlanEntryId: repas.id }"
+                [attr.aria-label]="'Déclarer cuisiné : ' + repas.titre"
+              >
+                <ng-icon [svg]="icones.cuisine" aria-hidden="true" />
+                Cuisiné
+              </a>
+              }
             </article>
             } @if (ouvert()) {
             <a

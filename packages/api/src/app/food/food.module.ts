@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AgendaPortModule } from '../agenda-port/agenda-port.module';
+import { CookedMealController } from './cooked-meal.controller';
+import { CookedMealRepository } from './cooked-meal.repository';
+import { CookedMealService } from './cooked-meal.service';
 import { FoodPreferenceController } from './food-preference.controller';
 import { FoodPreferenceRepository } from './food-preference.repository';
 import { FoodPreferenceService } from './food-preference.service';
@@ -10,6 +13,7 @@ import { IngredientController } from './ingredient.controller';
 import { IngredientRepository } from './ingredient.repository';
 import { IngredientService } from './ingredient.service';
 import { MealPlanEntryAgendaContributor } from './meal-plan-entry-agenda.contributor';
+import { MealPlanEntryController } from './meal-plan-entry.controller';
 import { MealPlanController } from './meal-plan.controller';
 import { MealPlanRepository } from './meal-plan.repository';
 import { MealPlanService } from './meal-plan.service';
@@ -26,7 +30,7 @@ import { RecipeService } from './recipe.service';
 /**
  * La Cuisine. Le catalogue d'Ingrédients et ses Alias sont globaux ; les
  * Recettes, les Préférences alimentaires, le Stock domestique, le Planning de
- * repas et ses Souhaits vivent dans l'Espace foyer, où les Courses les
+ * repas, ses Souhaits et ses Repas cuisinés vivent dans l'Espace foyer, où les Courses les
  * rejoindront. Les Repas planifiés se présentent à l'Agenda (ADR 0011).
  */
 @Module({
@@ -37,8 +41,10 @@ import { RecipeService } from './recipe.service';
     FoodPreferenceController,
     RecipeController,
     MealPlanController,
+    MealPlanEntryController,
     MealWishController,
     PantryItemController,
+    CookedMealController,
   ],
   providers: [
     IngredientService,
@@ -56,6 +62,8 @@ import { RecipeService } from './recipe.service';
     MealPlanEntryAgendaContributor,
     PantryItemService,
     PantryItemRepository,
+    CookedMealService,
+    CookedMealRepository,
   ],
 })
 export class FoodModule {}

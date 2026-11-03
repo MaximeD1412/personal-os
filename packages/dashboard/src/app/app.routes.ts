@@ -54,6 +54,13 @@ export const appRoutes: Route[] = [
     loadComponent: async () =>
       (await import('./repas/meal-plan-entry-form')).FormulaireDeRepas,
   },
+  // La déclaration d'un Repas cuisiné (`?mealPlanEntryId=`), ouverte depuis
+  // un repas approuvé du planning, et chargée à la demande comme lui.
+  {
+    path: 'repas/cuisine/nouveau',
+    loadComponent: async () =>
+      (await import('./repas/cooked-meal-form')).FormulaireDeRepasCuisine,
+  },
   { path: 'repas/recettes/:id', component: FicheDeRecette },
   // Le Stock domestique, éditable en place ; l'ajout d'un Ingrédient est un
   // formulaire, prérempli par sa requête (ADR 0030).
