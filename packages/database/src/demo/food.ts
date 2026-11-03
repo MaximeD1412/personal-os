@@ -437,6 +437,29 @@ function idDe(
   return id;
 }
 
+/** Les identifiants des deux Comptes de démo, le premier puis le second. */
+export type ComptesDeLaCuisine = readonly [string, string];
+
+/**
+ * Les Comptes à qui donner Préférences et repas : ceux que nomme le semis
+ * (`DEMO_ACCOUNT_EMAILS`), sinon les deux plus anciens du Foyer. Le semis les
+ * nomme toujours : un Compte qui n'est plus de la démo reste en base, et ne
+ * doit rien recevoir.
+ */
+async function lesComptes(
+  prisma: PrismaService,
+  comptes: ComptesDeLaCuisine | undefined,
+): Promise<{ id: string }[]> {
+  if (comptes) {
+    return comptes.map((id) => ({ id }));
+  }
+  return prisma.user.findMany({
+    where: { householdId: ID_FOYER },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: { id: true },
+  });
+}
+
 /** Le libellé de l'Ingrédient que le second Compte n'apprécie guère. */
 export const CORIANDRE_DE_DEMO = 'Coriandre fraîche';
 
@@ -457,12 +480,9 @@ const ESPACE_FOYER = {
  */
 export async function semerLesPreferences(
   prisma: PrismaService,
+  comptes?: ComptesDeLaCuisine,
 ): Promise<void> {
-  const [premier, second = premier] = await prisma.user.findMany({
-    where: { householdId: ID_FOYER },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    select: { id: true },
-  });
+  const [premier, second = premier] = await lesComptes(prisma, comptes);
   if (!premier) {
     return;
   }
@@ -619,12 +639,9 @@ export const REPAS_DE_DEMO: readonly RepasDeDemo[] = [
 export async function semerLePlanning(
   prisma: PrismaService,
   maintenant = new Date(),
+  comptes?: ComptesDeLaCuisine,
 ): Promise<void> {
-  const [premier, second = premier] = await prisma.user.findMany({
-    where: { householdId: ID_FOYER },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    select: { id: true },
-  });
+  const [premier, second = premier] = await lesComptes(prisma, comptes);
   if (!premier) {
     return;
   }
@@ -825,6 +842,10 @@ export const food: Semeur = {
   // Dans l'ordre du remplissage : le vidage le parcourt à l'envers, une ligne
   // avant ce qu'elle cite.
   modeles: [
+    // Le catalogue est global, hors Espace : le semis le vide quand même, un
+    // Ingrédient ou un Alias saisi sur le staging ne lui survit pas.
+    'Ingredient',
+    'IngredientAlias',
     'Recipe',
     'RecipeLine',
     'FoodPreference',
@@ -843,9 +864,10 @@ export const food: Semeur = {
     // Midi à Paris : le jour du semis, quel que soit le fuseau de la machine.
     const maintenant = demo.le(0, '12:00');
     await semerLaCuisine(prisma);
-    await semerLesPreferences(prisma);
+    const comptes = [demo.a.userId, demo.b.userId] as const;
+    await semerLesPreferences(prisma, comptes);
     await semerLeStock(prisma, demo.aujourdhui);
-    await semerLePlanning(prisma, maintenant);
+    await semerLePlanning(prisma, maintenant, comptes);
     await semerLaListe(prisma, maintenant);
     return compter(prisma, this.modeles);
   },

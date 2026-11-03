@@ -112,6 +112,75 @@ describe('Le jeu de démo', () => {
     expect(await photographier()).toEqual(avant);
   });
 
+  it("vide aussi le catalogue d'Ingrédients et les Pages de contenu saisis à la main", async () => {
+    await semer(prisma, COMPTES, { maintenant: MAINTENANT });
+    const catalogue = await photographierLeGlobal();
+
+    const ajoute = await prisma.ingredient.create({
+      data: {
+        name: 'topinambour du staging',
+        displayName: 'Topinambour du staging',
+        canonicalUnit: 'GRAM',
+        perishable: true,
+      },
+    });
+    const existant = await prisma.ingredient.findFirstOrThrow({
+      where: { id: { not: ajoute.id } },
+    });
+    await prisma.ingredientAlias.create({
+      data: { label: 'alias du staging', ingredientId: existant.id },
+    });
+    await prisma.pageContent.create({
+      data: {
+        slug: 'about',
+        lang: 'FR',
+        title: 'Publiée sur le staging',
+        publicationState: 'PUBLISHED',
+      },
+    });
+
+    await semer(prisma, COMPTES, { maintenant: MAINTENANT });
+
+    expect(await photographierLeGlobal()).toEqual(catalogue);
+    expect(await prisma.pageContent.count()).toBe(0);
+    expect(await prisma.ingredientAlias.count()).toBe(0);
+  });
+
+  it('donne Préférences et repas aux deux Comptes désignés, pas aux plus anciens du Foyer', async () => {
+    const ancien = await prisma.user.create({
+      data: {
+        subject: 'demo:ancien@demo.test',
+        email: 'ancien@demo.test',
+        householdId: ID_FOYER,
+        createdAt: new Date('2020-01-01T00:00:00.000Z'),
+      },
+    });
+
+    await semer(prisma, COMPTES, { maintenant: MAINTENANT });
+
+    const designes = (
+      await prisma.user.findMany({
+        where: { email: { in: [...COMPTES] } },
+        select: { id: true },
+      })
+    ).map(({ id }) => id);
+    const preferences = await lireSousPortee(() =>
+      prisma.foodPreference.findMany({ select: { userId: true, kind: true } }),
+    );
+    const repas = await lireSousPortee(() =>
+      prisma.mealPlanEntry.findMany({ select: { participantIds: true } }),
+    );
+
+    expect(preferences.map(({ userId }) => userId).sort()).toEqual(
+      [...designes].sort(),
+    );
+    const participants = new Set(
+      repas.flatMap(({ participantIds }) => participantIds),
+    );
+    expect(participants.has(ancien.id)).toBe(false);
+    expect([...participants].sort()).toEqual([...designes].sort());
+  });
+
   it('borne chaque semeur aux Espaces que son module accepte', async () => {
     const foyerSeul: Semeur = {
       module: 'foyer-seul',
@@ -129,6 +198,24 @@ describe('Le jeu de démo', () => {
       semer(prisma, COMPTES, { maintenant: MAINTENANT, semeurs: [foyerSeul] }),
     ).rejects.toMatchObject({ raison: 'type-refuse' });
   });
+
+  /** Le catalogue global tel que le semis le laisse, sans les identifiants. */
+  async function photographierLeGlobal(): Promise<unknown> {
+    return {
+      ingredients: await prisma.ingredient.findMany({
+        select: { name: true, displayName: true, canonicalUnit: true },
+        orderBy: { name: 'asc' },
+      }),
+      alias: await prisma.ingredientAlias.findMany({
+        select: { label: true },
+        orderBy: { label: 'asc' },
+      }),
+      pages: await prisma.pageContent.findMany({
+        select: { slug: true, lang: true, title: true },
+        orderBy: [{ slug: 'asc' }, { lang: 'asc' }],
+      }),
+    };
+  }
 
   async function espacePersonnelDe(email: string): Promise<string> {
     const { personalScope } = await prisma.user.findUniqueOrThrow({
@@ -215,8 +302,12 @@ describe('Le jeu de démo', () => {
     );
     const stock = await lireSousPortee(() =>
       prisma.pantryItem.findMany({
-        select: { quantity: true, expiresOn: true, ingredientId: true },
-        orderBy: { ingredientId: 'asc' },
+        select: {
+          quantity: true,
+          expiresOn: true,
+          ingredient: { select: { name: true } },
+        },
+        orderBy: { ingredient: { name: 'asc' } },
       }),
     );
 

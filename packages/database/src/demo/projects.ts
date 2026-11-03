@@ -1,15 +1,39 @@
-import type { ProjectExpenseInput, ProjectLink } from '@personal-os/contracts';
+import {
+  aujourdhui,
+  type ProjectExpenseInput,
+  type ProjectLink,
+} from '@personal-os/contracts';
 import { sousPortee } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
+import { decalerLeJour } from './dates';
 import { compter } from './delegate';
 import type { Semeur } from './seeder';
+
+/**
+ * Une dépense de démo : sa date se compte en jours avant le semis, jamais en
+ * dur, pour que le staging montre toujours des dépenses récentes.
+ */
+export interface DepenseDeDemo extends Omit<ProjectExpenseInput, 'spentOn'> {
+  ilYaJours: number;
+}
 
 /** Un Projet du jeu de démo, tel qu'on le saisirait, avec ses dépenses. */
 export interface ProjetDeDemo {
   title: string;
   notes: string;
   links: ProjectLink[];
-  expenses: ProjectExpenseInput[];
+  expenses: DepenseDeDemo[];
+}
+
+/** Les dépenses d'un Projet de démo, datées depuis `jour` (`YYYY-MM-DD`). */
+export function depensesAuJour(
+  expenses: readonly DepenseDeDemo[],
+  jour: string,
+): ProjectExpenseInput[] {
+  return expenses.map(({ ilYaJours, ...depense }) => ({
+    ...depense,
+    spentOn: decalerLeJour(jour, -ilYaJours),
+  }));
 }
 
 /**
@@ -43,17 +67,17 @@ export const PROJETS_DE_DEMO: readonly ProjetDeDemo[] = [
       {
         label: 'Presse à relier',
         amount: { cents: 8900, currency: 'EUR' },
-        spentOn: '2026-09-14',
+        ilYaJours: 50,
       },
       {
         label: 'Papier 120 g, 50 feuilles',
         amount: { cents: 2450, currency: 'EUR' },
-        spentOn: '2026-09-20',
+        ilYaJours: 44,
       },
       {
         label: 'Fil de lin ciré',
         amount: { cents: 790, currency: 'EUR' },
-        spentOn: '2026-10-02',
+        ilYaJours: 32,
       },
     ],
   },
@@ -77,17 +101,17 @@ export const PROJETS_DE_DEMO: readonly ProjetDeDemo[] = [
       {
         label: 'Bacs de culture',
         amount: { cents: 5998, currency: 'EUR' },
-        spentOn: '2026-04-11',
+        ilYaJours: 206,
       },
       {
         label: 'Terreau, 40 L',
         amount: { cents: 1299, currency: 'EUR' },
-        spentOn: '2026-04-11',
+        ilYaJours: 206,
       },
       {
         label: 'Graines de tomates',
         amount: { cents: 450, currency: 'EUR' },
-        spentOn: '2026-04-18',
+        ilYaJours: 199,
       },
     ],
   },
@@ -100,12 +124,13 @@ export const PROJETS_DE_DEMO: readonly ProjetDeDemo[] = [
  *
  * Il retrouve un Projet par son titre dans l'Espace, le remet dans l'état du
  * jeu et en remplace les dépenses : deux semis de suite donnent les mêmes
- * Projets. `semer` le branche par `projects`, plus bas, sur les Espaces de ses
+ * Projets. Les dépenses sont datées depuis `jour`, le jour du semis. `semer` le branche par `projects`, plus bas, sur les Espaces de ses
  * deux Comptes ; sans liste, il sème dans tous les Espaces personnels.
  */
 export async function semerLesProjets(
   prisma: PrismaService,
   espacesPersonnels?: readonly string[],
+  jour: string = aujourdhui(),
 ): Promise<void> {
   // Le semis de démo (`semer`) ne vise que les Espaces de ses deux Comptes.
   const espaces = espacesPersonnels
@@ -123,7 +148,7 @@ export async function semerLesProjets(
       },
       async () => {
         for (const projet of PROJETS_DE_DEMO) {
-          await semerUnProjet(prisma, scopeId, projet);
+          await semerUnProjet(prisma, scopeId, projet, jour);
         }
       },
     );
@@ -134,6 +159,7 @@ async function semerUnProjet(
   prisma: PrismaService,
   scopeId: string,
   { title, notes, links, expenses }: ProjetDeDemo,
+  jour: string,
 ): Promise<void> {
   const existant = await prisma.project.findFirst({ where: { title } });
 
@@ -152,7 +178,7 @@ async function semerUnProjet(
   }
 
   await prisma.projectExpense.createMany({
-    data: expenses.map(({ label, amount, spentOn }) => ({
+    data: depensesAuJour(expenses, jour).map(({ label, amount, spentOn }) => ({
       scopeId,
       projectId,
       label,
@@ -172,10 +198,11 @@ export const projects: Semeur = {
   modeles: ['Project', 'ProjectExpense'],
   espaces: ['PERSONAL'],
   async semer(prisma, demo) {
-    await semerLesProjets(prisma, [
-      demo.a.espacePersonnel,
-      demo.b.espacePersonnel,
-    ]);
+    await semerLesProjets(
+      prisma,
+      [demo.a.espacePersonnel, demo.b.espacePersonnel],
+      demo.aujourdhui,
+    );
     return compter(prisma, this.modeles);
   },
 };

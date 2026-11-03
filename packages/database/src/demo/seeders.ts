@@ -2,6 +2,7 @@ import { calendar } from './calendar';
 import { food } from './food';
 import { ai, commandBar, portfolio } from './modules-without-data';
 import { projects } from './projects';
+import type { Prisma } from '../generated/prisma/client';
 import type { Semeur } from './seeder';
 
 /**
@@ -17,4 +18,19 @@ export const SEMEURS: readonly Semeur[] = [
   food,
   projects,
   portfolio,
+];
+
+/**
+ * Les seuls modèles que le semis ne vide pas : le Foyer, ses Espaces, les
+ * Comptes et leurs Sessions, que les Comptes réels gardent d'un déploiement à
+ * l'autre, et la sonde de santé. Tout autre modèle, cloisonné ou global (le
+ * catalogue d'Ingrédients, les Pages de contenu), appartient à un semeur.
+ */
+export const HORS_DU_JEU: readonly Prisma.ModelName[] = [
+  'HealthProbe',
+  'Household',
+  'Scope',
+  'User',
+  'Session',
+  'LoginTransaction',
 ];

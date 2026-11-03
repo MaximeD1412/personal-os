@@ -2,8 +2,8 @@ import type { Semeur } from './seeder';
 
 /**
  * Les modules dont le jeu de démo ne sème rien, mais dont il vide les
- * données : une Trace IA, une Commande non comprise ou une Présentation
- * publique saisie sur le staging ne survit pas au déploiement suivant. Le jour
+ * données : une Trace IA, une Commande non comprise, une Présentation
+ * publique ou une Page de contenu saisie sur le staging ne survit pas au déploiement suivant. Le jour
  * où l'un d'eux a quelque chose à montrer, il prend son propre fichier.
  */
 const sansDonnees = (
@@ -20,8 +20,9 @@ export const commandBar = sansDonnees(
   ['PERSONAL', 'HOUSEHOLD'],
 );
 
+// Les Pages de contenu sont globales, hors Espace : vidées comme le reste.
 export const portfolio = sansDonnees(
   'portfolio',
-  ['PublicPresentation'],
+  ['PublicPresentation', 'PageContent'],
   ['PERSONAL'],
 );
