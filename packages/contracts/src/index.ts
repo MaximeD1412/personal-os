@@ -17,6 +17,7 @@ export * from './lib/page-content';
 export * from './lib/pantry-item';
 export * from './lib/presentation';
 export * from './lib/project';
+export * from './lib/public';
 export * from './lib/publication';
 export * from './lib/recipe';
 export * from './lib/scope';
