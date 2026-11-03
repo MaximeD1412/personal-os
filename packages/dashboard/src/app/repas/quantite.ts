@@ -1,4 +1,8 @@
-import type { RecipeLine, RecipeUnit } from '@personal-os/contracts';
+import type {
+  CanonicalUnit,
+  RecipeLine,
+  RecipeUnit,
+} from '@personal-os/contracts';
 
 /** L'abréviation d'une Unité de recette, telle qu'une fiche la lit. */
 const ABREVIATIONS: Readonly<Record<Exclude<RecipeUnit, 'PIECE'>, string>> = {
@@ -33,4 +37,19 @@ export function quantiteDeLigne({
 /** « 1 portion », « 4 portions ». */
 export function portions(servings: number): string {
   return `${servings}\u00a0${servings >= 2 ? 'portions' : 'portion'}`;
+}
+
+/** L'Unité canonique telle qu'elle suit une quantité du stock. */
+export const UNITES_CANONIQUES: Readonly<Record<CanonicalUnit, string>> = {
+  GRAM: 'g',
+  MILLILITER: 'ml',
+  PIECE: 'pièce(s)',
+};
+
+/** Une quantité en Unité canonique : « 1 000 ml », « 4 pièce(s) ». */
+export function quantiteCanonique(
+  quantity: number,
+  unit: CanonicalUnit,
+): string {
+  return `${NOMBRE.format(quantity)}\u00a0${UNITES_CANONIQUES[unit]}`;
 }

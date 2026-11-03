@@ -8,6 +8,8 @@ import { FormulaireDIngredient } from './repas/ingredient-form';
 import { Ingredients } from './repas/ingredients';
 import { FicheDeRecette } from './repas/recipe-detail';
 import { Recettes } from './repas/recipes';
+import { Stock } from './repas/stock';
+import { FormulaireDeStock } from './repas/stock-form';
 
 export const appRoutes: Route[] = [
   { path: '', pathMatch: 'full', redirectTo: 'agenda' },
@@ -53,6 +55,10 @@ export const appRoutes: Route[] = [
       (await import('./repas/meal-plan-entry-form')).FormulaireDeRepas,
   },
   { path: 'repas/recettes/:id', component: FicheDeRecette },
+  // Le Stock domestique, éditable en place ; l'ajout d'un Ingrédient est un
+  // formulaire, prérempli par sa requête (ADR 0030).
+  { path: 'repas/stock', component: Stock },
+  { path: 'repas/stock/nouveau', component: FormulaireDeStock },
   // Les Préférences alimentaires du Foyer, et l'ajout d'une Préférence,
   // prérempli par sa requête (ADR 0030). Chargées à la demande, comme les
   // Projets : le bundle initial reste sous son budget.
