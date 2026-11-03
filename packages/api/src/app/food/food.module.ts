@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { AgendaPortModule } from '../agenda-port/agenda-port.module';
 import { AiModule } from '../ai/ai.module';
 import { DashboardPortModule } from '../dashboard-port/dashboard-port.module';
+import { CookedMealController } from './cooked-meal.controller';
+import { CookedMealRepository } from './cooked-meal.repository';
+import { CookedMealService } from './cooked-meal.service';
 import { FoodResumeur } from './food.resumeur';
 import { FoodPreferenceController } from './food-preference.controller';
 import { FoodPreferenceRepository } from './food-preference.repository';
@@ -16,6 +19,7 @@ import { IngredientController } from './ingredient.controller';
 import { IngredientRepository } from './ingredient.repository';
 import { IngredientService } from './ingredient.service';
 import { MealPlanEntryAgendaContributor } from './meal-plan-entry-agenda.contributor';
+import { MealPlanEntryController } from './meal-plan-entry.controller';
 import { MealPlanController } from './meal-plan.controller';
 import { MealPlanRepository } from './meal-plan.repository';
 import { MealPlanService } from './meal-plan.service';
@@ -38,10 +42,10 @@ import { ShoppingListService } from './shopping-list.service';
 /**
  * La Cuisine. Le catalogue d'Ingrédients et ses Alias sont globaux ; les
  * Recettes, les Préférences alimentaires, le Stock domestique, le Planning de
- * repas, ses Souhaits et les Listes de courses vivent dans l'Espace foyer.
- * Les Repas planifiés se présentent à l'Agenda, et la Cuisine se résume au
- * tableau de bord (ADR 0011) ; les Tours de
- * génération passent par le port IA.
+ * repas, ses Souhaits, ses Repas cuisinés et les Listes de courses vivent dans
+ * l'Espace foyer. Les Repas planifiés se présentent à l'Agenda, et la Cuisine
+ * se résume au tableau de bord (ADR 0011) ; les Tours de génération passent
+ * par le port IA.
  */
 @Module({
   imports: [AgendaPortModule, DashboardPortModule, AiModule],
@@ -51,9 +55,11 @@ import { ShoppingListService } from './shopping-list.service';
     FoodPreferenceController,
     RecipeController,
     MealPlanController,
+    MealPlanEntryController,
     GenerationRoundController,
     MealWishController,
     PantryItemController,
+    CookedMealController,
     ShoppingListController,
     MealPlanShoppingListController,
   ],
@@ -76,6 +82,8 @@ import { ShoppingListService } from './shopping-list.service';
     FoodResumeur,
     PantryItemService,
     PantryItemRepository,
+    CookedMealService,
+    CookedMealRepository,
     ShoppingListService,
     ShoppingListRepository,
   ],

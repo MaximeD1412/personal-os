@@ -142,6 +142,15 @@ export class MealPlanRepository {
     return rangee ? enPlanning(rangee) : null;
   }
 
+  async lireLeRepas(id: string): Promise<MealPlanEntryRecord | null> {
+    const rangee = await this.prisma.mealPlanEntry.findUnique({
+      where: { id },
+      select: CHAMPS_DU_REPAS,
+    });
+
+    return rangee ? enRepas(rangee) : null;
+  }
+
   /** Les Repas planifiés approuvés dont le jour est entre ces deux-là, inclus. */
   async approuvesEntre(
     premier: string,
