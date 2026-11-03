@@ -13,7 +13,12 @@ export type RaisonDuRefus =
    * garde ne vérifie pas. C'est un défaut de module : ce geste se fait au
    * premier niveau, par le dépôt du modèle concerné.
    */
-  | 'imbrication';
+  | 'imbrication'
+  /**
+   * Sous la portée du portfolio public, l'opération lit un modèle qui ne se
+   * publie pas, suit une relation, ou écrit. C'est un défaut de module.
+   */
+  | 'lecture-publique';
 
 /** Refus opposé par la garde d'Espace, au niveau de l'accès aux données. */
 export class ErreurDEspace extends Error {
