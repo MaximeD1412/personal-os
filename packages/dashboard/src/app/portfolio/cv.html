@@ -1,0 +1,74 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    heading="CV"
+    subtitle="Le CV du portfolio, en PDF de 5 Mo au plus, une version par langue."
+    [breadcrumb]="fil"
+  />
+
+  @if (refus(); as refus) {
+  <div hlmAlert tone="error" data-test="refus">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>{{ refus.message }}</p>
+    </div>
+  </div>
+  }
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="cards"
+    [rows]="2"
+    loadingLabel="Chargement du CV…"
+    (retry)="lecture.reload()"
+  >
+    <div class="grid gap-gutter md:grid-cols-2">
+      @for (lang of langues; track lang) { @let cv = parLangue().get(lang);
+      <section hlmCard [attr.data-test]="'cv-' + lang">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>{{ libelles[lang] }}</h2>
+          <p hlmCardDescription data-test="detail">
+            @if (cv) { {{ detail(cv) }} } @else { Aucun CV téléversé. }
+          </p>
+        </div>
+        <div hlmCardContent class="flex-row flex-wrap">
+          <input
+            #champ
+            type="file"
+            accept="application/pdf,.pdf"
+            class="sr-only"
+            tabindex="-1"
+            data-test="fichier"
+            [attr.aria-label]="'Fichier du CV, ' + libelles[lang]"
+            (change)="televerser(lang, champ)"
+          />
+          @if (cv) {
+          <a
+            hlmBtn
+            variant="secondary"
+            data-test="telecharger"
+            [href]="lien(lang)"
+            download
+          >
+            <ng-icon name="matDownloadOutline" aria-hidden="true" />
+            Télécharger
+          </a>
+          }
+          <button
+            hlmBtn
+            type="button"
+            [variant]="cv ? 'secondary' : 'primary'"
+            data-test="televerser"
+            [disabled]="envoi() !== null"
+            (click)="champ.click()"
+          >
+            <ng-icon name="matUploadOutline" aria-hidden="true" />
+            @if (envoi() === lang) { Envoi… } @else if (cv) { Remplacer } @else
+            { Téléverser }
+          </button>
+        </div>
+      </section>
+      }
+    </div>
+  </dccm-state>
+</div>

@@ -27,8 +27,8 @@ POSTGRES_DATABASES="personalos authentik"
 # Chemins ajoutés à l'instantané, en plus du dump PostgreSQL. Séparés par des
 # espaces ou des retours à la ligne.
 #
-# C'est ici que le périmètre s'élargit sans toucher au script : le stockage
-# objet y ajoutera son point de montage.
+# C'est ici que le périmètre s'élargit sans toucher au script. Le stockage
+# objet, lui, n'est pas un chemin de la machine : voir plus bas.
 #
 # Ne jamais y mettre /etc/personal-os/restic.env ni le fichier de clé : une
 # sauvegarde qui contient sa propre clé de déchiffrement ne protège plus rien.
@@ -52,6 +52,16 @@ BACKUP_PATHS="
 /opt/personal-os/authentik
 /opt/edge
 "
+
+# --- Stockage objet -----------------------------------------------------
+#
+# Le bucket OVH où l'API range les fichiers téléversés (#23). Il est recopié
+# dans l'instantané, sous objets/, avant l'envoi. Vide = pas de copie : à ne
+# laisser vide que tant que l'API n'a pas de bucket. Ses clés vivent dans
+# restic.env ; de préférence un utilisateur S3 en lecture seule sur ce bucket.
+S3_MIRROR_ENDPOINT=https://s3.gra.io.cloud.ovh.net
+S3_MIRROR_REGION=gra
+S3_MIRROR_BUCKET=
 
 # --- Rétention ----------------------------------------------------------
 #
