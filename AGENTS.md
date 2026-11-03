@@ -120,6 +120,7 @@ et lève `food.list_already_closed`.
 | Dépense de projet, Lien de projet        | `ProjectExpense`, `links` (`ProjectLink`)                        |
 | Page de contenu                          | `PageContent`                                                    |
 | CV (du portfolio)                        | `Cv`, routes `/cv/:lang`                                         |
+| Portfolio public (lecture sans session)  | routes `/public/…`, `@LecturePublique()`, `PORTEE_PUBLIQUE`      |
 | Stockage objet                           | `StockageObjet`, module `storage`, `STORAGE_PROVIDER`            |
 | Présentation, Expériences, Compétences   | `slug` : `about`, `experience`, `skills`                         |
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
