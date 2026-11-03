@@ -141,8 +141,11 @@ export class Stock {
    * retour, pour qu'aucune correction n'arrive après eux et ne recrée la ligne.
    */
   private readonly retraitsEnAttente = new Map<string, string>();
-  /** La ligne en cours de suppression, le temps de la requête. */
-  protected readonly suppression = signal<string | null>(null);
+  /**
+   * Les Ingrédients dont le retrait est confirmé, jusqu'à la réponse de leur
+   * DELETE : leur ligne ne se corrige plus, chacune pour elle-même.
+   */
+  protected readonly suppressions = signal<ReadonlySet<string>>(new Set());
   /** Le refus de la dernière suppression, en bandeau : jamais en toast seul. */
   protected readonly refusDeSuppression = signal<ErreurApi | null>(null);
 
@@ -200,7 +203,7 @@ export class Stock {
     const { id } = ligne.ingredient;
     // Ce qui n'est pas encore parti ne partira plus.
     this.brouillons.delete(id);
-    this.suppression.set(id);
+    this.suppressions.update((ids) => new Set(ids).add(id));
     this.refusDeSuppression.set(null);
     if (this.enRoute.has(id)) {
       this.retraitsEnAttente.set(id, nom);
@@ -212,7 +215,7 @@ export class Stock {
   private supprimer(id: string, nom: string): void {
     this.service.supprimer(id).subscribe({
       next: () => {
-        this.suppression.set(null);
+        this.finirLaSuppression(id);
         showToast({ message: `«\u00a0${nom}\u00a0» est retiré du stock.` });
         // La ligne quitte l'écran sans attendre la relecture : plus rien ne
         // s'y saisit.
@@ -222,7 +225,7 @@ export class Stock {
         this.lecture.reload();
       },
       error: (erreur: ErreurApi) => {
-        this.suppression.set(null);
+        this.finirLaSuppression(id);
         this.refusDeSuppression.set(erreur);
         this.lecture.reload();
       },
@@ -233,7 +236,7 @@ export class Stock {
   private corriger(ligne: PantryItem, champ: Partial<Saisie>): void {
     const { id } = ligne.ingredient;
     // Une ligne retirée, ou sur le point de l'être, ne se corrige plus.
-    if (this.suppression() === id || this.retraitsEnAttente.has(id)) return;
+    if (this.suppressions().has(id)) return;
     this.brouillons.set(id, { ...this.brouillons.get(id), ...champ });
     this.envoyer(id);
   }
@@ -298,6 +301,14 @@ export class Stock {
           this.envoyer(id);
         }
       },
+    });
+  }
+
+  private finirLaSuppression(id: string): void {
+    this.suppressions.update((ids) => {
+      const restants = new Set(ids);
+      restants.delete(id);
+      return restants;
     });
   }
 

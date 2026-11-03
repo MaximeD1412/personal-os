@@ -372,6 +372,63 @@ describe('Le Stock domestique', () => {
     expect(ligne(el(), 'ingredient-lait')).toBeNull();
   });
 
+  it('garde chaque ligne en retrait fermée à la saisie, même quand une autre se retire en même temps', async () => {
+    const ouvert = await ouvrir();
+    const { el, http } = ouvert;
+    const retirer = async (ingredientId: string) => {
+      (
+        ligne(el(), ingredientId).querySelector(
+          '[data-test="retirer"]',
+        ) as HTMLButtonElement
+      ).click();
+      await apresLaConfirmation(ouvert);
+    };
+    const DELETE = (url: string) => (r: { method: string; url: string }) =>
+      r.method === 'DELETE' && r.url === url;
+    const PUT = (r: { method: string }) => r.method === 'PUT';
+
+    await saisir(ouvert, champ(el(), 'ingredient-lait', 'quantite'), '250');
+    await retirer('ingredient-lait');
+    await retirer('ingredient-spaghetti');
+    const spaghetti = http.expectOne(
+      DELETE(`${BASE}/pantry-items/ingredient-spaghetti`),
+    );
+
+    http.expectOne(PUT).flush({ ...LAIT, quantity: 250 });
+    TestBed.tick();
+    const lait = http.expectOne(DELETE(`${BASE}/pantry-items/ingredient-lait`));
+
+    // Le lait, encore à l'écran le temps de son DELETE, ne se corrige plus.
+    await saisir(ouvert, champ(el(), 'ingredient-lait', 'quantite'), '100');
+    http.expectNone(PUT);
+    expect(
+      (
+        ligne(el(), 'ingredient-lait').querySelector(
+          '[data-test="retirer"]',
+        ) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+
+    // Le retrait des spaghettis s'achève, et sa relecture est en route : le
+    // lait reste fermé à la saisie.
+    spaghetti.flush(null, { status: 204, statusText: 'No Content' });
+    TestBed.tick();
+    const quantite = champ(el(), 'ingredient-lait', 'quantite');
+    quantite.value = '120';
+    quantite.dispatchEvent(new Event('change'));
+    TestBed.tick();
+    http.expectNone(PUT);
+
+    lait.flush(null, { status: 204, statusText: 'No Content' });
+    TestBed.tick();
+    for (const relecture of http.match(`${BASE}/pantry-items`)) {
+      if (!relecture.cancelled) relecture.flush([YAOURT]);
+    }
+    await ouvert.harness.fixture.whenStable();
+    expect(ligne(el(), 'ingredient-lait')).toBeNull();
+    expect(ligne(el(), 'ingredient-spaghetti')).toBeNull();
+  });
+
   it('retire une ligne après confirmation, puis relit le stock', async () => {
     const ouvert = await ouvrir();
     const { el, http, confirmations } = ouvert;

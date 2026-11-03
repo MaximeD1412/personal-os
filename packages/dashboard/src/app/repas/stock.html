@@ -191,7 +191,7 @@
     type="button"
     data-test="retirer"
     [attr.aria-label]="'Retirer ' + ligne.ingredient.displayName + ' du stock'"
-    [disabled]="suppression() === ligne.ingredient.id"
+    [disabled]="suppressions().has(ligne.ingredient.id)"
     (click)="retirer(ligne)"
   >
     <ng-icon name="matDeleteOutline" aria-hidden="true" />
