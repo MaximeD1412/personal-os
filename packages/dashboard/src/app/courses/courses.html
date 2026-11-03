@@ -72,6 +72,14 @@
             </p>
           </div>
         </div>
+        } @if (echecDuLien(); as erreur) {
+        <dccm-state
+          data-test="lecture-du-lien"
+          status="error"
+          [error]="erreur"
+          errorHeading="L'ingrédient du lien n'a pas pu être lu"
+          (retry)="duLien.reload()"
+        />
         } @if (refusSansChamp(); as erreur) {
         <div hlmAlert tone="error" data-test="refus-ajout">
           <hlm-alert-icon />

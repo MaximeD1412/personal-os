@@ -336,6 +336,67 @@ describe('La Liste de courses', () => {
       expect(champ(ouvert.el(), 'quantite').value).toBe('250');
     });
 
+    it("garde la saisie quand l'Ingrédient du lien arrive après elle", async () => {
+      const ouvert = await ouvrirLesCourses(
+        `/courses?ingredientId=${BEURRE.id}`,
+      );
+      ouvert.http.expectOne(OUVERTES).flush([LISTE]);
+      const lecture = ouvert.http.expectOne(`${BASE}/ingredients/${BEURRE.id}`);
+      // La liste se rend, la lecture de l'Ingrédient toujours en attente.
+      await new Promise((resolve) => setTimeout(resolve));
+      TestBed.tick();
+
+      saisir(ouvert, 'article', 'Éponges');
+      ouvert.http.expectOne(`${BASE}/ingredients?q=%C3%89ponges`).flush([]);
+      // La réponse tardive, si la lecture n'a pas été abandonnée.
+      if (!lecture.cancelled) lecture.flush(BEURRE);
+      await ouvert.harness.fixture.whenStable();
+
+      expect(champ(ouvert.el(), 'article').value).toBe('Éponges');
+      expect(ouvert.el().querySelector('[data-test="choisi"]')).toBeNull();
+      envoyer(ouvert);
+      const envoi = ouvert.http.expectOne(
+        `${BASE}/shopping-lists/${LISTE.id}/items`,
+      );
+      expect(envoi.request.body).toEqual({ label: 'Éponges' });
+      envoi.flush({ ...EPONGES, id: 'article-nouveau', quantity: null });
+      await ouvert.harness.fixture.whenStable();
+    });
+
+    it("dit l'échec de lecture de l'Ingrédient du lien, sans l'écarter, et relit", async () => {
+      const ouvert = await ouvrirLesCourses(
+        `/courses?ingredientId=${BEURRE.id}`,
+      );
+      ouvert.http.expectOne(OUVERTES).flush([LISTE]);
+      ouvert.http
+        .expectOne(`${BASE}/ingredients/${BEURRE.id}`)
+        .flush(
+          {
+            status: 503,
+            code: 'unavailable',
+            message: 'La base ne répond pas.',
+          },
+          { status: 503, statusText: 'Service Unavailable' },
+        );
+      await ouvert.harness.fixture.whenStable();
+
+      expect(ouvert.el().querySelector('[data-test="ignores"]')).toBeNull();
+      const echec = ouvert
+        .el()
+        .querySelector('[data-test="lecture-du-lien"]') as HTMLElement;
+      expect(texte(echec)).toContain('La base ne répond pas.');
+
+      (echec.querySelector('button') as HTMLButtonElement).click();
+      TestBed.tick();
+      ouvert.http.expectOne(`${BASE}/ingredients/${BEURRE.id}`).flush(BEURRE);
+      await ouvert.harness.fixture.whenStable();
+
+      expect(
+        ouvert.el().querySelector('[data-test="lecture-du-lien"]'),
+      ).toBeNull();
+      expect(champ(ouvert.el(), 'article').value).toBe('Beurre doux');
+    });
+
     it('signale les valeurs du lien écartées, sans les appliquer', async () => {
       const ouvert = await ouvrirLesCourses(
         '/courses?quantity=-3&ingredientId=inconnu',

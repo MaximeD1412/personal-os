@@ -2,9 +2,10 @@ import {
   Component,
   computed,
   ElementRef,
+  effect,
   inject,
-  linkedSignal,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -41,7 +42,7 @@ import { HlmInputImports } from '@personal-os/ui/input';
 import { showToast } from '@personal-os/ui/sonner';
 import { map } from 'rxjs';
 import { formaterInstant, formaterJour } from '../dates';
-import type { ErreurApi } from '../erreur-api.interceptor';
+import { ErreurApi } from '../erreur-api.interceptor';
 import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { IngredientService } from '../repas/ingredient.service';
 import { quantiteCanonique, UNITES_CANONIQUES } from '../repas/quantite';
@@ -197,30 +198,53 @@ export class Courses {
     zShoppingListItemInput,
     inject(ActivatedRoute).snapshot.queryParamMap,
   );
-  /** L'Ingrédient du lien, lu pour le nommer. */
-  private readonly duLien = this.ingredients.ingredient(
-    () => this.prefill.valeurs.ingredientId ?? null,
-  );
-  private readonly ingredientDuLien = computed(() =>
-    this.duLien.hasValue() ? (this.duLien.value() ?? null) : null,
-  );
-  protected readonly choisi = linkedSignal<Ingredient | null>(
-    this.ingredientDuLien,
-  );
-  protected readonly texte = linkedSignal(
-    () =>
-      this.ingredientDuLien()?.displayName ?? this.prefill.valeurs.label ?? '',
-  );
+  /**
+   * L'Ingrédient du lien, lu pour le nommer. La saisie l'emporte : dès qu'on
+   * tape ou choisit un article, la lecture est abandonnée, et une réponse
+   * tardive ne remplace plus rien.
+   */
+  private readonly idDuLien = signal(this.prefill.valeurs.ingredientId ?? null);
+  protected readonly duLien = this.ingredients.ingredient(this.idDuLien);
+  /** Seul un 404 dit que l'Ingrédient du lien n'existe pas. */
+  private readonly lienInconnu = signal(false);
+  /** Une autre erreur s'affiche telle quelle, et sa lecture se relance. */
+  protected readonly echecDuLien = computed(() => {
+    const erreur = this.duLien.error();
+    return erreur && !(erreur instanceof ErreurApi && erreur.status === 404)
+      ? erreur
+      : null;
+  });
+  protected readonly choisi = signal<Ingredient | null>(null);
+  protected readonly texte = signal(this.prefill.valeurs.label ?? '');
   protected readonly quantite = signal<number | null>(
     this.prefill.valeurs.quantity ?? null,
   );
   /** Les valeurs du lien écartées : par le contrat, ou un Ingrédient inconnu. */
   protected readonly ignores = computed(() => [
     ...this.prefill.ignores,
-    ...(this.duLien.error()
+    ...(this.lienInconnu()
       ? [`ingredientId=${this.prefill.valeurs.ingredientId}`]
       : []),
   ]);
+
+  constructor() {
+    // L'Ingrédient du lien, une fois lu, devient l'article choisi.
+    effect(() => {
+      const erreur = this.duLien.error();
+      const lu = this.duLien.hasValue() ? this.duLien.value() : undefined;
+      untracked(() => {
+        if (lu) {
+          this.choisi.set(lu);
+          this.texte.set(lu.displayName);
+          this.idDuLien.set(null);
+        } else if (erreur instanceof ErreurApi && erreur.status === 404) {
+          this.lienInconnu.set(true);
+          this.idDuLien.set(null);
+        }
+      });
+    });
+  }
+
   protected readonly envoi = signal(false);
   protected readonly refusDAjout = signal<ErreurApi | null>(null);
   protected readonly erreursDAjout = computed(() =>
@@ -263,6 +287,7 @@ export class Courses {
   }
 
   protected saisirLeTexte(evenement: Event): void {
+    this.idDuLien.set(null);
     this.texte.set((evenement.target as HTMLInputElement).value);
     this.choisi.set(null);
     this.refusDAjout.set(null);
@@ -278,6 +303,7 @@ export class Courses {
   }
 
   protected choisir(ingredient: Ingredient): void {
+    this.idDuLien.set(null);
     this.choisi.set(ingredient);
     this.texte.set(ingredient.displayName);
     this.champ()?.nativeElement.focus();
