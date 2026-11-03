@@ -20,3 +20,10 @@ paths = [
   # Une fixture de test qui doit contenir un secret au format réel s'ajoute
   # ici, par son chemin exact, jamais par un motif de dossier.
 ]
+
+[[allowlists]]
+description = "Valeur témoin du test de la copie du bucket (infra/backup)"
+# Le test vérifie que la clé S3 de la sauvegarde n'apparaît jamais dans la
+# sortie de backup.sh : il lui faut une valeur reconnaissable, qui n'a jamais
+# été une vraie clé.
+regexes = ['''secret-s3-qui-ne-doit-jamais-fuiter''']

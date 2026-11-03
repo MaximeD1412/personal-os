@@ -114,12 +114,14 @@ et lève `food.list_already_closed`.
 | Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
 | Dépense de projet, Lien de projet        | `ProjectExpense`, `links` (`ProjectLink`)                        |
 | Page de contenu                          | `PageContent`                                                    |
+| CV (du portfolio)                        | `Cv`, routes `/cv/:lang`                                         |
+| Stockage objet                           | `StockageObjet`, module `storage`, `STORAGE_PROVIDER`            |
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 | Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
 | Commande non comprise                    | `UnresolvedCommand`                                              |
 
 Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
-`portfolio`, `dashboard`, `command-bar`, `ai`. Un terme absent de cette table se
+`portfolio`, `dashboard`, `command-bar`, `ai`, `storage`. Un terme absent de cette table se
 traduit en restant au plus près du glossaire, et la traduction s'ajoute ici
 dans la même PR.
 
