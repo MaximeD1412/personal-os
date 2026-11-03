@@ -84,13 +84,18 @@ export const LISTE_PRECEDENTE: ShoppingList = {
 
 export async function ouvrirLesCourses(
   url: string,
-  { confirme = true }: { confirme?: boolean } = {},
+  {
+    confirme = true,
+  }: {
+    /** La réponse du dialogue, ou une promesse que le test résout quand il veut. */
+    confirme?: boolean | Promise<boolean>;
+  } = {},
 ) {
   // Les demandes de confirmation, dans l'ordre.
   const confirmations: DccmConfirmOptions[] = [];
-  const confirm = (options: DccmConfirmOptions) => {
+  const confirm = async (options: DccmConfirmOptions) => {
     confirmations.push(options);
-    return Promise.resolve(confirme ? true : null);
+    return (await confirme) ? true : null;
   };
   TestBed.configureTestingModule({
     providers: [

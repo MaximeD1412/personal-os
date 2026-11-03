@@ -313,6 +313,9 @@ export class Courses {
   protected async cloturer(): Promise<void> {
     const liste = this.liste();
     if (!liste || this.cloture()) return;
+    // Les refus de cochage comptent dès ici : un cochage refusé pendant la
+    // confirmation laisse au serveur un état que le dialogue n'a pas annoncé.
+    const refusAvant = this.cochagesRefuses;
     const saisie: ShoppingListClosure = {
       items: this.achats().map((article) => {
         const quantite = this.quantiteAchetee(article);
@@ -339,7 +342,8 @@ export class Courses {
     // le serveur l'ait, et les cases restent figées jusqu'à sa réponse.
     this.cloture.set(true);
     this.refusDeCloture.set(null);
-    if (!(await this.cochagesAboutis())) {
+    await this.cochagesAboutis();
+    if (this.cochagesRefuses !== refusAvant) {
       this.cloture.set(false);
       return;
     }
@@ -456,14 +460,14 @@ export class Courses {
    */
   private readonly voulus = new Map<string, boolean>();
   private readonly enRoute = new Set<string>();
-  /** La clôture qui attend les cochages en route, et si l'un a été refusé. */
-  private attenteDesCochages: ((aboutis: boolean) => void) | null = null;
-  private cochageRefuse = false;
+  /** La clôture qui attend les cochages en route. */
+  private attenteDesCochages: (() => void) | null = null;
+  /** Les cochages refusés depuis l'ouverture de l'écran. */
+  private cochagesRefuses = 0;
 
-  /** Vrai quand plus aucun cochage n'est en route, faux si l'un a été refusé. */
-  private cochagesAboutis(): Promise<boolean> {
-    if (this.enRoute.size === 0) return Promise.resolve(true);
-    this.cochageRefuse = false;
+  /** Résolue quand plus aucun cochage n'est en route. */
+  private cochagesAboutis(): Promise<void> {
+    if (this.enRoute.size === 0) return Promise.resolve();
     return new Promise((resolve) => (this.attenteDesCochages = resolve));
   }
 
@@ -471,7 +475,7 @@ export class Courses {
     if (this.enRoute.size > 0 || !this.attenteDesCochages) return;
     const resoudre = this.attenteDesCochages;
     this.attenteDesCochages = null;
-    resoudre(!this.cochageRefuse);
+    resoudre();
   }
 
   protected uniteDe(ingredient: Ingredient): string {
@@ -602,7 +606,7 @@ export class Courses {
       error: (erreur: ErreurApi) => {
         this.enRoute.delete(articleId);
         this.voulus.delete(articleId);
-        this.cochageRefuse = true;
+        this.cochagesRefuses++;
         this.refus.set(erreur);
         this.lecture().reload();
         this.siPlusRienEnRoute();

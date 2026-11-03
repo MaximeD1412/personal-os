@@ -722,6 +722,47 @@ describe('La Liste de courses', () => {
       expect(caseDe(el(), FARINE.id).disabled).toBe(false);
     });
 
+    it('ne clôture pas si un cochage est refusé pendant la confirmation', async () => {
+      let confirmer!: (oui: boolean) => void;
+      const ouvert = await ouvrir([{ ...LISTE, items: [LAIT] }], {
+        confirme: new Promise<boolean>((resolve) => (confirmer = resolve)),
+      });
+      const { el, http } = ouvert;
+
+      // Le lait, coché, est décoché : le récapitulatif n'annonce aucun achat.
+      caseDe(el(), LAIT.id).click();
+      TestBed.tick();
+      const decochage = http.expectOne(
+        `${BASE}/shopping-lists/${LISTE.id}/items/${LAIT.id}/uncheck`,
+      );
+      await ouvrirLeRecap(ouvert);
+      bouton(el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+
+      // Le décochage échoue, le dialogue encore ouvert : le lait reste coché.
+      decochage.flush(
+        {
+          status: 503,
+          code: 'http.unavailable',
+          message: 'Le service est momentanément indisponible.',
+        },
+        { status: 503, statusText: 'Service Unavailable' },
+      );
+      TestBed.tick();
+      http.expectOne(OUVERTES).flush([{ ...LISTE, items: [LAIT] }]);
+      await ouvert.harness.fixture.whenStable();
+
+      confirmer(true);
+      await apresLaConfirmation();
+
+      http.expectNone(CLOTURE);
+      expect(texte(el().querySelector('[data-test="refus"]'))).toContain(
+        'momentanément indisponible',
+      );
+      expect(caseDe(el(), LAIT.id).getAttribute('aria-checked')).toBe('true');
+      expect(caseDe(el(), LAIT.id).disabled).toBe(false);
+    });
+
     it("ne clôt rien si l'on renonce, et le récapitulatif reste ouvert", async () => {
       const ouvert = await ouvrir([LISTE], { confirme: false });
       await ouvrirLeRecap(ouvert);
