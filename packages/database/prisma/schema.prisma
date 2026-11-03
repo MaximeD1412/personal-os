@@ -472,6 +472,9 @@ model GenerationRound {
   /// leur suppression.
   traceId    String?
   trace      AiTrace?        @relation(fields: [traceId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
+  /// Les créneaux que le contrôle a vidés, et pourquoi (`zRejectedSlot[]` de
+  /// `contracts`) : le tour suivant les retente (CUISINE-16).
+  rejected   Json            @default("[]")
   entries    MealPlanEntry[]
   /// Un instant (`zInstant`) : en `timestamptz`, comme le veut l'ADR 0030.
   createdAt  DateTime        @default(now()) @db.Timestamptz(3)
