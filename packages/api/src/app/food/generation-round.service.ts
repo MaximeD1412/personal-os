@@ -181,7 +181,9 @@ export class GenerationRoundService {
     const versions = await this.tours.versionsDesPreferences(comptes);
     const [preferences, recettes] = await Promise.all([
       this.preferences.lister(),
-      this.recettes.lister([]),
+      // Toutes, gardées ou non : un Souhait peut citer une recette générée
+      // qu'on n'a pas gardée. La demande ne propose que les gardées.
+      this.recettes.lister([], { gardeesSeules: false }),
     ]);
     const catalogue = await this.tours.catalogue();
 
@@ -189,9 +191,10 @@ export class GenerationRoundService {
       catalogue,
       preferences,
       versions,
-      recettes: recettes.map(({ id, title, updatedAt, lines }) => ({
+      recettes: recettes.map(({ id, title, kept, updatedAt, lines }) => ({
         id,
         title,
+        kept,
         updatedAt,
         lines: lines.map(({ ingredient }) => ({
           ingredientId: ingredient.id,
@@ -274,7 +277,11 @@ export class GenerationRoundService {
 /** Le contexte du contrôle, avec la version de chaque donnée lue. */
 interface DonneesDuControle extends ContexteDuControle {
   catalogue: CatalogueDuTour;
-  recettes: (RecetteDuControle & { title: string; updatedAt: Date })[];
+  recettes: (RecetteDuControle & {
+    title: string;
+    kept: boolean;
+    updatedAt: Date;
+  })[];
   versions: LecturesDuTour['comptes'];
 }
 

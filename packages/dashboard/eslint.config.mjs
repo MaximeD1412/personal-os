@@ -29,11 +29,12 @@ export default [
   {
     files: ['**/*.html'],
     rules: {
-      // `<a dccmListRow label="…">` : le titre de la ligne est une entrée, et
-      // le composant le rend dans le lien ou le bouton.
+      // `<a dccmListRow label="…">`, `<a dccmKpiTile eyebrow="…">` : le titre
+      // de la ligne ou de la tuile est une entrée, et le composant le rend
+      // dans le lien ou le bouton.
       '@angular-eslint/template/elements-content': [
         'error',
-        { allowList: ['label'] },
+        { allowList: ['label', 'eyebrow'] },
       ],
     },
   },

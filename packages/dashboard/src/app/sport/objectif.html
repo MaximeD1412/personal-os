@@ -1,0 +1,169 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    [heading]="titre()"
+    [subtitle]="sousTitre()"
+    [breadcrumb]="fil()"
+  >
+    @if (objectif(); as objectif) {
+    <button
+      hlmBtn
+      variant="ghost"
+      type="button"
+      data-test="supprimer"
+      [disabled]="suppression()"
+      (click)="supprimer()"
+    >
+      <ng-icon [svg]="icones.supprimer" aria-hidden="true" />
+      <span class="max-sm:sr-only">Supprimer</span>
+    </button>
+    <a
+      hlmBtn
+      variant="secondary"
+      data-test="modifier"
+      [routerLink]="['/sport/objectifs', objectif.id, 'modifier']"
+    >
+      <ng-icon [svg]="icones.modifier" aria-hidden="true" />
+      <span class="max-sm:sr-only">Modifier</span>
+    </a>
+    <a
+      hlmBtn
+      data-test="creer-la-serie"
+      [routerLink]="['/sport/objectifs', objectif.id, 'seances', 'nouvelles']"
+    >
+      <ng-icon [svg]="icones.serie" aria-hidden="true" />
+      Créer des séances
+    </a>
+    }
+  </dccm-page-header>
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="detail"
+    (retry)="lecture.reload()"
+  >
+    @if (objectif(); as objectif) {
+    <div class="flex flex-col gap-gutter">
+      @if (refus(); as refus) {
+      <div hlmAlert tone="error" data-test="refus">
+        <hlm-alert-icon />
+        <div hlmAlertContent>
+          <p hlmAlertTitle>{{ refus.message }}</p>
+        </div>
+      </div>
+      } @if (avancement(); as avancement) {
+      <section hlmCard data-test="avancement">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle tone="secondary">
+            <ng-icon [svg]="icones.objectif" aria-hidden="true" />
+            Avancement
+          </h2>
+          @if (objectif.intent) {
+          <p hlmCardDescription data-test="intention">{{ objectif.intent }}</p>
+          }
+        </div>
+        <div hlmCardContent class="flex flex-col gap-space-md">
+          <div
+            class="flex flex-wrap items-baseline justify-between gap-space-sm"
+          >
+            <span
+              class="text-telemetry-metric text-on-surface tabular-nums"
+              data-test="faites"
+              >{{ avancement.libelle }}</span
+            >
+            @if (avancement.total > 0) {
+            <span class="text-label-regular text-secondary tabular-nums"
+              >{{ avancement.pourcentage }} % complété</span
+            >
+            }
+          </div>
+          @if (avancement.total > 0) {
+          <hlm-progress
+            aria-label="Séances faites"
+            thickness="6"
+            [value]="avancement.faites"
+            [max]="avancement.total"
+          >
+            <hlm-progress-indicator />
+          </hlm-progress>
+          }
+          <dl
+            class="grid grid-cols-3 gap-space-md rounded bg-surface-container-low p-space-md"
+          >
+            <div class="flex flex-col gap-0.5">
+              <dt class="text-label-regular text-outline">Faites</dt>
+              <dd
+                class="text-title-sm text-secondary tabular-nums"
+                data-test="nombre-faites"
+              >
+                {{ objectif.progress.done }}
+              </dd>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <dt class="text-label-regular text-outline">Manquées</dt>
+              <dd
+                class="text-title-sm text-error tabular-nums"
+                data-test="nombre-manquees"
+              >
+                {{ objectif.progress.missed }}
+              </dd>
+            </div>
+            <div class="flex flex-col gap-0.5">
+              <dt class="text-label-regular text-outline">À venir</dt>
+              <dd
+                class="text-title-sm text-primary tabular-nums"
+                data-test="nombre-a-venir"
+              >
+                {{ objectif.progress.planned }}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+      }
+
+      <section hlmCard data-test="seances">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle tone="secondary">Séances</h2>
+        </div>
+        <div hlmCardContent>
+          <dccm-state
+            [status]="etatDesSeances()"
+            [error]="lectureDesSeances.error()"
+            emptyHeading="Aucune séance vers cet objectif"
+            emptyDescription="Créez-en une série : les jours de la semaine, la période, le prévu."
+            [emptyIcon]="icones.serie"
+            (retry)="lectureDesSeances.reload()"
+          >
+            <a
+              dccmStateEmpty
+              hlmBtn
+              [routerLink]="['/sport/objectifs', objectif.id, 'seances', 'nouvelles']"
+              >Créer des séances</a
+            >
+            <ul class="flex flex-col" aria-label="Séances de l’objectif">
+              @for (vue of seances(); track vue.seance.id) {
+              <li>
+                <a
+                  dccmListRow
+                  chevron
+                  data-test="seance"
+                  [attr.data-statut]="vue.seance.status"
+                  [label]="vue.titre"
+                  [meta]="vue.meta"
+                  [routerLink]="['/sport/seances', vue.seance.id]"
+                >
+                  <span hlmBadge [tone]="vue.statut.tone" dot
+                    >{{ vue.statut.libelle }}</span
+                  >
+                </a>
+              </li>
+              }
+            </ul>
+          </dccm-state>
+        </div>
+      </section>
+    </div>
+    }
+  </dccm-state>
+</div>

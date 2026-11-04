@@ -1,0 +1,67 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    heading="Objectifs"
+    subtitle="Les courses que les Séances préparent, et où elles en sont."
+    [breadcrumb]="[{ label: 'Sport', link: '/sport' }, { label: 'Objectifs' }]"
+  >
+    <a hlmBtn routerLink="/sport/objectifs/nouveau" data-test="nouvel-objectif">
+      <ng-icon [svg]="icones.ajouter" aria-hidden="true" />
+      Nouvel objectif
+    </a>
+  </dccm-page-header>
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    emptyHeading="Aucun objectif pour l’instant"
+    emptyDescription="Une course, une date : les Séances s’y créent ensuite en série."
+    [emptyIcon]="icones.vide"
+    loadingLabel="Chargement des objectifs…"
+    (retry)="lecture.reload()"
+  >
+    <a dccmStateEmpty hlmBtn routerLink="/sport/objectifs/nouveau"
+      >Nouvel objectif</a
+    >
+
+    <section hlmCard class="p-space-sm md:p-space-sm">
+      <ul class="flex flex-col" aria-label="Objectifs">
+        @for (ligne of lignes(); track ligne.objectif.id) {
+        <li>
+          <a
+            dccmListRow
+            chevron
+            data-test="objectif"
+            [label]="ligne.objectif.title"
+            [meta]="ligne.meta"
+            [routerLink]="['/sport/objectifs', ligne.objectif.id]"
+          >
+            <span
+              class="hidden w-30 flex-col gap-space-xs md:flex"
+              data-test="avancement"
+            >
+              <span class="text-label-micro text-outline tabular-nums"
+                >{{ ligne.avancement.libelle }}</span
+              >
+              @if (ligne.avancement.total > 0) {
+              <hlm-progress
+                [attr.aria-label]="'Avancement : ' + ligne.objectif.title"
+                [value]="ligne.avancement.faites"
+                [max]="ligne.avancement.total"
+              >
+                <hlm-progress-indicator />
+              </hlm-progress>
+              }
+            </span>
+            <span
+              hlmBadge
+              [tone]="ligne.echeance.passee ? 'neutral' : 'info'"
+              data-test="echeance"
+              >{{ ligne.echeance.libelle }}</span
+            >
+          </a>
+        </li>
+        }
+      </ul>
+    </section>
+  </dccm-state>
+</div>

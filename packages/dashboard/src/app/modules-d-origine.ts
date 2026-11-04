@@ -1,5 +1,7 @@
 import {
+  lundiDe,
   SOURCE_CALENDRIER,
+  SOURCE_CUISINE,
   SOURCE_SPORT,
   type AgendaItem,
 } from '@personal-os/contracts';
@@ -7,7 +9,9 @@ import {
   matCalendarMonthOutline,
   matEventOutline,
   matFitnessCenterOutline,
+  matRestaurantOutline,
 } from '@ng-icons/material-symbols/outline';
+import { jourDe } from './dates';
 import { moisDe } from './mois';
 
 /**
@@ -81,6 +85,19 @@ const MODULES: Readonly<Record<string, ModuleDOrigine>> = {
       parametres: {},
     }),
   },
+  // Un Repas planifié se décide et se déplace dans le planning de sa semaine,
+  // à Paris : c'est le seul écran qui le montre. Le paramètre est celui que
+  // le planning lit (`PARAMETRE_DE_SEMAINE`), écrit ici pour ne pas tirer
+  // l'écran, chargé à la demande, dans le bundle initial.
+  [SOURCE_CUISINE]: {
+    libelle: 'Repas',
+    icone: matRestaurantOutline,
+    ton: 'tertiary',
+    lien: (entree) => ({
+      chemin: '/repas/planning',
+      parametres: { semaine: lundiDe(jourDe(entree.startsAt)) },
+    }),
+  },
 };
 
 /** Les modules connus, dans l'ordre de la légende de l'Agenda. */
@@ -93,7 +110,15 @@ export const MODULES_D_ORIGINE: readonly ModuleDOrigine[] =
  * l'API avant d'avoir son écran.
  */
 export function moduleDOrigine(entree: AgendaItem): ModuleDOrigine | null {
-  return MODULES[entree.source] ?? null;
+  return moduleNomme(entree.source);
+}
+
+/**
+ * Un module par son identifiant, celui que portent aussi ses Résumés et ses
+ * À faire (`ModuleSummary.module`, `Todo.module`).
+ */
+export function moduleNomme(module: string): ModuleDOrigine | null {
+  return MODULES[module] ?? null;
 }
 
 /** L'icône d'une entrée dont le module n'a pas encore d'écran. */

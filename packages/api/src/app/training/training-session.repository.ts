@@ -44,12 +44,33 @@ export class TrainingSessionRepository {
     });
   }
 
+  /** Les Séances qui préparent un Objectif, de la plus tôt à la plus tard. */
+  listerDeLObjectif(goalId: string): Promise<TrainingSessionRecord[]> {
+    return this.prisma.trainingSession.findMany({
+      where: { goalId },
+      orderBy: [{ startsAt: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
   lire(id: string): Promise<TrainingSessionRecord | null> {
     return this.prisma.trainingSession.findUnique({ where: { id } });
   }
 
   creer(saisie: TrainingSessionWrite): Promise<TrainingSessionRecord> {
     return this.prisma.trainingSession.create({ data: saisie });
+  }
+
+  /**
+   * Crée les Séances d'une série en une écriture : toutes, ou aucune. Elles
+   * reviennent de la plus tôt à la plus tard.
+   */
+  async creerPlusieurs(
+    saisies: (TrainingSessionWrite & { goalId: string })[],
+  ): Promise<TrainingSessionRecord[]> {
+    const seances = await this.prisma.trainingSession.createManyAndReturn({
+      data: saisies,
+    });
+    return seances.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
   }
 
   /**

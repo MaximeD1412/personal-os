@@ -6,13 +6,16 @@ import { FormulaireDOccurrence } from './formulaire-d-occurrence';
 import { FicheDIngredient } from './repas/ingredient-detail';
 import { FormulaireDIngredient } from './repas/ingredient-form';
 import { Ingredients } from './repas/ingredients';
-import { FicheDeRecette } from './repas/recipe-detail';
 import { Recettes } from './repas/recipes';
-import { Stock } from './repas/stock';
-import { FormulaireDeStock } from './repas/stock-form';
 
 export const appRoutes: Route[] = [
-  { path: '', pathMatch: 'full', redirectTo: 'agenda' },
+  // L'Accueil : ce qui m'attend, les À faire et le résumé de chaque module.
+  // Chargé à la demande, comme le planning, pour le budget du bundle initial.
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: async () => (await import('./accueil')).Accueil,
+  },
   { path: 'agenda', component: Agenda },
   {
     path: 'calendrier',
@@ -84,11 +87,25 @@ export const appRoutes: Route[] = [
     loadComponent: async () =>
       (await import('./repas/cooked-meal-form')).FormulaireDeRepasCuisine,
   },
-  { path: 'repas/recettes/:id', component: FicheDeRecette },
+  // La fiche d'une Recette, chargée à la demande, pour que le bundle initial
+  // tienne son budget.
+  {
+    path: 'repas/recettes/:id',
+    loadComponent: async () =>
+      (await import('./repas/recipe-detail')).FicheDeRecette,
+  },
   // Le Stock domestique, éditable en place ; l'ajout d'un Ingrédient est un
-  // formulaire, prérempli par sa requête (ADR 0030).
-  { path: 'repas/stock', component: Stock },
-  { path: 'repas/stock/nouveau', component: FormulaireDeStock },
+  // formulaire, prérempli par sa requête (ADR 0030). Chargés à la demande,
+  // pour que le bundle initial tienne son budget.
+  {
+    path: 'repas/stock',
+    loadComponent: async () => (await import('./repas/stock')).Stock,
+  },
+  {
+    path: 'repas/stock/nouveau',
+    loadComponent: async () =>
+      (await import('./repas/stock-form')).FormulaireDeStock,
+  },
   // La Liste de courses : la plus récente des listes ouvertes, ou une liste
   // donnée. Chargée à la demande, pour que le bundle initial tienne son budget.
   {
@@ -170,6 +187,30 @@ export const appRoutes: Route[] = [
     path: 'sport/seances/nouvelle',
     loadComponent: async () =>
       (await import('./sport/nouvelle-seance')).NouvelleSeance,
+  },
+  // Les Objectifs et leurs séries ; `nouveau` est déclaré avant `:id`.
+  {
+    path: 'sport/objectifs',
+    loadComponent: async () => (await import('./sport/objectifs')).Objectifs,
+  },
+  {
+    path: 'sport/objectifs/nouveau',
+    loadComponent: async () =>
+      (await import('./sport/formulaire-d-objectif')).FormulaireDObjectif,
+  },
+  {
+    path: 'sport/objectifs/:id/modifier',
+    loadComponent: async () =>
+      (await import('./sport/formulaire-d-objectif')).FormulaireDObjectif,
+  },
+  {
+    path: 'sport/objectifs/:id/seances/nouvelles',
+    loadComponent: async () =>
+      (await import('./sport/nouvelle-serie')).NouvelleSerie,
+  },
+  {
+    path: 'sport/objectifs/:id',
+    loadComponent: async () => (await import('./sport/objectif')).Objectif,
   },
   {
     path: 'sport/seances/:id',

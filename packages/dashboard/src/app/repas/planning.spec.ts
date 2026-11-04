@@ -7,12 +7,15 @@ import type {
   GenerationRound,
   MealPlan,
   MealPlanEntry,
+  Recipe,
   ShoppingGap,
   ShoppingList,
 } from '@personal-os/contracts';
+import { CURRY_GENERE } from '../../testing/recettes';
 import {
   arrivee,
   BASE,
+  CURRY_DU_JEUDI,
   DAHL_DU_LUNDI,
   FOYER,
   LUNDI,
@@ -877,5 +880,116 @@ describe('La génération du Planning de repas', () => {
       .expectOne(`${BASE}/meal-plans/planning-1/stop`)
       .flush({ ...PLANNING_STATUE, status: 'STOPPED' } satisfies MealPlan);
     await ouvert.harness.fixture.whenStable();
+  });
+});
+
+describe('Garder la recette d’un repas', () => {
+  beforeEach(figerLHorloge);
+
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
+    jest.useRealTimers();
+  });
+
+  /** Le curry approuvé du jeudi midi, puis un curry encore proposé le vendredi. */
+  const AVEC_LE_CURRY: MealPlan = {
+    ...PLANNING_STATUE,
+    entries: [
+      DAHL_DU_LUNDI,
+      CURRY_DU_JEUDI,
+      {
+        ...CURRY_DU_JEUDI,
+        id: 'repas-4',
+        day: '2026-10-23',
+        decision: 'PROPOSED',
+      },
+    ],
+  };
+
+  function repasDe(el: HTMLElement, date: string, moment: string): HTMLElement {
+    return creneau(el, date, moment).querySelector(
+      '[data-test="repas"]',
+    ) as HTMLElement;
+  }
+
+  it('mène à la fiche de la recette de chaque repas', async () => {
+    const { el } = await ouvrir(undefined, { planning: AVEC_LE_CURRY });
+
+    expect(
+      repasDe(el(), '2026-10-22', 'LUNCH')
+        .querySelector('[data-test="fiche"]')
+        ?.getAttribute('href'),
+    ).toBe('/repas/recettes/recette-3');
+    expect(
+      repasDe(el(), LUNDI, 'DINNER')
+        .querySelector('[data-test="fiche"]')
+        ?.getAttribute('href'),
+    ).toBe('/repas/recettes/recette-1');
+  });
+
+  it('ne propose de garder que la recette générée d’un repas approuvé', async () => {
+    const { el } = await ouvrir(undefined, { planning: AVEC_LE_CURRY });
+
+    expect(
+      bouton(repasDe(el(), '2026-10-22', 'LUNCH'), 'garder')?.textContent,
+    ).toContain('Garder la recette');
+    expect(bouton(repasDe(el(), LUNDI, 'DINNER'), 'garder')).toBeNull();
+    expect(bouton(repasDe(el(), '2026-10-23', 'LUNCH'), 'garder')).toBeNull();
+  });
+
+  it('garde la recette après confirmation, puis ne le propose plus sur aucun de ses repas', async () => {
+    const ouvert = await ouvrir(undefined, { planning: AVEC_LE_CURRY });
+    const { el, http, harness, confirmations } = ouvert;
+
+    bouton(repasDe(el(), '2026-10-22', 'LUNCH'), 'garder').click();
+    await apresLaConfirmation(ouvert);
+
+    expect(confirmations).toHaveLength(1);
+    expect(confirmations[0].confirmLabel).toBe('Garder la recette');
+    const garde = http.expectOne(`${BASE}/recipes/recette-3/keep`);
+    expect(garde.request.method).toBe('POST');
+    garde.flush({ ...CURRY_GENERE, kept: true } satisfies Recipe);
+    await harness.fixture.whenStable();
+
+    expect(el().querySelector('[data-test="garder"]')).toBeNull();
+  });
+
+  it('ne garde rien quand on renonce', async () => {
+    const ouvert = await ouvrir(undefined, {
+      planning: AVEC_LE_CURRY,
+      confirme: false,
+    });
+
+    bouton(repasDe(ouvert.el(), '2026-10-22', 'LUNCH'), 'garder').click();
+    await apresLaConfirmation(ouvert);
+
+    ouvert.http.expectNone(`${BASE}/recipes/recette-3/keep`);
+    expect(
+      bouton(repasDe(ouvert.el(), '2026-10-22', 'LUNCH'), 'garder'),
+    ).not.toBeNull();
+  });
+
+  it('dit pourquoi l’API refuse de garder la recette', async () => {
+    const ouvert = await ouvrir(undefined, { planning: AVEC_LE_CURRY });
+    const { el, http, harness } = ouvert;
+
+    bouton(repasDe(el(), '2026-10-22', 'LUNCH'), 'garder').click();
+    await apresLaConfirmation(ouvert);
+    http.expectOne(`${BASE}/recipes/recette-3/keep`).flush(
+      {
+        status: 422,
+        code: 'food.recipe_already_kept',
+        message: 'Cette recette est déjà dans vos recettes.',
+      },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+    // Le refus relit le planning : l'autre Compte a pu la garder entre-temps.
+    TestBed.tick();
+    lectureDe(ouvert, LUNDI).flush(AVEC_LE_CURRY);
+    await harness.fixture.whenStable();
+
+    expect(el().querySelector('[data-test="refus"]')?.textContent).toContain(
+      'Cette recette est déjà dans vos recettes.',
+    );
   });
 });

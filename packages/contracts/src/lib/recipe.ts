@@ -34,6 +34,11 @@ export type RecipeLine = z.infer<typeof zRecipeLine>;
  * Une Recette : une préparation réutilisable, pour un nombre de portions de
  * référence. Elle ne connaît que des Ingrédients, jamais des Produits. Ses
  * lignes et ses étapes sont dans leur ordre.
+ *
+ * Une recette gardée (`kept`) figure dans « Mes recettes », et la génération
+ * la propose en priorité. Une recette saisie l'est toujours ; une recette
+ * générée ne l'est qu'une fois gardée (`POST /recipes/:id/keep`), et reste
+ * sinon lisible depuis le repas qui la cuisine.
  */
 export const zRecipe = /* @__PURE__ */ z.object({
   id: /* @__PURE__ */ z.string(),
@@ -41,6 +46,7 @@ export const zRecipe = /* @__PURE__ */ z.object({
   servings: /* @__PURE__ */ z.int(),
   steps: /* @__PURE__ */ z.array(z.string()),
   source: zRecipeSource,
+  kept: /* @__PURE__ */ z.boolean(),
   lines: /* @__PURE__ */ z.array(zRecipeLine),
   createdAt: zInstant,
   updatedAt: zInstant,
@@ -114,12 +120,16 @@ export const zRecipeUpdate = /* @__PURE__ */ z
 export type RecipeUpdate = z.infer<typeof zRecipeUpdate>;
 
 /**
- * La lecture des recettes : toutes, ou celles dont le titre contient chaque
- * mot de `q`. Les recettes d'un foyer sont bornées par nature ; le filtre est
- * leur borne quand on en a une (ADR 0030).
+ * La lecture des recettes : les recettes gardées, ou toutes avec
+ * `all=true`, et parmi elles celles dont le titre contient chaque mot de `q`.
+ * Les recettes d'un foyer sont bornées par nature ; le filtre est leur borne
+ * quand on en a une (ADR 0030).
  */
 export const zRecipeListQuery = /* @__PURE__ */ z.object({
   q: /* @__PURE__ */ z.string().max(120).optional(),
+  all: /* @__PURE__ */ z
+    .stringbool({ truthy: ['true'], falsy: ['false'] })
+    .optional(),
 });
 
 export type RecipeListQuery = z.infer<typeof zRecipeListQuery>;

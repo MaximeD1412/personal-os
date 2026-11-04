@@ -1,0 +1,69 @@
+<dccm-state
+  [status]="etatDeLaLecture()"
+  [error]="actuel.error()"
+  skeleton="detail"
+  (retry)="actuel.reload()"
+>
+  <dccm-form-page
+    [heading]="titre"
+    subtitle="Une course, une date : les Séances qui la préparent y mènent ensuite."
+    [breadcrumb]="fil()"
+    [submitLabel]="action"
+    [ignored]="prefill.ignores"
+    [error]="refus()"
+    [pending]="envoi()"
+    (submitted)="enregistrer()"
+    (cancelled)="fermer()"
+  >
+    <div class="grid gap-gutter md:grid-cols-3">
+      <div hlmField class="md:col-span-2">
+        <label hlmFieldLabel for="objectif-titre">Course</label>
+        <input
+          hlmInput
+          id="objectif-titre"
+          data-test="titre"
+          autocomplete="off"
+          [value]="titreSaisi()"
+          [forceInvalid]="!!erreurs()['title']"
+          (input)="titreSaisi.set(valeur($event))"
+        />
+        @if (erreurs()['title']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        }
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="objectif-date">Jour</label>
+        <input
+          hlmInput
+          id="objectif-date"
+          type="date"
+          data-test="date"
+          [value]="date()"
+          [forceInvalid]="!!erreurs()['date']"
+          (input)="date.set(valeur($event))"
+        />
+        @if (erreurs()['date']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        }
+      </div>
+    </div>
+
+    <div hlmField>
+      <label hlmFieldLabel for="objectif-intention">Intention</label>
+      <input
+        hlmInput
+        id="objectif-intention"
+        data-test="intention"
+        autocomplete="off"
+        [value]="intention()"
+        [forceInvalid]="!!erreurs()['intent']"
+        (input)="intention.set(valeur($event))"
+      />
+      <p hlmFieldDescription>Facultative : un temps visé, une allure, finir.</p>
+      @if (erreurs()['intent']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+  </dccm-form-page>
+</dccm-state>

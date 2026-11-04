@@ -18,6 +18,7 @@ import {
   matScheduleOutline,
   matSkilletOutline,
   matShoppingCartOutline,
+  matStarOutline,
   matStarsOutline,
 } from '@ng-icons/material-symbols/outline';
 import {
@@ -33,6 +34,7 @@ import {
   type MealPlanEntry,
   type MealPlanEntryDecision,
   type MealPlanEntryDecisionInput,
+  type Recipe,
 } from '@personal-os/contracts';
 import { HlmAlertImports } from '@personal-os/ui/alert';
 import { HlmBadge } from '@personal-os/ui/badge';
@@ -53,6 +55,8 @@ import { HouseholdService } from '../household.service';
 import { EcartDuPlanning } from '../courses/ecart-du-planning';
 import { ShoppingListService } from '../courses/shopping-list.service';
 import { MealPlanService } from './meal-plan.service';
+import { confirmerLaGarde } from './keep-confirmation';
+import { RecipeService } from './recipe.service';
 import { raisonDuRejet } from './rejet';
 import { SouhaitsDeLaSemaine } from './souhaits';
 
@@ -138,6 +142,10 @@ interface VueDeRepas {
   invites: string | null;
   /** Seul un repas approuvé se déclare cuisiné. */
   approuve: boolean;
+  /** La recette qu'il cuisine, dont la fiche s'ouvre d'ici. */
+  recetteId: string | null;
+  /** Approuvé, d'une recette générée qu'on n'a pas gardée : elle se garde d'ici. */
+  gardable: boolean;
 }
 
 interface Creneau {
@@ -163,7 +171,8 @@ type EnCours =
   | 'rouvrir'
   | 'relancer'
   | 'produire'
-  | { repas: string; decision: MealPlanEntryDecisionInput['decision'] };
+  | { repas: string; decision: MealPlanEntryDecisionInput['decision'] }
+  | { garder: string };
 
 interface Jour {
   jour: string;
@@ -194,6 +203,10 @@ interface Jour {
  * Le planning signale ce que ses listes déjà produites ne couvrent plus (un
  * repas ajouté après elles), ouvert pendant qu'on le modifie ; arrêté, il en
  * produit la liste de complément.
+ *
+ * Chaque repas d'après une recette mène à sa fiche. Un repas approuvé d'une
+ * recette générée qu'on n'a pas gardée propose « Garder la recette » : elle
+ * rejoint « Mes recettes », et la génération la proposera en priorité.
  */
 @Component({
   imports: [
@@ -215,6 +228,7 @@ export class PlanningDeRepas {
   private readonly service = inject(MealPlanService);
   private readonly confirmation = inject(DccmConfirm);
   private readonly listes = inject(ShoppingListService);
+  private readonly recettes = inject(RecipeService);
 
   protected readonly fil: readonly DccmCrumb[] = [
     FIL_DU_PLANNING[0],
@@ -235,6 +249,7 @@ export class PlanningDeRepas {
     trace: matReceiptLongOutline,
     cuisine: matSkilletOutline,
     produire: matShoppingCartOutline,
+    garder: matStarOutline,
   };
 
   private readonly aujourdhui = aujourdhui();
@@ -514,8 +529,54 @@ export class PlanningDeRepas {
     const enCours = this.enCours();
     return (
       typeof enCours === 'object' &&
-      enCours?.repas === repasId &&
+      enCours !== null &&
+      'repas' in enCours &&
+      enCours.repas === repasId &&
       enCours.decision === decision
+    );
+  }
+
+  /**
+   * Garder la recette d'un repas, sur le planning ouvert comme arrêté : la
+   * garde touche la recette, pas le planning. Chacun de ses repas la dit
+   * gardée.
+   */
+  protected async garder(recetteId: string): Promise<void> {
+    const planning = this.planning();
+    const titre = planning?.entries.find(
+      ({ recipe }) => recipe?.id === recetteId,
+    )?.recipe?.title;
+    if (!planning || titre === undefined) return;
+    if (!(await confirmerLaGarde(this.confirmation, titre))) return;
+
+    this.envoyer(
+      planning,
+      { garder: recetteId },
+      this.recettes.garder(recetteId),
+      (recette: Recipe) =>
+        `«\u00a0${recette.title}\u00a0» rejoint vos recettes.`,
+      (recette) =>
+        this.lecture.update(
+          (lu) =>
+            lu && {
+              ...lu,
+              entries: lu.entries.map((un) =>
+                un.recipe?.id === recette.id
+                  ? { ...un, recipe: { ...un.recipe, kept: true } }
+                  : un,
+              ),
+            },
+        ),
+    );
+  }
+
+  protected gardeEnCours(recetteId: string): boolean {
+    const enCours = this.enCours();
+    return (
+      typeof enCours === 'object' &&
+      enCours !== null &&
+      'garder' in enCours &&
+      enCours.garder === recetteId
     );
   }
 
@@ -591,6 +652,8 @@ export class PlanningDeRepas {
           ? `dont ${repas.guestCount} invité${repas.guestCount > 1 ? 's' : ''}`
           : null,
       approuve: repas.decision === 'APPROVED',
+      recetteId: repas.recipe?.id ?? null,
+      gardable: repas.decision === 'APPROVED' && repas.recipe?.kept === false,
     };
   }
 }

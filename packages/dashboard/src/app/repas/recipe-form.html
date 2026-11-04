@@ -160,8 +160,8 @@
               </p>
               @if (suggestions.length && catalogue.error(); as erreur) {
               <hlm-field-error forceShow data-test="catalogue-indisponible"
-                >Les suggestions n'ont pas pu être nommées.
-                {{ erreur.message }}</hlm-field-error
+                >Les suggestions n'ont pas pu être nommées. {{ erreur.message
+                }}</hlm-field-error
               >
               } @if (ligne.refus; as message) {
               <hlm-field-error forceShow data-test="refus-rattachement"

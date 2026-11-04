@@ -399,7 +399,7 @@ describe('La génération de la semaine', () => {
       id: 'repas-10',
       day: '2026-10-20',
       moment: 'LUNCH',
-      recipe: { id: 'recette-2', title: 'Soupe de potimarron' },
+      recipe: { id: 'recette-2', title: 'Soupe de potimarron', kept: false },
       guestCount: 0,
       servings: 2,
       decision: 'PROPOSED',
@@ -408,7 +408,7 @@ describe('La génération de la semaine', () => {
       ...soupe,
       id: 'repas-11',
       moment: 'DINNER',
-      recipe: { id: 'recette-3', title: 'Curry de pois chiches' },
+      recipe: { id: 'recette-3', title: 'Curry de pois chiches', kept: false },
     };
     navigation = arrivee(router);
     soumettre(el());
@@ -458,7 +458,7 @@ describe('La génération de la semaine', () => {
     const gratin: MealPlanEntry = {
       ...curry,
       id: 'repas-12',
-      recipe: { id: 'recette-4', title: 'Gratin de courge' },
+      recipe: { id: 'recette-4', title: 'Gratin de courge', kept: false },
     };
     tour.flush({
       ...TOUR_1,

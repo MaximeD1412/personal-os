@@ -33,7 +33,7 @@ Une unité d'entraînement sportif, qui porte **à la fois** ce qui était prév
 _Éviter_ : « entraînement » pour désigner une occurrence précise, « résultat », « performance ».
 
 **Objectif** (`TrainingGoal`) :
-Ce vers quoi les **Séances** convergent : une course, une date, une intention d'allure ou de distance. Il n'existe **pas** d'entité « plan d'entraînement » — un plan, c'est l'ensemble des **Séances** qui mènent à un **Objectif**, et rien d'autre.
+Ce vers quoi les **Séances** convergent : une course, une date, une intention d'allure ou de distance. Il n'existe **pas** d'entité « plan d'entraînement » — un plan, c'est l'ensemble des **Séances** qui mènent à un **Objectif**, et rien d'autre. Des **Séances** se créent en série vers lui (des jours de la semaine, sur une période), mais chacune est ensuite indépendante : la série n'est pas une **Récurrence**, rien ne la retient une fois créée. Son avancement se compte sur les **Séances** liées : faites, manquées, à venir.
 _Éviter_ : « plan », « programme », « cycle », « bloc ».
 
 **Repas planifié** (`MealPlanEntry`) :
@@ -115,6 +115,10 @@ _Éviter_ : « calendrier des repas » — le **Calendrier** est un autre module
 **Recette** (`Recipe`) :
 Une préparation réutilisable : des **Ingrédients** en quantités, des étapes, un nombre de portions de référence. Une **Recette** ne connaît que des **Ingrédients**, jamais des **Produits**.
 _Éviter_ : « plat », « repas » (voir **Repas planifié**).
+
+**Recette gardée** (`kept`) :
+Une **Recette** que le **Foyer** compte parmi ses recettes. Une **Recette** saisie l'est d'emblée ; une **Recette** générée ne l'est qu'une fois qu'on l'a gardée, depuis sa fiche ou depuis son **Repas planifié** approuvé. La génération propose d'abord les **Recettes gardées**.
+_Éviter_ : « favori », « recette sauvegardée ».
 
 **Tour de génération** (`GenerationRound`) :
 Un cycle complet du **Planning de repas** : l'IA propose, l'utilisateur statue sur **chacun** des repas — approuvé ou refusé —, puis relance. Le tour suivant ne régénère que les repas refusés. Le planning est arrêté quand tous les repas sont approuvés. On ne régénère jamais un repas isolément au fil de l'eau.

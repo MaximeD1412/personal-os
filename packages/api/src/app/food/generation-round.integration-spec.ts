@@ -174,7 +174,7 @@ describe('Tours de génération', () => {
         {
           day: '2028-11-06',
           moment: 'LUNCH',
-          recipe: { id: dahl.id, title: 'Dahl (génération)' },
+          recipe: { id: dahl.id, title: 'Dahl (génération)', kept: true },
           title: null,
           participantIds: [compteA, compteB],
           guestCount: 0,
@@ -184,7 +184,7 @@ describe('Tours de génération', () => {
         {
           day: '2028-11-06',
           moment: 'DINNER',
-          recipe: { title: 'Salade aux noix' },
+          recipe: { title: 'Salade aux noix', kept: false },
           participantIds: [compteA],
           guestCount: 1,
           servings: 2,
@@ -200,6 +200,7 @@ describe('Tours de génération', () => {
       ).body as Recipe;
       expect(generee).toMatchObject({
         source: 'GENERATED',
+        kept: false,
         servings: 2,
         steps: ['Assembler.'],
         lines: [
@@ -439,6 +440,68 @@ describe('Tours de génération', () => {
         },
       ]);
       expect(relu.rounds.map(({ number }) => number)).toEqual([1, 2]);
+    });
+
+    it("ne repropose une recette générée qu'une fois gardée : elle est alors parmi les Recettes du Foyer des tours suivants", async () => {
+      const planning = await lire(jeu.a, '2029-01-08');
+      programmer([
+        nouvelle('2029-01-08', 'LUNCH', 'Salade appréciée (garder)', [
+          'Salade verte (génération)',
+        ]),
+        nouvelle('2029-01-08', 'DINNER', 'Salade boudée (garder)', [
+          'Salade verte (génération)',
+        ]),
+      ]);
+      const premier = (
+        await lancer(jeu.a, planning, {
+          slots: [
+            { day: '2029-01-08', moment: 'LUNCH', participantIds: [compteA] },
+            { day: '2029-01-08', moment: 'DINNER', participantIds: [compteA] },
+          ],
+        }).expect(201)
+      ).body as GenerationRound;
+      const [appreciee, boudee] = premier.entries;
+      await decider(planning, appreciee.id, 'APPROVED');
+      await decider(planning, boudee.id, 'REFUSED');
+
+      const avant = await lire(jeu.a, '2029-01-15');
+      programmer([
+        nouvelle('2029-01-15', 'LUNCH', 'Salade du 15 (garder)', [
+          'Salade verte (génération)',
+        ]),
+      ]);
+      const sansGarder = (
+        await lancer(jeu.a, avant, {
+          slots: [
+            { day: '2029-01-15', moment: 'LUNCH', participantIds: [compteA] },
+          ],
+        }).expect(201)
+      ).body as GenerationRound;
+      const titresDuFoyer = async (tour: GenerationRound) =>
+        ((await trace(tour)).recettesDuFoyer as { title: string }[]).map(
+          ({ title }) => title,
+        );
+      expect(await titresDuFoyer(sansGarder)).not.toContain(
+        'Salade appréciée (garder)',
+      );
+
+      await request(app.getHttpServer())
+        .post(`/api/recipes/${appreciee.recipe?.id}/keep`)
+        .set('Cookie', jeu.b.session)
+        .expect(200);
+
+      programmer([
+        nouvelle('2029-01-08', 'DINNER', 'Salade du soir (garder)', [
+          'Salade verte (génération)',
+        ]),
+      ]);
+      const suivant = (await lancer(jeu.a, planning, { slots: [] }).expect(201))
+        .body as GenerationRound;
+      const foyer = await titresDuFoyer(suivant);
+      expect(foyer).toContain('Salade appréciée (garder)');
+      expect(foyer).toContain('Dahl (génération)');
+      expect(foyer).not.toContain('Salade boudée (garder)');
+      expect(foyer).not.toContain('Salade du 15 (garder)');
     });
 
     it('contrôle la Recette du Foyer telle qu’elle est à la réponse du modèle : des noix ajoutées pendant la génération l’écartent', async () => {
