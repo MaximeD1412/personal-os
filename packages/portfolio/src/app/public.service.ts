@@ -43,6 +43,25 @@ export class PublicService {
     );
   }
 
+  /**
+   * Si un Projet est publié dans une langue : un `HEAD`, sans en lire le
+   * texte. Rien n'est demandé tant que `id` rend `undefined`.
+   */
+  projetPublie(
+    lang: () => Lang,
+    id: () => string | undefined,
+  ): HttpResourceRef<string | undefined> {
+    return httpResource.text(() => {
+      const projet = id();
+      return projet === undefined
+        ? undefined
+        : {
+            url: `${this.baseUrl}/public/${lang()}/projects/${projet}`,
+            method: 'HEAD',
+          };
+    });
+  }
+
   /** Le PDF de cette langue, ouvert par un simple lien. */
   urlDuCv(lang: Lang): string {
     return `${this.baseUrl}/public/cv/${lang}`;

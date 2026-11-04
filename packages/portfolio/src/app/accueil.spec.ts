@@ -4,6 +4,7 @@ import {
   BASE,
   ouvrirLePortfolio,
   page,
+  PAGE_ABSENTE,
   RELIURE_FR,
   resume,
   servirLAccueil,
@@ -59,6 +60,32 @@ describe('L’accueil du portfolio', () => {
       'Projets',
       'CV',
     ]);
+  });
+
+  it('pose la suite de la page en une fois, sans la décaler au fil des lectures', async () => {
+    const { harness, http, el } = await ouvrirLePortfolio('/fr');
+    http
+      .expectOne(`${BASE}/public/FR/pages/about`)
+      .flush(page('about', 'FR', 'Bonjour', 'Je fabrique des outils.'));
+    http.expectOne(`${BASE}/public/FR/projects`).flush([resume(RELIURE_FR)]);
+    // Les autres lectures restent en vol : on rend sans attendre la stabilité.
+    await new Promise(setTimeout);
+    TestBed.tick();
+
+    expect(el().querySelector('h1')?.textContent).toContain('Bonjour');
+    expect(el().querySelector('#projets')).toBeNull();
+
+    http
+      .expectOne(`${BASE}/public/FR/pages/experience`)
+      .flush(page('experience', 'FR', 'Parcours', '- Atelier'));
+    http.expectOne(`${BASE}/public/FR/pages/skills`).flush(...PAGE_ABSENTE);
+    http
+      .expectOne((requete) => requete.method === 'HEAD')
+      .flush(null, { status: 404, statusText: 'Not Found' });
+    await harness.fixture.whenStable();
+
+    expect(liensDeSection(el())).toEqual(['Expériences', 'Projets']);
+    expect(el().querySelector('#projets [data-test="projet"]')).not.toBeNull();
   });
 
   it('omet ce que la langue n’a pas publié, sans jamais lire l’autre langue', async () => {

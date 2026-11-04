@@ -146,3 +146,30 @@ export function servirLAccueil(
     cv.flush(null, { status: 404, statusText: 'Not Found' });
   }
 }
+
+/**
+ * Un Projet lu, la page demande s'il est publié dans l'autre langue (un
+ * `HEAD`, pour ses `hreflang`) : la demande est servie. La page n'est stable
+ * qu'après, si bien que l'appel précède `whenStable()`.
+ */
+export async function servirLAutreLangue(
+  http: HttpTestingController,
+  lang: 'FR' | 'EN',
+  id: string,
+  publie: boolean,
+): Promise<void> {
+  // La réponse du Projet est traitée de façon asynchrone ; l'effet qui
+  // demande l'autre langue passe ensuite.
+  await new Promise((suite) => setTimeout(suite));
+  TestBed.tick();
+  const requete = http.expectOne(
+    (demande) =>
+      demande.method === 'HEAD' &&
+      demande.url === `${BASE}/public/${lang}/projects/${id}`,
+  );
+  if (publie) {
+    requete.flush('');
+  } else {
+    requete.flush(...PROJET_ABSENT);
+  }
+}

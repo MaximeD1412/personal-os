@@ -5,7 +5,7 @@
     class="mx-auto flex max-w-[1100px] flex-wrap items-center justify-between gap-x-gutter gap-y-space-sm px-margin-mobile py-space-sm md:flex-nowrap md:px-margin"
   >
     <a
-      class="text-title-sm text-on-surface"
+      class="rounded text-headline-md font-bold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       data-test="marque"
       [routerLink]="['/', langue()]"
       >{{ textes().marque }}</a
@@ -17,7 +17,7 @@
     >
       @for (lien of liens(); track lien.ancre) {
       <a
-        class="shrink-0 py-space-xs text-label-regular text-on-surface-variant hover:text-on-surface"
+        class="shrink-0 rounded py-space-xs text-body-dense text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         data-test="section"
         [routerLink]="['/', langue()]"
         [fragment]="lien.ancre"
@@ -38,7 +38,7 @@
         value="fr"
         data-langue="fr"
         lang="fr"
-        aria-label="Français"
+        aria-label="FR, français"
       >
         FR
       </button>
@@ -47,7 +47,7 @@
         value="en"
         data-langue="en"
         lang="en"
-        aria-label="English"
+        aria-label="EN, English"
       >
         EN
       </button>

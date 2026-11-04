@@ -2,10 +2,49 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <title>Personal OS — Portfolio</title>
+    <title>Portfolio</title>
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Les valeurs d'avant le démarrage de l'application, qui les remplace
+         page par page et langue par langue (metadonnees.ts). -->
+    <meta
+      name="description"
+      content="Présentation, expériences, compétences et projets."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Portfolio" />
+    <meta property="og:title" content="Portfolio" />
+    <meta
+      property="og:description"
+      content="Présentation, expériences, compétences et projets."
+    />
+    <meta name="color-scheme" content="dark" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <!-- Les lectures de la page demandées pendant que le script se charge,
+         plutôt qu'après : l'application les retrouve dans le cache de
+         préchargement (mêmes URL que public.service.ts). -->
+    <script>
+      (function () {
+        var m = location.pathname.match(
+          /^\/(fr|en)(?:\/projets\/([^/]+))?\/?$/,
+        );
+        if (!m) return;
+        var api = '/api/public/' + m[1].toUpperCase();
+        var urls = ['about', 'experience', 'skills']
+          .map(function (slug) {
+            return api + '/pages/' + slug;
+          })
+          .concat(api + '/projects', m[2] ? [api + '/projects/' + m[2]] : []);
+        urls.forEach(function (url) {
+          var lien = document.createElement('link');
+          lien.rel = 'preload';
+          lien.as = 'fetch';
+          lien.crossOrigin = 'anonymous';
+          lien.href = url;
+          document.head.appendChild(lien);
+        });
+      })();
+    </script>
   </head>
   <body>
     <pos-root></pos-root>
