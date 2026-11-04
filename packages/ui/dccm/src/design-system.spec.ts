@@ -31,6 +31,7 @@ const COMPOSANTS = [
   'table',
   'toggle-group',
   'tooltip',
+  'dccm/src/command-bar',
   'dccm/src/confirm',
   'dccm/src/empty-state',
   'dccm/src/form-page',

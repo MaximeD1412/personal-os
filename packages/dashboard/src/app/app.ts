@@ -4,6 +4,7 @@ import { provideIcons } from '@ng-icons/core';
 import type { CurrentUser, Scope } from '@personal-os/contracts';
 import { HlmButton } from '@personal-os/ui/button';
 import {
+  DccmCommandBarTrigger,
   DccmMobileHeader,
   DccmShell,
   DccmSidebar,
@@ -19,6 +20,7 @@ import { HlmToggleGroupImports } from '@personal-os/ui/toggle-group';
 import { NgIcon } from '@ng-icons/core';
 import { matLogoutOutline } from '@ng-icons/material-symbols/outline';
 import { AuthService } from './auth.service';
+import { BarreDeCommande } from './barre-de-commande';
 import { EspaceCourant } from './espace-courant';
 import { HealthService } from './health.service';
 import {
@@ -45,6 +47,8 @@ const NOMS_D_ESPACE: Readonly<Record<Scope['kind'], string>> = {
     HlmSheetImports,
     HlmToaster,
     HlmToggleGroupImports,
+    BarreDeCommande,
+    DccmCommandBarTrigger,
     DccmMobileHeader,
     DccmShell,
     DccmSidebar,

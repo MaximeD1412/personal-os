@@ -7,9 +7,10 @@ import {
   ApplicationConfig,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, RouteReuseStrategy } from '@angular/router';
 import { API_BASE_URL } from './api-base-url';
 import { appRoutes } from './app.routes';
+import { ReutilisationDesEcrans } from './barre-de-commande';
 import { erreurApiInterceptor } from './erreur-api.interceptor';
 import { sessionInterceptor } from './session.interceptor';
 
@@ -24,6 +25,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(appRoutes),
+    { provide: RouteReuseStrategy, useClass: ReutilisationDesEcrans },
     provideHttpClient(withFetch(), withInterceptors(INTERCEPTEURS)),
     { provide: API_BASE_URL, useValue: '/api' },
   ],
