@@ -48,11 +48,16 @@ export interface IngredientAConsoliderRecord {
   gramsPerPiece: Decimal | null;
 }
 
-/** Un planning et ses repas approuvés, avec ce que leurs recettes demandent. */
+/**
+ * Un planning et ses repas approuvés, avec ce que leurs recettes demandent, et
+ * le Repas cuisiné de chacun s'il l'est déjà.
+ */
 export interface PlanningAConsoliderRecord {
   id: string;
   status: MealPlanStatus;
   entries: {
+    id: string;
+    cookedMeal: { id: string } | null;
     participantIds: string[];
     guestCount: number;
     recipe: {
@@ -166,6 +171,8 @@ export class ShoppingListRepository {
         entries: {
           where: { decision: 'APPROVED' },
           select: {
+            id: true,
+            cookedMeal: { select: { id: true } },
             participantIds: true,
             guestCount: true,
             recipe: {
@@ -224,6 +231,30 @@ export class ShoppingListRepository {
         },
       },
     });
+  }
+
+  /**
+   * Ce qui, dans un planning, change avec le stock : ses listes encore
+   * ouvertes (une clôture monte son achat au stock) et ses repas déjà
+   * cuisinés (un repas cuisiné en consomme).
+   */
+  async etatDuPlanning(
+    mealPlanId: string,
+  ): Promise<{ listesOuvertes: Set<string>; repasCuisines: Set<string> }> {
+    const listes = await this.prisma.shoppingList.findMany({
+      where: { mealPlanId, status: 'OPEN' },
+      select: { id: true },
+    });
+    const repas = await this.prisma.cookedMeal.findMany({
+      where: { mealPlanEntry: { mealPlanId } },
+      select: { mealPlanEntryId: true },
+    });
+    return {
+      listesOuvertes: new Set(listes.map(({ id }) => id)),
+      repasCuisines: new Set(
+        repas.map(({ mealPlanEntryId }) => mealPlanEntryId),
+      ),
+    };
   }
 
   /** Le Stock domestique de ces Ingrédients, en Unité canonique. */

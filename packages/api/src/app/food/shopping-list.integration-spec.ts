@@ -520,6 +520,115 @@ describe('Listes de courses', () => {
       }
     });
 
+    /**
+     * Un planning d'un seul Ingrédient : un repas de 200 g de riz, sa liste
+     * produite, puis, si `second`, un autre repas de 200 g ajouté après.
+     */
+    async function unPlanningDeRiz(second: boolean) {
+      const n = semaines;
+      const riz = await ingredient(`Riz ${n} (écart)`, 'GRAM');
+      const plat = await recette(`Riz nature ${n} (écart)`, 2, [
+        { ingredientId: riz.id, quantity: 200, unit: 'G' },
+      ]);
+      const planning = await unPlanning();
+      const repas = await ajouter(planning, 0, { recipeId: plat.id });
+      await arreter(planning);
+      const premiere = await produire(planning);
+      if (second) {
+        await rouvrir(planning);
+        await ajouter(planning, 1, { recipeId: plat.id });
+        await arreter(planning);
+      }
+      return { planning, premiere, riz, repas };
+    }
+
+    async function cuisiner(repas: MealPlanEntry, ingredientId: string) {
+      await request(app.getHttpServer())
+        .post('/api/cooked-meals')
+        .set('Cookie', jeu.a.session)
+        .send({
+          mealPlanEntryId: repas.id,
+          lines: [{ ingredientId, quantity: 200, unit: 'G' }],
+        })
+        .expect(201);
+    }
+
+    /** Fait passer `geste` entre la lecture des listes et celle du stock. */
+    async function pendantLaLectureDuStock<T>(
+      geste: () => Promise<void>,
+      lecture: () => Promise<T>,
+    ): Promise<T> {
+      const original = ShoppingListRepository.prototype.stockDe;
+      const depot = app.get(ShoppingListRepository);
+      const espion = jest
+        .spyOn(depot, 'stockDe')
+        .mockImplementationOnce(async (ids) => {
+          await geste();
+          return original.call(depot, ids);
+        });
+      try {
+        return await lecture();
+      } finally {
+        espion.mockRestore();
+      }
+    }
+
+    it("recalcule le complément d'un seul Ingrédient quand une clôture tombe entre la lecture des listes et celle du stock", async () => {
+      const { planning, premiere, riz } = await unPlanningDeRiz(true);
+      await cocher(premiere, premiere.items[0]);
+
+      const complement = await pendantLaLectureDuStock(
+        () => cloturerLaPremiere(premiere, false),
+        () => complementDe(planning),
+      );
+      expect(quantites(complement)).toEqual({ [riz.id]: 200 });
+    });
+
+    it("recalcule l'écart quand une clôture tombe entre la lecture des listes et celle du stock", async () => {
+      const { planning, premiere, riz } = await unPlanningDeRiz(true);
+      await cocher(premiere, premiere.items[0]);
+
+      const lu = await pendantLaLectureDuStock(
+        () => cloturerLaPremiere(premiere, false),
+        () => ecartDe(planning),
+      );
+      expect(lu.missing).toEqual([
+        {
+          ingredient: { id: riz.id, displayName: riz.displayName },
+          quantity: 200,
+          unit: 'GRAM',
+        },
+      ]);
+    });
+
+    it('ne remet pas en courses un repas déjà cuisiné', async () => {
+      const { planning, premiere, riz, repas } = await unPlanningDeRiz(false);
+      await cloturerLaPremiere(premiere, true);
+      await cuisiner(repas, riz.id);
+      expect(await stockDe([riz.id])).toEqual({
+        [riz.id]: { quantity: 0, expiresOn: null },
+      });
+
+      expect(await ecartDe(planning)).toEqual({ missing: [] });
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+        .query({ complement: true })
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('food.no_shopping_gap'));
+    });
+
+    it("recalcule l'écart quand un repas est cuisiné entre la lecture du planning et celle du stock", async () => {
+      const { planning, premiere, riz, repas } = await unPlanningDeRiz(false);
+      await cloturerLaPremiere(premiere, true);
+
+      const lu = await pendantLaLectureDuStock(
+        () => cuisiner(repas, riz.id),
+        () => ecartDe(planning),
+      );
+      expect(lu).toEqual({ missing: [] });
+    });
+
     it('refuse en 422 un complément quand rien ne manque, et ne crée aucune liste', async () => {
       const planning = await unPlanning();
       await ajouter(planning, 0, { title: 'Soupe' });

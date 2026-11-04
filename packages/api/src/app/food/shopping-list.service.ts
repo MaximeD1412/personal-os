@@ -31,6 +31,12 @@ import {
 const ESSAIS_DE_COMPLEMENT = 5;
 
 /**
+ * Combien de fois les besoins se relisent quand une clôture ou un repas
+ * cuisiné a bougé le stock pendant leur lecture.
+ */
+const ESSAIS_DE_LECTURE = 5;
+
+/**
  * Une écriture concurrente de la liste ou du stock fait recommencer la
  * clôture sur l'état relu ; au-delà de ces essais, on renonce plutôt que
  * d'insister.
@@ -68,10 +74,10 @@ export class ShoppingListService {
     { complement = false }: ShoppingListProductionQuery = {},
   ): Promise<ShoppingList> {
     for (let essai = 1; ; essai++) {
-      const planning = await this.planningArrete(planId);
-      const { besoins, listesLues } = complement
-        ? await this.manquants(planning)
-        : { besoins: await this.besoinActuel(planning), listesLues: undefined };
+      const { besoins, listesLues } = await this.lireLesBesoins(
+        planId,
+        complement ? 'complement' : 'production',
+      );
       if (complement && besoins.length === 0) {
         throw new ErreurMetier(
           'food.no_shopping_gap',
@@ -109,7 +115,7 @@ export class ShoppingListService {
    * ouvert a aussi un écart : on le voit pendant qu'on le modifie.
    */
   async lireLEcart(planId: string): Promise<ShoppingGap> {
-    const { besoins } = await this.manquants(await this.planning(planId));
+    const { besoins } = await this.lireLesBesoins(planId, 'ecart');
     return {
       missing: besoins.map(({ ingredient, quantite }) => ({
         ingredient: { id: ingredient.id, displayName: ingredient.displayName },
@@ -117,6 +123,54 @@ export class ShoppingListService {
         unit: ingredient.canonicalUnit,
       })),
     };
+  }
+
+  /**
+   * Les besoins d'une production, d'un complément ou d'un écart, lus de façon
+   * cohérente avec le stock.
+   *
+   * Le stock se lit après le planning et ses listes. Une clôture (qui monte
+   * un achat au stock) ou un repas cuisiné (qui en consomme) commité entre
+   * ces lectures compterait deux fois le même mouvement : une fois au stock,
+   * une fois sur la liste ou le repas lus avant lui. Ces gestes écrivent le
+   * stock et leur trace dans la même transaction : relus après le stock, ils
+   * disent si l'on a lu au milieu de l'un d'eux, et l'on relit tout.
+   */
+  private async lireLesBesoins(
+    planId: string,
+    lecture: 'production' | 'complement' | 'ecart',
+  ): Promise<{ besoins: Besoin[]; listesLues?: ListesLues }> {
+    for (let essai = 1; ; essai++) {
+      const planning =
+        lecture === 'ecart'
+          ? await this.planning(planId)
+          : await this.planningArrete(planId);
+      const listes =
+        lecture === 'production'
+          ? []
+          : await this.repository.listesDuPlanning(planId);
+      const lu =
+        lecture === 'production'
+          ? { besoins: await this.besoinActuel(planning) }
+          : await this.manquants(planning, listes);
+
+      const etat = await this.repository.etatDuPlanning(planId);
+      const coherent =
+        listes.every(
+          ({ id, status }) => status !== 'OPEN' || etat.listesOuvertes.has(id),
+        ) &&
+        planning.entries.every(
+          ({ id, cookedMeal }) =>
+            cookedMeal !== null || !etat.repasCuisines.has(id),
+        );
+      if (coherent) return lu;
+      if (essai === ESSAIS_DE_LECTURE) {
+        throw new ErreurMetier(
+          'food.pantry_busy',
+          'Le stock change en ce moment : réessayez.',
+        );
+      }
+    }
   }
 
   /**
@@ -130,8 +184,8 @@ export class ShoppingListService {
    */
   private async manquants(
     planning: PlanningAConsoliderRecord,
+    listes: Awaited<ReturnType<ShoppingListRepository['listesDuPlanning']>>,
   ): Promise<{ besoins: Besoin[]; listesLues: ListesLues }> {
-    const listes = await this.repository.listesDuPlanning(planning.id);
     const ouvertes = listes.filter(({ status }) => status === 'OPEN');
     const listesLues = {
       toutes: listes.map(({ id }) => id),
@@ -139,9 +193,6 @@ export class ShoppingListService {
     };
     if (listes.length === 0) return { besoins: [], listesLues };
 
-    // Le stock se lit après les listes : une clôture commitée entre les deux
-    // lectures fait échouer la production (`listesLues.ouvertes`), qui
-    // recommence.
     const besoins = await this.besoinActuel(planning);
     const { manquants } = ecart(
       besoins.map(({ ingredient, quantite }) => ({
@@ -174,11 +225,15 @@ export class ShoppingListService {
 
   /**
    * La consolidation actuelle du planning, dans l'ordre alphabétique où une
-   * liste se lit au magasin. Une conversion impossible la refuse entière.
+   * liste se lit au magasin. Une conversion impossible la refuse entière. Un
+   * repas déjà cuisiné n'a plus besoin de rien : ce qu'il a pris au stock en
+   * est déjà sorti.
    */
-  private async besoinActuel(
-    planning: PlanningAConsoliderRecord,
-  ): Promise<Besoin[]> {
+  private async besoinActuel(lu: PlanningAConsoliderRecord): Promise<Besoin[]> {
+    const planning = {
+      ...lu,
+      entries: lu.entries.filter(({ cookedMeal }) => cookedMeal === null),
+    };
     const ingredients = ingredientsDe(planning);
     const stock = await this.repository.stockDe([...ingredients.keys()]);
 
