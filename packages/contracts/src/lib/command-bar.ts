@@ -12,6 +12,22 @@ export const zCommandParamUsage = /* @__PURE__ */ z.enum([
 
 export type CommandParamUsage = z.infer<typeof zCommandParamUsage>;
 
+/**
+ * Un paramètre de l'écran : son usage, quand l'écran le lit sous le nom du
+ * champ de l'API ; ou son usage et ce champ (`field`), quand l'écran le lit
+ * sous un autre nom (`/repas/planning?semaine=…` pour le champ `week`). Sa
+ * valeur se valide toujours par le schéma du champ de l'API.
+ */
+export const zCommandParamSpec = /* @__PURE__ */ z.union([
+  zCommandParamUsage,
+  /* @__PURE__ */ z.object({
+    field: /* @__PURE__ */ z.string().min(1),
+    usage: zCommandParamUsage,
+  }),
+]);
+
+export type CommandParamSpec = z.infer<typeof zCommandParamSpec>;
+
 /** Une phrase non vide. */
 const zPhrase = /* @__PURE__ */ z.string().trim().min(1);
 
@@ -22,13 +38,14 @@ const zScreen = /* @__PURE__ */ z.string().regex(/^\/[^?#]*$/);
  * L'annotation qui ouvre un endpoint à la barre de commande (ADR 0018). Le
  * décorateur `@Command` la pose dans l'OpenAPI, sous l'extension `x-command`.
  * `params` nomme les champs du schéma d'entrée que la barre peut préremplir :
- * le formulaire de `screen` les lit dans ses paramètres de requête (ADR 0030).
+ * le formulaire de `screen` les lit dans ses paramètres de requête (ADR 0030),
+ * sous leur nom ou sous celui que leur donne l'écran (`zCommandParamSpec`).
  */
 export const zCommandAnnotation = /* @__PURE__ */ z.object({
   intent: zPhrase,
   examples: /* @__PURE__ */ z.array(zPhrase).min(1),
   screen: zScreen,
-  params: /* @__PURE__ */ z.record(z.string().min(1), zCommandParamUsage),
+  params: /* @__PURE__ */ z.record(z.string().min(1), zCommandParamSpec),
 });
 
 export type CommandAnnotation = z.infer<typeof zCommandAnnotation>;
@@ -38,7 +55,10 @@ export const zJsonSchema = /* @__PURE__ */ z.record(z.string(), z.unknown());
 
 export type JsonSchema = z.infer<typeof zJsonSchema>;
 
-/** Un champ que la barre peut préremplir, avec le schéma qui le valide. */
+/**
+ * Un champ que la barre peut préremplir, sous le nom que l'écran lit, avec le
+ * schéma qui le valide.
+ */
 export const zCommandParam = /* @__PURE__ */ z.object({
   required: /* @__PURE__ */ z.boolean(),
   schema: zJsonSchema,

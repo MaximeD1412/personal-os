@@ -84,7 +84,7 @@ export function quantiteDArticle(
 }
 
 /** « Semaine du 2 novembre », pour nommer une liste par son planning. */
-function nomDeListe(liste: ShoppingList): string {
+export function nomDeListe(liste: ShoppingList): string {
   return liste.mealPlan
     ? `Semaine du ${formaterJour(liste.mealPlan.week, { day: 'numeric', month: 'long' })}`
     : `Liste du ${formaterInstant(liste.producedAt, { day: 'numeric', month: 'long' })}`;

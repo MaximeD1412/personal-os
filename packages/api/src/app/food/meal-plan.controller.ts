@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiNoContentResponse } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
+import { Command } from '../command-bar/command.decorator';
 import type { UserRecord } from '../auth/auth.repository';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { Espaces } from '../espace/espaces.decorator';
@@ -34,8 +35,25 @@ import { MealPlanService } from './meal-plan.service';
 export class MealPlanController {
   constructor(private readonly plannings: MealPlanService) {}
 
+  /**
+   * L'écran du planning lit sa semaine dans `semaine` ; sans elle, il ouvre
+   * celle d'aujourd'hui.
+   */
   @Get()
   @ZodResponse({ status: 200, type: MealPlanDto })
+  @Command({
+    intent:
+      "Ouvrir le Planning de repas d'une semaine, désignée par son lundi",
+    examples: [
+      'montre le planning des repas',
+      "qu'est-ce qu'on mange cette semaine ?",
+      'planning de la semaine prochaine',
+      'ouvre les repas de la semaine du 16 novembre',
+      'on mange quoi mardi ?',
+    ],
+    screen: '/repas/planning',
+    params: { semaine: { field: 'week', usage: 'optional' } },
+  })
   lire(@Query() requete: MealPlanQueryDto) {
     return this.plannings.lire(requete);
   }

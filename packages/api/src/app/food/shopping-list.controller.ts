@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiNoContentResponse } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
+import { Command } from '../command-bar/command.decorator';
 import { Espaces } from '../espace/espaces.decorator';
 import {
   ShoppingListClosureDto,
@@ -44,8 +45,24 @@ export class ShoppingListController {
     return this.listes.lire(id);
   }
 
+  /**
+   * La barre vise la liste ouverte : son formulaire la choisit, ou propose
+   * d'en produire une. La phrase ne désigne donc pas la liste.
+   */
   @Post(':id/items')
   @ZodResponse({ status: 201, type: ShoppingListItemDto })
+  @Command({
+    intent: 'Ajouter un Article à la Liste de courses ouverte',
+    examples: [
+      'ajoute du lait aux courses',
+      'il faut racheter des éponges',
+      '6 œufs sur la liste de courses',
+      'courses : papier toilette',
+      "note qu'il n'y a plus de café",
+    ],
+    screen: '/courses/articles/nouveau',
+    params: { label: 'required', quantity: 'optional' },
+  })
   ajouter(@Param('id') id: string, @Body() saisie: ShoppingListItemInputDto) {
     return this.listes.ajouter(id, saisie);
   }

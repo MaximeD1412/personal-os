@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiNoContentResponse } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
+import { Command } from '../command-bar/command.decorator';
 import { Espaces } from '../espace/espaces.decorator';
 import {
   EventDto,
@@ -53,6 +54,24 @@ export class EventController {
 
   @Post()
   @ZodResponse({ status: 201, type: EventDto })
+  @Command({
+    intent: 'Créer un Événement : un rendez-vous, un anniversaire, une échéance',
+    examples: [
+      'ajoute un rendez-vous chez le dentiste jeudi à 10 h',
+      'dîner chez Paul samedi à 20 h',
+      'anniversaire de maman le 12 mars',
+      "échéance : déclaration d'impôts le 15 novembre",
+      'réunion de copropriété mardi de 18 h à 20 h',
+    ],
+    screen: '/calendrier/evenements/nouveau',
+    // L'Espace se choisit dans le formulaire, jamais par la phrase (ADR 0014).
+    params: {
+      title: 'required',
+      startsAt: 'optional',
+      endsAt: 'optional',
+      category: 'optional',
+    },
+  })
   creer(@Body() saisie: EventInputDto) {
     return this.evenements.creer(saisie);
   }

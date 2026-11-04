@@ -71,6 +71,21 @@
     } }
   </dccm-page-header>
 
+  @if (semaineDuLienEcartee().length > 0) {
+  <div hlmAlert tone="warning" data-test="semaine-ecartee">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>
+        La semaine du lien n'a pas été reprise : {{
+        semaineDuLienEcartee().join(', ') }}
+      </p>
+      <p hlmAlertDescription>
+        Elle ne désigne pas un lundi : le planning montre la semaine en cours.
+      </p>
+    </div>
+  </div>
+  }
+
   <div class="flex flex-wrap items-center gap-space-sm">
     <button
       hlmBtn
