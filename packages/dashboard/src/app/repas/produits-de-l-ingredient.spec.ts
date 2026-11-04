@@ -2,7 +2,7 @@ import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import type { Ingredient, Product } from '@personal-os/contracts';
 import { BASE, ouvrirLeCatalogue } from '../../testing/catalogue';
-import { choisirDansLeSelect } from '../../testing/hlm-select';
+import { choisirDansLeSelect, valeurAffichee } from '../../testing/hlm-select';
 
 const TOMATES: Ingredient = {
   id: 'ingredient-tomates',
@@ -47,8 +47,9 @@ async function ouvrir(
   produits: Product[] = [MUTTI, SANS_MARQUE],
   ingredient: Ingredient = TOMATES,
   options?: Parameters<typeof ouvrirLeCatalogue>[1],
+  requete = '',
 ): Promise<Ouvert> {
-  const ouvert = await ouvrirLeCatalogue(URL_DE_LA_FICHE, options);
+  const ouvert = await ouvrirLeCatalogue(URL_DE_LA_FICHE + requete, options);
   ouvert.http.expectOne(`${BASE}/ingredients/${TOMATES.id}`).flush(ingredient);
   await new Promise((resolve) => setTimeout(resolve));
   TestBed.tick();
@@ -78,6 +79,10 @@ function saisir(el: HTMLElement, nom: string, valeur: string): void {
   input.value = valeur;
   input.dispatchEvent(new Event('input'));
   TestBed.tick();
+}
+
+function valeurDe(el: HTMLElement, nom: string): string {
+  return (el.querySelector(`[data-test="${nom}"]`) as HTMLInputElement).value;
 }
 
 function envoyer(el: HTMLElement): void {
@@ -169,6 +174,47 @@ describe('Les Produits d’un Ingrédient', () => {
     expect(
       (el().querySelector('[data-test="marque"]') as HTMLInputElement).value,
     ).toBe('');
+  });
+
+  it('se préremplit par son URL, sans rien enregistrer', async () => {
+    const { el, http, harness } = await ouvrir(
+      [MUTTI],
+      TOMATES,
+      undefined,
+      '?brand=Cirio&form=CANNED&packageQuantity=800&packageLabel=bo%C3%AEte',
+    );
+
+    expect(valeurDe(el(), 'marque')).toBe('Cirio');
+    expect(valeurAffichee(harness.fixture, 'forme')).toBe('Conserve');
+    expect(valeurDe(el(), 'contenance')).toBe('800');
+    expect(valeurDe(el(), 'conditionnement')).toBe('boîte');
+    expect(section(el()).querySelector('[data-test="ignores"]')).toBeNull();
+    http.expectNone(`${BASE}/products`);
+
+    envoyer(el());
+    expect(http.expectOne(`${BASE}/products`).request.body).toEqual({
+      ingredientId: TOMATES.id,
+      brand: 'Cirio',
+      form: 'CANNED',
+      packageQuantity: 800,
+      packageLabel: 'boîte',
+    });
+  });
+
+  it('signale une valeur du lien qu’il n’a pas pu reprendre', async () => {
+    const { el, harness } = await ouvrir(
+      [MUTTI],
+      TOMATES,
+      undefined,
+      '?form=VRAC&packageQuantity=-3&packageLabel=sachet',
+    );
+
+    const ignores = texte(section(el()).querySelector('[data-test="ignores"]'));
+    expect(ignores).toContain('form=VRAC');
+    expect(ignores).toContain('packageQuantity=-3');
+    expect(valeurAffichee(harness.fixture, 'forme')).toBe('Choisir une forme');
+    expect(valeurDe(el(), 'contenance')).toBe('');
+    expect(valeurDe(el(), 'conditionnement')).toBe('sachet');
   });
 
   it('montre le refus sous le champ en cause', async () => {

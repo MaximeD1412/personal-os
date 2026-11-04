@@ -218,12 +218,23 @@ export class ShoppingListService {
         unite: ingredient.canonicalUnit,
       })),
       ouvertes.map(({ items }) => ({
-        articles: items.map(({ ingredientId, quantity, unit, origin }) => ({
-          ingredientId,
-          quantite: quantity?.toString() ?? null,
-          unite: unit,
-          origin,
-        })),
+        articles: items.map(
+          ({
+            ingredientId,
+            quantity,
+            unit,
+            origin,
+            packages,
+            packageQuantity,
+          }) => ({
+            ingredientId,
+            quantite: quantity?.toString() ?? null,
+            unite: unit,
+            origin,
+            conditionnements: packages,
+            contenance: packageQuantity?.toString() ?? null,
+          }),
+        ),
       })),
     );
     const ingredientDe = new Map(

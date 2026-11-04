@@ -6,6 +6,7 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   matAddOutline,
@@ -20,6 +21,7 @@ import {
   type Product,
   type ProductForm,
   type ProductInput,
+  zProductInput,
 } from '@personal-os/contracts';
 import { HlmAlertImports } from '@personal-os/ui/alert';
 import { HlmBadge } from '@personal-os/ui/badge';
@@ -36,7 +38,7 @@ import { HlmInputImports } from '@personal-os/ui/input';
 import { HlmSelectImports } from '@personal-os/ui/select';
 import { showToast } from '@personal-os/ui/sonner';
 import type { ErreurApi } from '../erreur-api.interceptor';
-import { erreursDeChamp } from '../formulaire';
+import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { ProductService } from './product.service';
 import { quantiteCanonique, UNITES_CANONIQUES } from './quantite';
 
@@ -182,7 +184,13 @@ export class ProduitsDeLIngredient {
   }
 
   // L'ajout d'un Produit. La forme et la contenance n'ont pas de valeur par
-  // défaut : le contrat les exige, et son refus pointe le champ.
+  // défaut : le contrat les exige, et son refus pointe le champ. Le formulaire
+  // se préremplit depuis la requête de la fiche (ADR 0030), sans rien
+  // enregistrer ; l'Ingrédient est celui de la fiche, jamais celui du lien.
+  protected readonly prefill = prefillDepuisRequete(
+    zProductInput.omit({ ingredientId: true }),
+    inject(ActivatedRoute).snapshot.queryParamMap,
+  );
   protected readonly formes = FORMES_DE_PRODUIT.map((valeur) => ({
     valeur,
     libelle: LIBELLES_DES_FORMES[valeur],
@@ -190,10 +198,14 @@ export class ProduitsDeLIngredient {
   protected readonly nomDeLaForme = (
     forme: ProductForm | null | undefined,
   ): string => (forme ? LIBELLES_DES_FORMES[forme] : '');
-  protected readonly marque = signal('');
-  protected readonly forme = signal<ProductForm | null>(null);
-  protected readonly contenance = signal<number | null>(null);
-  protected readonly libelle = signal('');
+  protected readonly marque = signal(this.prefill.valeurs.brand ?? '');
+  protected readonly forme = signal<ProductForm | null>(
+    this.prefill.valeurs.form ?? null,
+  );
+  protected readonly contenance = signal<number | null>(
+    this.prefill.valeurs.packageQuantity ?? null,
+  );
+  protected readonly libelle = signal(this.prefill.valeurs.packageLabel ?? '');
   protected readonly envoi = signal(false);
   protected readonly refusDAjout = signal<ErreurApi | null>(null);
   protected readonly erreurs = computed(() =>

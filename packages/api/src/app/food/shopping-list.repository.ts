@@ -240,6 +240,8 @@ export class ShoppingListRepository {
         quantity: Decimal | null;
         unit: CanonicalUnit | null;
         origin: ShoppingListItemOrigin;
+        packages: number | null;
+        packageQuantity: Decimal | null;
       }[];
     }[]
   > {
@@ -254,6 +256,8 @@ export class ShoppingListRepository {
             quantity: true,
             unit: true,
             origin: true,
+            packages: true,
+            packageQuantity: true,
           },
         },
       },

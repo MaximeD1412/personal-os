@@ -1387,9 +1387,40 @@ describe('Listes de courses', () => {
         .set('Cookie', jeu.a.session)
         .expect(201);
 
+      // La boîte déjà prévue contient 400 g : il en manque 200, une boîte.
       expect((reponse.body as ShoppingList).items).toMatchObject([
-        { ingredient: { id: mais.id }, quantity: 300, packages: 1 },
+        { ingredient: { id: mais.id }, quantity: 200, packages: 1 },
       ]);
+    });
+
+    it('ne demande aucun complément quand les conditionnements prévus couvrent déjà le nouveau besoin', async () => {
+      const tomates = await ingredient(
+        `Tomates ${semaines} (couvertes)`,
+        'GRAM',
+      );
+      await produitPrefere(tomates.id, 400, 'boîte');
+      const sauce = await recette(`Sauce ${semaines} (couverte)`, 2, [
+        { ingredientId: tomates.id, quantity: 700, unit: 'G' },
+      ]);
+      const garniture = await recette(`Garniture ${semaines} (couverte)`, 2, [
+        { ingredientId: tomates.id, quantity: 50, unit: 'G' },
+      ]);
+      const planning = await unPlanning();
+      await ajouter(planning, 0, { recipeId: sauce.id });
+      await arreter(planning);
+      const liste = await produire(planning);
+      expect(liste.items).toMatchObject([{ quantity: 700, packages: 2 }]);
+      await rouvrir(planning);
+      await ajouter(planning, 1, { recipeId: garniture.id });
+      await arreter(planning);
+
+      // 750 g restent sous les 800 g des deux boîtes déjà prévues.
+      const reponse = await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+        .query({ complement: true })
+        .set('Cookie', jeu.a.session)
+        .expect(422);
+      expect(reponse.body).toMatchObject({ code: 'food.no_shopping_gap' });
     });
 
     it('garde le conditionnement figé quand le Produit est modifié ou retiré après la production', async () => {

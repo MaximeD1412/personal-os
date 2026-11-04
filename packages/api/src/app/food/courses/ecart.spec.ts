@@ -97,4 +97,34 @@ describe('ecart', () => {
       { ingredientId: 'oeufs', quantite: '4' },
     ]);
   });
+
+  it('compte comme couvert ce que les conditionnements prévus contiennent, au-delà du besoin figé', () => {
+    // 700 g ont donné deux boîtes de 400 g : un passage à 750 g reste couvert.
+    const resultat = ecart(
+      [
+        { ingredientId: 'tomates', quantite: '750', unite: 'GRAM' },
+        { ingredientId: 'mais', quantite: '900', unite: 'GRAM' },
+      ],
+      [
+        {
+          articles: [
+            {
+              ...duPlanning('tomates', 700),
+              conditionnements: 2,
+              contenance: 400,
+            },
+            {
+              ...duPlanning('mais', 300),
+              conditionnements: 1,
+              contenance: '400',
+            },
+          ],
+        },
+      ],
+    );
+
+    expect(manquantsDe(resultat)).toEqual([
+      { ingredientId: 'mais', quantite: '500' },
+    ]);
+  });
 });

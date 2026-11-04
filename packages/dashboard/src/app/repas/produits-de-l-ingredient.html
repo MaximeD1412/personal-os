@@ -106,7 +106,21 @@
       (submit)="ajouter($event)"
     >
       <h3 class="text-title-sm text-on-surface">Ajouter un produit</h3>
-      @if (refusSansChamp(); as erreur) {
+      @if (prefill.ignores.length > 0) {
+      <div hlmAlert tone="warning" data-test="ignores">
+        <hlm-alert-icon />
+        <div hlmAlertContent>
+          <p hlmAlertTitle>
+            Certaines valeurs du lien n'ont pas été reprises : {{
+            prefill.ignores.join(', ') }}
+          </p>
+          <p hlmAlertDescription>
+            Elles ne correspondent à aucune valeur admise : le champ reste à
+            remplir.
+          </p>
+        </div>
+      </div>
+      } @if (refusSansChamp(); as erreur) {
       <div hlmAlert tone="error" data-test="refus-ajout-produit">
         <hlm-alert-icon />
         <div hlmAlertContent>
