@@ -1,4 +1,9 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpResponse,
+  provideHttpClient,
+  withInterceptors,
+  type HttpInterceptorFn,
+} from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
@@ -12,9 +17,10 @@ import type {
   MealPlanEntry,
   MealWish,
   RejectedSlot,
+  ShoppingGap,
 } from '@personal-os/contracts';
 import { DccmConfirm, type DccmConfirmOptions } from '@personal-os/ui/dccm';
-import { filter, firstValueFrom } from 'rxjs';
+import { filter, firstValueFrom, of } from 'rxjs';
 import { API_BASE_URL } from '../app/api-base-url';
 import { INTERCEPTEURS } from '../app/app.config';
 import { appRoutes } from '../app/app.routes';
@@ -133,10 +139,33 @@ export const DAHL_SOUHAITE: MealWish = {
 
 export const SOUHAITS: MealWish[] = [ENVIE_DE_POISSON, DAHL_SOUHAITE];
 
+/**
+ * L'écart du planning avec ses listes, que le bandeau lit à chaque changement
+ * du planning : il répond seul, ce que le test y met, et note chaque lecture.
+ * Sans quoi chaque test d'un planning devrait y répondre.
+ */
+export interface EcartSimule {
+  reponse: ShoppingGap;
+  /** L'URL de chaque lecture, dans l'ordre. */
+  lectures: string[];
+}
+
+function repondreALEcart(ecart: EcartSimule): HttpInterceptorFn {
+  return (requete, suivant) => {
+    if (!requete.url.endsWith('/shopping-gap')) return suivant(requete);
+    ecart.lectures.push(requete.url);
+    return of(new HttpResponse({ status: 200, body: ecart.reponse }));
+  };
+}
+
 export async function ouvrirLePlanning(
   url: string,
-  { confirme = true }: { confirme?: boolean } = {},
+  {
+    confirme = true,
+    ecart: reponse = { missing: [] },
+  }: { confirme?: boolean; ecart?: ShoppingGap } = {},
 ) {
+  const ecart: EcartSimule = { reponse, lectures: [] };
   // Les demandes de confirmation, dans l'ordre.
   const confirmations: DccmConfirmOptions[] = [];
   const confirm = (options: DccmConfirmOptions) => {
@@ -154,7 +183,9 @@ export async function ouvrirLePlanning(
             path?.startsWith('courses'),
         ),
       ),
-      provideHttpClient(withInterceptors(INTERCEPTEURS)),
+      provideHttpClient(
+        withInterceptors([...INTERCEPTEURS, repondreALEcart(ecart)]),
+      ),
       provideHttpClientTesting(),
       { provide: API_BASE_URL, useValue: BASE },
       { provide: DccmConfirm, useValue: { confirm } },
@@ -164,5 +195,12 @@ export async function ouvrirLePlanning(
   const http = TestBed.inject(HttpTestingController);
   const el = () => harness.routeNativeElement as HTMLElement;
 
-  return { harness, http, el, confirmations, router: TestBed.inject(Router) };
+  return {
+    harness,
+    http,
+    el,
+    confirmations,
+    ecart,
+    router: TestBed.inject(Router),
+  };
 }

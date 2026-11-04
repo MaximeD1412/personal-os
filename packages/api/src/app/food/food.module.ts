@@ -33,6 +33,7 @@ import { RecipeController } from './recipe.controller';
 import { RecipeRepository } from './recipe.repository';
 import { RecipeService } from './recipe.service';
 import {
+  MealPlanShoppingGapController,
   MealPlanShoppingListController,
   ShoppingListController,
 } from './shopping-list.controller';
@@ -62,6 +63,7 @@ import { ShoppingListService } from './shopping-list.service';
     CookedMealController,
     ShoppingListController,
     MealPlanShoppingListController,
+    MealPlanShoppingGapController,
   ],
   providers: [
     IngredientService,

@@ -12,9 +12,11 @@ import { ApiNoContentResponse } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
 import { Espaces } from '../espace/espaces.decorator';
 import {
+  ShoppingGapDto,
   ShoppingListDto,
   ShoppingListItemDto,
   ShoppingListItemInputDto,
+  ShoppingListProductionQueryDto,
   ShoppingListQueryDto,
 } from './shopping-list.dto';
 import { ShoppingListService } from './shopping-list.service';
@@ -75,7 +77,8 @@ export class ShoppingListController {
 
 /**
  * Produire une liste crée un objet du domaine depuis un planning : un `POST`
- * sur sa collection imbriquée (ADR 0030).
+ * sur sa collection imbriquée (ADR 0030). `?complement=true` n'y met que
+ * l'écart avec les listes déjà produites.
  */
 @Controller('meal-plans/:id/shopping-lists')
 @Espaces('HOUSEHOLD')
@@ -84,7 +87,26 @@ export class MealPlanShoppingListController {
 
   @Post()
   @ZodResponse({ status: 201, type: ShoppingListDto })
-  produire(@Param('id') id: string) {
-    return this.listes.produire(id);
+  produire(
+    @Param('id') id: string,
+    @Query() requete: ShoppingListProductionQueryDto,
+  ) {
+    return this.listes.produire(id, requete);
+  }
+}
+
+/**
+ * L'écart entre un planning et ses listes figées : une lecture, recalculée à
+ * chaque fois, qui ne touche jamais une liste (ADR 0012).
+ */
+@Controller('meal-plans/:id/shopping-gap')
+@Espaces('HOUSEHOLD')
+export class MealPlanShoppingGapController {
+  constructor(private readonly listes: ShoppingListService) {}
+
+  @Get()
+  @ZodResponse({ status: 200, type: ShoppingGapDto })
+  lire(@Param('id') id: string) {
+    return this.listes.lireLEcart(id);
   }
 }
