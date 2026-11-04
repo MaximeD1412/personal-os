@@ -1,0 +1,43 @@
+name: Minutes Actions
+
+# Suivi quotidien des minutes Actions du compte : le job échoue dès 80 % du
+# quota mensuel, ou dès que la projection à la fin du mois le dépasse, et
+# GitHub envoie l'échec par e-mail. Les agents ouvrent beaucoup de
+# propositions : la consommation se surveille, elle ne se découvre pas sur la
+# facture.
+#
+# À configurer dans Settings > Secrets and variables > Actions
+# (docs/pilotage/mep.json) :
+#   - secret ACTIONS_BILLING_TOKEN : jeton fin du compte, permission « Plan »
+#     en lecture ;
+#   - variable ACTIONS_MINUTES_QUOTA : minutes incluses dans l'offre du compte,
+#     3000 par défaut (GitHub Pro).
+on:
+  schedule:
+    # Après la nuit (nightly.yml), pour compter ses minutes le jour même.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  usage:
+    name: Consommation du mois
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - run: node .github/scripts/actions-minutes.mjs
+        env:
+          BILLING_TOKEN: ${{ secrets.ACTIONS_BILLING_TOKEN }}
+          GITHUB_USER: ${{ github.repository_owner }}
+          MINUTES_QUOTA: ${{ vars.ACTIONS_MINUTES_QUOTA }}

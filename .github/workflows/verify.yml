@@ -1,18 +1,20 @@
 name: Vérification
 
-# Campagne unique, appelée par la CI des branches de travail et par la
-# livraison. Elle a deux portées, et la différence entre les deux est le seul
-# endroit où le contrat se joue :
+# Campagne unique, appelée par la CI des branches de travail, par la nuit et
+# par la livraison. Elle a deux portées, et la différence entre les deux est le
+# seul endroit où le contrat se joue :
 #
 #   - « complete » rejoue tout. C'est ce que la livraison demande, et c'est ce
 #     qui rend vraie la phrase « rien ne part en production sans avoir passé la
-#     campagne entière ».
+#     campagne entière ». La nuit sur `develop` (nightly.yml) et la proposition
+#     de livraison vers `main` (ci.yml) la demandent aussi.
 #   - « affectee » ne fait tourner que ce que le diff atteint réellement. Une
 #     proposition qui ne touche que le tableau de bord n'a aucune raison de
 #     rejouer quatre-vingt-seize secondes de chaîne de déploiement.
 #
-# Le filet, c'est que la branche principale ne connaît que la première portée :
-# ce qu'une proposition a sauté sera de toute façon rejoué avant publication.
+# Le filet, c'est que la branche principale ne connaît que la première portée,
+# et que `develop` la repasse chaque nuit : ce qu'une proposition a sauté se
+# voit au plus tard le lendemain, et de toute façon avant publication.
 on:
   workflow_call:
     inputs:
@@ -136,6 +138,12 @@ jobs:
       - uses: ./.github/actions/preparer
         with:
           affectee: ${{ inputs.portee != 'complete' }}
+
+      # Les scripts des workflows (suivi des minutes Actions) ne sont dans
+      # aucun projet Nx : leurs tests passent ici, quelle que soit la portée.
+      # Ils durent moins d'une seconde.
+      - name: Tests des scripts de CI
+        run: node --test '.github/scripts/*.test.mjs'
 
       - name: Lint
         run: pnpm exec nx $NX -t lint

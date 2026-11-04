@@ -31,10 +31,12 @@ permissions:
 jobs:
   verify:
     uses: ./.github/workflows/verify.yml
-    # Une proposition ne rejoue que ce que son diff atteint. Ce qu'elle saute
-    # sera de toute façon rejoué par la livraison, avant toute publication.
+    # Une proposition vers `develop` ne rejoue que ce que son diff atteint. Ce
+    # qu'elle saute est rejoué la nuit suivante (nightly.yml), puis par la
+    # proposition de livraison : celle qui vise `main` rejoue tout, pour que la
+    # fusion ne découvre pas l'échec que la livraison trouverait juste après.
     with:
-      portee: affectee
+      portee: ${{ github.base_ref == 'main' && 'complete' || 'affectee' }}
 
   images:
     name: Construit les images Docker

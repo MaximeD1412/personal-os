@@ -441,8 +441,8 @@
         },
         {
           "texte": "Suite complète chaque nuit et sur la PR de livraison",
-          "ref": "",
-          "fait": false
+          "ref": "#90",
+          "fait": true
         },
         {
           "texte": "Staging déployé à chaque merge sur develop",
