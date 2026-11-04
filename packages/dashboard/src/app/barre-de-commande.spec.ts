@@ -4,13 +4,20 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
-import { Component } from '@angular/core';
+import { Component, viewChild } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
-import type { CommandResolution } from '@personal-os/contracts';
+import {
+  provideRouter,
+  Router,
+  RouteReuseStrategy,
+  RouterOutlet,
+  type Routes,
+} from '@angular/router';
+import type { CommandResolution, Scope } from '@personal-os/contracts';
 import { API_BASE_URL } from './api-base-url';
 import { INTERCEPTEURS } from './app.config';
-import { BarreDeCommande } from './barre-de-commande';
+import { appRoutes } from './app.routes';
+import { BarreDeCommande, ReutilisationDesEcrans } from './barre-de-commande';
 
 const BASE = 'http://api.test/api';
 
@@ -28,15 +35,32 @@ const toujoursFocalisable: Partial<InteractivityChecker> = {
 @Component({ template: '' })
 class Ecran {}
 
+/** L'écran ouvert et la barre, comme dans l'application. */
+@Component({
+  imports: [RouterOutlet, BarreDeCommande],
+  template: '<router-outlet /><pos-barre-de-commande />',
+})
+class Racine {
+  readonly barre = viewChild.required(BarreDeCommande);
+}
+
 const pause = () => new Promise((resolve) => setTimeout(resolve));
 
-async function monter() {
+const ESPACES: Scope[] = [
+  { id: 'espace-foyer', kind: 'HOUSEHOLD', label: 'Foyer' },
+  { id: 'espace-a', kind: 'PERSONAL', label: 'Personne A' },
+];
+
+const ECRANS_FACTICES: Routes = [
+  { path: 'agenda', component: Ecran },
+  { path: 'calendrier/evenements/nouveau', component: Ecran },
+];
+
+async function monter({ routes = ECRANS_FACTICES, depart = '/agenda' } = {}) {
   TestBed.configureTestingModule({
     providers: [
-      provideRouter([
-        { path: 'agenda', component: Ecran },
-        { path: 'calendrier/evenements/nouveau', component: Ecran },
-      ]),
+      provideRouter(routes),
+      { provide: RouteReuseStrategy, useClass: ReutilisationDesEcrans },
       provideHttpClient(withInterceptors(INTERCEPTEURS)),
       provideHttpClientTesting(),
       { provide: API_BASE_URL, useValue: BASE },
@@ -45,17 +69,20 @@ async function monter() {
   });
   const router = TestBed.inject(Router);
   const httpMock = TestBed.inject(HttpTestingController);
-  await router.navigateByUrl('/agenda');
-
-  const fixture = TestBed.createComponent(BarreDeCommande);
+  const fixture = TestBed.createComponent(Racine);
   document.body.appendChild(fixture.nativeElement);
-  await fixture.whenStable();
+  await router.navigateByUrl(depart);
 
+  // Laisse filer ce qui est en route (une navigation, une requête servie)
+  // sans attendre la stabilité : une lecture en cours la retarderait jusqu'à
+  // sa réponse.
   const stable = async () => {
-    await fixture.whenStable();
-    await pause();
-    await fixture.whenStable();
+    for (let tour = 0; tour < 3; tour++) {
+      await pause();
+      TestBed.tick();
+    }
   };
+  await stable();
   const palette = () =>
     document.querySelector<HTMLElement>('[data-slot="command-bar-palette"]');
 
@@ -85,8 +112,39 @@ async function monter() {
     await stable();
   };
 
-  return { fixture, router, httpMock, palette, commander, repondre, stable };
+  /** Les lectures de l'écran ouvert : les Espaces, et un mois vide. */
+  const servirLesLectures = async () => {
+    for (const demande of httpMock.match(({ method }) => method === 'GET')) {
+      demande.flush(demande.request.url.endsWith('/espaces') ? ESPACES : []);
+    }
+    await stable();
+  };
+
+  return {
+    fixture,
+    router,
+    httpMock,
+    palette,
+    commander,
+    repondre,
+    stable,
+    servirLesLectures,
+  };
 }
+
+const echap = () =>
+  document
+    .querySelector('[data-slot="command-bar-palette"] input')
+    ?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        keyCode: 27,
+        bubbles: true,
+      }),
+    );
+
+const titre = () =>
+  document.querySelector<HTMLInputElement>('[data-test="titre"]')?.value;
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -157,19 +215,117 @@ describe('BarreDeCommande', () => {
     await repondre(requete, { kind: 'none' });
 
     document.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        keyCode: 27,
+        bubbles: true,
+      }),
     );
     (palette()?.querySelector('input') as HTMLInputElement).dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        keyCode: 27,
+        bubbles: true,
+      }),
     );
     await stable();
     expect(palette()).toBeNull();
 
-    fixture.componentInstance.open();
+    fixture.componentInstance.barre().open();
     await stable();
-    expect(palette()?.querySelector('[role="status"]')?.textContent?.trim()).toBe(
-      '',
-    );
+    expect(
+      palette()?.querySelector('[role="status"]')?.textContent?.trim(),
+    ).toBe('');
     httpMock.verify();
+  });
+
+  it('abandonne la résolution dès que la barre commence à se fermer', async () => {
+    const { router, httpMock, commander, stable } = await monter();
+    const requete = await commander('ajoute un dentiste jeudi');
+
+    // Échap pendant « Je cherche… », puis la réponse arrive pendant
+    // l'animation de sortie, avant que la barre ait fini de se fermer.
+    echap();
+    if (!requete.cancelled) {
+      requete.flush({
+        kind: 'action',
+        url: '/calendrier/evenements/nouveau?title=Dentiste',
+        ignored: [],
+      } satisfies CommandResolution);
+    }
+    await stable();
+
+    expect(router.url).toBe('/agenda');
+    httpMock.verify();
+  });
+
+  describe('vers le formulaire d’un Événement', () => {
+    const FORMULAIRE = '/calendrier/evenements/nouveau';
+
+    it('repréremplit le formulaire déjà ouvert', async () => {
+      const { httpMock, commander, repondre, servirLesLectures } = await monter(
+        {
+          routes: appRoutes,
+          depart: `${FORMULAIRE}?title=Yoga`,
+        },
+      );
+      await servirLesLectures();
+      expect(titre()).toBe('Yoga');
+
+      await repondre(await commander('ajoute un dentiste'), {
+        kind: 'action',
+        url: `${FORMULAIRE}?title=Dentiste`,
+        ignored: [],
+      });
+      await servirLesLectures();
+
+      expect(titre()).toBe('Dentiste');
+      httpMock.verify();
+    });
+
+    it('rouvre l’écran prérempli quand la commande mène à la même adresse', async () => {
+      const { httpMock, commander, repondre, stable, servirLesLectures } =
+        await monter({
+          routes: appRoutes,
+          depart: `${FORMULAIRE}?title=Dentiste`,
+        });
+      await servirLesLectures();
+      const champ = document.querySelector<HTMLInputElement>(
+        '[data-test="titre"]',
+      );
+      (champ as HTMLInputElement).value = 'Dentiste du jeudi';
+      champ?.dispatchEvent(new Event('input'));
+      await stable();
+
+      await repondre(await commander('ajoute un dentiste'), {
+        kind: 'action',
+        url: `${FORMULAIRE}?title=Dentiste`,
+        ignored: [],
+      });
+      await servirLesLectures();
+
+      expect(titre()).toBe('Dentiste');
+      httpMock.verify();
+    });
+
+    it('signale les paramètres que le résolveur a écartés', async () => {
+      const { router, httpMock, commander, repondre, servirLesLectures } =
+        await monter({ routes: appRoutes, depart: '/calendrier' });
+      await servirLesLectures();
+
+      await repondre(await commander('ajoute du yoga tous les mardis'), {
+        kind: 'action',
+        url: `${FORMULAIRE}?title=Yoga`,
+        ignored: ['recurrence'],
+      });
+      await servirLesLectures();
+
+      expect(titre()).toBe('Yoga');
+      expect(
+        document.querySelector('[data-test="ignores"]')?.textContent,
+      ).toContain('recurrence');
+      expect(router.url).toBe(`${FORMULAIRE}?title=Yoga&ignored=recurrence`);
+      httpMock.verify();
+    });
   });
 });

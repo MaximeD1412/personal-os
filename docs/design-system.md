@@ -375,8 +375,10 @@ Les planches 04 Navigation et 06 Layout, leurs stories sous `Navigation/*` et
   en `HlmAlert tone="error"`. Elle ne résout rien : elle émet la phrase
   (`submitted`), et l'écran navigue. Elle s'ouvre par Ctrl+K / Cmd+K et par
   `DccmCommandBarTrigger` (« Que veux-tu faire ? » et son `HlmKbd` dans la
-  `TopBar`, `compact` dans le `MobileHeader`), qui appelle `open()`. Posée
-  une seule fois, hors de `dccm-shell`.
+  `TopBar`, `compact` dans le `MobileHeader`), qui appelle `open()`.
+  `closing` part dès le début de la fermeture, avant l'animation de sortie
+  (l'écran y abandonne sa résolution), `closed` à sa fin. Posée une seule
+  fois, hors de `dccm-shell`.
 - **`DccmTabBar`** : les onglets reçus, puis ceux qu'on projette (« Plus »
   sur un `button[dccmTabBarItem]`). Cible 64 × 48.
 - **`DccmPageHeader`** : fil d'Ariane (`HlmBreadcrumb`), titre

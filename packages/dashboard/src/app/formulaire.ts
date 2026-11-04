@@ -16,10 +16,20 @@ export type SchemaDeSaisie =
   | z.ZodObject
   | z.ZodDiscriminatedUnion<readonly z.ZodObject[]>;
 
+/**
+ * Le paramètre de requête qui nomme ce qu'un lien proposait sans pouvoir le
+ * mettre : la barre de commande y passe les paramètres que le résolveur a
+ * écartés (`ignored`), déjà retirés de l'URL.
+ */
+export const PARAMETRE_DES_ECARTES = 'ignored';
+
 /** Ce qu'une URL apporte à un formulaire, et ce qu'elle n'a pas pu y mettre. */
 export interface Prefill<T> {
   valeurs: Aplati<T>;
-  /** Les paramètres écartés, sous la forme `nom=valeur`, pour les montrer. */
+  /**
+   * Les paramètres écartés, pour les montrer : `nom=valeur`, ou le seul nom
+   * quand le lien ne porte plus la valeur (`PARAMETRE_DES_ECARTES`).
+   */
   ignores: string[];
 }
 
@@ -36,6 +46,9 @@ export interface Prefill<T> {
  * Une union discriminée (la cible d'une Préférence alimentaire) se lit champ
  * par champ : un paramètre vaut si une des branches qui le nomment
  * l'accepte. Choisir la branche reste au formulaire.
+ *
+ * Les noms que porte `PARAMETRE_DES_ECARTES` sont signalés tels quels : leur
+ * valeur a été refusée avant d'arriver dans l'URL.
  */
 export function prefillDepuisRequete<S extends SchemaDeSaisie>(
   schema: S,
@@ -54,6 +67,7 @@ export function prefillDepuisRequete<S extends SchemaDeSaisie>(
       }
     }
   }
+  ignores.push(...parametres.getAll(PARAMETRE_DES_ECARTES));
 
   return { valeurs: valeurs as Aplati<z.output<S>>, ignores };
 }

@@ -36,6 +36,15 @@ describe('prefillDepuisRequete', () => {
     });
   });
 
+  it('signale par leur nom les paramètres déjà écartés par la barre de commande', () => {
+    expect(prefill({ title: 'Yoga', ignored: ['recurrence', 'lieu'] })).toEqual(
+      {
+        valeurs: { title: 'Yoga' },
+        ignores: ['recurrence', 'lieu'],
+      },
+    );
+  });
+
   it('lit un nombre dans la chaîne de la requête', () => {
     expect(prefill({ reminderLeadMinutes: '60' }).valeurs).toEqual({
       reminderLeadMinutes: 60,

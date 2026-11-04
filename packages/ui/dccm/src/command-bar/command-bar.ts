@@ -139,6 +139,7 @@ export class DccmCommandBarTrigger {
     <hlm-dialog
       [positionStrategy]="_position"
       autoFocus="input"
+      (stateChanged)="$event === 'closed' && closing.emit()"
       (closed)="_fermee()"
     >
       <hlm-dialog-content
@@ -245,7 +246,13 @@ export class DccmCommandBar {
 
   /** La phrase envoyée, telle que l'utilisateur l'a écrite. */
   readonly submitted = output<string>();
-  /** La barre s'est fermée (Échap, « Fermer », clic dehors, `close()`). */
+  /**
+   * La barre commence à se fermer (Échap, « Fermer », clic dehors,
+   * `close()`), avant son animation de sortie : ce qu'elle attendait n'a plus
+   * lieu d'être.
+   */
+  readonly closing = output<void>();
+  /** La barre a fini de se fermer, animation de sortie comprise. */
   readonly closed = output<void>();
 
   private readonly _dialogue = viewChild.required(HlmDialog);

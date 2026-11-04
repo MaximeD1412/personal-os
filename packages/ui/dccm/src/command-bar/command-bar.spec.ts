@@ -37,6 +37,7 @@ class Ecran {}
       [failure]="echec()"
       [error]="erreur()"
       (submitted)="commandes.push($event)"
+      (closing)="debutsDeFermeture = debutsDeFermeture + 1"
       (closed)="fermetures = fermetures + 1"
     />
   `,
@@ -47,6 +48,7 @@ class Hote {
   readonly echec = signal<DccmCommandFailure | null>(null);
   readonly erreur = signal<string | null>(null);
   readonly commandes: string[] = [];
+  debutsDeFermeture = 0;
   fermetures = 0;
 }
 
@@ -226,5 +228,23 @@ describe('DccmCommandBar', () => {
     await stable();
     expect(palette()).toBeNull();
     expect(fixture.componentInstance.fermetures).toBe(2);
+  });
+
+  it('dit qu’elle se ferme dès Échap, avant la fin de son animation de sortie', async () => {
+    const { fixture, ouvrir, champ, palette, stable } = await rendre();
+    await ouvrir();
+
+    champ()?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+    );
+    // Rien n'a encore été rendu : la palette est toujours là.
+    expect(palette()).not.toBeNull();
+    expect(fixture.componentInstance.debutsDeFermeture).toBe(1);
+    expect(fixture.componentInstance.fermetures).toBe(0);
+
+    await stable();
+    expect(palette()).toBeNull();
+    expect(fixture.componentInstance.debutsDeFermeture).toBe(1);
+    expect(fixture.componentInstance.fermetures).toBe(1);
   });
 });
