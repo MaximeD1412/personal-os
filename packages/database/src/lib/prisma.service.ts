@@ -155,6 +155,10 @@ export class PrismaService {
     return this.#client.trainingSession;
   }
 
+  get trainingGoal() {
+    return this.#client.trainingGoal;
+  }
+
   get session() {
     return this.#client.session;
   }

@@ -1,6 +1,8 @@
 import {
   titreDeSeance,
   zTrainingSessionCompletion,
+  zTrainingGoalUpdate,
+  zTrainingSeriesInput,
   zTrainingSessionInput,
 } from './training';
 
@@ -116,5 +118,75 @@ describe('titreDeSeance', () => {
     expect(titreDeSeance({ sport: 'SWIM', plannedIntent: 'Technique' })).toBe(
       'Natation · Technique',
     );
+  });
+});
+
+describe('zTrainingSeriesInput', () => {
+  const SERIE = {
+    weekdays: ['TU', 'TH'],
+    from: '2029-04-02',
+    to: '2029-04-29',
+    time: '07:15',
+    sport: 'RUN',
+    plannedDistanceM: 8_000,
+  } as const;
+
+  it('accepte des jours, une période, une heure et un prévu', () => {
+    expect(zTrainingSeriesInput.safeParse(SERIE).success).toBe(true);
+  });
+
+  it('refuse une série sans jour, ou un jour hors de la semaine', () => {
+    expect(
+      cheminsRefuses(
+        zTrainingSeriesInput.safeParse({ ...SERIE, weekdays: [] }),
+      ),
+    ).toEqual(['weekdays']);
+    expect(
+      cheminsRefuses(
+        zTrainingSeriesInput.safeParse({ ...SERIE, weekdays: ['MO', 'XX'] }),
+      ),
+    ).toEqual(['weekdays.1']);
+  });
+
+  it('refuse un jour répété, sur les jours', () => {
+    expect(
+      cheminsRefuses(
+        zTrainingSeriesInput.safeParse({ ...SERIE, weekdays: ['TU', 'TU'] }),
+      ),
+    ).toEqual(['weekdays']);
+  });
+
+  it('refuse une fin qui précède le début, sur la fin', () => {
+    expect(
+      cheminsRefuses(
+        zTrainingSeriesInput.safeParse({ ...SERIE, to: '2029-04-01' }),
+      ),
+    ).toEqual(['to']);
+  });
+
+  it("refuse une heure qui n'en est pas une", () => {
+    expect(
+      cheminsRefuses(
+        zTrainingSeriesInput.safeParse({ ...SERIE, time: '25:00' }),
+      ),
+    ).toEqual(['time']);
+  });
+
+  it('refuse une série sans prévu, sur la distance', () => {
+    const { plannedDistanceM: _, ...sansPrevu } = SERIE;
+    expect(cheminsRefuses(zTrainingSeriesInput.safeParse(sansPrevu))).toEqual([
+      'plannedDistanceM',
+    ]);
+  });
+});
+
+describe('zTrainingGoalUpdate', () => {
+  it("retire l'intention par null, jamais le titre ni la date", () => {
+    expect(zTrainingGoalUpdate.safeParse({ intent: null }).success).toBe(true);
+    expect(
+      cheminsRefuses(
+        zTrainingGoalUpdate.safeParse({ title: null, date: null }),
+      ),
+    ).toEqual(['title', 'date']);
   });
 });

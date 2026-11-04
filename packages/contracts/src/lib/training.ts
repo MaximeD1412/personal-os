@@ -1,5 +1,6 @@
 import * as z from 'zod';
-import { zInstant, zPeriod } from './valeurs';
+import { zWeekday } from './event';
+import { zDay, zInstant, zPeriod } from './valeurs';
 
 export const TRAINING_SPORTS = [
   'RUN',
@@ -186,6 +187,119 @@ export const zTrainingSessionListQuery = zPeriod;
 export type TrainingSessionListQuery = z.infer<
   typeof zTrainingSessionListQuery
 >;
+
+/**
+ * Où en est la préparation d'un Objectif : ses Séances faites, manquées, et
+ * encore à venir (prévues). Un compte par statut, rien de plus (ADR 0022).
+ */
+export const zTrainingGoalProgress = /* @__PURE__ */ z.object({
+  done: /* @__PURE__ */ z.int().min(0),
+  missed: /* @__PURE__ */ z.int().min(0),
+  planned: /* @__PURE__ */ z.int().min(0),
+});
+
+export type TrainingGoalProgress = z.infer<typeof zTrainingGoalProgress>;
+
+/**
+ * Un Objectif : une course, une date, une intention (ADR 0022). Il remplace
+ * le plan : la préparation est l'ensemble des Séances qui y mènent, et
+ * l'avancement se compte sur elles. Le sport est personnel : l'Espace est
+ * toujours l'Espace personnel du Compte.
+ */
+export const zTrainingGoal = /* @__PURE__ */ z.object({
+  id: /* @__PURE__ */ z.string(),
+  title: /* @__PURE__ */ z.string(),
+  /** Le jour de la course : un jour civil, jamais un instant. */
+  date: zDay,
+  intent: /* @__PURE__ */ z.string().nullable(),
+  progress: zTrainingGoalProgress,
+  scopeId: /* @__PURE__ */ z.string(),
+  createdAt: zInstant,
+});
+
+export type TrainingGoal = z.infer<typeof zTrainingGoal>;
+
+/** Une création d'Objectif. Pas d'Espace : le module pose l'Espace personnel (ADR 0030). */
+export const zTrainingGoalInput = /* @__PURE__ */ z.object({
+  title: zTexte,
+  date: zDay,
+  intent: zTexte.optional(),
+});
+
+export type TrainingGoalInput = z.infer<typeof zTrainingGoalInput>;
+
+/** Une modification : l'intention se retire par `null`, le titre et la date jamais. */
+export const zTrainingGoalUpdate = /* @__PURE__ */ z.object({
+  title: zTexte.optional(),
+  date: zDay.optional(),
+  intent: zTexte.nullable().optional(),
+});
+
+export type TrainingGoalUpdate = z.infer<typeof zTrainingGoalUpdate>;
+
+/** Une série crée au plus ce nombre de Séances. */
+export const SEANCES_PAR_SERIE_AU_PLUS = 100;
+
+/** Une heure murale `HH:MM`, lue à Paris. */
+const zHeure = /* @__PURE__ */ z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, { error: 'Une heure HH:MM.' });
+
+/**
+ * Les champs d'une série, sans les règles qui les lient : le formulaire s'en
+ * sert pour se préremplir champ par champ (ADR 0030).
+ *
+ * Une série pose une Séance prévue à l'heure dite (à Paris) chacun des jours
+ * de la semaine choisis, du premier au dernier jour inclus. Elle porte un seul
+ * prévu, que chaque Séance reçoit ; elles restent ensuite indépendantes,
+ * modifiables une à une (ADR 0022).
+ */
+export const zTrainingSeriesInputFields = /* @__PURE__ */ z.object({
+  /** Les jours de la semaine, aux noms d'iCalendar, comme une Récurrence. */
+  weekdays: /* @__PURE__ */ z
+    .array(zWeekday)
+    .min(1, { error: 'Au moins un jour de la semaine.' }),
+  from: zDay,
+  to: zDay,
+  time: zHeure,
+  sport: zTrainingSport,
+  plannedDistanceM: zDistanceM.optional(),
+  plannedDurationS: zDurationS.optional(),
+  plannedIntent: zTexte.optional(),
+});
+
+/**
+ * Une série : des jours sans doublon, une fin qui ne précède pas le début, et
+ * un prévu, comme toute Séance prévue. Combien de Séances elle donne dépend
+ * du calendrier : c'est une règle métier, que le service juge.
+ */
+export const zTrainingSeriesInput =
+  /* @__PURE__ */ zTrainingSeriesInputFields.superRefine((serie, ctx) => {
+    if (new Set(serie.weekdays).size !== serie.weekdays.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['weekdays'],
+        message: 'Un jour de la semaine ne se choisit qu’une fois.',
+      });
+    }
+    if (serie.to < serie.from) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['to'],
+        message: 'Le dernier jour ne précède pas le premier.',
+      });
+    }
+    if (CHAMPS_DU_PREVU.every((champ) => serie[champ] === undefined)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['plannedDistanceM'],
+        message:
+          'Une Séance prévue porte une distance, une durée ou une intention.',
+      });
+    }
+  });
+
+export type TrainingSeriesInput = z.infer<typeof zTrainingSeriesInput>;
 
 /** La source du Sport dans l'Agenda. */
 export const SOURCE_SPORT = 'training';
