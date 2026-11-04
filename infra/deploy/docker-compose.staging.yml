@@ -1,0 +1,135 @@
+# Staging de démonstration (ADR 0031). S'installe en
+# /opt/personal-os-staging/docker-compose.yml, et se déploie par
+# bin/deploy-staging.sh <commit>.
+#
+# Les **mêmes** images que la production, au commit déployé, avec un autre
+# fichier d'environnement (staging.env.example). Rien n'est partagé avec la
+# prod : projet, conteneurs, réseau par défaut et volume sont ceux du staging,
+# avec son propre PostgreSQL. Il n'a pas d'Authentik : il passe par celui de la
+# prod, avec son propre client OIDC.
+#
+# Aucun `container_name` : les noms viennent du projet
+# (`personal-os-staging-api-1`…), et ne peuvent donc pas entrer en collision
+# avec ceux de la prod.
+#
+# La base n'a jamais de copie de la prod, ni de sauvegarde : elle est
+# réinitialisée à partir du jeu de démo à chaque déploiement.
+#
+# Plafonds : 1 CPU et 1 Go **au total**, répartis ci-dessous (OPS-3). Le VPS
+# est celui de la production, et le staging ne doit jamais l'affamer.
+
+name: personal-os-staging
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER manquant}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB manquant}
+    volumes:
+      - staging-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      default:
+        # Le nom sous lequel l'API la joint. `db` est le nom de la base de la
+        # **prod** : l'API de staging refuse de démarrer sur une URL qui le
+        # désigne (PROD_DATABASE_HOST), et `staging-db` ne s'y confond pas.
+        aliases:
+          - staging-db
+    deploy:
+      resources:
+        limits:
+          cpus: '0.30'
+          memory: 320M
+
+  api:
+    image: ${REGISTRY:?REGISTRY manquant}/api:${IMAGE_TAG:?IMAGE_TAG manquant}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Celle du Postgres de staging, sur l'alias `staging-db`. L'API refuse
+      # de démarrer si elle désigne un hôte de PROD_DATABASE_HOST.
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL manquant}
+      PROD_DATABASE_HOST: ${PROD_DATABASE_HOST:?PROD_DATABASE_HOST manquant}
+      PORT: 3000
+      # `staging`, et rien d'autre : l'API refuse toute autre valeur que
+      # development, staging ou production, et deploy-staging.sh refuse un
+      # fichier d'environnement qui ne pose pas `staging`.
+      APP_ENV: ${APP_ENV:?APP_ENV manquant}
+      CORS_ORIGINS: ''
+      OIDC_ISSUER: ${OIDC_ISSUER:?OIDC_ISSUER manquant}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?OIDC_CLIENT_ID manquant}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?OIDC_CLIENT_SECRET manquant}
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:?OIDC_REDIRECT_URI manquant}
+      DASHBOARD_URL: ${DASHBOARD_URL:?DASHBOARD_URL manquant}
+      AUTH_ALLOWED_EMAILS: ${AUTH_ALLOWED_EMAILS:?AUTH_ALLOWED_EMAILS manquant}
+      # Les deux Comptes que le jeu de démo sert, ceux d'AUTH_ALLOWED_EMAILS.
+      DEMO_ACCOUNT_EMAILS: ${DEMO_ACCOUNT_EMAILS:?DEMO_ACCOUNT_EMAILS manquant}
+      # Le double de test : le staging n'appelle aucun modèle.
+      AI_PROVIDER: ${AI_PROVIDER:-factice}
+      # Le disque du conteneur : ses fichiers disparaissent au déploiement
+      # suivant, comme le reste du staging.
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-disk}
+    # Sur loopback, pour la sonde de santé de deploy-staging.sh seulement. Le
+    # trafic, lui, passe par le tableau de bord.
+    ports:
+      - '127.0.0.1:${STAGING_API_PORT:-3101}:3000'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.40'
+          memory: 448M
+
+  # Les deux services exposés rejoignent le réseau partagé avec le Caddy
+  # interne de la prod (caddy/conf.d/staging.caddy). Ils y portent leur nom de
+  # service, qui doit donc différer de ceux de la prod : un `dashboard` de
+  # staging y serait résolu par le Caddy de la prod **à côté** du sien, et le
+  # trafic de la prod pourrait partir vers le staging.
+  staging-dashboard:
+    image: ${REGISTRY}/dashboard:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      # `default` doit être répété : c'est par lui que son nginx joint `api`.
+      - default
+      - staging-edge
+    deploy:
+      resources:
+        limits:
+          cpus: '0.15'
+          memory: 128M
+
+  staging-portfolio:
+    image: ${REGISTRY}/portfolio:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - default
+      - staging-edge
+    deploy:
+      resources:
+        limits:
+          cpus: '0.15'
+          memory: 128M
+
+networks:
+  # Le seul point de contact avec la prod : son Caddy interne et les deux
+  # services ci-dessus, rien d'autre. Ni la base ni l'API de la prod n'y sont.
+  # Externe des deux côtés, pour que l'un puisse s'arrêter sans l'autre ;
+  # deploy-staging.sh le crée s'il manque.
+  staging-edge:
+    external: true
+    name: ${STAGING_EDGE_NETWORK:-personal-os-staging-edge}
+
+volumes:
+  staging-db-data:

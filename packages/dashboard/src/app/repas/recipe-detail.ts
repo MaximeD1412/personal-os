@@ -1,5 +1,8 @@
 import { Component, computed, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { matEditOutline } from '@ng-icons/material-symbols/outline';
+import { HlmButton } from '@personal-os/ui/button';
 import { HlmCardImports } from '@personal-os/ui/card';
 import {
   DccmPageHeader,
@@ -15,10 +18,19 @@ import { FIL_DES_RECETTES } from './recipes';
 /**
  * La fiche d'une Recette : ses ingrédients et leurs quantités pour les
  * portions de référence, dans l'unité où on les a saisis, puis ses étapes.
- * La modification et la suppression viennent avec le formulaire (CUISINE-6).
+ * « Modifier » ouvre sa saisie.
  */
 @Component({
-  imports: [HlmCardImports, HlmTableImports, DccmPageHeader, DccmState],
+  imports: [
+    RouterLink,
+    NgIcon,
+    HlmButton,
+    HlmCardImports,
+    HlmTableImports,
+    DccmPageHeader,
+    DccmState,
+  ],
+  providers: [provideIcons({ matEditOutline })],
   templateUrl: './recipe-detail.html',
 })
 export class FicheDeRecette {

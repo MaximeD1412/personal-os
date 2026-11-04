@@ -64,6 +64,7 @@ model Scope {
   cookedMealLines     CookedMealLine[]
   shoppingLists       ShoppingList[]
   shoppingListItems   ShoppingListItem[]
+  trainingSessions    TrainingSession[]
 
   @@index([householdId])
 }
@@ -640,6 +641,50 @@ model PageContent {
   updatedAt        DateTime         @updatedAt @db.Timestamptz(3)
 
   @@unique([slug, lang])
+}
+
+/// Le sport d'une Séance.
+enum TrainingSport {
+  RUN
+  BIKE
+  SWIM
+  STRENGTH
+  OTHER
+}
+
+/// Où en est une Séance : prévue, réalisée ou manquée (ADR 0022).
+enum TrainingSessionStatus {
+  PLANNED
+  DONE
+  MISSED
+}
+
+/// La Séance : le prévu **et** le réalisé sur le même objet, plus un statut
+/// (ADR 0022). Une sortie non planifiée est créée réalisée, sans prévu ; une
+/// Séance manquée garde son prévu, sans réalisé. Le sport est personnel : une
+/// Séance est toujours dans l'Espace personnel de son Compte.
+///
+/// Distances en mètres, durées en secondes ; l'allure se calcule à l'affichage.
+model TrainingSession {
+  id               String                @id @default(uuid())
+  scopeId          String
+  scope            Scope                 @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  startsAt         DateTime
+  sport            TrainingSport
+  status           TrainingSessionStatus
+  plannedDistanceM Int?
+  plannedDurationS Int?
+  plannedIntent    String?
+  actualDistanceM  Int?
+  actualDurationS  Int?
+  actualNotes      String?
+  /// L'Objectif que la Séance prépare. L'Objectif arrive avec SPORT-2, qui
+  /// posera la clé étrangère : la colonne n'est encore qu'un identifiant.
+  goalId           String?
+  createdAt        DateTime              @default(now())
+
+  @@index([scopeId])
+  @@index([startsAt])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.

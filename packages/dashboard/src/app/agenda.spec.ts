@@ -317,6 +317,18 @@ describe('Agenda', () => {
       );
     });
 
+    it('renvoie une Séance vers son propre écran', async () => {
+      const fixture = await monter([
+        { ...SEANCE, source: 'training', sourceId: 'seance-1' },
+      ]);
+      const lien = tous(fixture, 'entree')[0].querySelector(
+        'a',
+      ) as HTMLAnchorElement;
+
+      expect(lien.textContent).toContain('Ouvrir dans Sport');
+      expect(lien.getAttribute('href')).toBe('/sport/seances/seance-1');
+    });
+
     it("s'ouvre, pour un Repas planifié, dans le planning de sa semaine", async () => {
       const [repas] = tous(await monter([DEJEUNER]), 'entree');
       const lien = repas.querySelector('a') as HTMLAnchorElement;

@@ -31,4 +31,7 @@ http://{$PORTFOLIO_HOST} {
 # Chacun exige son nom d'hôte : un bloc dont la variable est vide donne une
 # adresse de site que Caddy refuse, et le proxy interne ne démarre pas du tout.
 # C'est tout le portfolio qui tombe avec lui.
+#
+# Le staging de démonstration y a aussi ses deux hôtes (staging.caddy), vers un
+# autre projet Compose, par le réseau partagé `staging-edge` (ADR 0031).
 import /etc/caddy/conf.d/*.caddy

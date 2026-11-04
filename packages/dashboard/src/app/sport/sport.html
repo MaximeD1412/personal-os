@@ -1,0 +1,182 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    heading="Sport"
+    subtitle="Les Séances de la semaine, le prévu face au réalisé."
+    [breadcrumb]="[{ label: 'Organisation' }, { label: 'Sport' }]"
+  >
+    <a
+      hlmBtn
+      variant="secondary"
+      routerLink="/sport/seances/nouvelle"
+      [queryParams]="{ status: 'DONE' }"
+      data-test="sortie-non-planifiee"
+    >
+      <ng-icon [svg]="icones.nonPlanifiee" aria-hidden="true" />
+      Sortie non planifiée
+    </a>
+    <a hlmBtn routerLink="/sport/seances/nouvelle" data-test="nouvelle-seance">
+      <ng-icon [svg]="icones.ajouter" aria-hidden="true" />
+      Nouvelle séance
+    </a>
+  </dccm-page-header>
+
+  <nav
+    class="flex flex-wrap items-center justify-between gap-space-sm rounded-md border border-surface-container-highest bg-surface-container p-space-sm"
+    aria-label="Semaine affichée"
+  >
+    <div class="flex items-center gap-space-xs">
+      <a
+        hlmBtn
+        variant="ghost"
+        size="icon"
+        routerLink="/sport"
+        [queryParams]="{ semaine: precedente() }"
+        aria-label="Semaine précédente"
+        data-test="semaine-precedente"
+      >
+        <ng-icon [svg]="icones.precedente" aria-hidden="true" />
+      </a>
+      <h2
+        class="text-title-sm text-on-surface tabular-nums"
+        data-test="semaine"
+      >
+        {{ libelle() }}
+      </h2>
+      <a
+        hlmBtn
+        variant="ghost"
+        size="icon"
+        routerLink="/sport"
+        [queryParams]="{ semaine: suivante() }"
+        aria-label="Semaine suivante"
+        data-test="semaine-suivante"
+      >
+        <ng-icon [svg]="icones.suivante" aria-hidden="true" />
+      </a>
+    </div>
+    @if (semaine() !== courante) {
+    <a
+      hlmBtn
+      variant="link"
+      routerLink="/sport"
+      [queryParams]="{ semaine: courante }"
+      data-test="cette-semaine"
+      >Cette semaine</a
+    >
+    }
+  </nav>
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="cards"
+    emptyHeading="Aucune séance cette semaine"
+    emptyDescription="Planifiez une séance, ou notez une sortie déjà faite."
+    [emptyIcon]="icones.vide"
+    (retry)="lecture.reload()"
+  >
+    <a dccmStateEmpty hlmBtn routerLink="/sport/seances/nouvelle"
+      >Nouvelle séance</a
+    >
+
+    <ul class="flex flex-col gap-gutter">
+      @for (vue of seances(); track vue.seance.id) {
+      <li
+        hlmCard
+        data-test="seance"
+        [attr.data-statut]="vue.seance.status"
+        [class.opacity-70]="vue.seance.status === 'MISSED'"
+      >
+        <div class="flex flex-wrap items-start gap-space-md">
+          <div
+            class="flex w-12 shrink-0 flex-col items-center rounded bg-surface-container-high py-space-xs"
+          >
+            <span class="text-label-micro uppercase text-outline"
+              >{{ jourDe(vue.seance.startsAt).jour }}</span
+            >
+            <span class="text-title-sm text-on-surface tabular-nums"
+              >{{ jourDe(vue.seance.startsAt).numero }}</span
+            >
+          </div>
+
+          <div class="flex min-w-0 flex-1 flex-col gap-space-xs">
+            <div class="flex flex-wrap items-center gap-space-sm">
+              <span hlmBadge variant="tag" accent>{{ vue.sport }}</span>
+              @if (vue.nonPlanifiee) {
+              <span hlmBadge tone="warning" data-test="non-planifiee">
+                <ng-icon [svg]="icones.nonPlanifiee" aria-hidden="true" />
+                Non planifiée
+              </span>
+              }
+              <span hlmBadge [tone]="vue.statut.tone" dot data-test="statut"
+                >{{ vue.statut.libelle }}</span
+              >
+              <span class="text-label-regular text-outline tabular-nums"
+                >{{ heureDe(vue.seance.startsAt) }}</span
+              >
+            </div>
+            <a
+              class="text-title-sm text-on-surface hover:underline"
+              [routerLink]="['/sport/seances', vue.seance.id]"
+              data-test="titre"
+              >{{ vue.titre }}</a
+            >
+          </div>
+
+          @if (vue.seance.status === 'PLANNED') {
+          <!-- Sous 768 px, le geste passe sous le titre, sur toute la largeur. -->
+          <a
+            hlmBtn
+            size="sm"
+            variant="secondary"
+            class="w-full md:w-auto"
+            [routerLink]="['/sport/seances', vue.seance.id]"
+            data-test="saisir-le-realise"
+            >Saisir le réalisé</a
+          >
+          }
+        </div>
+
+        @if (vue.comparaisons.length > 0) {
+        <dl
+          class="mt-space-md grid grid-cols-2 gap-space-md rounded bg-surface-container-low p-space-md md:grid-cols-3"
+        >
+          @for (mesure of vue.comparaisons; track mesure.libelle) {
+          <div class="flex flex-col gap-0.5" data-test="mesure">
+            <dt class="text-label-regular text-outline">
+              {{ mesure.libelle }}
+            </dt>
+            <dd class="text-body-default text-on-surface tabular-nums">
+              {{ mesure.realise ?? mesure.prevu }} @if (mesure.ecart) {
+              <span class="text-label-regular text-secondary" data-test="ecart"
+                >({{ mesure.ecart }})</span
+              >
+              }
+            </dd>
+            @if (mesure.realise && mesure.prevu) {
+            <dd class="text-label-regular text-outline tabular-nums">
+              Prévu : {{ mesure.prevu }}
+            </dd>
+            } @else if (!mesure.realise) {
+            <dd class="text-label-regular text-outline">Prévu</dd>
+            }
+          </div>
+          }
+        </dl>
+        } @if (vue.seance.actualNotes) {
+        <p
+          class="mt-space-sm flex items-center gap-space-sm text-body-dense text-on-surface-variant"
+        >
+          <ng-icon
+            [svg]="icones.notes"
+            class="icon-xs text-outline"
+            aria-hidden="true"
+          />
+          {{ vue.seance.actualNotes }}
+        </p>
+        }
+      </li>
+      }
+    </ul>
+  </dccm-state>
+</div>

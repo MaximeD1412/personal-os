@@ -50,7 +50,7 @@ fi
 install -m 644 "$SOURCE_DIR"/systemd/*.service "$SOURCE_DIR"/systemd/*.timer "$UNIT_DIR/"
 
 systemctl daemon-reload
-systemctl enable --now personal-os-backup.timer
+systemctl enable --now personal-os-backup.timer personal-os-backup-watch.timer
 
-echo "installé. Prochaine sauvegarde :" >&2
-systemctl list-timers personal-os-backup.timer --no-pager >&2
+echo "installé. Prochaine sauvegarde et prochaine vérification :" >&2
+systemctl list-timers personal-os-backup.timer personal-os-backup-watch.timer --no-pager >&2

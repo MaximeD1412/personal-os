@@ -33,4 +33,8 @@ EXPOSE 3000
 
 # Les migrations restent compatibles avec la version précédente (ADR 0024) :
 # les appliquer au démarrage est sans risque pour l'instance encore en place.
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node main.js"]
+#
+# Les garde-fous de l'environnement passent avant elles (ADR 0031) : main.js
+# les rejoue, mais trop tard, une fois la migration faite. Un staging dont
+# DATABASE_URL désigne la prod ne doit pas même la migrer.
+CMD ["sh", "-c", "node verifier-environnement.js && node_modules/.bin/prisma migrate deploy && node main.js"]

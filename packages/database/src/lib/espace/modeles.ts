@@ -46,6 +46,7 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
       'mealWishes',
       'projects',
       'projectExpenses',
+      'trainingSessions',
     ],
   };
 
@@ -109,6 +110,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
     'projects',
     'projectExpenses',
     'publicPresentations',
+    'trainingSessions',
   ],
 };
 
