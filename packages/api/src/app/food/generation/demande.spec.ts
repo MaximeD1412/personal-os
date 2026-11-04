@@ -76,7 +76,10 @@ describe('construireLaDemande', () => {
         day: LUNDI,
         moment: 'LUNCH',
         portions: 2,
-        interdits: { allergenes: ['Fruits à coque'], ingredients: ['Courgette'] },
+        interdits: {
+          allergenes: ['Fruits à coque'],
+          ingredients: ['Courgette'],
+        },
         aEviter: { allergenes: [], ingredients: ['Lentilles vertes'] },
       },
     ]);
@@ -172,6 +175,7 @@ describe('construireLaDemande', () => {
         {
           id: 'dahl',
           title: 'Dahl',
+          kept: true,
           lines: [{ ingredientId: 'lentilles', label: 'Lentilles vertes' }],
         },
       ],
@@ -214,6 +218,30 @@ describe('construireLaDemande', () => {
       { day: '2028-03-08', plat: 'Dahl' },
       { day: LUNDI, plat: 'Restes' },
     ]);
+  });
+
+  it("ne donne comme Recettes du Foyer que celles qu'il a gardées", () => {
+    const demande = lire({
+      recettes: [
+        { id: 'dahl', title: 'Dahl', kept: true, lines: [] },
+        { id: 'curry', title: 'Curry généré', kept: false, lines: [] },
+        { id: 'tajine', title: 'Tajine gardé', kept: true, lines: [] },
+      ],
+    });
+
+    expect(
+      demande.recettesDuFoyer.map(
+        ({ recipeId }: { recipeId: string }) => recipeId,
+      ),
+    ).toEqual(['dahl', 'tajine']);
+  });
+
+  it("demande dans la consigne de proposer d'abord les Recettes du Foyer", () => {
+    const { systeme } = construireLaDemande(donnees());
+
+    expect(systeme).toContain(
+      'Propose en priorité les recettes du foyer (recettesDuFoyer)',
+    );
   });
 
   it('donne les repas refusés du planning, que le tour ne doit pas reproposer', () => {

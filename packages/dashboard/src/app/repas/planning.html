@@ -248,7 +248,14 @@
                     : 'text-on-surface'
                 "
               >
-                {{ repas.titre }}
+                @if (repas.recetteId; as recetteId) {
+                <a
+                  class="hover:underline"
+                  data-test="fiche"
+                  [routerLink]="['/repas/recettes', recetteId]"
+                  >{{ repas.titre }}</a
+                >
+                } @else { {{ repas.titre }} }
               </p>
               <div class="flex flex-wrap items-center gap-space-xs">
                 <span
@@ -307,19 +314,36 @@
                 </button>
               </div>
               } @if (repas.approuve) {
-              <a
-                hlmBtn
-                variant="ghost"
-                size="sm"
-                class="self-start"
-                data-test="cuisine"
-                routerLink="/repas/cuisine/nouveau"
-                [queryParams]="{ mealPlanEntryId: repas.id }"
-                [attr.aria-label]="'Déclarer cuisiné : ' + repas.titre"
-              >
-                <ng-icon [svg]="icones.cuisine" aria-hidden="true" />
-                Cuisiné
-              </a>
+              <div class="flex flex-wrap gap-space-xs">
+                <a
+                  hlmBtn
+                  variant="ghost"
+                  size="sm"
+                  data-test="cuisine"
+                  routerLink="/repas/cuisine/nouveau"
+                  [queryParams]="{ mealPlanEntryId: repas.id }"
+                  [attr.aria-label]="'Déclarer cuisiné : ' + repas.titre"
+                >
+                  <ng-icon [svg]="icones.cuisine" aria-hidden="true" />
+                  Cuisiné
+                </a>
+                @if (repas.gardable && repas.recetteId; as recetteId) {
+                <button
+                  hlmBtn
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  data-test="garder"
+                  [disabled]="transition()"
+                  [loading]="gardeEnCours(recetteId)"
+                  [attr.aria-label]="'Garder la recette : ' + repas.titre"
+                  (click)="garder(recetteId)"
+                >
+                  <ng-icon [svg]="icones.garder" aria-hidden="true" />
+                  Garder la recette
+                </button>
+                }
+              </div>
               }
             </article>
             } @if (creneau.ecarte; as raison) {

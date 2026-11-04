@@ -13,7 +13,7 @@ export interface MealPlanEntryRecord {
   mealPlanId: string;
   day: string;
   moment: MealMoment;
-  recipe: { id: string; title: string } | null;
+  recipe: { id: string; title: string; kept: boolean } | null;
   title: string | null;
   participantIds: string[];
   guestCount: number;
@@ -69,7 +69,7 @@ export const CHAMPS_DU_REPAS = {
   guestCount: true,
   decision: true,
   createdAt: true,
-  recipe: { select: { id: true, title: true } },
+  recipe: { select: { id: true, title: true, kept: true } },
 };
 
 export const CHAMPS_DU_TOUR = {

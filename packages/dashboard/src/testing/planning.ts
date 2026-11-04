@@ -47,7 +47,7 @@ export const DAHL_DU_LUNDI: MealPlanEntry = {
   id: 'repas-1',
   day: '2026-10-19',
   moment: 'DINNER',
-  recipe: { id: 'recette-1', title: 'Dahl de lentilles corail' },
+  recipe: { id: 'recette-1', title: 'Dahl de lentilles corail', kept: true },
   title: null,
   participantIds: ['compte-a', 'compte-b'],
   guestCount: 2,
@@ -67,6 +67,20 @@ export const RESTES_DU_MERCREDI: MealPlanEntry = {
   servings: 1,
   decision: 'PROPOSED',
   createdAt: '2026-10-18T08:01:00.000Z',
+};
+
+/** Un repas approuvé, d'une recette générée qu'on n'a pas encore gardée. */
+export const CURRY_DU_JEUDI: MealPlanEntry = {
+  id: 'repas-3',
+  day: '2026-10-22',
+  moment: 'LUNCH',
+  recipe: { id: 'recette-3', title: 'Curry de pois chiches', kept: false },
+  title: null,
+  participantIds: ['compte-a'],
+  guestCount: 0,
+  servings: 1,
+  decision: 'APPROVED',
+  createdAt: '2026-10-18T09:00:00.000Z',
 };
 
 export const PLANNING: MealPlan = {

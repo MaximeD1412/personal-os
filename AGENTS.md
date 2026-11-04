@@ -98,6 +98,7 @@ et lève `food.list_already_closed`.
 | Unité de recette                         | `RecipeUnit`, `UNITES_DE_RECETTE`                                |
 | Recette                                  | `Recipe`                                                         |
 | Ligne (d'une Recette), Origine           | `RecipeLine`, `RecipeSource` (`MANUAL`, `GENERATED`)             |
+| Recette gardée, garder                   | `kept`, `garder`, `POST /recipes/:id/keep`                       |
 | Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |
 | Moment (déjeuner, dîner)                 | `MealMoment` : `LUNCH`, `DINNER`                                 |
 | Décision (approuvé, proposé, refusé)     | `MealPlanEntryDecision` : `APPROVED`, `PROPOSED`, `REFUSED`      |

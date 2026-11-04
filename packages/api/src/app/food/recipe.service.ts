@@ -24,11 +24,16 @@ import {
 export class RecipeService {
   constructor(private readonly repository: RecipeRepository) {}
 
-  /** Toutes les recettes, ou celles dont le titre contient chaque mot de `q`. */
-  async lister({ q }: RecipeListQuery): Promise<Recipe[]> {
+  /**
+   * Les recettes gardées (toutes avec `all`), ou celles d'entre elles dont
+   * le titre contient chaque mot de `q`.
+   */
+  async lister({ q, all }: RecipeListQuery): Promise<Recipe[]> {
     const mots = (q ?? '').split(/\s+/).filter(Boolean);
 
-    return (await this.repository.lister(mots)).map(exposer);
+    return (await this.repository.lister(mots, { gardeesSeules: !all })).map(
+      exposer,
+    );
   }
 
   async lire(id: string): Promise<Recipe> {
@@ -37,6 +42,24 @@ export class RecipeService {
       throw introuvable();
     }
     return exposer(recette);
+  }
+
+  /**
+   * Une recette générée qu'on garde entre dans « Mes recettes ». Une recette
+   * déjà gardée (toute recette saisie l'est) ne se garde pas une seconde fois.
+   */
+  async garder(id: string): Promise<Recipe> {
+    const gardee = await this.repository.garder(id);
+    if (gardee) {
+      return exposer(gardee);
+    }
+    if (await this.repository.lire(id)) {
+      throw new ErreurMetier(
+        'food.recipe_already_kept',
+        'Cette recette est déjà dans vos recettes.',
+      );
+    }
+    throw introuvable();
   }
 
   async creer({ lines, ...saisie }: RecipeInput): Promise<Recipe> {
@@ -141,6 +164,7 @@ function exposer(recette: RecipeRecord): Recipe {
     servings: recette.servings,
     steps: recette.steps,
     source: recette.source,
+    kept: recette.kept,
     lines: recette.lines.map(({ id, ingredient, quantity, unit }) => ({
       id,
       ingredient: { id: ingredient.id, displayName: ingredient.displayName },

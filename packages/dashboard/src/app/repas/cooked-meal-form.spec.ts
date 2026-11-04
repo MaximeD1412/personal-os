@@ -122,7 +122,7 @@ describe('La déclaration d’un Repas cuisiné', () => {
     const { el } = await ouvrir(
       {
         ...DAHL_DU_LUNDI,
-        recipe: { id: OMELETTE.id, title: OMELETTE.title },
+        recipe: { id: OMELETTE.id, title: OMELETTE.title, kept: true },
       },
       OMELETTE,
     );

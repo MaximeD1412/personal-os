@@ -1,5 +1,28 @@
 <div class="flex flex-col gap-margin">
-  <dccm-page-header [heading]="titre()" [breadcrumb]="fil()" />
+  <dccm-page-header [heading]="titre()" [breadcrumb]="fil()">
+    @if (recette(); as recette) { @if (!recette.kept) {
+    <button
+      hlmBtn
+      variant="secondary"
+      type="button"
+      data-test="garder"
+      [loading]="enCours()"
+      (click)="garder()"
+    >
+      <ng-icon [svg]="iconeGarder" aria-hidden="true" />
+      Garder la recette
+    </button>
+    } }
+  </dccm-page-header>
+
+  @if (refus(); as erreur) {
+  <div hlmAlert tone="error" data-test="refus">
+    <hlm-alert-icon />
+    <div hlmAlertContent>
+      <p hlmAlertTitle>{{ erreur.message }}</p>
+    </div>
+  </div>
+  }
 
   <dccm-state
     [status]="etat()"

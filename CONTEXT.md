@@ -116,6 +116,10 @@ _Éviter_ : « calendrier des repas » — le **Calendrier** est un autre module
 Une préparation réutilisable : des **Ingrédients** en quantités, des étapes, un nombre de portions de référence. Une **Recette** ne connaît que des **Ingrédients**, jamais des **Produits**.
 _Éviter_ : « plat », « repas » (voir **Repas planifié**).
 
+**Recette gardée** (`kept`) :
+Une **Recette** que le **Foyer** compte parmi ses recettes. Une **Recette** saisie l'est d'emblée ; une **Recette** générée ne l'est qu'une fois qu'on l'a gardée, depuis sa fiche ou depuis son **Repas planifié** approuvé. La génération propose d'abord les **Recettes gardées**.
+_Éviter_ : « favori », « recette sauvegardée ».
+
 **Tour de génération** (`GenerationRound`) :
 Un cycle complet du **Planning de repas** : l'IA propose, l'utilisateur statue sur **chacun** des repas — approuvé ou refusé —, puis relance. Le tour suivant ne régénère que les repas refusés. Le planning est arrêté quand tous les repas sont approuvés. On ne régénère jamais un repas isolément au fil de l'eau.
 _Éviter_ : « itération », « relance », « regénération partielle ».

@@ -24,6 +24,7 @@ export const DAHL: Recipe = {
   servings: 4,
   steps: ['Rincer les lentilles.', 'Mijoter 20 minutes.'],
   source: 'MANUAL',
+  kept: true,
   lines: [
     {
       id: 'ligne-1',
@@ -55,6 +56,15 @@ export const OMELETTE: Recipe = {
   servings: 1,
   steps: [],
   lines: [DAHL.lines[1]],
+};
+
+/** Une recette qu'un Tour de génération a proposée, et qu'on n'a pas gardée. */
+export const CURRY_GENERE: Recipe = {
+  ...DAHL,
+  id: 'recette-3',
+  title: 'Curry de pois chiches',
+  source: 'GENERATED',
+  kept: false,
 };
 
 /** Les écrans de recettes, avec leurs vraies routes. */

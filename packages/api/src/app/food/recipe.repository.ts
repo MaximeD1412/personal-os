@@ -19,6 +19,7 @@ export interface RecipeRecord {
   servings: number;
   steps: string[];
   source: RecipeSource;
+  kept: boolean;
   lines: RecipeLineRecord[];
   createdAt: Date;
   updatedAt: Date;
@@ -61,10 +62,17 @@ const AVEC_LES_LIGNES = {
 export class RecipeRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Les recettes dont le titre contient chacun des mots, toutes sans mots. */
-  async lister(mots: readonly string[]): Promise<RecipeRecord[]> {
+  /**
+   * Les recettes dont le titre contient chacun des mots, toutes sans mots ;
+   * les seules gardées, sauf à demander aussi les autres.
+   */
+  async lister(
+    mots: readonly string[],
+    { gardeesSeules }: { gardeesSeules: boolean },
+  ): Promise<RecipeRecord[]> {
     const rangees = await this.prisma.recipe.findMany({
       where: {
+        ...(gardeesSeules ? { kept: true } : {}),
         AND: mots.map((mot) => ({
           title: { contains: mot, mode: 'insensitive' as const },
         })),
@@ -96,8 +104,8 @@ export class RecipeRepository {
   }
 
   /**
-   * Une recette saisie est manuelle ; la génération posera les siennes
-   * (CUISINE-19). La Cuisine vit dans l'Espace foyer : elle le pose elle-même.
+   * Une recette saisie est manuelle, et gardée d'emblée ; la génération pose
+   * les siennes (`GenerationRoundRepository`). La Cuisine vit dans l'Espace foyer : elle le pose elle-même.
    */
   async creer(
     saisie: RecipeWrite,
@@ -108,12 +116,27 @@ export class RecipeRepository {
         data: {
           ...saisie,
           source: 'MANUAL',
+          kept: true,
           scope: { connect: { id: ID_ESPACE_FOYER } },
           lines: { create: enLignes(lignes) },
         },
         include: AVEC_LES_LIGNES,
       }),
     );
+  }
+
+  /**
+   * Garde une recette qui ne l'est pas encore. Rien ne change pour une
+   * recette absente ou déjà gardée : la condition porte dans l'écriture, si
+   * bien que de deux gardes simultanées, une seule aboutit.
+   */
+  async garder(id: string): Promise<RecipeRecord | null> {
+    const { count } = await this.prisma.recipe.updateMany({
+      where: { id, kept: false },
+      data: { kept: true },
+    });
+
+    return count === 0 ? null : this.lire(id);
   }
 
   /**
@@ -207,6 +230,7 @@ function enRecette(rangee: RangeeRecette): RecipeRecord {
     servings: rangee.servings,
     steps: rangee.steps,
     source: rangee.source,
+    kept: rangee.kept,
     lines: rangee.lines.map((ligne) => ({
       id: ligne.id,
       ingredient: ligne.ingredient,
