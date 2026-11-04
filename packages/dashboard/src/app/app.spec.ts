@@ -209,6 +209,37 @@ describe('App', () => {
     expect(texte(panneau)).toContain('Personne Admise');
   });
 
+  it.each([
+    ['la TopBar', 'dccm-top-bar [data-slot="command-bar-trigger"]'],
+    ['le MobileHeader', 'dccm-mobile-header [data-slot="command-bar-trigger"]'],
+  ])('ouvre la barre de commande depuis %s', async (_, declencheur) => {
+    const { fixture, racine } = await monter();
+
+    (racine.querySelector(declencheur) as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    const palette = document.querySelector(
+      '[data-slot="command-bar-palette"]',
+    ) as HTMLElement;
+    expect(palette).not.toBeNull();
+    expect(palette.querySelector('input')?.placeholder).toBe(
+      'Que veux-tu faire ?',
+    );
+  });
+
+  it('ouvre la barre de commande par Ctrl+K, une seule fois', async () => {
+    const { fixture } = await monter();
+
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }),
+    );
+    await fixture.whenStable();
+
+    expect(
+      document.querySelectorAll('[data-slot="command-bar-palette"]'),
+    ).toHaveLength(1);
+  });
+
   it('quitte la session côté serveur avant de quitter la page', async () => {
     const { fixture, racine } = await monter();
 

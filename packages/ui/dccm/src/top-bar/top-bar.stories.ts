@@ -1,22 +1,19 @@
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { matTerminalOutline } from '@ng-icons/material-symbols/outline';
 import {
-  applicationConfig,
   moduleMetadata,
   type Meta,
   type StoryObj,
 } from '@storybook/angular';
+import { DccmCommandBarTrigger } from '../command-bar/command-bar';
 import { DccmTopBar } from './top-bar';
 
-// Le master `TopBar`. La zone de recherche est vide tant que la barre de
-// commande (CMD-3) ne la remplit pas ; le bouton de thème n'existe pas (sombre
-// seul en V1).
+// Le master `TopBar`. La zone de recherche reçoit le déclencheur de la barre
+// de commande (`Navigation/CommandBar`) ; le bouton de thème n'existe pas
+// (sombre seul en V1).
 const meta: Meta<DccmTopBar> = {
   title: 'Navigation/TopBar',
   component: DccmTopBar,
   decorators: [
-    applicationConfig({ providers: [provideIcons({ matTerminalOutline })] }),
-    moduleMetadata({ imports: [DccmTopBar, NgIcon] }),
+    moduleMetadata({ imports: [DccmTopBar, DccmCommandBarTrigger] }),
   ],
   parameters: { layout: 'fullscreen' },
   args: {
@@ -44,18 +41,14 @@ export const UnSeulEspace: Story = {
   args: { scopes: [{ value: 'perso', label: 'Mon espace' }] },
 };
 
-/** La zone projetée `[dccmTopBarSearch]`, que la barre de commande occupera. */
+/** La zone projetée `[dccmTopBarSearch]` : le déclencheur de la barre de commande. */
 export const AvecRecherche: Story = {
   name: 'Avec zone de recherche',
   render: (args) => ({
     props: args,
     template: `
       <dccm-top-bar [scopes]="scopes" [(scope)]="scope" [userName]="userName">
-        <button dccmTopBarSearch type="button"
-          class="flex w-full max-w-144 items-center gap-space-sm rounded-md bg-surface-container-low px-space-md py-1 text-body-dense text-on-surface-variant">
-          <ng-icon name="matTerminalOutline" class="icon-sm" aria-hidden="true" />
-          Que veux-tu faire ?
-        </button>
+        <button dccmTopBarSearch dccmCommandBarTrigger label="Que veux-tu faire ?"></button>
       </dccm-top-bar>
     `,
   }),
