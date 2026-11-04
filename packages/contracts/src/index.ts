@@ -1,5 +1,6 @@
 export * from './lib/ai';
 export * from './lib/agenda';
+export * from './lib/backup';
 export * from './lib/auth';
 export * from './lib/command-bar';
 export * from './lib/cooked-meal';

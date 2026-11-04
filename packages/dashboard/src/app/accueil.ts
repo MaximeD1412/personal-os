@@ -4,6 +4,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   matArrowForwardOutline,
   matBoltOutline,
+  matCloudSyncOutline,
   matCalendarViewDayOutline,
   matEventBusyOutline,
   matMonitoringOutline,
@@ -12,7 +13,9 @@ import {
 } from '@ng-icons/material-symbols/outline';
 import {
   aujourdhui,
+  INDICATEUR_DERNIERE_SAUVEGARDE,
   instantDans,
+  MODULE_SAUVEGARDES,
   type ModuleSummary,
   type Todo,
 } from '@personal-os/contracts';
@@ -28,7 +31,7 @@ import {
 } from '@personal-os/ui/dccm';
 import { AgendaService } from './agenda.service';
 import { DashboardService } from './dashboard.service';
-import { decaler, formaterJour } from './dates';
+import { decaler, formaterInstant, formaterJour } from './dates';
 import { vueDEntree, type VueDEntree } from './entree-d-agenda';
 import { moduleNomme } from './modules-d-origine';
 
@@ -62,6 +65,13 @@ interface Tuile {
   ton: DccmKpiTileTone;
   /** L'écran du module, et le libellé du pied ; aucun pour un indicateur inconnu. */
   lien: { chemin: string; libelle: string } | null;
+  /** Le statut du pied, en badge, quand le widget en donne un. */
+  statut: Statut | null;
+}
+
+interface Statut {
+  libelle: string;
+  ton: BadgeTone;
 }
 
 /** Ce que l'écran sait d'un indicateur, par sa clé (`SummaryIndicator.key`). */
@@ -69,8 +79,21 @@ interface Widget {
   icone: string;
   surTitre: string;
   ton: DccmKpiTileTone;
-  lien: { chemin: string; libelle: string };
+  /** L'écran du module ; aucun quand rien ne s'y résout depuis l'application. */
+  lien?: { chemin: string; libelle: string };
+  /** La valeur écrite pour l'écran ; telle que l'API la donne, sinon. */
+  valeur?: (valeur: string | number) => string;
+  /** Le statut que le pied affiche, tiré du Résumé de son module. */
+  statut?: (resume: ModuleSummary) => Statut;
 }
+
+/**
+ * Le nom des modules qui se résument au tableau de bord sans rien porter à
+ * l'Agenda : le registre des modules d'origine ne les connaît pas.
+ */
+const AUTRES_MODULES: Readonly<Record<string, string>> = {
+  [MODULE_SAUVEGARDES]: 'Sauvegardes',
+};
 
 /**
  * Les widgets connus. Un indicateur dont la clé n'est pas ici s'affiche quand
@@ -83,6 +106,25 @@ const WIDGETS: Readonly<Record<string, Widget>> = {
     surTitre: 'Courses',
     ton: 'tertiary',
     lien: { chemin: '/courses', libelle: 'Voir la liste' },
+  },
+  // Les sauvegardes se règlent sur la machine, pas dans l'application : la
+  // tuile ne mène nulle part. Le module signale une sauvegarde de plus de
+  // 26 heures, et c'est ce signal qui la dit en retard (DASH-3).
+  [INDICATEUR_DERNIERE_SAUVEGARDE]: {
+    icone: 'matCloudSyncOutline',
+    surTitre: 'Sauvegardes',
+    ton: 'outline',
+    valeur: (valeur) =>
+      formaterInstant(String(valeur), {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    statut: ({ signals }) =>
+      signals.length > 0
+        ? { libelle: 'En retard', ton: 'error' }
+        : { libelle: 'À jour', ton: 'success' },
   },
 };
 
@@ -107,7 +149,13 @@ const WIDGETS: Readonly<Record<string, Widget>> = {
     DccmPageHeader,
     DccmState,
   ],
-  providers: [provideIcons({ matShoppingCartOutline, matMonitoringOutline })],
+  providers: [
+    provideIcons({
+      matShoppingCartOutline,
+      matCloudSyncOutline,
+      matMonitoringOutline,
+    }),
+  ],
 })
 export class Accueil {
   private readonly router = inject(Router);
@@ -245,7 +293,10 @@ export class Accueil {
     return {
       cle: `${todo.kind}:${todo.ref}`,
       libelle: todo.label,
-      module: moduleNomme(todo.module)?.libelle ?? todo.module,
+      module:
+        moduleNomme(todo.module)?.libelle ??
+        AUTRES_MODULES[todo.module] ??
+        todo.module,
       lien: this.router.parseUrl(todo.link),
       echeance: todo.dueOn ? this.echeance(todo.dueOn) : null,
     };
@@ -273,17 +324,19 @@ export class Accueil {
 }
 
 function tuilesDe(resumes: readonly ModuleSummary[]): Tuile[] {
-  return resumes.flatMap(({ module, indicators }) =>
-    indicators.map((indicateur): Tuile => {
+  return resumes.flatMap((resume) =>
+    resume.indicators.map((indicateur): Tuile => {
+      const { module } = resume;
       const widget = WIDGETS[indicateur.key];
       return {
         cle: `${module}:${indicateur.key}`,
         icone: widget?.icone ?? 'matMonitoringOutline',
         surTitre: widget?.surTitre ?? moduleNomme(module)?.libelle ?? module,
-        valeur: String(indicateur.value),
+        valeur: widget?.valeur?.(indicateur.value) ?? String(indicateur.value),
         meta: indicateur.label,
         ton: widget?.ton ?? moduleNomme(module)?.ton ?? 'outline',
         lien: widget?.lien ?? null,
+        statut: widget?.statut?.(resume) ?? null,
       };
     }),
   );

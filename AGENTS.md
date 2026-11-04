@@ -139,9 +139,10 @@ et lève `food.list_already_closed`.
 | À faire, Calculateur d'À faire           | `Todo`, `aFaire`                                                 |
 | Résumé de module, Résumeur de module     | `ModuleSummary`, `ResumeurDeModule`, `SummaryRegistry`           |
 | Signal, Indicateur (d'un Résumé)         | `Signal`, `SummaryIndicator`                                     |
+| État des sauvegardes                     | `BackupStatus`, module `backup`, `backup_last_success`           |
 
 Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
-`portfolio`, `dashboard`, `command-bar`, `ai`, `storage`. Un terme absent de cette table se
+`portfolio`, `dashboard`, `command-bar`, `ai`, `storage`, `backup`. Un terme absent de cette table se
 traduit en restant au plus près du glossaire, et la traduction s'ajoute ici
 dans la même PR.
 

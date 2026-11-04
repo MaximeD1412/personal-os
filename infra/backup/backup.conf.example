@@ -81,3 +81,9 @@ BACKUP_HEARTBEAT_URL=
 
 # Destinataire des courriels d'échec. Vide = pas de courriel.
 BACKUP_ALERT_EMAIL=
+
+# L'API, à qui chaque exécution transmet son résultat : le tableau de bord
+# affiche la dernière sauvegarde réussie (DASH-3). Le port de l'API publié sur
+# la machine (API_PORT de stack.env), jamais l'hôte public : le proxy ne route
+# pas cette route. Le jeton vit dans restic.env. Vide = rien n'est transmis.
+BACKUP_STATUS_URL=http://127.0.0.1:3001/api/internal/backup-status

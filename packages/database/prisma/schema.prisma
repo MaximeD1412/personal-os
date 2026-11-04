@@ -17,6 +17,19 @@ model HealthProbe {
   recordedAt DateTime @default(now())
 }
 
+/// Le dernier résultat que l'agent de sauvegarde a transmis (DASH-3) : l'API
+/// ne voit pas Restic. Une seule rangée, d'identifiant fixe, hors Espace :
+/// les sauvegardes sont celles de la machine, pas d'un Compte.
+model BackupStatus {
+  id            String    @id @default("backup")
+  /// La fin de la dernière exécution réussie ; vide tant qu'aucune ne l'a été.
+  lastSuccessAt DateTime? @db.Timestamptz(3)
+  /// La fin de la dernière exécution, réussie ou non.
+  lastRunAt     DateTime  @db.Timestamptz(3)
+  /// La cause du dernier échec ; vide dès qu'une exécution réussit.
+  lastError     String?
+}
+
 /// Le compartiment auquel appartient une donnée. Personnel, ou celui du Foyer.
 enum ScopeKind {
   PERSONAL

@@ -408,6 +408,77 @@ describe('Accueil', () => {
       expect(texte(tuile)).toContain('Séances faites');
     });
 
+    describe('les sauvegardes', () => {
+      const sauvegardes = (
+        signals: ModuleSummary['signals'],
+      ): ModuleSummary => ({
+        module: 'backup',
+        indicators: [
+          {
+            key: 'backup_last_success',
+            label: 'Dernière sauvegarde réussie',
+            value: '2026-09-16T01:41:00.000Z',
+          },
+        ],
+        signals,
+      });
+
+      it('montre la date de la dernière sauvegarde réussie, à Paris, et la dit à jour', async () => {
+        const fixture = await monter({ summaries: [sauvegardes([])] });
+        const [tuile] = tous(fixture, 'tuile');
+
+        expect(texte(tuile)).toContain('Sauvegardes');
+        expect(texte(tuile)).toContain('16 sept., 03:41');
+        expect(texte(tuile)).toContain('Dernière sauvegarde réussie');
+        expect(texte(un(fixture, 'statut-tuile'))).toBe('À jour');
+        expect(un(fixture, 'statut-tuile').getAttribute('data-tone')).toBe(
+          'success',
+        );
+      });
+
+      it('la dit en retard quand le module le signale', async () => {
+        const fixture = await monter({
+          summaries: [
+            sauvegardes([
+              {
+                kind: 'backup.stale',
+                ref: 'backup-status',
+                label: 'Dernière sauvegarde réussie il y a plus de 26 heures',
+                dueOn: '2026-09-16',
+                link: '/',
+              },
+            ]),
+          ],
+        });
+
+        expect(texte(un(fixture, 'statut-tuile'))).toBe('En retard');
+        expect(un(fixture, 'statut-tuile').getAttribute('data-tone')).toBe(
+          'error',
+        );
+      });
+
+      it('nomme le module en français dans les À faire', async () => {
+        const fixture = await monter({
+          todos: [
+            {
+              module: 'backup',
+              kind: 'backup.stale',
+              ref: 'backup-status',
+              label: "Aucune sauvegarde réussie n'a été reçue",
+              link: '/',
+            },
+          ],
+        });
+        const [todo] = tous(fixture, 'a-faire');
+
+        expect(texte(todo)).toContain(
+          "Aucune sauvegarde réussie n'a été reçue",
+        );
+        expect(texte(todo)).toContain('Sauvegardes');
+        expect(texte(todo)).not.toContain('backup');
+      });
+    });
+
     it("dit quand aucun module n'a d'indicateur", async () => {
       const fixture = await monter({
         summaries: [{ module: 'calendar', indicators: [], signals: [] }],
