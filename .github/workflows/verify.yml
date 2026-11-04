@@ -5,7 +5,7 @@ name: Vérification
 # endroit où le contrat se joue :
 #
 #   - « complete » rejoue tout. C'est ce que la livraison demande, et c'est ce
-#     qui rend vraie la phrase « rien n'est poussé sur GHCR sans avoir passé la
+#     qui rend vraie la phrase « rien ne part en production sans avoir passé la
 #     campagne entière ».
 #   - « affectee » ne fait tourner que ce que le diff atteint réellement. Une
 #     proposition qui ne touche que le tableau de bord n'a aucune raison de

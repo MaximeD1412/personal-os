@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Applique sur cette machine la version publiée sur le canal.
+# Applique sur cette machine la version publiée sur le canal, ou un commit.
 #
-#   deploy.sh [--revision SHA] [--force] [--rollback] [--dry-run]
+#   deploy.sh [<commit> | --revision SHA] [--force] [--rollback] [--dry-run]
 #
-#   --revision   déploie ce commit précis plutôt que celui du canal
+#   <commit>     déploie ce commit précis plutôt que celui du canal ; c'est ce
+#                que lance deploy-trigger, à la demande de la livraison
+#   --revision   la même chose, sous forme d'option
 #   --force      redéploie même si la révision est déjà en place, ou si elle a
 #                déjà échoué
 #   --rollback   revient à la révision précédente, sans rien migrer
@@ -31,10 +33,14 @@ while [ $# -gt 0 ]; do
     --rollback) ROLLBACK=1 ;;
     --dry-run) DRY_RUN=1 ;;
     -h | --help)
-      sed -n '2,11p' "${BASH_SOURCE[0]}"
+      sed -n '2,13p' "${BASH_SOURCE[0]}"
       exit 0
       ;;
-    *) die "argument inconnu : $1" ;;
+    -*) die "argument inconnu : $1" ;;
+    *)
+      [ -z "$REVISION" ] || die "un seul commit attendu : $REVISION, puis $1"
+      REVISION="$1"
+      ;;
   esac
   shift
 done

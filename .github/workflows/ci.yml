@@ -3,14 +3,20 @@ name: CI
 # Branches de travail et propositions de fusion. La branche principale, elle,
 # est une branche de livraison : elle est traitée par livraison.yml
 # (ADR 0023).
+#
+# Un push sur `develop` déploie en plus le staging de démonstration (ADR 0031,
+# 0032) : images publiées sous le SHA, puis déploiement par la clé bridée du
+# staging. Le job est rouge si le déploiement échoue.
 on:
   push:
     branches: [develop]
   pull_request:
 
+# Une proposition poussée à nouveau annule sa vérification précédente. Un push
+# sur `develop`, non : l'annuler couperait un déploiement du staging en route.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   # nx-set-shas remonte à la dernière exécution réussie pour savoir depuis où
@@ -69,3 +75,37 @@ jobs:
             --volume "$PWD/infra/edge/Caddyfile:/etc/caddy/Caddyfile:ro" \
             personal-os-edge:ci \
             caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+  publier:
+    name: Publie les images du staging
+    if: github.event_name == 'push'
+    needs: verify
+    uses: ./.github/workflows/publier-images.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      images: '["api","dashboard","portfolio"]'
+
+  staging:
+    name: Déploie le staging
+    if: github.event_name == 'push'
+    needs: publier
+    runs-on: ubuntu-latest
+    # Le secret STAGING_SSH_KEY et les variables DEPLOY_HOST, DEPLOY_KNOWN_HOSTS
+    # ne sont lisibles que par les jobs de cet environnement.
+    environment: staging
+    concurrency:
+      group: deploiement-staging
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/actions
+
+      - uses: ./.github/actions/deployer
+        with:
+          environnement: staging
+          cle: ${{ secrets.STAGING_SSH_KEY }}
+          hote: ${{ vars.DEPLOY_HOST }}
+          known-hosts: ${{ vars.DEPLOY_KNOWN_HOSTS }}

@@ -100,10 +100,13 @@ HEALTH_DELAY=2
 DEPLOY_STATE_FILE=/var/lib/personal-os/deploy-state
 DEPLOY_HISTORY_FILE=/var/log/personal-os/deploy.log
 
-# URL de témoin d'inactivité (Healthchecks.io ou équivalent). Le script y ajoute
-# /start et /fail. Laisser vide pour désactiver — au prix de ne plus détecter un
-# agent qui a cessé de tourner, seul mode de panne qu'aucun OnFailure ne voit.
+# URL de témoin d'inactivité (Healthchecks.io ou équivalent), pingée par
+# deploy.sh à chaque déploiement de la prod. Le script y ajoute /start et /fail.
+# Facultatif : le job GitHub dit déjà si un déploiement a échoué ou n'a pas pu
+# démarrer. Sans minuteur, il n'y a plus de passage périodique : la période du
+# témoin doit être celle des livraisons. Vide = désactivé.
 DEPLOY_HEARTBEAT_URL=
 
-# Destinataire des courriels d'échec. Vide = pas de courriel.
+# Destinataire des courriels d'échec, envoyés par deploy-trigger pour la prod
+# comme pour le staging. Vide = pas de courriel.
 DEPLOY_ALERT_EMAIL=

@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# La commande forcée des clés de déploiement (ADR 0032).
+#
+#   deploy-trigger <prod|staging>
+#
+# install-access.sh la pose dans authorized_keys, avec l'environnement de la
+# clé en argument fixe : le client ne choisit que le commit. SSH_ORIGINAL_COMMAND
+# doit valoir exactement « deploy <env> <sha> », où <env> est celui de la clé et
+# <sha> un commit de 40 caractères hexadécimaux. Tout le reste est refusé, avec
+# un code non nul, sans rien lancer.
+#
+# L'utilisateur deploy n'a aucun droit sur la machine : une fois la commande
+# acceptée, le script se relance en root par sudo (la règle posée par
+# install-access.sh n'ouvre que lui), et revérifie tout.
+#
+# En root : un seul déploiement à la fois par environnement (flock), sortie
+# recopiée sur la sortie standard, donc dans le job GitHub, et dans un journal
+# que notify-failure.sh envoie par courriel si le déploiement échoue.
+#
+set -euo pipefail
+
+LOG_TAG=declencheur
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+SCRIPT_PATH="$SCRIPT_DIR/$(basename -- "${BASH_SOURCE[0]}")"
+# shellcheck source=../lib/common.sh
+. "$SCRIPT_DIR/../lib/common.sh"
+
+refuser() {
+  log "refusé : $*"
+  exit 2
+}
+
+# --- Ce que la clé autorise ----------------------------------------------
+
+[ $# -eq 1 ] || refuser "un seul argument attendu, l'environnement de la clé"
+ENV="$1"
+case "$ENV" in
+  prod | staging) ;;
+  *) refuser "environnement de clé inconnu : $ENV" ;;
+esac
+
+USAGE="cette clé n'accepte que « deploy $ENV <sha> »"
+DEMANDE="${SSH_ORIGINAL_COMMAND:-}"
+[ -n "$DEMANDE" ] || refuser "aucune commande — $USAGE"
+
+# `$` ancre la fin de la chaîne, pas celle d'une ligne : une seconde ligne
+# ou une seconde commande ne passent pas.
+[[ "$DEMANDE" =~ ^deploy\ ([^\ ]+)\ ([^\ ]+)$ ]] || refuser "commande inconnue — $USAGE"
+DEMANDE_ENV="${BASH_REMATCH[1]}"
+SHA="${BASH_REMATCH[2]}"
+
+[ "$DEMANDE_ENV" = "$ENV" ] || refuser "cette clé ne déploie que $ENV"
+[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] ||
+  refuser "le commit doit tenir en 40 caractères hexadécimaux minuscules"
+
+# --- Élévation ------------------------------------------------------------
+#
+# sudo efface l'environnement ; la règle garde SSH_ORIGINAL_COMMAND, que la
+# copie root revérifie ci-dessus avant d'aller plus loin.
+if [ "$(id -u)" != 0 ]; then
+  exec sudo -n -- "$SCRIPT_PATH" "$ENV"
+fi
+
+# --- Déploiement, en root -------------------------------------------------
+
+: "${DEPLOY_LOCK_DIR:=/run/lock}"
+: "${DEPLOY_TRIGGER_LOG_DIR:=/var/log/personal-os}"
+
+case "$ENV" in
+  prod) COMMANDE=("$SCRIPT_DIR/deploy.sh" --force "$SHA") ;;
+  staging) COMMANDE=("$SCRIPT_DIR/deploy-staging.sh" "$SHA") ;;
+esac
+
+# Un job annulé, ou une connexion perdue, ferme la session SSH. Le déploiement
+# ne doit pas s'arrêter au milieu d'une migration pour autant : le signal de
+# raccrochage est ignoré, et tee continue d'écrire le journal quand la sortie
+# standard ne répond plus.
+trap '' HUP
+
+mkdir -p "$DEPLOY_LOCK_DIR" "$DEPLOY_TRIGGER_LOG_DIR"
+JOURNAL="$DEPLOY_TRIGGER_LOG_DIR/deploy-trigger-$ENV.log"
+
+exec 9>"$DEPLOY_LOCK_DIR/personal-os-deploy-$ENV.lock"
+if ! flock --nonblock 9; then
+  log "un déploiement $ENV est déjà en cours — attente de sa fin"
+  flock 9
+fi
+
+set +e
+{
+  log "déploiement $ENV de $SHA, demandé par SSH"
+  "${COMMANDE[@]}" 9>&-
+} 2>&1 | tee -p "$JOURNAL"
+STATUT=${PIPESTATUS[0]}
+set -e
+
+# Une sortie standard fermée ne doit pas empêcher l'alerte : chaque écriture
+# vers le client est tolérée en échec.
+if [ "$STATUT" -ne 0 ]; then
+  { log "déploiement $ENV de $SHA en échec (sortie $STATUT)" 2>&1 | tee -p -a "$JOURNAL" >&2; } || true
+  ALERTE=$("$SCRIPT_DIR/notify-failure.sh" "déploiement $ENV" "$JOURNAL" 2>&1) || true
+  { printf '%s\n' "$ALERTE" | tee -p -a "$JOURNAL" >&2; } || true
+fi
+exit "$STATUT"
