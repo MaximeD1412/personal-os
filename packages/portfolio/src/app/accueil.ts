@@ -1,5 +1,13 @@
-import { Component, computed, effect, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ViewportScroller } from '@angular/common';
+import {
+  afterNextRender,
+  Component,
+  computed,
+  effect,
+  inject,
+  Injector,
+} from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   matArrowDownwardOutline,
@@ -113,6 +121,23 @@ export class Accueil {
         versions: { fr: '/fr', en: '/en' },
         parDefaut: '/',
       });
+    });
+
+    // Le routeur défile vers le fragment une seule fois, à la navigation : si
+    // sa section n'était pas encore posée (une URL à fragment, ou « Voir les
+    // projets » pendant le chargement), le défilement reprend à sa venue.
+    const route = inject(ActivatedRoute);
+    const defilement = inject(ViewportScroller);
+    const injector = inject(Injector);
+    effect(() => {
+      if (!this.suitePrete()) return;
+      afterNextRender(
+        () => {
+          const ancre = route.snapshot.fragment;
+          if (ancre) defilement.scrollToAnchor(ancre);
+        },
+        { injector },
+      );
     });
   }
 }

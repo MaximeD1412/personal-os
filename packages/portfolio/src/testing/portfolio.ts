@@ -3,8 +3,13 @@ import {
   HttpTestingController,
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
+import { APP_BOOTSTRAP_LISTENER } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import {
+  provideRouter,
+  Router,
+  withDisabledInitialNavigation,
+} from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import type {
   PublicPage,
@@ -12,6 +17,7 @@ import type {
   PublicProjectSummary,
 } from '@personal-os/contracts';
 import { API_BASE_URL } from '../app/api-base-url';
+import { defilementDuRouteur } from '../app/app.config';
 import { appRoutes } from '../app/app.routes';
 
 /**
@@ -29,6 +35,12 @@ export interface Navigateur {
   memorise?: string;
   /** Un `localStorage` qui lève à chaque appel (navigation privée, quota). */
   stockageIndisponible?: boolean;
+  /**
+   * Le défilement du routeur de l'application (vers le fragment de l'URL).
+   * Le routeur ne l'arme qu'au démarrage de l'application, que TestBed ne
+   * joue pas : le harnais le déclenche lui-même.
+   */
+  defilement?: boolean;
 }
 
 export async function ouvrirLePortfolio(
@@ -53,12 +65,26 @@ export async function ouvrirLePortfolio(
 
   TestBed.configureTestingModule({
     providers: [
-      provideRouter(appRoutes),
+      navigateur.defilement
+        ? // La navigation initiale reste celle du harnais, vers `url`.
+          provideRouter(
+            appRoutes,
+            defilementDuRouteur,
+            withDisabledInitialNavigation(),
+          )
+        : provideRouter(appRoutes),
       provideHttpClient(),
       provideHttpClientTesting(),
       { provide: API_BASE_URL, useValue: BASE },
     ],
   });
+  if (navigateur.defilement) {
+    // TestBed n'amorce aucun composant racine : l'écouteur du routeur, qui
+    // ne s'adresse qu'au premier, accepte donc `undefined`.
+    for (const ecouteur of TestBed.inject(APP_BOOTSTRAP_LISTENER)) {
+      ecouteur(undefined as never);
+    }
+  }
   const harness = await RouterTestingHarness.create(url);
   const http = TestBed.inject(HttpTestingController);
 

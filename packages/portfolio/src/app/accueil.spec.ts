@@ -1,3 +1,4 @@
+import { ViewportScroller } from '@angular/common';
 import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import {
@@ -88,6 +89,44 @@ describe('L’accueil du portfolio', () => {
     expect(el().querySelector('#projets [data-test="projet"]')).not.toBeNull();
   });
 
+  it('défile jusqu’aux Projets d’une URL à fragment une fois la suite posée', async () => {
+    const { harness, http } = await ouvrirLePortfolio('/fr#projets', {
+      defilement: true,
+    });
+    const defilements = suivreLesDefilements();
+    http
+      .expectOne(`${BASE}/public/FR/pages/about`)
+      .flush(page('about', 'FR', 'Bonjour'));
+    await laisserPasserLeRouteur();
+
+    servirLaSuite(http);
+    await harness.fixture.whenStable();
+
+    expect(defilements.at(-1)).toEqual({ ancre: 'projets', cible: true });
+  });
+
+  it('défile jusqu’aux Projets demandés pendant que la suite se charge', async () => {
+    const { harness, http, el } = await ouvrirLePortfolio('/fr', {
+      defilement: true,
+    });
+    const defilements = suivreLesDefilements();
+    http
+      .expectOne(`${BASE}/public/FR/pages/about`)
+      .flush(page('about', 'FR', 'Bonjour'));
+    await laisserPasserLeRouteur();
+
+    el()
+      .querySelector<HTMLElement>('[data-test="voir-les-projets"]')
+      ?.click();
+    await laisserPasserLeRouteur();
+    expect(el().querySelector('#projets')).toBeNull();
+
+    servirLaSuite(http);
+    await harness.fixture.whenStable();
+
+    expect(defilements.at(-1)).toEqual({ ancre: 'projets', cible: true });
+  });
+
   it('omet ce que la langue n’a pas publié, sans jamais lire l’autre langue', async () => {
     const { harness, http, el } = await ouvrirLePortfolio('/en');
     servirLAccueil(http, 'EN', {
@@ -153,6 +192,37 @@ describe('L’accueil du portfolio', () => {
     expect(el().querySelector('[data-test="telecharger-cv"]')).toBeNull();
   });
 });
+
+/** Chaque défilement vers une ancre, et si sa cible était dans la page. */
+function suivreLesDefilements(): { ancre: string; cible: boolean }[] {
+  const defilements: { ancre: string; cible: boolean }[] = [];
+  jest
+    .spyOn(TestBed.inject(ViewportScroller), 'scrollToAnchor')
+    .mockImplementation((ancre) => {
+      defilements.push({ ancre, cible: document.getElementById(ancre) !== null });
+    });
+  return defilements;
+}
+
+/** Le routeur défile au tour suivant : on rend, sans attendre les lectures. */
+async function laisserPasserLeRouteur(): Promise<void> {
+  for (let tour = 0; tour < 2; tour++) {
+    await new Promise(setTimeout);
+    TestBed.tick();
+  }
+}
+
+/** Ce que l'accueil lit après la Présentation. */
+function servirLaSuite(http: HttpTestingController): void {
+  http
+    .expectOne(`${BASE}/public/FR/pages/experience`)
+    .flush(page('experience', 'FR', 'Parcours'));
+  http.expectOne(`${BASE}/public/FR/pages/skills`).flush(...PAGE_ABSENTE);
+  http.expectOne(`${BASE}/public/FR/projects`).flush([resume(RELIURE_FR)]);
+  http
+    .expectOne((requete) => requete.method === 'HEAD')
+    .flush(null, { status: 404, statusText: 'Not Found' });
+}
 
 function liensDeSection(racine: HTMLElement): string[] {
   return [...racine.querySelectorAll('[data-test="section"]')].map(
