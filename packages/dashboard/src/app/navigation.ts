@@ -144,10 +144,10 @@ export const ICONES_DE_NAVIGATION = {
  * dont l'écran n'a pas de route est « À venir ».
  *
  * Une route ne compte que si elle affiche un écran : une redirection seule
- * (`''` vers l'Agenda, en attendant l'Accueil) ne fait pas exister l'écran de
- * l'entrée, et la route attrape-tout ne fait pas exister tous les écrans. Les
- * enfants d'un module chargé à la demande (`loadChildren`) ne sont connus
- * qu'à son chargement : rien n'y est deviné, ses entrées restent « À venir ».
+ * ne fait pas exister l'écran de l'entrée, et la route attrape-tout ne fait
+ * pas exister tous les écrans. Les enfants d'un module chargé à la demande
+ * (`loadChildren`) ne sont connus qu'à son chargement : rien n'y est deviné,
+ * ses entrées restent « À venir ».
  * Un écran chargé à la demande se déclare donc dans `app.routes.ts`, avec
  * `loadComponent` (`navigation.spec.ts` le vérifie).
  */

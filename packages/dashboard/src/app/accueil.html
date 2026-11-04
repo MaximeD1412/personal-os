@@ -1,0 +1,251 @@
+<div class="flex flex-col gap-margin-mobile md:gap-margin">
+  <dccm-page-header heading="Accueil" [subtitle]="sousTitre" />
+
+  <!-- La zone réservée à la barre de commande (CMD-3), en tête de l'écran.
+       Vide d'ici là, elle ne prend aucune place. -->
+  <div data-test="zone-barre-de-commande" class="empty:hidden"></div>
+
+  <!-- L'ordre est celui du bureau : les indicateurs, puis ce qui m'attend et
+       les À faire côte à côte. Sous 768 px, les À faire passent devant. -->
+  <div
+    class="grid items-start gap-margin-mobile md:gap-gutter lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]"
+  >
+    <section
+      data-test="indicateurs"
+      aria-labelledby="titre-indicateurs"
+      class="flex flex-col gap-space-sm max-md:order-last lg:col-span-2"
+    >
+      <h2
+        id="titre-indicateurs"
+        class="flex items-center gap-space-sm text-title-sm text-on-surface md:sr-only"
+      >
+        <ng-icon
+          [svg]="icones.indicateurs"
+          class="icon-md text-primary"
+          aria-hidden="true"
+        />
+        Indicateurs par module
+      </h2>
+      <dccm-state
+        [status]="etatDesResumes()"
+        [error]="resumes.error()"
+        skeleton="cards"
+        [rows]="3"
+        loadingLabel="Chargement des indicateurs…"
+        emptyHeading="Aucun indicateur"
+        emptyDescription="Les modules qui se résument au tableau de bord montreront ici leurs indicateurs."
+        [emptyIcon]="icones.indicateurs"
+        errorHeading="Les indicateurs n'ont pas pu être lus"
+        (retry)="resumes.reload()"
+      >
+        <ul
+          class="grid grid-cols-2 gap-gutter-compact md:grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] md:gap-gutter"
+        >
+          @for (tuile of tuiles(); track tuile.cle) {
+          <li class="flex">
+            @if (tuile.lien; as lien) {
+            <a
+              dccmKpiTile
+              data-test="tuile"
+              class="w-full"
+              [routerLink]="lien.chemin"
+              [icon]="tuile.icone"
+              [eyebrow]="tuile.surTitre"
+              [value]="tuile.valeur"
+              [meta]="tuile.meta"
+              [link]="lien.libelle"
+              [tone]="tuile.ton"
+            ></a>
+            } @else {
+            <dccm-kpi-tile
+              data-test="tuile"
+              class="w-full"
+              [icon]="tuile.icone"
+              [eyebrow]="tuile.surTitre"
+              [value]="tuile.valeur"
+              [meta]="tuile.meta"
+              [tone]="tuile.ton"
+            />
+            }
+          </li>
+          }
+        </ul>
+      </dccm-state>
+    </section>
+
+    <section hlmCard data-test="sept-jours" aria-labelledby="titre-sept-jours">
+      <div hlmCardHeader>
+        <h2 hlmCardTitle id="titre-sept-jours">
+          <ng-icon [svg]="icones.agenda" aria-hidden="true" />
+          Les 7 prochains jours
+        </h2>
+        <span hlmCardAction class="text-label-regular text-outline tabular-nums"
+          >{{ periode }}</span
+        >
+      </div>
+
+      <ol data-test="bandeau" class="grid grid-cols-7 gap-space-xs">
+        @for (jour of bandeau(); track jour.jour) {
+        <li
+          data-test="bandeau-jour"
+          [attr.aria-current]="jour.estAujourdhui ? 'date' : null"
+          [attr.aria-label]="jour.libelle"
+          class="flex flex-col items-center gap-0.5 rounded py-space-xs"
+          [class]="
+            jour.estAujourdhui
+              ? 'bg-primary-20 text-primary'
+              : 'bg-surface-container-low text-on-surface-variant'
+          "
+        >
+          <span aria-hidden="true" class="text-label-micro uppercase"
+            >{{ jour.abrege }}</span
+          >
+          <span aria-hidden="true" class="text-title-sm tabular-nums"
+            >{{ jour.numero }}</span
+          >
+          <span
+            aria-hidden="true"
+            class="size-1.5 rounded-full"
+            [class]="jour.occupe ? 'bg-primary' : 'bg-transparent'"
+          ></span>
+        </li>
+        }
+      </ol>
+
+      <dccm-state
+        [status]="etatDeLAgenda()"
+        [error]="agenda.error()"
+        [rows]="3"
+        loadingLabel="Chargement de l'Agenda…"
+        emptyHeading="Rien de daté sur les sept prochains jours"
+        emptyDescription="Les Événements du Calendrier et les Repas planifiés s'afficheront ici."
+        [emptyIcon]="icones.vide"
+        errorHeading="L'Agenda n'a pas pu être lu"
+        (retry)="agenda.reload()"
+      >
+        <div class="flex flex-col gap-gutter">
+          @for (journee of journeesOccupees(); track journee.jour) {
+          <section data-test="jour" class="flex flex-col gap-space-xs">
+            <header class="flex items-center justify-between gap-space-sm">
+              <h3
+                class="text-label-regular font-semibold first-letter:uppercase"
+                [class]="
+                  journee.estAujourdhui ? 'text-primary' : 'text-on-surface'
+                "
+              >
+                {{ journee.titre }}
+              </h3>
+              <span class="text-label-micro text-outline"
+                >{{ nombreDEntrees(journee.entrees.length) }}</span
+              >
+            </header>
+
+            <ul class="flex flex-col gap-space-xs">
+              @for (entree of journee.entrees; track entree.cle) {
+              <li
+                class="rounded border-s-2 bg-surface-container-low"
+                [class]="entree.teinte.filet"
+              >
+                @if (entree.lien; as lien) {
+                <a
+                  dccmListRow
+                  data-test="entree"
+                  chevron
+                  [label]="entree.titre"
+                  [meta]="entree.horaire + ' · ' + entree.source"
+                  [routerLink]="lien.chemin"
+                  [queryParams]="lien.parametres"
+                >
+                  <span hlmBadge [tone]="entree.statut.ton" dot
+                    >{{ entree.statut.libelle }}</span
+                  >
+                </a>
+                } @else {
+                <dccm-list-row
+                  data-test="entree"
+                  [label]="entree.titre"
+                  [meta]="entree.horaire + ' · ' + entree.source"
+                >
+                  <span hlmBadge [tone]="entree.statut.ton" dot
+                    >{{ entree.statut.libelle }}</span
+                  >
+                </dccm-list-row>
+                }
+              </li>
+              }
+            </ul>
+          </section>
+          }
+        </div>
+      </dccm-state>
+
+      <div hlmCardFooter>
+        <a data-test="voir-agenda" routerLink="/agenda"
+          >Ouvrir l'Agenda
+          <ng-icon [svg]="icones.ouvrir" aria-hidden="true" />
+        </a>
+      </div>
+    </section>
+
+    <section
+      hlmCard
+      data-test="carte-a-faire"
+      aria-labelledby="titre-a-faire"
+      class="max-md:order-first"
+    >
+      <div hlmCardHeader>
+        <h2 hlmCardTitle tone="tertiary" id="titre-a-faire">
+          <ng-icon [svg]="icones.aFaire" aria-hidden="true" />
+          À faire
+        </h2>
+        @if (aFaire().length) {
+        <span hlmCardAction>
+          <span
+            hlmBadge
+            variant="counter"
+            data-test="nombre-a-faire"
+            [attr.aria-label]="aFaire().length + ' à faire'"
+            >{{ aFaire().length }}</span
+          >
+        </span>
+        }
+        <p hlmCardDescription>
+          Calculés par les modules : chacun disparaît quand sa situation change.
+        </p>
+      </div>
+
+      <dccm-state
+        [status]="etatDesAFaire()"
+        [error]="todos.error()"
+        [rows]="3"
+        loadingLabel="Chargement des À faire…"
+        emptyHeading="Rien ne requiert ton attention"
+        emptyDescription="Un planning à décider, une liste de courses ouverte, un ingrédient qui périme ou une Échéance proche s'afficheront ici."
+        [emptyIcon]="icones.rienAFaire"
+        errorHeading="Les À faire n'ont pas pu être lus"
+        (retry)="todos.reload()"
+      >
+        <ul class="flex flex-col gap-space-xs">
+          @for (todo of aFaire(); track todo.cle) {
+          <li class="rounded bg-surface-container-low">
+            <a
+              dccmListRow
+              data-test="a-faire"
+              chevron
+              [label]="todo.libelle"
+              [meta]="todo.module"
+              [routerLink]="todo.lien"
+            >
+              @if (todo.echeance; as echeance) {
+              <span hlmBadge data-test="echeance" [tone]="echeance.ton"
+                >{{ echeance.libelle }}</span
+              >
+              }
+            </a>
+          </li>
+          }
+        </ul>
+      </dccm-state>
+    </section>
+  </div>
+</div>

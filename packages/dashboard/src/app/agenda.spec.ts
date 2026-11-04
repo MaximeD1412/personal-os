@@ -45,6 +45,16 @@ const VACANCES: AgendaItem = {
   status: 'PLANNED',
 };
 
+/** Le déjeuner du dimanche, à midi à Paris : la semaine du 14. */
+const DEJEUNER: AgendaItem = {
+  source: 'food',
+  sourceId: 'entry-1',
+  title: 'Poulet basquaise',
+  startsAt: '2026-09-20T10:00:00.000Z',
+  endsAt: null,
+  status: 'PLANNED',
+};
+
 /** Commencé le jeudi d'avant : l'API la rend, car elle rencontre la semaine. */
 const DEMENAGEMENT: AgendaItem = {
   source: 'calendar',
@@ -304,6 +314,16 @@ describe('Agenda', () => {
       expect(lien.textContent).toContain('Ouvrir dans Calendrier');
       expect(lien.getAttribute('href')).toBe(
         '/calendrier/evenements/event-1?mois=2026-09&debut=2026-09-14T09:30:00.000Z',
+      );
+    });
+
+    it("s'ouvre, pour un Repas planifié, dans le planning de sa semaine", async () => {
+      const [repas] = tous(await monter([DEJEUNER]), 'entree');
+      const lien = repas.querySelector('a') as HTMLAnchorElement;
+
+      expect(lien.textContent).toContain('Ouvrir dans Repas');
+      expect(lien.getAttribute('href')).toBe(
+        '/repas/planning?semaine=2026-09-14',
       );
     });
 

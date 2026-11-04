@@ -12,7 +12,13 @@ import { Stock } from './repas/stock';
 import { FormulaireDeStock } from './repas/stock-form';
 
 export const appRoutes: Route[] = [
-  { path: '', pathMatch: 'full', redirectTo: 'agenda' },
+  // L'Accueil : ce qui m'attend, les À faire et le résumé de chaque module.
+  // Chargé à la demande, comme le planning, pour le budget du bundle initial.
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: async () => (await import('./accueil')).Accueil,
+  },
   { path: 'agenda', component: Agenda },
   {
     path: 'calendrier',
