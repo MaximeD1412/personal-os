@@ -41,6 +41,18 @@ export const appRoutes: Route[] = [
   { path: 'repas/ingredients/:id', component: FicheDIngredient },
   { path: 'repas/ingredients/:id/modifier', component: FormulaireDIngredient },
   { path: 'repas/recettes', component: Recettes },
+  // La saisie d'une Recette, préremplie par sa requête (ADR 0030), chargée à
+  // la demande ; « nouvelle » passe avant l'identifiant.
+  {
+    path: 'repas/recettes/nouvelle',
+    loadComponent: async () =>
+      (await import('./repas/recipe-form')).FormulaireDeRecette,
+  },
+  {
+    path: 'repas/recettes/:id/modifier',
+    loadComponent: async () =>
+      (await import('./repas/recipe-form')).FormulaireDeRecette,
+  },
   // Le Planning de repas d'une semaine (`?semaine=`, son lundi) avec ses
   // Souhaits, et l'ajout d'un repas, prérempli par sa requête (ADR 0030).
   // Chargés à la demande, pour que le bundle initial tienne son budget.

@@ -21,19 +21,25 @@ describe('Les recettes', () => {
     const lignes = el().querySelectorAll('[data-test="recette"]');
     expect(lignes).toHaveLength(2);
     expect(lignes[0].textContent).toContain('Dahl de lentilles corail');
-    expect(lignes[0].textContent).toContain('4\u00a0portions · 3\u00a0ingrédients');
+    expect(lignes[0].textContent).toContain(
+      '4\u00a0portions · 3\u00a0ingrédients',
+    );
     expect(lignes[0].getAttribute('href')).toBe('/repas/recettes/recette-1');
-    expect(lignes[1].textContent).toContain('1\u00a0portion · 1\u00a0ingrédient');
+    expect(lignes[1].textContent).toContain(
+      '1\u00a0portion · 1\u00a0ingrédient',
+    );
   });
 
-  it('ne propose pas encore de créer une recette : le formulaire viendra avec CUISINE-6', async () => {
+  it('propose de créer une recette', async () => {
     const { harness, http, el } = await ouvrirLesRecettes('/repas/recettes');
 
     http.expectOne(`${BASE}/recipes`).flush([]);
     await harness.fixture.whenStable();
 
     expect(el().textContent).toContain("Le Foyer n'a encore aucune recette");
-    expect(el().querySelector('a[href*="nouvelle"]')).toBeNull();
+    expect(
+      el().querySelector('[data-test="nouvelle"]')?.getAttribute('href'),
+    ).toBe('/repas/recettes/nouvelle');
   });
 
   it('reprend la recherche de l’URL, et la suit à la frappe', async () => {
@@ -92,9 +98,8 @@ describe('Les recettes', () => {
   });
 
   it('garde l’espace en fin de frappe, que l’URL ne retient pas', async () => {
-    const { harness, http, el, router } = await ouvrirLesRecettes(
-      '/repas/recettes',
-    );
+    const { harness, http, el, router } =
+      await ouvrirLesRecettes('/repas/recettes');
     http.expectOne(`${BASE}/recipes`).flush([DAHL]);
     await harness.fixture.whenStable();
 
