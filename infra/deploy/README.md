@@ -455,7 +455,10 @@ Le job GitHub et `deploy-trigger-<env>.log` disent *comment* s'est passé le
 dernier déploiement poussé (le journal est réécrit à chaque déploiement) ;
 `deploy.log` dit *ce qui a été déployé et quand*, et garde tout l'historique.
 
-Le plus simple pour réessayer reste de **relancer le job** dans GitHub.
+Le plus simple pour réessayer reste de **relancer le job** dans GitHub. Si le
+commit était en fait déjà en place (un job rouge pour une coupure SSH, alors
+que le déploiement avait abouti), il est redéployé sans que la version vers
+laquelle `--rollback` recule soit remplacée.
 
 ## Signalement
 

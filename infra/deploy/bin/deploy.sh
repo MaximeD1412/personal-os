@@ -146,6 +146,16 @@ fi
 
 assert_tools
 
+# La version vers laquelle --rollback reviendra après ce déploiement. Redéployer
+# le commit déjà en place (un job de livraison relancé après une coupure SSH,
+# alors que le déploiement avait abouti) ne doit pas la remplacer par lui-même :
+# le retour arrière ne mènerait plus nulle part.
+if [ "$REVISION" = "$DEPLOYED" ]; then
+  PRECEDENTE="$PREVIOUS"
+else
+  PRECEDENTE="${DEPLOYED:-}"
+fi
+
 remove_rehearsal_containers() {
   local ids
   ids=$(docker ps --all --quiet --filter 'name=personal-os-restore-' 2>/dev/null || true)
@@ -246,7 +256,7 @@ compose_at "$REVISION" up --detach --remove-orphans
 # --- 3. Vérification de santé, et retour arrière si elle échoue ------------
 
 if health_ok; then
-  write_state "$REVISION" "${DEPLOYED:-}" ""
+  write_state "$REVISION" "$PRECEDENTE" ""
   history_append succes "$REVISION" "santé vérifiée"
   trap - EXIT
   heartbeat success
