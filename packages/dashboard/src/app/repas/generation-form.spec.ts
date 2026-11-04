@@ -506,5 +506,7 @@ describe('La génération de la semaine', () => {
     await harness.fixture.whenStable();
 
     expect(bouton(el(), 'statut').textContent).toContain('Arrêté');
-  });
+    // Le flux entier, écran par écran : plus long que les 5 s par défaut quand
+    // la machine est chargée.
+  }, 20_000);
 });

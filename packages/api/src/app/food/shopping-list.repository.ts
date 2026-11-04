@@ -160,6 +160,34 @@ export class ShoppingListRepository {
     });
   }
 
+  /** Les articles de chaque liste déjà produite pour ce planning, ouverte ou close. */
+  listesDuPlanning(mealPlanId: string): Promise<
+    {
+      id: string;
+      items: {
+        ingredientId: string | null;
+        quantity: Decimal | null;
+        unit: CanonicalUnit | null;
+        origin: ShoppingListItemOrigin;
+      }[];
+    }[]
+  > {
+    return this.prisma.shoppingList.findMany({
+      where: { mealPlanId },
+      select: {
+        id: true,
+        items: {
+          select: {
+            ingredientId: true,
+            quantity: true,
+            unit: true,
+            origin: true,
+          },
+        },
+      },
+    });
+  }
+
   /** Le Stock domestique de ces Ingrédients, en Unité canonique. */
   stockDe(
     ingredientIds: readonly string[],
@@ -186,17 +214,38 @@ export class ShoppingListRepository {
    * Fige une liste, ses articles dans leur ordre, dans l'écriture qui
    * verrouille le planning **arrêté** : un planning rouvert entre-temps fait
    * échouer la production entière.
+   *
+   * Un complément nomme les listes dont il a calculé l'écart (`listesLues`).
+   * Une fois le verrou pris, une seconde écriture, qui lit donc ce qui a été
+   * commité avant elle, échoue si une autre liste est apparue depuis : deux
+   * compléments simultanés ne portent jamais deux fois le même manque.
    */
   async produire(
     planId: string,
     articles: readonly ShoppingListItemWrite[],
+    listesLues?: readonly string[],
   ): Promise<ShoppingListRecord> {
-    const [, liste] = await this.prisma.$transaction([
-      this.prisma.mealPlan.update({
-        where: { id: planId, status: 'STOPPED' },
-        data: { status: 'STOPPED' },
-        select: { id: true },
-      }),
+    const verrou = this.prisma.mealPlan.update({
+      where: { id: planId, status: 'STOPPED' },
+      data: { status: 'STOPPED' },
+      select: { id: true },
+    });
+    const sansAutreListe =
+      listesLues === undefined
+        ? []
+        : [
+            this.prisma.mealPlan.update({
+              where: {
+                id: planId,
+                shoppingLists: { every: { id: { in: [...listesLues] } } },
+              },
+              data: { status: 'STOPPED' },
+              select: { id: true },
+            }),
+          ];
+    const resultats = await this.prisma.$transaction([
+      verrou,
+      ...sansAutreListe,
       this.prisma.shoppingList.create({
         data: {
           scopeId: ID_ESPACE_FOYER,
@@ -214,7 +263,7 @@ export class ShoppingListRepository {
         include: AVEC_LES_ARTICLES,
       }),
     ]);
-    return liste;
+    return resultats[resultats.length - 1] as ShoppingListRecord;
   }
 
   /**
