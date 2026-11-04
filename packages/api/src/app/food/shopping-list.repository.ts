@@ -25,6 +25,10 @@ export interface ShoppingListItemRecord {
   label: string | null;
   quantity: Decimal | null;
   unit: CanonicalUnit | null;
+  productId: string | null;
+  packages: number | null;
+  packageQuantity: Decimal | null;
+  packageLabel: string | null;
   origin: ShoppingListItemOrigin;
   checked: boolean;
   position: number;
@@ -39,13 +43,18 @@ export interface ShoppingListRecord {
   items: ShoppingListItemRecord[];
 }
 
-/** Un Ingrédient tel que la consolidation le lit. */
+/** Un Ingrédient tel que la consolidation le lit, et son Produit préféré. */
 export interface IngredientAConsoliderRecord {
   id: string;
   name: string;
   displayName: string;
   canonicalUnit: CanonicalUnit;
   gramsPerPiece: Decimal | null;
+  preferredProduct: {
+    id: string;
+    packageQuantity: Decimal;
+    packageLabel: string;
+  } | null;
 }
 
 /**
@@ -72,18 +81,25 @@ export interface PlanningAConsoliderRecord {
   }[];
 }
 
-/** Ce qu'une production ou un ajout pose sur un article : la quantité en texte, sans flottant. */
 /** Les listes d'un planning lues par un complément : toutes, et les ouvertes. */
 export interface ListesLues {
   toutes: readonly string[];
   ouvertes: readonly string[];
 }
 
+/**
+ * Ce qu'une production ou un ajout pose sur un article : les quantités en
+ * texte, sans flottant. Un conditionnement n'existe qu'à la production.
+ */
 export interface ShoppingListItemWrite {
   ingredientId: string | null;
   label: string | null;
   quantity: string | null;
   unit: CanonicalUnit | null;
+  productId?: string;
+  packages?: number;
+  packageQuantity?: string;
+  packageLabel?: string;
 }
 
 const CHAMPS_DE_L_ARTICLE = {
@@ -99,6 +115,10 @@ const CHAMPS_DE_L_ARTICLE = {
   label: true,
   quantity: true,
   unit: true,
+  productId: true,
+  packages: true,
+  packageQuantity: true,
+  packageLabel: true,
   origin: true,
   checked: true,
   position: true,
@@ -191,6 +211,13 @@ export class ShoppingListRepository {
                         displayName: true,
                         canonicalUnit: true,
                         gramsPerPiece: true,
+                        preferredProduct: {
+                          select: {
+                            id: true,
+                            packageQuantity: true,
+                            packageLabel: true,
+                          },
+                        },
                       },
                     },
                   },

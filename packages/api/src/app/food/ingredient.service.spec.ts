@@ -5,6 +5,7 @@ import type {
 } from './ingredient.repository';
 import { IngredientService } from './ingredient.service';
 import type { PantryItemRepository } from './pantry-item.repository';
+import type { ProductRepository } from './product.repository';
 
 const CITRON: IngredientRecord = {
   id: 'ingredient-1',
@@ -14,14 +15,20 @@ const CITRON: IngredientRecord = {
   gramsPerPiece: 120,
   allergens: [],
   perishable: true,
+  preferredProductId: null,
   createdAt: new Date('2026-10-19T08:00:00.000Z'),
 };
 
 /**
  * Un dépôt qui garde un seul Ingrédient, et note ce qu'on lui demande ;
- * `enStock` dit si cet Ingrédient a une quantité en stock.
+ * `enStock` dit si cet Ingrédient a une quantité en stock, `avecProduits`
+ * s'il a des Produits.
  */
-function depot(enBase: IngredientRecord | null = CITRON, enStock = false) {
+function depot(
+  enBase: IngredientRecord | null = CITRON,
+  enStock = false,
+  avecProduits = false,
+) {
   const appels: {
     lister?: readonly string[];
     ecrit?: Partial<IngredientWrite>;
@@ -47,7 +54,14 @@ function depot(enBase: IngredientRecord | null = CITRON, enStock = false) {
     aDuStock: () => Promise.resolve(enStock),
   } as unknown as PantryItemRepository;
 
-  return { service: new IngredientService(repository, stock), appels };
+  const produits = {
+    aDesProduits: () => Promise.resolve(avecProduits),
+  } as unknown as ProductRepository;
+
+  return {
+    service: new IngredientService(repository, stock, produits),
+    appels,
+  };
 }
 
 /** Une règle métier violée : son code, en 422 (ADR 0030). */
@@ -163,6 +177,15 @@ describe('IngredientService', () => {
   });
 
   describe("L'Unité canonique", () => {
+    it('ne change pas tant que l’Ingrédient a des Produits', async () => {
+      const { service, appels } = depot(CITRON, false, true);
+
+      await expect(
+        service.modifier(CITRON.id, { canonicalUnit: 'GRAM' }),
+      ).rejects.toMatchObject(REGLE('food.ingredient_unit_has_products'));
+      expect(appels.ecrit).toBeUndefined();
+    });
+
     it('ne change pas tant que l’Ingrédient a du stock', async () => {
       const { service, appels } = depot(CITRON, true);
 

@@ -18,6 +18,9 @@ import { IngredientAliasService } from './ingredient-alias.service';
 import { IngredientController } from './ingredient.controller';
 import { IngredientRepository } from './ingredient.repository';
 import { IngredientService } from './ingredient.service';
+import { ProductController } from './product.controller';
+import { ProductRepository } from './product.repository';
+import { ProductService } from './product.service';
 import { MealPlanEntryAgendaContributor } from './meal-plan-entry-agenda.contributor';
 import { MealPlanEntryController } from './meal-plan-entry.controller';
 import { MealPlanController } from './meal-plan.controller';
@@ -53,6 +56,7 @@ import { ShoppingListService } from './shopping-list.service';
   controllers: [
     IngredientController,
     IngredientAliasController,
+    ProductController,
     FoodPreferenceController,
     RecipeController,
     MealPlanController,
@@ -70,6 +74,8 @@ import { ShoppingListService } from './shopping-list.service';
     IngredientRepository,
     IngredientAliasService,
     IngredientAliasRepository,
+    ProductService,
+    ProductRepository,
     FoodPreferenceService,
     FoodPreferenceRepository,
     RecipeService,

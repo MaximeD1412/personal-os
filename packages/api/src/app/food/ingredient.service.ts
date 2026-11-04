@@ -15,6 +15,7 @@ import {
   type IngredientWrite,
 } from './ingredient.repository';
 import { PantryItemRepository } from './pantry-item.repository';
+import { ProductRepository } from './product.repository';
 
 /**
  * Les saisies arrivent validées par leur schéma (ADR 0030) : il ne reste ici
@@ -22,13 +23,15 @@ import { PantryItemRepository } from './pantry-item.repository';
  * pièce sur un Ingrédient compté en millilitres (une modification peut n'en
  * porter qu'un des deux, l'autre est en base), une modification vide, un
  * Ingrédient introuvable, une Unité canonique qui changerait le sens d'une
- * quantité en stock.
+ * quantité en stock ou d'un conditionnement, un Produit préféré qui n'est pas
+ * l'un des siens.
  */
 @Injectable()
 export class IngredientService {
   constructor(
     private readonly repository: IngredientRepository,
     private readonly stock: PantryItemRepository,
+    private readonly produits: ProductRepository,
   ) {}
 
   /** Tout le catalogue, ou les Ingrédients dont le nom contient chaque mot de `q`. */
@@ -86,10 +89,47 @@ export class IngredientService {
         "L'Unité canonique ne change pas tant que l'Ingrédient a du stock : mettez sa ligne à zéro ou retirez-la d'abord.",
       );
     }
+    if (
+      changements.canonicalUnit !== undefined &&
+      changements.canonicalUnit !== actuel.canonicalUnit &&
+      (await this.produits.aDesProduits(id))
+    ) {
+      // La contenance d'un Produit compte dans l'unité de son Ingrédient :
+      // une boîte de 400 g deviendrait une boîte de 400 pièces.
+      throw new ErreurMetier(
+        'food.ingredient_unit_has_products',
+        "L'Unité canonique ne change pas tant que l'Ingrédient a des Produits : leur contenance compte dans cette unité. Retirez-les d'abord.",
+      );
+    }
 
     return exposer(
       await uniqueSinon(this.repository.modifier(id, changements)),
     );
+  }
+
+  /**
+   * Pose le Produit préféré de l'Ingrédient, repris ensuite dans la liste de
+   * courses, ou l'ôte (`null`). Il doit être l'un des siens.
+   */
+  async preferer(id: string, productId: string | null): Promise<Ingredient> {
+    await this.existant(id);
+    if (productId !== null) {
+      const produit = await this.produits.lire(productId);
+      if (produit?.ingredientId !== id) throw produitEtranger();
+    }
+    try {
+      return exposer(await this.repository.preferer(id, productId));
+    } catch (erreur) {
+      // Le Produit a été retiré entre la vérification et l'écriture.
+      if (codePrisma(erreur) === 'P2003') throw produitEtranger();
+      if (codePrisma(erreur) === 'P2025') {
+        throw new Introuvable(
+          'food.ingredient_not_found',
+          'Aucun Ingrédient de cet identifiant.',
+        );
+      }
+      throw erreur;
+    }
   }
 
   private async existant(id: string): Promise<IngredientRecord> {
@@ -118,6 +158,13 @@ function verifierLePoidsALaPiece(
   ) {
     throw poidsNonApplicable();
   }
+}
+
+function produitEtranger(): ErreurMetier {
+  return new ErreurMetier(
+    'food.product_not_of_ingredient',
+    "Ce Produit n'est pas l'un de ceux de cet Ingrédient : seul l'un des siens peut être préféré.",
+  );
 }
 
 function poidsNonApplicable(): ErreurMetier {
@@ -219,6 +266,7 @@ function exposer(ingredient: IngredientRecord): Ingredient {
     gramsPerPiece: ingredient.gramsPerPiece,
     allergens: ingredient.allergens,
     perishable: ingredient.perishable,
+    preferredProductId: ingredient.preferredProductId,
     createdAt: ingredient.createdAt.toISOString(),
   };
 }

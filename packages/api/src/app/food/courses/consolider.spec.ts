@@ -1,5 +1,6 @@
 import {
   consolider,
+  enConditionnements,
   type IngredientAConsolider,
   type RecetteAConsolider,
 } from './consolider';
@@ -242,5 +243,91 @@ describe('consolider', () => {
     expect(() =>
       consolider([{ recipeId: 'inconnue', portions: 2 }], [], [], []),
     ).toThrow(RangeError);
+  });
+});
+
+describe('consolider, au conditionnement du Produit préféré', () => {
+  const tomate: IngredientAConsolider = {
+    id: 'tomate',
+    canonicalUnit: 'GRAM',
+    gramsPerPiece: null,
+    produitPrefere: { id: 'mutti', contenance: 400 },
+  };
+  const sauce = (grammes: number): RecetteAConsolider => ({
+    id: 'sauce',
+    servings: 1,
+    lignes: [{ ingredientId: 'tomate', quantite: grammes, unite: 'G' }],
+  });
+
+  function conditionnementDe(resultat: ReturnType<typeof consolider>) {
+    if (!('articles' in resultat)) throw new Error('échec');
+    return resultat.articles.map(({ quantite, conditionnement }) => ({
+      quantite: quantite.toString(),
+      conditionnement,
+    }));
+  }
+
+  it('compte 800 g en deux conditionnements de 400 g', () => {
+    const resultat = consolider(
+      [{ recipeId: 'sauce', portions: 1 }],
+      [sauce(800)],
+      [],
+      [tomate],
+    );
+
+    expect(conditionnementDe(resultat)).toEqual([
+      { quantite: '800', conditionnement: { productId: 'mutti', nombre: 2 } },
+    ]);
+  });
+
+  it('arrondit toujours au conditionnement supérieur, quantité inchangée', () => {
+    const resultat = consolider(
+      [{ recipeId: 'sauce', portions: 1 }],
+      [sauce(401)],
+      [],
+      [tomate],
+    );
+
+    expect(conditionnementDe(resultat)).toEqual([
+      { quantite: '401', conditionnement: { productId: 'mutti', nombre: 2 } },
+    ]);
+  });
+
+  it('compte les conditionnements sur ce qui reste après le stock', () => {
+    const resultat = consolider(
+      [{ recipeId: 'sauce', portions: 1 }],
+      [sauce(900)],
+      [{ ingredientId: 'tomate', quantite: 500 }],
+      [tomate],
+    );
+
+    expect(conditionnementDe(resultat)).toEqual([
+      { quantite: '400', conditionnement: { productId: 'mutti', nombre: 1 } },
+    ]);
+  });
+
+  it('laisse sans conditionnement un Ingrédient sans Produit préféré', () => {
+    const resultat = consolider(
+      [{ recipeId: 'crepes', portions: 4 }],
+      [crepes],
+      [],
+      [farine, { ...lait, produitPrefere: null }],
+    );
+
+    expect(conditionnementDe(resultat)).toEqual([
+      { quantite: '250', conditionnement: null },
+      { quantite: '500', conditionnement: null },
+    ]);
+  });
+});
+
+describe('enConditionnements', () => {
+  it.each([
+    ['800', '400', 2],
+    ['800.001', '400', 3],
+    ['0.001', '400', 1],
+    ['1', '0.333', 4],
+  ])('%s pour %s par conditionnement en demande %s', (quantite, contenance, nombre) => {
+    expect(enConditionnements(quantite, contenance)).toBe(nombre);
   });
 });
