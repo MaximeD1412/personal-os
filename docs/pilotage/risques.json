@@ -101,18 +101,18 @@
       "categorie": "sec",
       "gravite": "elevee",
       "titre": "Staging exposé, ou contenant des données réelles",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Staging derrière le proxy de tête et Authentik",
-          "ref": "",
-          "fait": false
+          "ref": "infra/deploy/caddy/conf.d/staging.caddy",
+          "fait": true
         },
         {
           "texte": "Données de démo uniquement ; démarrage refusé si l'URL de base est celle de la prod",
-          "ref": "",
-          "fait": false
+          "ref": "packages/api/src/environnement.ts",
+          "fait": true
         }
       ],
       "tickets": ["INFRA-6", "INFRA-7", "INFRA-9"]
@@ -300,13 +300,13 @@
       "categorie": "ops",
       "gravite": "moyenne",
       "titre": "Le staging affame la production sur le même VPS",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Plafonds CPU et mémoire du projet Compose de staging, arrêtable à tout moment",
-          "ref": "",
-          "fait": false
+          "ref": "infra/deploy/docker-compose.staging.yml",
+          "fait": true
         }
       ],
       "tickets": ["INFRA-7"]

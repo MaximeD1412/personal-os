@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 #   install.sh [--prefix /opt/personal-os/deploy]
 #
-# Installe l'agent de déploiement, la pile de production et les unités systemd.
+# Installe l'agent de déploiement, la pile de production, celle du staging de
+# démonstration et les unités systemd.
 # Idempotent : se relance à chaque fois que l'agent lui-même change.
 #
 set -euo pipefail
 
 PREFIX=/opt/personal-os/deploy
 STACK_DIR=/opt/personal-os
+STAGING_DIR=/opt/personal-os-staging
 CONF_DIR=/etc/personal-os
 UNIT_DIR=/etc/systemd/system
 
@@ -78,6 +80,35 @@ SOURCE_REMOTE=${SOURCE_REMOTE:-https://github.com/MaximeD1412/personal-os.git}
 if [ ! -d "$STACK_DIR/src/.git" ]; then
   git clone --quiet "$SOURCE_REMOTE" "$STACK_DIR/src"
   echo "dépôt cloné dans $STACK_DIR/src" >&2
+fi
+
+# --- Staging de démonstration (ADR 0031) -----------------------------------
+#
+# Son dossier, son environnement et son propre clone : deploy-staging.sh y
+# extrait le commit qu'il déploie, sans jamais déplacer celui de la prod.
+install -d -m 755 "$STAGING_DIR"
+install -m 644 "$SOURCE_DIR/docker-compose.staging.yml" "$STAGING_DIR/docker-compose.yml"
+
+if [ ! -e "$STAGING_DIR/.env" ]; then
+  install -m 600 "$SOURCE_DIR/staging.env.example" "$STAGING_DIR/.env"
+  echo "MODÈLE d'environnement du staging posé : $STAGING_DIR/.env — À RENSEIGNER avant tout déploiement du staging" >&2
+fi
+
+if [ ! -d "$STAGING_DIR/src/.git" ]; then
+  git clone --quiet "$SOURCE_REMOTE" "$STAGING_DIR/src"
+  echo "dépôt cloné dans $STAGING_DIR/src" >&2
+fi
+
+# Le réseau que le Caddy interne de la prod partage avec le staging. La pile de
+# la prod l'exige pour démarrer, même quand le staging est arrêté.
+STAGING_EDGE_NETWORK=$(
+  # shellcheck disable=SC1091
+  [ -r "$CONF_DIR/deploy.conf" ] && . "$CONF_DIR/deploy.conf"
+  printf '%s' "${STAGING_EDGE_NETWORK:-personal-os-staging-edge}"
+)
+if ! docker network inspect "$STAGING_EDGE_NETWORK" >/dev/null 2>&1; then
+  docker network create "$STAGING_EDGE_NETWORK" >/dev/null
+  echo "réseau $STAGING_EDGE_NETWORK créé" >&2
 fi
 
 if [ -r "$CONF_DIR/ghcr.env" ]; then

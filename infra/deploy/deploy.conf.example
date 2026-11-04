@@ -60,6 +60,30 @@ REHEARSAL_TARGET=/var/tmp/personal-os-repetition
 # base de production, et de celui de la vérification manuelle de restauration.
 REHEARSAL_PROBE_PORT=55432
 
+# --- Staging de démonstration (ADR 0031) --------------------------------
+#
+# Lu par deploy-staging.sh seul. Chaque valeur doit différer de celle de la
+# prod ci-dessus : le script refuse de tourner sinon, car il viderait la base
+# qu'on lui désigne pour y semer le jeu de démo.
+STAGING_COMPOSE_FILE=/opt/personal-os-staging/docker-compose.yml
+STAGING_ENV_FILE=/opt/personal-os-staging/.env
+STAGING_PROJECT=personal-os-staging
+STAGING_SOURCE_CHECKOUT=/opt/personal-os-staging/src
+
+# Le réseau partagé avec le Caddy interne de la prod. Le même nom que
+# STAGING_EDGE_NETWORK dans /opt/personal-os/.env.
+STAGING_EDGE_NETWORK=personal-os-staging-edge
+
+# Les commandes jouées dans l'image `api` du commit, avant le redémarrage : les
+# garde-fous du démarrage de l'API, puis le jeu de démo (`pnpm demo:seed`,
+# compilé). La migration est MIGRATE_COMMAND, la même que pour la prod.
+STAGING_CHECK_COMMAND="node verifier-environnement.js"
+STAGING_SEED_COMMAND="node demo-seed.js"
+
+# L'API du staging sur loopback : STAGING_API_PORT de son environnement.
+STAGING_HEALTH_URL=http://127.0.0.1:3101/api/health
+STAGING_HISTORY_FILE=/var/log/personal-os/deploy-staging.log
+
 # --- Vérification de santé ----------------------------------------------
 #
 # Une pile qui démarre n'est pas une pile qui marche. La sonde interroge l'API

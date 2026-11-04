@@ -8,6 +8,7 @@ livrer.
 | Fichier | Rôle |
 | --- | --- |
 | `bin/deploy.sh` | La séquence complète : répétition, migration, redémarrage, santé, retour arrière |
+| `bin/deploy-staging.sh` | Le staging de démonstration : images d'un commit, migration, jeu de démo, santé |
 | `bin/notify-failure.sh` | Courriel + témoin d'inactivité, appelé par `OnFailure=` |
 | `bin/install.sh` | Pose l'agent, la pile, les unités systemd. Idempotent |
 | `docker-compose.prod.yml` | La pile de production. Ne construit rien : elle tire des images |
@@ -15,6 +16,8 @@ livrer.
 | `deploy.conf.example` | Configuration de l'agent. **Sans secret** |
 | `ghcr.env.example` | Modèle de jeton de lecture du registre. Jamais dans Git |
 | `stack.env.example` | Modèle d'environnement de la pile. Jamais dans Git |
+| `docker-compose.staging.yml` | La pile du staging : un projet à part, plafonné à 1 CPU et 1 Go |
+| `staging.env.example` | Modèle d'environnement du staging. Jamais dans Git |
 
 ## Le sens de circulation
 
@@ -92,6 +95,7 @@ Tout le reste est sur loopback, joignable par le proxy ou par tunnel SSH.
 | PostgreSQL | `127.0.0.1:5433` |
 | Caddy interne | `127.0.0.1:8080` — débogage seulement |
 | Authentik | `127.0.0.1:9000` |
+| API du staging | `127.0.0.1:3101` — sonde de santé de `deploy-staging.sh` |
 
 Le proxy de tête est `caddy-edge`, neutre et commun à tous les projets de la
 machine ([ADR 0025](../../docs/adr/0025-un-proxy-de-tete-neutre-devant-les-projets.md),
@@ -141,7 +145,8 @@ Cinq gestes demandent une intervention humaine.
 ### 1. DNS
 
 Un enregistrement `A` vers l'IP du VPS pour chacun des trois hôtes — portfolio,
-tableau de bord, Authentik. Baisser le TTL avant toute bascule ultérieure,
+tableau de bord, Authentik — et pour les deux du staging (`staging`,
+`staging-portfolio`), à moins qu'un enregistrement joker ne les couvre déjà. Baisser le TTL avant toute bascule ultérieure,
 sinon un retour arrière prend la durée du cache.
 
 Le certificat, lui, est déjà là : le proxy de tête détient un joker
@@ -316,12 +321,120 @@ résultat d'un déploiement **n'apparaît pas dans l'interface GitHub**.
   dangereux — l'agent qui **ne tourne plus du tout**. Un `OnFailure` ne se
   déclenche que si l'unité s'exécute.
 
+## Le staging de démonstration
+
+Un second projet Compose sur le même VPS, qui sert les **mêmes images** que la
+prod avec des **données de démo seulement**
+([ADR 0031](../../docs/adr/0031-un-staging-de-demonstration-sur-le-meme-vps.md)). On y
+montre le produit, on y essaie un commit de `develop` ; on n'y saisit rien qui
+compte : chaque déploiement le remet au jeu de démo.
+
+```bash
+sudo /opt/personal-os/deploy/bin/deploy-staging.sh <commit> --dry-run  # relire le plan
+sudo /opt/personal-os/deploy/bin/deploy-staging.sh <commit>
+```
+
+1. **La pile** est reprise du commit, depuis le clone du staging
+   (`/opt/personal-os-staging/src`) : celui de la prod ne bouge pas.
+2. **Les images** du commit sont tirées : elles doivent avoir été publiées.
+3. **La base du staging** démarre, et les services applicatifs du staging
+   s'arrêtent, pour que les commandes qui suivent tiennent sous le plafond
+   total. Puis trois commandes passent dans l'image
+   `api`, avec l'environnement du staging : la vérification de l'environnement
+   (`node verifier-environnement.js`, les garde-fous du démarrage de l'API), la
+   migration, puis le semis (`node demo-seed.js`, c'est-à-dire
+   `pnpm demo:seed`), qui vide les données métier et sème les trois Espaces.
+4. **Le redémarrage**, puis la santé sur `127.0.0.1:3101`. Si elle échoue, le
+   script s'arrête : pas de retour arrière, il n'y a rien à préserver.
+
+Pas de répétition sur une restauration non plus : le staging n'a ni sauvegarde
+ni donnée réelle. Le journal vit dans `/var/log/personal-os/deploy-staging.log`.
+
+### Ce qui est partagé, et ce qui ne l'est pas
+
+| Partagé | À lui seul |
+| --- | --- |
+| Le proxy de tête et son certificat joker | Le projet `personal-os-staging` et ses conteneurs |
+| Le Caddy interne de la prod (`caddy/conf.d/staging.caddy`) | Son PostgreSQL et son volume (`staging-db-data`) |
+| Le réseau `personal-os-staging-edge`, entre ce Caddy et ses deux fronts | Son réseau par défaut : ni la base ni l'API de la prod n'y sont |
+| L'Authentik de la prod : un forward auth devant chaque hôte, et un client OIDC **dédié** | Son environnement (`/opt/personal-os-staging/.env`) et ses secrets |
+
+Le Caddy de la prod rejoint `personal-os-staging-edge`, et les deux fronts du
+staging y portent des noms à eux (`staging-dashboard`, `staging-portfolio`) :
+sous les noms de la prod, Docker les résoudrait **à côté** de ceux de la prod,
+et une partie du trafic de la prod partirait vers le staging.
+
+### Les garde-fous
+
+- **Rien du staging ne répond sans session Authentik**, pas même son
+  portfolio : le Caddy interne passe chacun de ses deux hôtes par le forward
+  auth de l'outpost intégré d'Authentik avant de les servir. Le portfolio de
+  la prod reste public.
+- **L'API de staging refuse de démarrer** sur la base de la prod : sa
+  `DATABASE_URL` ne doit désigner aucun hôte de `PROD_DATABASE_HOST`, et doit
+  nommer un seul hôte, en clair, sans `host`, `hostaddr` ni `port` en
+  paramètre. L'image fait cette vérification avant sa migration de démarrage. Elle
+  refuse aussi tout `APP_ENV` autre que `development`, `staging` ou
+  `production`.
+- **La vérification passe avant la migration et le semis**, qui ne démarrent
+  pas l'API et contourneraient sinon ce refus. C'est le semis qui vide la base.
+- **`deploy-staging.sh` refuse** un projet, une pile, un environnement ou un
+  clone qui seraient ceux de la prod, et un environnement qui ne pose pas
+  `APP_ENV=staging`.
+- **Compose ne voit que l'environnement du staging** : le script ne lui
+  transmet aucune variable du shell appelant, qui passerait sinon devant celles
+  de `--env-file`.
+
+### Plafonds et arrêt
+
+1 CPU et 1 Go **au total** : base 0,30 CPU / 320 Mo, API 0,40 / 448 Mo, chaque
+front 0,15 / 128 Mo. Pendant un déploiement, seule la base tourne à côté du
+conteneur jetable de chaque commande. Le VPS est celui de la prod, et le staging ne doit jamais
+l'affamer.
+
+```bash
+docker stats --no-stream $(docker ps -q --filter label=com.docker.compose.project=personal-os-staging)
+sudo docker compose --project-name personal-os-staging stop   # l'arrêter
+```
+
+Arrêté, le staging répond 502 sous ses deux hôtes : le Caddy interne résout
+ses amonts à chaque requête, et la prod n'en est pas affectée. Un
+`deploy-staging.sh` le relance.
+
+### L'installer
+
+`install.sh` pose `/opt/personal-os-staging` (pile, modèle d'environnement,
+clone) et crée le réseau `personal-os-staging-edge`, que la pile de la prod
+exige **même quand le staging est arrêté**. Il reste à renseigner :
+
+- `/opt/personal-os-staging/.env`, à partir de `staging.env.example` : un mot de
+  passe de base à lui, et les adresses de la base de la prod dans
+  `PROD_DATABASE_HOST` ;
+- dans `/opt/personal-os/.env` : `STAGING_DASHBOARD_HOST` et
+  `STAGING_PORTFOLIO_HOST` ;
+- dans Authentik, un client OIDC à part (même marche que le §5 ci-dessus),
+  d'URI de redirection `https://staging.<domaine>/api/auth/callback`, lié aux
+  deux comptes du foyer ;
+- dans Authentik encore, un fournisseur **Proxy** en mode « Forward auth
+  (single application) » par hôte du staging (`https://staging.<domaine>`,
+  `https://staging-portfolio.<domaine>`), chacun dans une application liée aux
+  deux comptes et ajoutée à l'outpost intégré. Sans eux, les deux hôtes
+  répondent par une erreur d'Authentik : fermés, jamais ouverts.
+
 ## Tests
 
 ```bash
 pnpm exec nx run deploy:test              # plan, garde-fous, refus — sans infrastructure
 pnpm exec nx run deploy:test-integration  # chaîne complète — exige docker, restic et git
 ```
+
+La campagne du staging (`deploy-staging.integration-spec.ts`) déploie le
+**vrai** `docker-compose.staging.yml` à côté d'un projet qui tient le rôle de la
+prod. Elle vérifie que les conteneurs de celui-ci n'ont pas bougé (mêmes
+identifiants, même démarrage), que la base ne contient que le jeu de démo après
+chaque déploiement, que Docker applique les plafonds du fichier, que seuls les
+deux fronts rejoignent le réseau partagé, et qu'un environnement qui désigne la
+base de la prod arrête tout avant la migration.
 
 Cette campagne porte `"parallelism": false`, comme celle de la sauvegarde. Les
 deux nettoient les conteneurs jetables par le préfixe `personal-os-restore-`,
