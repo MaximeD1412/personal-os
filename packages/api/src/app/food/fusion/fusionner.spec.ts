@@ -1,5 +1,5 @@
 import { ErreurMetier } from '../../erreurs/erreur-metier';
-import { fusionner, type IngredientAFusionner } from './fusionner';
+import { fusionner as planifier, type IngredientAFusionner } from './fusionner';
 
 const DOUBLON: IngredientAFusionner = {
   id: 'doublon',
@@ -18,6 +18,15 @@ const CONSERVE: IngredientAFusionner = {
   stock: null,
   preferences: [],
 };
+
+/** La plupart des cas : aucun Alias ne porte encore le nom du doublon. */
+function fusionner(
+  doublon: IngredientAFusionner,
+  conserve: IngredientAFusionner,
+  proprietaireDuNom: string | null = null,
+) {
+  return planifier(doublon, conserve, proprietaireDuNom);
+}
 
 function codeDe(geste: () => unknown): string | undefined {
   try {
@@ -44,8 +53,29 @@ describe('fusionner', () => {
     ).toBe('food.merge_unit_mismatch');
   });
 
-  it("garde le nom du doublon comme Alias de l'Ingrédient conservé", () => {
-    expect(fusionner(DOUBLON, CONSERVE).alias).toBe('noix de cajou grillees');
+  describe("l'Alias du nom du doublon", () => {
+    it("le crée pour l'Ingrédient conservé quand aucun Alias ne le porte", () => {
+      expect(fusionner(DOUBLON, CONSERVE).alias).toEqual({
+        libelle: 'noix de cajou grillees',
+        existant: false,
+      });
+    });
+
+    it.each(['doublon', 'conserve'])(
+      'reprend celui que porte déjà le %s',
+      (proprietaire) => {
+        expect(fusionner(DOUBLON, CONSERVE, proprietaire).alias).toEqual({
+          libelle: 'noix de cajou grillees',
+          existant: true,
+        });
+      },
+    );
+
+    it('refuse de le prendre à un troisième Ingrédient', () => {
+      expect(codeDe(() => fusionner(DOUBLON, CONSERVE, 'autre'))).toBe(
+        'food.merge_alias_conflict',
+      );
+    });
   });
 
   describe('le stock', () => {

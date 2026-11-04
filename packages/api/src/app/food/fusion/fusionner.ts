@@ -39,9 +39,19 @@ export type FusionDuStock =
       apres: LigneRecalee;
     };
 
+/** L'Alias que le nom du doublon devient. */
+export interface AliasDeFusion {
+  libelle: string;
+  /**
+   * Un Alias porte déjà ce libellé, rattaché au doublon ou au conservé : il
+   * passe au conservé au lieu d'être créé.
+   */
+  existant: boolean;
+}
+
 export interface PlanDeFusion {
-  /** Le libellé à rattacher au conservé : le nom du doublon. */
-  alias: string;
+  /** Le nom du doublon, rattaché au conservé. */
+  alias: AliasDeFusion;
   stock: FusionDuStock;
   /** Les Préférences du doublon que le conservé a déjà : elles disparaissent. */
   preferencesEnDouble: string[];
@@ -62,10 +72,19 @@ export interface PlanDeFusion {
  * Préférence ne s'enregistre qu'une fois par Compte et par type : celle que la
  * fusion rendrait double disparaît. Le conservé garde son Produit préféré, ou
  * reprend celui du doublon s'il n'en avait pas.
+ *
+ * Le nom du doublon devient un Alias du conservé. Si ce libellé est déjà
+ * l'Alias d'un troisième Ingrédient (la création d'un Ingrédient ne compare
+ * son nom qu'aux autres noms), la fusion est refusée : elle retirerait à cet
+ * Ingrédient un rattachement que l'utilisateur a posé.
+ *
+ * @param proprietaireDuNom l'Ingrédient dont un Alias porte déjà le nom du
+ *   doublon, s'il y en a un.
  */
 export function fusionner(
   doublon: IngredientAFusionner,
   conserve: IngredientAFusionner,
+  proprietaireDuNom: string | null,
 ): PlanDeFusion {
   if (doublon.id === conserve.id) {
     throw new ErreurMetier(
@@ -80,12 +99,23 @@ export function fusionner(
     );
   }
 
+  if (
+    proprietaireDuNom !== null &&
+    proprietaireDuNom !== doublon.id &&
+    proprietaireDuNom !== conserve.id
+  ) {
+    throw new ErreurMetier(
+      'food.merge_alias_conflict',
+      "Le nom de ce doublon est déjà l'Alias d'un autre Ingrédient : la fusion le lui retirerait.",
+    );
+  }
+
   const dejaLa = new Set(
     conserve.preferences.map(({ userId, kind }) => `${userId}:${kind}`),
   );
 
   return {
-    alias: doublon.name,
+    alias: { libelle: doublon.name, existant: proprietaireDuNom !== null },
     stock: fusionDuStock(doublon.stock, conserve.stock),
     preferencesEnDouble: doublon.preferences
       .filter(({ userId, kind }) => dejaLa.has(`${userId}:${kind}`))

@@ -259,6 +259,100 @@ describe("Fusion d'Ingrédients", () => {
       );
     });
 
+    it("refuse en 422 un doublon dont le nom est l'Alias d'un troisième Ingrédient, sans rien écrire", async () => {
+      const autre = await ingredient('Tomates (fusion alias)');
+      await rattacher('tomates fraiches (fusion alias)', autre);
+      // La création ne compare un nom qu'aux autres noms, pas aux Alias.
+      const doublon = await ingredient('Tomates fraîches (fusion alias)');
+      const conserve = await ingredient('Tomates grappe (fusion alias)');
+      await stocker(doublon, 300, null);
+
+      await request(app.getHttpServer())
+        .post(`/api/ingredients/${doublon.id}/merge`)
+        .set('Cookie', jeu.a.session)
+        .send({ intoId: conserve.id })
+        .expect(422)
+        .expect(codeDErreur('food.merge_alias_conflict'));
+
+      expect(
+        await prisma.ingredientAlias.findUnique({
+          where: { label: 'tomates fraiches (fusion alias)' },
+          select: { ingredientId: true },
+        }),
+      ).toEqual({ ingredientId: autre.id });
+      expect(await references(doublon)).toMatchObject({ pantryItems: 1 });
+      await request(app.getHttpServer())
+        .get(`/api/ingredients/${doublon.id}`)
+        .set('Cookie', jeu.a.session)
+        .expect(200);
+    });
+
+    it("reprend l'Alias du nom du doublon qu'il portait déjà", async () => {
+      const conserve = await ingredient('Échalotes (fusion alias)');
+      await rattacher('echalote grise (fusion alias)', conserve);
+      // Le doublon porte un nom qui était déjà l'Alias du conservé.
+      const doublon = await ingredient('Échalote grise (fusion alias)');
+
+      await fusionner(doublon, conserve);
+
+      expect(
+        await prisma.ingredientAlias.findUnique({
+          where: { label: doublon.name },
+          select: { ingredientId: true },
+        }),
+      ).toEqual({ ingredientId: conserve.id });
+    });
+
+    it('tranche deux fusions inverses simultanées sans erreur serveur', async () => {
+      const paires = await Promise.all(
+        [1, 2, 3, 4, 5, 6].map(async (n) => [
+          await ingredient(`Courgette ${n} (fusion croisée)`),
+          await ingredient(`Courgette verte ${n} (fusion croisée)`),
+        ]),
+      );
+      for (const [a, b] of paires) {
+        await stocker(a, 100, null);
+        await stocker(b, 200, null);
+      }
+
+      const reponses = await Promise.all(
+        paires.flatMap(([a, b]) => [
+          request(app.getHttpServer())
+            .post(`/api/ingredients/${a.id}/merge`)
+            .set('Cookie', jeu.a.session)
+            .send({ intoId: b.id }),
+          request(app.getHttpServer())
+            .post(`/api/ingredients/${b.id}/merge`)
+            .set('Cookie', jeu.b.session)
+            .send({ intoId: a.id }),
+        ]),
+      );
+
+      for (const [i, [a, b]] of paires.entries()) {
+        const [ab, ba] = [reponses[2 * i], reponses[2 * i + 1]];
+        // L'une gagne ; l'autre relit et trouve l'un des deux disparu.
+        expect([ab.status, ba.status].sort()).toEqual([
+          200,
+          expect.any(Number),
+        ]);
+        expect([ab.status, ba.status].filter((s) => s === 200)).toHaveLength(1);
+        for (const perdante of [ab, ba].filter(
+          ({ status }) => status !== 200,
+        )) {
+          expect([404, 422]).toContain(perdante.status);
+        }
+        const restants = await prisma.ingredient.count({
+          where: { id: { in: [a.id, b.id] } },
+        });
+        expect(restants).toBe(1);
+        const garde = ab.status === 200 ? b : a;
+        expect(await enStock(garde)).toEqual({
+          quantity: 300,
+          expiresOn: null,
+        });
+      }
+    });
+
     it('refuse en 422 deux Ingrédients qui ne se comptent pas dans la même Unité canonique', async () => {
       const doublon = await ingredient(
         'Lait demi-écrémé (fusion)',

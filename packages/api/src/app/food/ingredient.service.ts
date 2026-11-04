@@ -144,9 +144,7 @@ export class IngredientService {
       try {
         return exposer(await this.essayerDeFusionner(id, intoId));
       } catch (erreur) {
-        if (!['P2002', 'P2003', 'P2025'].includes(String(codePrisma(erreur)))) {
-          throw erreur;
-        }
+        if (!aReprendre(erreur)) throw erreur;
         if (essai === ESSAIS_DE_FUSION) {
           throw new ErreurMetier(
             'food.merge_busy',
@@ -180,7 +178,11 @@ export class IngredientService {
     return this.repository.fusionner(
       doublon,
       conserve,
-      fusionner(doublon, conserve),
+      fusionner(
+        doublon,
+        conserve,
+        await this.repository.proprietaireDeLAlias(doublon.name),
+      ),
     );
   }
 
@@ -198,6 +200,19 @@ export class IngredientService {
 
 /** Une fusion que des écritures concurrentes défont recommence, mais pas sans fin. */
 const ESSAIS_DE_FUSION = 3;
+
+/**
+ * Les échecs d'une fusion dus à une écriture concurrente : une version qui a
+ * changé (P2025), une ligne ou une référence apparue (P2002, P2003), un
+ * conflit d'écriture (P2034) ou un interblocage que Postgres a tranché (P2039,
+ * cause 40P01). La fusion recommence sur ce qu'elle relit.
+ */
+function aReprendre(erreur: unknown): boolean {
+  const code = codePrisma(erreur);
+  if (code === 'P2002' || code === 'P2003' || code === 'P2025') return true;
+  if (code === 'P2034') return true;
+  return code === 'P2039' && causeDuPilote(erreur)?.originalCode === '40P01';
+}
 
 /**
  * Un poids à la pièce relie des grammes et des pièces : il n'a pas de sens
@@ -288,7 +303,21 @@ function violeLaContrainteDuPoids(erreur: unknown): boolean {
   if (codePrisma(erreur) !== 'P2039') {
     return false;
   }
-  const cause = (
+  const cause = causeDuPilote(erreur);
+
+  return (
+    cause?.originalCode === '23514' &&
+    (cause.originalMessage ?? '').includes(
+      'Ingredient_gramsPerPiece_unit_check',
+    )
+  );
+}
+
+/** L'erreur de Postgres qu'une erreur P2039 relaie. */
+function causeDuPilote(
+  erreur: unknown,
+): { originalCode?: string; originalMessage?: string } | undefined {
+  return (
     erreur as {
       meta?: {
         driverAdapterError?: {
@@ -297,13 +326,6 @@ function violeLaContrainteDuPoids(erreur: unknown): boolean {
       };
     }
   ).meta?.driverAdapterError?.cause;
-
-  return (
-    cause?.originalCode === '23514' &&
-    (cause.originalMessage ?? '').includes(
-      'Ingredient_gramsPerPiece_unit_check',
-    )
-  );
 }
 
 function codePrisma(erreur: unknown): unknown {

@@ -149,15 +149,30 @@ export class IngredientRepository {
     };
   }
 
+  /** L'Ingrédient dont un Alias porte ce libellé, s'il y en a un. */
+  async proprietaireDeLAlias(label: string): Promise<string | null> {
+    const alias = await this.prisma.ingredientAlias.findUnique({
+      where: { label },
+      select: { ingredientId: true },
+    });
+    return alias?.ingredientId ?? null;
+  }
+
   /**
-   * La fusion en une seule écriture. Elle s'ouvre sur le doublon **tel que la
-   * fusion l'a lu**, et se ferme sur le conservé tel qu'elle l'a lu : un
-   * changement de l'un ou de l'autre entre-temps fait échouer le tout (P2025),
-   * et le service recommence sur ce qu'il relit. Chaque ligne de stock ne
-   * s'écrit que si elle a encore l'état lu (P2025 aussi). Une ligne de stock,
-   * une Préférence ou une référence au doublon apparue entre-temps fait
-   * échouer l'unicité (P2002) ou la suppression du doublon (P2003) : le
-   * service recommence de même.
+   * La fusion en une seule écriture. Elle s'ouvre sur les deux Ingrédients
+   * **tels que la fusion les a lus**, verrouillés dans l'ordre de leur
+   * identifiant : un changement de l'un ou de l'autre entre-temps fait échouer
+   * le tout (P2025), et le service recommence sur ce qu'il relit. Deux fusions
+   * qui touchent les mêmes Ingrédients (A dans B et B dans A) les verrouillent
+   * ainsi dans le même ordre : la seconde attend la première, puis échoue sur
+   * sa version, au lieu de s'interbloquer avec elle.
+   *
+   * Chaque ligne de stock ne s'écrit que si elle a encore l'état lu (P2025
+   * aussi), et l'Alias du nom du doublon que s'il a encore le propriétaire lu
+   * (P2025, ou P2002 s'il est apparu). Une ligne de stock, une Préférence ou
+   * une référence au doublon apparue entre-temps fait échouer l'unicité
+   * (P2002) ou la suppression du doublon (P2003) : le service recommence de
+   * même.
    *
    * Réécrire le conservé fait grandir sa version : un Tour de génération
    * contrôlé avant la fusion n'écrit plus (CUISINE-16), pas plus que pour un
@@ -182,14 +197,33 @@ export class IngredientRepository {
     });
     const { stock } = plan;
 
+    const verrous = [
+      // Le Produit préféré est unique : le doublon le lâche ici, avant que le
+      // conservé ne le reprenne à la fin.
+      {
+        id: doublon.id,
+        ecriture: this.prisma.ingredient.update({
+          where: { id: doublon.id, updatedAt: doublon.updatedAt },
+          data: { preferredProductId: null },
+          select: { id: true },
+        }),
+      },
+      // Réécrire le conservé tel quel suffit à le verrouiller.
+      {
+        id: conserve.id,
+        ecriture: this.prisma.ingredient.update({
+          where: { id: conserve.id, updatedAt: conserve.updatedAt },
+          data: { preferredProductId: conserve.preferredProductId },
+          select: { id: true },
+        }),
+      },
+    ]
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .map(({ ecriture }) => ecriture);
+    const { alias } = plan;
+
     const ecritures = [
-      // Le Produit préféré est unique : le doublon le lâche avant que le
-      // conservé ne le reprenne.
-      this.prisma.ingredient.update({
-        where: { id: doublon.id, updatedAt: doublon.updatedAt },
-        data: { preferredProductId: null },
-        select: { id: true },
-      }),
+      ...verrous,
       ...(stock.type === 'REPRENDRE'
         ? [
             this.prisma.pantryItem.update({
@@ -231,14 +265,22 @@ export class IngredientRepository {
       this.prisma.shoppingListItem.updateMany(repointer),
       this.prisma.product.updateMany(repointer),
       this.prisma.ingredientAlias.updateMany(repointer),
-      // Un Alias peut déjà porter le nom du doublon : il vient d'être
-      // repointé, et l'unicité du libellé le garde tel quel.
-      this.prisma.ingredientAlias.upsert({
-        where: { label: plan.alias },
-        create: { label: plan.alias, ingredientId: conserve.id },
-        update: { ingredientId: conserve.id },
-        select: { id: true },
-      }),
+      // Le nom du doublon devient un Alias du conservé. S'il en était déjà
+      // un, il ne passe au conservé que s'il appartient encore au doublon ou
+      // au conservé : jamais à un troisième Ingrédient.
+      alias.existant
+        ? this.prisma.ingredientAlias.update({
+            where: {
+              label: alias.libelle,
+              ingredientId: { in: [doublon.id, conserve.id] },
+            },
+            data: { ingredientId: conserve.id },
+            select: { id: true },
+          })
+        : this.prisma.ingredientAlias.create({
+            data: { label: alias.libelle, ingredientId: conserve.id },
+            select: { id: true },
+          }),
       this.prisma.ingredient.delete({
         where: { id: doublon.id },
         select: { id: true },
@@ -251,8 +293,9 @@ export class IngredientRepository {
       async () =>
         await this.prisma.$transaction([
           ...ecritures,
+          // Verrouillé depuis le début du lot : sa version n'est plus à garder.
           this.prisma.ingredient.update({
-            where: { id: conserve.id, updatedAt: conserve.updatedAt },
+            where: { id: conserve.id },
             data: { preferredProductId: plan.produitPrefere },
           }),
         ]),
