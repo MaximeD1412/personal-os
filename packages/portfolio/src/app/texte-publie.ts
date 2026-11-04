@@ -19,10 +19,8 @@ import { rendreLeMarkdown } from './markdown';
   selector: 'pos-texte-publie',
   host: {
     class:
-      'flex flex-col gap-space-sm text-on-surface-variant [&_a]:text-primary [&_a]:underline [&_blockquote]:border-s-2 [&_blockquote]:border-outline-variant [&_blockquote]:ps-space-sm [&_code]:font-mono [&_code]:text-code-mono [&_h1]:text-headline-md [&_h1]:text-on-surface [&_h2]:mt-space-md [&_h2]:text-headline-md [&_h2]:text-on-surface [&_h3]:mt-space-sm [&_h3]:text-title-sm [&_h3]:text-on-surface [&_h3:first-child]:mt-0 [&_h2:first-child]:mt-0 [&_ol]:list-decimal [&_ol]:ps-gutter [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-container-low [&_pre]:p-space-sm [&_strong]:text-on-surface [&_ul]:list-disc [&_ul]:ps-gutter [&_li+li]:mt-space-xs [&_hr]:border-surface-container-highest [&_img]:aspect-video [&_img]:w-full [&_img]:object-contain [&_img]:rounded-md [&_img]:border [&_img]:border-surface-container-highest [&_img]:bg-surface-container-low',
-    '[class.text-body-default]': "variante() === 'courant'",
-    '[class.text-headline-md]': "variante() === 'chapo'",
-    '[class.font-normal]': "variante() === 'chapo'",
+      'flex flex-col gap-space-sm text-on-surface-variant [&_a]:text-primary [&_a]:underline [&_blockquote]:border-s-4 [&_blockquote]:border-outline-variant [&_blockquote]:ps-gutter [&_blockquote]:italic [&_code]:font-mono [&_code]:text-code-mono [&_h1]:text-headline-md [&_h1]:text-on-surface [&_h2]:mt-space-md [&_h2]:text-headline-md [&_h2]:text-on-surface [&_h3]:mt-space-sm [&_h3]:text-title-sm [&_h3]:text-on-surface [&_*+h3]:border-t [&_*+h3]:border-surface-container-highest [&_*+h3]:pt-space-md [&_h3:first-child]:mt-0 [&_h2:first-child]:mt-0 [&_ol]:list-decimal [&_ol]:ps-gutter [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-container-low [&_pre]:p-space-sm [&_strong]:text-on-surface [&_ul]:list-disc [&_ul]:ps-gutter [&_li+li]:mt-space-xs [&_hr]:border-surface-container-highest [&_img]:aspect-video [&_img]:w-full [&_img]:object-contain [&_img]:rounded-md [&_img]:border [&_img]:border-surface-container-highest [&_img]:bg-surface-container-low',
+    '[class]': 'taille()',
     '[innerHTML]': 'html()',
   },
   template: '',
@@ -32,6 +30,13 @@ export class TextePublie {
 
   readonly texte = input.required<string>();
   readonly variante = input<'courant' | 'chapo'>('courant');
+
+  /** Le chapô grandit à partir de la tablette ; sur mobile, il reste lisible sans écraser le titre. */
+  protected taille(): string {
+    return this.variante() === 'chapo'
+      ? 'text-body-default md:text-headline-md md:font-normal'
+      : 'text-body-default';
+  }
 
   protected readonly html = computed(() =>
     this.assainisseur.bypassSecurityTrustHtml(

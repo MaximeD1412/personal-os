@@ -14,9 +14,9 @@
   data-test="projet"
 >
   <header class="flex flex-col items-start gap-space-sm md:max-w-[880px]">
-    <pos-intitule icone="matDeployedCodeOutline" teinte="primary">{{
-      textes().projet
-    }}</pos-intitule>
+    <pos-intitule icone="matDeployedCodeOutline" teinte="primary"
+      >{{ textes().projet }}</pos-intitule
+    >
     <h1 class="text-headline-lg text-on-surface md:text-display-hero">
       {{ lecture.valeur.title }}
     </h1>
@@ -28,8 +28,8 @@
       {{ publieLe() }}
     </span>
   </header>
-  <div hlmCard class="p-gutter md:p-space-xl">
-    <pos-texte-publie class="max-w-3xl" [texte]="lecture.valeur.body" />
+  <div hlmCard class="p-gutter md:max-w-[880px] md:p-space-lg">
+    <pos-texte-publie [texte]="lecture.valeur.body" />
   </div>
 </article>
 } @case ('absent') {

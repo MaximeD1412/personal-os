@@ -103,7 +103,8 @@ export class Projet {
       }
       const autre = this.publieDansLAutreLangue;
       if (lecture.etat === 'present' && autre.hasValue() && !autre.error()) {
-        versions[this.autreLangue()] = `/${this.autreLangue()}/projets/${this.id()}`;
+        versions[this.autreLangue()] =
+          `/${this.autreLangue()}/projets/${this.id()}`;
       }
       metadonnees.poser({
         langue,

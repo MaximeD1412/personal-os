@@ -30,7 +30,7 @@
     <a
       hlmBtn
       size="lg"
-      variant="ghost"
+      variant="secondary"
       class="w-full text-secondary sm:w-auto"
       [href]="contenu.urlDuCv()"
       download
@@ -86,7 +86,7 @@ lecture = section.lecture; @if (lecture.etat === 'present') {
   class="flex scroll-mt-24 flex-col gap-space-md py-space-xl md:gap-space-lg md:py-space-2xl"
   data-test="projets"
 >
-  <header class="flex flex-wrap items-end justify-between gap-space-sm">
+  <header class="flex flex-wrap items-center justify-between gap-space-sm">
     <h2 class="text-headline-md text-on-surface md:text-headline-lg">
       {{ textes().sections.projets }}
     </h2>
@@ -102,7 +102,7 @@ lecture = section.lecture; @if (lecture.etat === 'present') {
     <li class="flex">
       <a
         hlmCard
-        class="group flex w-full flex-col overflow-hidden p-0 transition-colors hover:border-outline-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        class="group flex w-full flex-col overflow-hidden p-0 transition-colors md:p-0 hover:border-outline-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         data-test="projet"
         [routerLink]="['/', langue(), 'projets', projet.id]"
       >

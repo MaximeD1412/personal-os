@@ -78,7 +78,9 @@ export const TEXTES: Readonly<Record<Langue, Textes>> = {
     },
     voirLesProjets: 'See the projects',
     nombreDeProjets: (nombre) =>
-      nombre > 1 ? `${nombre} published projects` : `${nombre} published project`,
+      nombre > 1
+        ? `${nombre} published projects`
+        : `${nombre} published project`,
     projet: 'Project',
     aucunProjet: 'No published project yet.',
     lireLeProjet: 'Read the project',

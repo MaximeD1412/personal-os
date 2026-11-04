@@ -138,9 +138,9 @@ describe('Les métadonnées du portfolio', () => {
     expect(meta('name', 'robots')).toBeNull();
     expect(lien('canonical')).toEqual([`${origine}/en`]);
     expect(Object.keys(versions())).toEqual(['fr', 'en', 'x-default']);
-    expect(document.head.querySelectorAll('meta[name="description"]')).toHaveLength(
-      1,
-    );
+    expect(
+      document.head.querySelectorAll('meta[name="description"]'),
+    ).toHaveLength(1);
   });
 });
 
@@ -160,11 +160,11 @@ function lien(rel: string): string[] {
 
 function versions(): Record<string, string> {
   return Object.fromEntries(
-    [
-      ...document.head.querySelectorAll('link[rel="alternate"][hreflang]'),
-    ].map((element) => [
-      element.getAttribute('hreflang') ?? '',
-      element.getAttribute('href') ?? '',
-    ]),
+    [...document.head.querySelectorAll('link[rel="alternate"][hreflang]')].map(
+      (element) => [
+        element.getAttribute('hreflang') ?? '',
+        element.getAttribute('href') ?? '',
+      ],
+    ),
   );
 }
