@@ -259,6 +259,43 @@ describe('BarreDeCommande', () => {
     httpMock.verify();
   });
 
+  it('reste utilisable, rouverte avant la fin de sa fermeture', async () => {
+    const { router, httpMock, palette, commander, repondre, stable } =
+      await monter();
+    await commander('ajoute un dentiste jeudi');
+
+    // Échap pendant « Je cherche… », puis Ctrl+K avant la fin de l'animation
+    // de sortie : la fermeture est annulée, la palette reste ouverte.
+    echap();
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }),
+    );
+    await stable();
+    expect(palette()).not.toBeNull();
+    expect(
+      palette()?.querySelector('[data-slot="command-bar-pending"]'),
+    ).toBeNull();
+
+    const champ = palette()?.querySelector('input') as HTMLInputElement;
+    champ.value = 'ajoute un dentiste vendredi';
+    champ.dispatchEvent(new Event('input'));
+    await stable();
+    champ.form?.requestSubmit();
+    await stable();
+    const requete = httpMock.expectOne(`${BASE}/command-bar/resolve`);
+    expect(requete.request.body).toEqual({
+      text: 'ajoute un dentiste vendredi',
+    });
+
+    await repondre(requete, {
+      kind: 'action',
+      url: '/calendrier/evenements/nouveau?title=Dentiste',
+      ignored: [],
+    });
+    expect(router.url).toBe('/calendrier/evenements/nouveau?title=Dentiste');
+    httpMock.verify();
+  });
+
   describe('vers le formulaire d’un Événement', () => {
     const FORMULAIRE = '/calendrier/evenements/nouveau';
 

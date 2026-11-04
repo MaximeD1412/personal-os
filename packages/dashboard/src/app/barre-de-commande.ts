@@ -110,17 +110,19 @@ export class BarreDeCommande {
   /**
    * Dès que la barre commence à se fermer, la résolution en cours est
    * abandonnée : sa réponse, même arrivée pendant l'animation de sortie,
-   * n'ouvre plus rien.
+   * n'ouvre plus rien. La barre cesse aussi de chercher : rouverte avant la
+   * fin de l'animation (spartan annule alors la fermeture, et `closed` ne
+   * vient pas), elle accepte une nouvelle phrase.
    */
   protected abandonner(): void {
     this.resolution?.unsubscribe();
     this.resolution = null;
+    this.enCours.set(false);
   }
 
   /** La barre fermée repart vierge. */
   protected oublier(): void {
     this.abandonner();
-    this.enCours.set(false);
     this.echec.set(null);
     this.erreur.set(null);
   }
