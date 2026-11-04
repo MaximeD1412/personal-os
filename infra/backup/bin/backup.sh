@@ -27,18 +27,49 @@ done
 plan() { printf 'plan: %s\n' "$*"; }
 
 load_config
-assert_password_file
 
 STAGING=""
 CONTENEUR_DE_COPIE=""
+nettoyer_le_transit() {
+  if [ -n "$CONTENEUR_DE_COPIE" ]; then
+    docker rm --force "$CONTENEUR_DE_COPIE" >/dev/null 2>&1 || true
+  fi
+  if [ -n "$STAGING" ]; then
+    rm -rf -- "$STAGING"
+  fi
+}
 cleanup() {
   local code=$?
-  [ -n "$CONTENEUR_DE_COPIE" ] && docker rm --force "$CONTENEUR_DE_COPIE" >/dev/null 2>&1
-  [ -n "$STAGING" ] && rm -rf -- "$STAGING"
+  nettoyer_le_transit
   return $code
 }
-trap cleanup EXIT
 
+# La commande qui a interrompu le script, quand ce n'est pas un `die` : c'est
+# la cause que l'échec transmet à l'API.
+COMMANDE_EN_ECHEC=""
+
+# Tout échec d'une vraie exécution, contrôles préalables compris, est signalé
+# au témoin et transmis à l'API, puis le transit est vidé. `exit` garde le code
+# d'origine : sous `set -e`, une commande en échec dans le piège l'arrêterait
+# avant le nettoyage.
+echec() {
+  local code=$?
+  heartbeat fail
+  report_status FAILED "${DERNIERE_ERREUR:-${COMMANDE_EN_ECHEC:-sauvegarde interrompue (code $code)}}"
+  nettoyer_le_transit
+  exit "$code"
+}
+
+# Dès que la configuration est lue, l'adresse et le jeton de l'API sont connus :
+# les contrôles qui suivent sont couverts. Une simulation ne transmet rien.
+if [ "$DRY_RUN" = 1 ]; then
+  trap cleanup EXIT
+else
+  trap 'COMMANDE_EN_ECHEC="« $BASH_COMMAND » a échoué (code $?)"' ERR
+  trap echec EXIT
+fi
+
+assert_password_file
 load_database_list
 
 pg_dump_cmd() {
@@ -107,11 +138,11 @@ if [ "$DRY_RUN" = 1 ]; then
   plan "restic forget $(retention_args | tr '\n' ' ')--prune"
   plan "restic check"
   plan "témoin ${BACKUP_HEARTBEAT_URL:-<aucun>}"
+  plan "état transmis à ${BACKUP_STATUS_URL:-<aucune API>}"
   exit 0
 fi
 
 heartbeat start
-trap 'heartbeat fail; cleanup' EXIT
 
 STAGING=$(mktemp -d)
 chmod 700 "$STAGING"
@@ -149,4 +180,5 @@ restic check
 
 trap cleanup EXIT
 heartbeat success
+report_status SUCCEEDED
 log "sauvegarde terminée"

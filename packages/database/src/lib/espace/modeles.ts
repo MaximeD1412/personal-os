@@ -26,6 +26,9 @@ export const MODELES_HORS_ESPACE: Readonly<Record<string, readonly string[]>> =
     // Les Pages de contenu du portfolio sont globales : un seul portfolio,
     // rédigé depuis l'un ou l'autre Compte (PORTFOLIO-3).
     PageContent: [],
+    // L'état des sauvegardes est celui de la machine, pas d'un Compte
+    // (DASH-3).
+    BackupStatus: [],
     Scope: [
       'traces',
       'events',
@@ -88,6 +91,7 @@ export const RELATIONS_VERS_ESPACE: Readonly<
   ],
   IngredientAlias: ['ingredient'],
   PageContent: [],
+  BackupStatus: [],
   Scope: [
     'household',
     'holder',

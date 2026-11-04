@@ -9,6 +9,9 @@ log() {
 
 die() {
   log "ERREUR: $*"
+  # La cause que l'échec transmettra à l'API (report_status).
+  # shellcheck disable=SC2034 # lue par report_status, dans le piège de sortie
+  DERNIERE_ERREUR="$*"
   exit 1
 }
 
@@ -101,5 +104,42 @@ heartbeat() {
 
   if ! curl --silent --show-error --max-time 10 --retry 3 --fail -o /dev/null "$url"; then
     log "témoin d'inactivité injoignable ($status) — sauvegarde non affectée"
+  fi
+}
+
+# Une chaîne JSON : antislashs et guillemets échappés, caractères de contrôle
+# remplacés par des espaces.
+json_chaine() {
+  local valeur="$1"
+  valeur=${valeur//\\/\\\\}
+  valeur=${valeur//\"/\\\"}
+  printf '"%s"' "$(printf '%s' "$valeur" | tr '\000-\037' ' ')"
+}
+
+# Transmet à l'API le résultat de l'exécution (DASH-3) : le tableau de bord
+# affiche la dernière sauvegarde réussie, et la signale au-delà de 26 heures.
+# Le jeton passe à curl par son entrée, jamais par sa ligne de commande, que
+# `ps` montre à tout le monde. Une API injoignable n'échoue pas la sauvegarde :
+# le témoin d'inactivité et le courriel d'échec restent les alertes.
+report_status() {
+  local outcome="$1" cause="${2:-}" # "SUCCEEDED" ou "FAILED"
+  [ -n "${BACKUP_STATUS_URL:-}" ] || return 0
+  if [ -z "${BACKUP_STATUS_TOKEN:-}" ]; then
+    log "BACKUP_STATUS_TOKEN absent de $RESTIC_ENV_FILE — état non transmis à l'API"
+    return 0
+  fi
+
+  local corps
+  corps=$(printf '{"outcome":"%s","finishedAt":"%s"' "$outcome" "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+  if [ "$outcome" = FAILED ]; then
+    corps="$corps,\"error\":$(json_chaine "${cause:0:500}")"
+  fi
+  corps="$corps}"
+
+  if ! printf 'Authorization: Bearer %s\n' "$BACKUP_STATUS_TOKEN" |
+    curl --silent --show-error --max-time 10 --retry 3 --fail -o /dev/null \
+      --header @- --header 'Content-Type: application/json' \
+      --data-binary "$corps" "$BACKUP_STATUS_URL"; then
+    log "API injoignable ($outcome) — état non transmis à l'API, sauvegarde non affectée"
   fi
 }
