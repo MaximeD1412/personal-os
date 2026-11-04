@@ -191,8 +191,9 @@ interface Jour {
  * créneau écarté à remplir ; un créneau écarté dit pourquoi, à sa place.
  * Chaque tour mène à sa Trace IA.
  *
- * Arrêté, le planning signale ce que ses listes déjà produites ne couvrent
- * plus (un repas ajouté après elles), et produit la liste de complément.
+ * Le planning signale ce que ses listes déjà produites ne couvrent plus (un
+ * repas ajouté après elles), ouvert pendant qu'on le modifie ; arrêté, il en
+ * produit la liste de complément.
  */
 @Component({
   imports: [
@@ -261,13 +262,32 @@ export class PlanningDeRepas {
   protected readonly ouvert = computed(
     () => this.planning()?.status === 'OPEN',
   );
-  /** Le planning dont l'écart se lit : arrêté seulement, seul cas où le complément se produit. */
-  protected readonly planningArrete = computed(
+  /**
+   * Le planning dont l'écart se lit, ouvert ou arrêté : il se relit quand ses
+   * repas ou son statut changent, pas à chaque relecture du planning.
+   */
+  protected readonly planningDeLEcart = computed(
     () => {
       const planning = this.planning();
-      return planning?.status === 'STOPPED' ? { id: planning.id } : null;
+      return planning
+        ? {
+            id: planning.id,
+            status: planning.status,
+            repas: JSON.stringify(
+              planning.entries.map(({ id, recipe, servings, decision }) => [
+                id,
+                recipe?.id,
+                servings,
+                decision,
+              ]),
+            ),
+          }
+        : null;
     },
-    { equal: (a, b) => a?.id === b?.id },
+    {
+      equal: (a, b) =>
+        a?.id === b?.id && a?.status === b?.status && a?.repas === b?.repas,
+    },
   );
 
   /** Ce qui s'envoie, le temps de la requête : les autres gestes attendent. */

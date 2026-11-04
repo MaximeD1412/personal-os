@@ -2,6 +2,7 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { matPlaylistAddOutline } from '@ng-icons/material-symbols/outline';
+import type { MealPlanStatus } from '@personal-os/contracts';
 import { HlmAlertImports } from '@personal-os/ui/alert';
 import { HlmButton } from '@personal-os/ui/button';
 import { DccmConfirm, DccmState } from '@personal-os/ui/dccm';
@@ -22,6 +23,11 @@ function enumerer(noms: readonly string[]): string {
  * un Ingrédient manque. Les listes déjà produites ne changent jamais ; le
  * bandeau propose une liste de complément, des seuls manquants, puis l'ouvre.
  *
+ * Un planning ouvert a aussi son écart : on le voit pendant qu'on le modifie.
+ * Le complément ne se produit que d'un planning arrêté : ouvert, le bandeau le
+ * dit au lieu de le proposer. Sans statut connu (la Liste de courses ne porte
+ * que l'identifiant de son planning), il le propose, et l'API tranche.
+ *
  * Chaque nouvelle valeur de `planning` relit l'écart.
  */
 @Component({
@@ -38,11 +44,19 @@ export class EcartDuPlanning {
   private readonly router = inject(Router);
 
   /** Le planning dont on compare les listes ; aucun, rien n'est lu. */
-  readonly planning = input.required<{ id: string } | null>();
+  readonly planning = input.required<{
+    id: string;
+    status?: MealPlanStatus;
+  } | null>();
 
   protected readonly lecture = this.service.ecart(this.planning);
   protected readonly manquants = computed(() =>
     this.lecture.hasValue() ? (this.lecture.value()?.missing ?? []) : [],
+  );
+
+  /** Le complément se propose, sauf d'un planning qu'on sait ouvert. */
+  protected readonly productible = computed(
+    () => this.planning()?.status !== 'OPEN',
   );
 
   protected readonly titre = computed(() => {
@@ -56,7 +70,10 @@ export class EcartDuPlanning {
     const noms = enumerer(
       manquants.map(({ ingredient }) => ingredient.displayName),
     );
-    return `${manquants.length === 1 ? 'Manque' : 'Manquent'} aux listes déjà produites : ${noms}. Elles ne changent pas : le complément part sur une nouvelle liste.`;
+    const suite = this.productible()
+      ? 'Elles ne changent pas : le complément part sur une nouvelle liste.'
+      : 'Elles ne changent pas : le complément se produit sur une nouvelle liste, une fois le planning arrêté.';
+    return `${manquants.length === 1 ? 'Manque' : 'Manquent'} aux listes déjà produites : ${noms}. ${suite}`;
   });
 
   protected readonly envoi = signal(false);
@@ -66,7 +83,7 @@ export class EcartDuPlanning {
   protected async produire(): Promise<void> {
     const planning = this.planning();
     const n = this.manquants().length;
-    if (!planning || n === 0 || this.envoi()) return;
+    if (!planning || n === 0 || !this.productible() || this.envoi()) return;
     const confirme = await this.confirmation.confirm({
       title: 'Produire une liste de complément ?',
       description: `${n === 1 ? "L'ingrédient qui manque part" : `Les ${n} ingrédients qui manquent partent`} sur une nouvelle liste. Les listes déjà produites ne changent pas.`,

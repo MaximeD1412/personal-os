@@ -27,6 +27,7 @@
     <p hlmAlertTitle>{{ titre() }}</p>
     <p hlmAlertDescription>{{ description() }}</p>
   </div>
+  @if (productible()) {
   <div hlmAlertAction>
     <button
       hlmBtn
@@ -41,5 +42,6 @@
       Produire une liste de complément
     </button>
   </div>
+  }
 </div>
 }

@@ -23,6 +23,9 @@ import {
   type ShoppingListRecord,
 } from './shopping-list.repository';
 
+/** Combien de fois un complément recalcule son écart quand un autre est passé avant lui. */
+const ESSAIS_DE_COMPLEMENT = 5;
+
 /**
  * Les Listes de courses du Foyer, figées à leur production (ADR 0012) : rien
  * ne les recalcule. Les saisies arrivent validées par leur schéma (ADR 0030) ;
@@ -52,33 +55,38 @@ export class ShoppingListService {
     planId: string,
     { complement = false }: ShoppingListProductionQuery = {},
   ): Promise<ShoppingList> {
-    const planning = await this.planningArrete(planId);
-    const besoins = complement
-      ? await this.manquants(planning)
-      : await this.besoinActuel(planning);
-    if (complement && besoins.length === 0) {
-      throw new ErreurMetier(
-        'food.no_shopping_gap',
-        "Rien ne manque aux listes déjà produites pour ce planning : il n'y a pas de liste de complément à produire.",
-      );
-    }
-
-    const articles = besoins.map(({ ingredient, quantite }) => ({
-      ingredientId: ingredient.id,
-      label: null,
-      quantity: quantite.toFixed(3),
-      unit: ingredient.canonicalUnit,
-    }));
-
-    try {
-      return exposer(await this.repository.produire(planId, articles));
-    } catch (erreur) {
-      if (codePrisma(erreur) !== 'P2025') {
-        throw erreur;
+    for (let essai = 1; ; essai++) {
+      const planning = await this.planningArrete(planId);
+      const { besoins, listesLues } = complement
+        ? await this.manquants(planning)
+        : { besoins: await this.besoinActuel(planning), listesLues: undefined };
+      if (complement && besoins.length === 0) {
+        throw new ErreurMetier(
+          'food.no_shopping_gap',
+          "Rien ne manque aux listes déjà produites pour ce planning : il n'y a pas de liste de complément à produire.",
+        );
       }
-      // Le planning a été rouvert depuis qu'on l'a lu.
-      await this.planningArrete(planId);
-      throw erreur;
+
+      const articles = besoins.map(({ ingredient, quantite }) => ({
+        ingredientId: ingredient.id,
+        label: null,
+        quantity: quantite.toFixed(3),
+        unit: ingredient.canonicalUnit,
+      }));
+
+      try {
+        return exposer(
+          await this.repository.produire(planId, articles, listesLues),
+        );
+      } catch (erreur) {
+        if (codePrisma(erreur) !== 'P2025') {
+          throw erreur;
+        }
+        // Le planning a été rouvert depuis qu'on l'a lu.
+        await this.planningArrete(planId);
+        // Sinon, un autre complément est passé avant : l'écart se recalcule.
+        if (!complement || essai === ESSAIS_DE_COMPLEMENT) throw erreur;
+      }
     }
   }
 
@@ -88,9 +96,9 @@ export class ShoppingListService {
    * ouvert a aussi un écart : on le voit pendant qu'on le modifie.
    */
   async lireLEcart(planId: string): Promise<ShoppingGap> {
-    const manquants = await this.manquants(await this.planning(planId));
+    const { besoins } = await this.manquants(await this.planning(planId));
     return {
-      missing: manquants.map(({ ingredient, quantite }) => ({
+      missing: besoins.map(({ ingredient, quantite }) => ({
         ingredient: { id: ingredient.id, displayName: ingredient.displayName },
         quantity: quantite.toNumber(),
         unit: ingredient.canonicalUnit,
@@ -99,14 +107,16 @@ export class ShoppingListService {
   }
 
   /**
-   * Les besoins du planning qu'aucune liste déjà produite pour lui ne couvre.
-   * Sans liste, il n'y a pas d'écart : le planning attend sa première liste.
+   * Les besoins du planning qu'aucune liste déjà produite pour lui ne couvre,
+   * et ces listes. Sans liste, il n'y a pas d'écart : le planning attend sa
+   * première liste.
    */
   private async manquants(
     planning: PlanningAConsoliderRecord,
-  ): Promise<Besoin[]> {
+  ): Promise<{ besoins: Besoin[]; listesLues: string[] }> {
     const listes = await this.repository.listesDuPlanning(planning.id);
-    if (listes.length === 0) return [];
+    const listesLues = listes.map(({ id }) => id);
+    if (listes.length === 0) return { besoins: [], listesLues };
 
     const besoins = await this.besoinActuel(planning);
     const { manquants } = ecart(
@@ -127,10 +137,15 @@ export class ShoppingListService {
     const ingredientDe = new Map(
       besoins.map(({ ingredient }) => [ingredient.id, ingredient]),
     );
-    return manquants.map(({ ingredientId, quantite }) => ({
-      ingredient: ingredientDe.get(ingredientId) as IngredientAConsoliderRecord,
-      quantite,
-    }));
+    return {
+      besoins: manquants.map(({ ingredientId, quantite }) => ({
+        ingredient: ingredientDe.get(
+          ingredientId,
+        ) as IngredientAConsoliderRecord,
+        quantite,
+      })),
+      listesLues,
+    };
   }
 
   /**

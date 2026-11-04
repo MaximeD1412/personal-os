@@ -405,6 +405,43 @@ describe('Listes de courses', () => {
       expect(await ecartDe(planning)).toEqual({ missing: [] });
     });
 
+    it("ne produit qu'un complément quand plusieurs se demandent en même temps", async () => {
+      const { planning, pates } = await unPlanningEcarte();
+
+      const reponses = await Promise.all(
+        [jeu.a, jeu.b, jeu.a, jeu.b].map((compte) =>
+          request(app.getHttpServer())
+            .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+            .query({ complement: true })
+            .set('Cookie', compte.session),
+        ),
+      );
+
+      expect(reponses.map(({ status }) => status).sort()).toEqual([
+        201, 422, 422, 422,
+      ]);
+      for (const refus of reponses.filter(({ status }) => status === 422)) {
+        expect(refus.body).toMatchObject({ code: 'food.no_shopping_gap' });
+      }
+      // Les pâtes manquaient de 200 g : un seul complément les porte.
+      const pourLePlanning = (
+        (
+          await request(app.getHttpServer())
+            .get('/api/shopping-lists')
+            .query({ status: 'OPEN' })
+            .set('Cookie', jeu.a.session)
+            .expect(200)
+        ).body as ShoppingList[]
+      ).filter(({ mealPlan }) => mealPlan?.id === planning.id);
+      expect(
+        pourLePlanning
+          .flatMap(({ items }) => items)
+          .filter(({ ingredient }) => ingredient?.id === pates.id)
+          .reduce((total, { quantity }) => total + (quantity ?? 0), 0),
+      ).toBe(400);
+      expect(await ecartDe(planning)).toEqual({ missing: [] });
+    });
+
     it('refuse en 422 un complément quand rien ne manque, et ne crée aucune liste', async () => {
       const planning = await unPlanning();
       await ajouter(planning, 0, { title: 'Soupe' });
