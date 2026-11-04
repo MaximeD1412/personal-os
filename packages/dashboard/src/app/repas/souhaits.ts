@@ -166,9 +166,15 @@ export class SouhaitsDeLaSemaine {
   protected readonly etatDeLaProposee = computed(() =>
     stateOf(this.lectureDeLaProposee, () => false),
   );
-  /** Les valeurs du lien écartées : par le contrat, ou une Recette inconnue. */
+  /**
+   * Les valeurs du lien écartées : par le contrat, ou une Recette inconnue.
+   * Le panneau ne signale que ses champs : la semaine écartée, le planning la
+   * signale lui-même.
+   */
   protected readonly ignores = computed(() => [
-    ...this.prefill.ignores,
+    ...this.prefill.ignores.filter((ecartee) =>
+      ecartee.split('=')[0] in zSouhaitDuLien.shape,
+    ),
     ...(this.proposeeInconnue() ? [`recipeId=${this.idProposee()}`] : []),
   ]);
   /** Les Recettes déjà souhaitées pour la semaine : on ne les redemande pas. */

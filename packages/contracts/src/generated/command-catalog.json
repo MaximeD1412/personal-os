@@ -1,3 +1,196 @@
 {
-  "actions": []
+  "actions": [
+    {
+      "id": "EventController_creer",
+      "intent": "Créer un Événement : un rendez-vous, un anniversaire, une échéance",
+      "examples": [
+        "ajoute un rendez-vous chez le dentiste jeudi à 10 h",
+        "dîner chez Paul samedi à 20 h",
+        "anniversaire de maman le 12 mars",
+        "échéance : déclaration d'impôts le 15 novembre",
+        "réunion de copropriété mardi de 18 h à 20 h"
+      ],
+      "screen": "/calendrier/evenements/nouveau",
+      "params": {
+        "title": {
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "startsAt": {
+          "required": false,
+          "schema": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "endsAt": {
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "category": {
+          "required": false,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "APPOINTMENT",
+              "BIRTHDAY",
+              "DEADLINE",
+              "OTHER"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "MealPlanController_lire",
+      "intent": "Ouvrir le Planning de repas d'une semaine, désignée par son lundi",
+      "examples": [
+        "montre le planning des repas",
+        "qu'est-ce qu'on mange cette semaine ?",
+        "planning de la semaine prochaine",
+        "ouvre les repas de la semaine du 16 novembre",
+        "on mange quoi mardi ?"
+      ],
+      "screen": "/repas/planning",
+      "params": {
+        "semaine": {
+          "required": false,
+          "schema": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "id": "ShoppingListController_ajouter",
+      "intent": "Ajouter un Article à la Liste de courses ouverte",
+      "examples": [
+        "ajoute du lait aux courses",
+        "il faut racheter des éponges",
+        "6 œufs sur la liste de courses",
+        "courses : papier toilette",
+        "note qu'il n'y a plus de café"
+      ],
+      "screen": "/courses/articles/nouveau",
+      "params": {
+        "label": {
+          "required": true,
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "quantity": {
+          "required": false,
+          "schema": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 10000000
+          }
+        }
+      }
+    },
+    {
+      "id": "TrainingSessionController_creer",
+      "intent": "Créer une Séance de sport, prévue ou déjà réalisée",
+      "examples": [
+        "footing de 10 km demain à 7 h",
+        "séance de muscu jeudi à 19 h",
+        "prévois 45 minutes de vélo samedi à 9 h",
+        "j'ai nagé 1 500 m ce midi",
+        "fractionné 8 × 400 m mardi à 18 h 30"
+      ],
+      "screen": "/sport/seances/nouvelle",
+      "params": {
+        "sport": {
+          "required": false,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "RUN",
+              "BIKE",
+              "SWIM",
+              "STRENGTH",
+              "OTHER"
+            ]
+          }
+        },
+        "startsAt": {
+          "required": false,
+          "schema": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "status": {
+          "required": false,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "PLANNED",
+              "DONE"
+            ]
+          }
+        },
+        "plannedDistanceM": {
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "plannedDurationS": {
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "plannedIntent": {
+          "required": false,
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "actualDistanceM": {
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "actualDurationS": {
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        }
+      }
+    }
+  ]
 }

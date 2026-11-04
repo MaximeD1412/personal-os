@@ -1,0 +1,91 @@
+<dccm-form-page
+  heading="Ajouter un article"
+  subtitle="Un simple libellé, ajouté à la liste de courses ouverte."
+  [breadcrumb]="fil"
+  submitLabel="Ajouter à la liste"
+  [ignored]="prefill.ignores"
+  [error]="refus()"
+  [pending]="envoi()"
+  [submitDisabled]="!visee()"
+  (submitted)="enregistrer()"
+  (cancelled)="fermer()"
+>
+  <div hlmField>
+    <span hlmFieldLabel>Liste</span>
+    <dccm-state
+      [status]="etat()"
+      [error]="ouvertes.error()"
+      [rows]="1"
+      emptyHeading="Aucune liste de courses ouverte"
+      emptyDescription="Une liste se produit depuis un planning de repas arrêté."
+      [emptyIcon]="iconeVide"
+      loadingLabel="Lecture des listes ouvertes…"
+      (retry)="ouvertes.reload()"
+    >
+      <a dccmStateEmpty hlmBtn routerLink="/repas/planning"
+        >Aller au planning de repas</a
+      >
+
+      @if (listes().length === 1) {
+      <p class="text-body-regular" data-test="liste-visee">
+        {{ nomDeListe(listes()[0]) }}
+      </p>
+      } @else {
+      <ul class="flex flex-col md:max-w-md" aria-label="Listes ouvertes">
+        @for (liste of listes(); track liste.id) {
+        <li>
+          <button
+            dccmListRow
+            type="button"
+            data-test="liste"
+            [label]="nomDeListe(liste)"
+            [selected]="liste.id === visee()?.id"
+            [attr.aria-pressed]="liste.id === visee()?.id"
+            (click)="choisir(liste.id)"
+          ></button>
+        </li>
+        }
+      </ul>
+      }
+    </dccm-state>
+  </div>
+
+  <div hlmField>
+    <label hlmFieldLabel for="article-libelle">Libellé</label>
+    <input
+      hlmInput
+      id="article-libelle"
+      data-test="libelle"
+      autocomplete="off"
+      class="md:max-w-md"
+      [value]="libelle()"
+      [forceInvalid]="!!erreurs()['label']"
+      (input)="saisirLeLibelle($event)"
+    />
+    @if (erreurs()['label']; as message) {
+    <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+    }
+  </div>
+
+  <div hlmField>
+    <label hlmFieldLabel for="article-quantite">Quantité</label>
+    <input
+      hlmInput
+      id="article-quantite"
+      data-test="quantite"
+      type="number"
+      inputmode="decimal"
+      min="0"
+      step="any"
+      class="tabular-nums md:max-w-60"
+      [value]="quantite() ?? ''"
+      [forceInvalid]="!!erreurs()['quantity']"
+      (input)="saisirLaQuantite($event)"
+    />
+    @if (erreurs()['quantity']; as message) {
+    <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+    } @else {
+    <p hlmFieldDescription>Facultatif. Un compte : 6 œufs, 2 paquets.</p>
+    }
+  </div>
+</dccm-form-page>

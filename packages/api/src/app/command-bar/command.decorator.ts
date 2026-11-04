@@ -13,7 +13,9 @@ import { EXTENSION_COMMANDE } from './catalogue/generer';
  * - `screen` : l'URL du formulaire du front (`/calendrier/evenements/nouveau`),
  *   qui se préremplit depuis ses paramètres de requête (ADR 0030) ;
  * - `params` : les champs du schéma d'entrée que la barre peut préremplir. Un
- *   champ que ce schéma n'a pas fait échouer la génération.
+ *   champ que ce schéma n'a pas fait échouer la génération. Un écran qui lit
+ *   un champ sous un autre nom le dit par `{ field, usage }`
+ *   (`semaine: { field: 'week', usage: 'optional' }`).
  */
 export const Command = (annotation: CommandAnnotation): MethodDecorator =>
   ApiExtension(EXTENSION_COMMANDE, annotation);

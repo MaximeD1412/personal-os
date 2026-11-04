@@ -9,6 +9,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ZodResponse } from 'nestjs-zod';
+import { Command } from '../command-bar/command.decorator';
 import { Espaces } from '../espace/espaces.decorator';
 import {
   TrainingSessionCompletionDto,
@@ -45,6 +46,27 @@ export class TrainingSessionController {
 
   @Post()
   @ZodResponse({ status: 201, type: TrainingSessionDto })
+  @Command({
+    intent: 'Créer une Séance de sport, prévue ou déjà réalisée',
+    examples: [
+      'footing de 10 km demain à 7 h',
+      'séance de muscu jeudi à 19 h',
+      'prévois 45 minutes de vélo samedi à 9 h',
+      "j'ai nagé 1 500 m ce midi",
+      'fractionné 8 × 400 m mardi à 18 h 30',
+    ],
+    screen: '/sport/seances/nouvelle',
+    params: {
+      sport: 'optional',
+      startsAt: 'optional',
+      status: 'optional',
+      plannedDistanceM: 'optional',
+      plannedDurationS: 'optional',
+      plannedIntent: 'optional',
+      actualDistanceM: 'optional',
+      actualDurationS: 'optional',
+    },
+  })
   creer(@Body() saisie: TrainingSessionInputDto) {
     return this.seances.creer(saisie);
   }

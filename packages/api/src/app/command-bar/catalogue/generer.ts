@@ -112,11 +112,18 @@ function action(
   champs: Map<string, unknown>,
   openapi: OpenAPIObject,
 ): CommandAction {
-  const absents = Object.keys(params).filter((champ) => !champs.has(champ));
+  // Le nom que l'écran lit, et le champ de l'API qui le valide.
+  const lus = Object.entries(params).map(([nom, spec]) =>
+    typeof spec === 'string'
+      ? { nom, champ: nom, usage: spec }
+      : { nom, champ: spec.field, usage: spec.usage },
+  );
+
+  const absents = lus.filter(({ champ }) => !champs.has(champ));
   if (absents.length > 0) {
     const connus = [...champs.keys()].join(', ') || 'aucun';
     throw new Error(
-      `${absents.map((champ) => `« ${champ} »`).join(', ')} absent du schéma d'entrée (champs : ${connus}).`,
+      `${absents.map(({ champ }) => `« ${champ} »`).join(', ')} absent du schéma d'entrée (champs : ${connus}).`,
     );
   }
 
@@ -126,8 +133,8 @@ function action(
     examples,
     screen,
     params: Object.fromEntries(
-      Object.entries(params).map(([champ, usage]) => [
-        champ,
+      lus.map(({ nom, champ, usage }) => [
+        nom,
         {
           required: usage === 'required',
           schema: deplier(openapi, champs.get(champ), []) as JsonSchema,
