@@ -104,6 +104,10 @@ _Éviter_ : « synonyme », « variante ».
 L'unité dans laquelle les quantités d'un **Ingrédient** sont toujours consolidées, quelle que soit l'unité employée par la recette. Un **Ingrédient** peut porter un facteur de conversion validé une fois pour toutes (poids moyen à la pièce). L'unité d'affichage dans la liste de courses peut différer de l'unité canonique.
 _Éviter_ : parler d'« unité » sans préciser laquelle — recette, canonique ou affichage.
 
+**Unité de recette** (`RecipeUnit`) :
+L'unité dans laquelle une recette donne une quantité : masse (g, kg, mg), volume (ml, cl, l, cuillère à café de 5 ml, cuillère à soupe de 15 ml) ou pièce. Elle se ramène à l'**Unité canonique** de l'**Ingrédient** dans sa dimension, et entre pièces et grammes par le poids moyen à la pièce ; jamais d'un volume à une masse. Faute de quoi la conversion échoue, elle n'approxime pas.
+_Éviter_ : « mesure ».
+
 **Planning de repas** (`MealPlan`) :
 L'ensemble des **Repas planifiés** d'une semaine donnée, et l'objet sur lequel porte la génération par l'IA puis la validation.
 _Éviter_ : « calendrier des repas » — le **Calendrier** est un autre module —, « menu », « semaine ».

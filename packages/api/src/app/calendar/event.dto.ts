@@ -3,6 +3,8 @@ import {
   zEventInput,
   zEventListQuery,
   zEventOccurrence,
+  zEventOccurrenceRef,
+  zEventOccurrenceUpdate,
   zEventUpdate,
 } from '@personal-os/contracts';
 import { createZodDto } from 'nestjs-zod';
@@ -22,3 +24,9 @@ export class EventInputDto extends createZodDto(zEventInput) {}
 export class EventUpdateDto extends createZodDto(zEventUpdate) {}
 
 export class EventListQueryDto extends createZodDto(zEventListQuery) {}
+
+export class EventOccurrenceRefDto extends createZodDto(zEventOccurrenceRef) {}
+
+export class EventOccurrenceUpdateDto extends createZodDto(
+  zEventOccurrenceUpdate,
+) {}

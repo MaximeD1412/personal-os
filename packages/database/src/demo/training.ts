@@ -1,30 +1,25 @@
-import type { TrainingSessionCreateManyInput } from '../generated/prisma/models';
+import type { Prisma } from '../generated/prisma/client';
+import type { Demo, Semeur } from './seeder';
+
+type Saisie = Omit<Prisma.TrainingSessionCreateManyInput, 'scopeId'> & {
+  espace: 'a' | 'b';
+};
 
 /*
- * Le jeu de démo du Sport : une semaine de Séances pour un Compte, dans son
- * Espace personnel. Elle montre chaque statut (ADR 0022) : des Séances
- * réalisées contre leur prévu, une Séance manquée qui garde le sien, une sortie
- * non planifiée, née réalisée sans prévu, et des Séances encore prévues.
- *
- * Les données sont déterministes et relatives à la semaine donnée, jamais à des
- * dates en dur. Le branchement dans le semis (`semer`, la liste des semeurs,
- * la commande `pnpm demo:seed`) vient avec INFRA-6 (#85).
+ * Le jeu de démo du Sport : les jours autour du semis, dans l'Espace personnel
+ * de chaque Compte. Il montre chaque statut (ADR 0022) : des Séances réalisées
+ * contre leur prévu, une Séance manquée qui garde le sien, une sortie non
+ * planifiée, née réalisée sans prévu, et des Séances encore prévues. Le passé
+ * est réalisé ou manqué, l'avenir seulement prévu, comme le permet l'API.
  */
-
-const HEURE_MS = 3_600_000;
-const JOUR_MS = 24 * HEURE_MS;
-
-type SeanceDeDemo = Omit<
-  TrainingSessionCreateManyInput,
-  'scopeId' | 'startsAt'
->;
-
-/** Le jour (0 : lundi) et l'heure (après minuit) de chaque Séance. */
-const SEMAINE: { jour: number; heure: number; seance: SeanceDeDemo }[] = [
-  {
-    jour: 0,
-    heure: 7.25,
-    seance: {
+export function seancesDeDemo(
+  demo: Demo,
+): Prisma.TrainingSessionCreateManyInput[] {
+  const espaces = { a: demo.a.espacePersonnel, b: demo.b.espacePersonnel };
+  const seances: Saisie[] = [
+    {
+      espace: 'a',
+      startsAt: demo.le(-6, '07:15'),
       sport: 'RUN',
       status: 'DONE',
       plannedDistanceM: 10_000,
@@ -34,73 +29,83 @@ const SEMAINE: { jour: number; heure: number; seance: SeanceDeDemo }[] = [
       actualDurationS: 3_840,
       actualNotes: 'Bonnes jambes',
     },
-  },
-  {
-    jour: 1,
-    heure: 18.5,
-    seance: {
+    {
+      espace: 'a',
+      startsAt: demo.le(-4, '18:30'),
       sport: 'SWIM',
       status: 'MISSED',
       plannedDistanceM: 1_500,
       plannedDurationS: 1_800,
     },
-  },
-  {
-    jour: 2,
-    heure: 12.5,
-    seance: {
+    {
+      espace: 'a',
+      startsAt: demo.le(-2, '12:30'),
       sport: 'STRENGTH',
       status: 'DONE',
       plannedDurationS: 2_700,
       plannedIntent: 'Gainage',
       actualDurationS: 2_400,
     },
-  },
-  {
-    jour: 3,
-    heure: 19,
-    seance: {
+    {
+      espace: 'a',
+      startsAt: demo.le(-1, '19:00'),
       sport: 'BIKE',
       status: 'DONE',
       actualDistanceM: 32_000,
       actualDurationS: 4_500,
       actualNotes: 'Sortie imprévue avec le club',
     },
-  },
-  {
-    jour: 5,
-    heure: 9,
-    seance: {
+    {
+      espace: 'a',
+      startsAt: demo.le(1, '07:15'),
+      sport: 'RUN',
+      status: 'PLANNED',
+      plannedDistanceM: 8_000,
+      plannedIntent: 'Fractionné 6 × 800 m',
+    },
+    {
+      espace: 'a',
+      startsAt: demo.le(3, '09:00'),
       sport: 'RUN',
       status: 'PLANNED',
       plannedDistanceM: 18_000,
       plannedDurationS: 6_300,
       plannedIntent: 'Sortie longue',
     },
-  },
-  {
-    jour: 6,
-    heure: 10,
-    seance: {
+    {
+      espace: 'b',
+      startsAt: demo.le(-3, '18:00'),
+      sport: 'SWIM',
+      status: 'DONE',
+      plannedDistanceM: 2_000,
+      actualDistanceM: 2_000,
+      actualDurationS: 2_700,
+    },
+    {
+      espace: 'b',
+      startsAt: demo.le(2, '10:00'),
       sport: 'OTHER',
       status: 'PLANNED',
       plannedDurationS: 3_600,
-      plannedIntent: 'Randonnée',
+      plannedIntent: 'Yoga',
     },
-  },
-];
+  ];
 
-/**
- * Les Séances de la semaine qui commence à `lundi` (minuit à Paris), dans
- * l'Espace personnel `scopeId`.
- */
-export function seancesDeLaSemaine(
-  lundi: Date,
-  scopeId: string,
-): TrainingSessionCreateManyInput[] {
-  return SEMAINE.map(({ jour, heure, seance }) => ({
+  return seances.map(({ espace, ...seance }) => ({
     ...seance,
-    startsAt: new Date(lundi.getTime() + jour * JOUR_MS + heure * HEURE_MS),
-    scopeId,
+    scopeId: espaces[espace],
   }));
 }
+
+/** Le semeur du module `training` : les Séances des deux Comptes. */
+export const training: Semeur = {
+  module: 'training',
+  modeles: ['TrainingSession'],
+  espaces: ['PERSONAL'],
+  async semer(prisma, demo) {
+    const { count } = await prisma.trainingSession.createMany({
+      data: seancesDeDemo(demo),
+    });
+    return count;
+  },
+};

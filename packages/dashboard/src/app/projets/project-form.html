@@ -1,0 +1,137 @@
+<dccm-state
+  [status]="etatDeLaLecture()"
+  [error]="actuel.error()"
+  skeleton="detail"
+  (retry)="actuel.reload()"
+>
+  <dccm-form-page
+    [heading]="titre"
+    subtitle="Un projet de votre Espace personnel. Les notes restent privées."
+    [breadcrumb]="fil()"
+    [submitLabel]="action"
+    [ignored]="prefill.ignores"
+    [error]="refus()"
+    [pending]="envoi()"
+    (submitted)="enregistrer()"
+    (cancelled)="fermer()"
+  >
+    <div hlmField>
+      <label hlmFieldLabel for="projet-titre">Titre</label>
+      <input
+        hlmInput
+        id="projet-titre"
+        data-test="titre"
+        autocomplete="off"
+        [value]="titreSaisi()"
+        [forceInvalid]="!!erreurs()['title']"
+        (input)="titreSaisi.set(valeur($event))"
+      />
+      @if (erreurs()['title']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </div>
+
+    <div hlmField>
+      <label hlmFieldLabel for="projet-notes">Notes</label>
+      <textarea
+        hlmInput
+        id="projet-notes"
+        data-test="notes"
+        rows="12"
+        class="h-auto min-h-48 py-space-sm font-mono text-code-mono"
+        [value]="notes()"
+        [forceInvalid]="!!erreurs()['notes']"
+        (input)="notes.set(valeur($event))"
+      ></textarea>
+      @if (erreurs()['notes']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      } @else {
+      <p hlmFieldDescription>
+        En markdown : titres, listes, cases à cocher, liens.
+      </p>
+      }
+    </div>
+
+    <fieldset class="flex flex-col gap-space-sm" data-test="liens">
+      <legend
+        class="mb-space-sm text-label-regular font-semibold text-on-surface"
+      >
+        Liens
+      </legend>
+      @for (lien of liens(); track $index; let i = $index) {
+      <!-- Sous 768 px, le libellé et l'adresse s'empilent, la croix à leur droite. -->
+      <div
+        class="grid grid-cols-[1fr_auto] items-start gap-space-sm border-b border-surface-container-high pb-space-sm md:grid-cols-[1fr_2fr_auto] md:border-0 md:pb-0"
+        data-test="lien"
+      >
+        <div hlmField class="col-start-1">
+          <label hlmFieldLabel class="sr-only" [for]="'lien-libelle-' + i"
+            >Libellé du lien {{ i + 1 }}</label
+          >
+          <input
+            hlmInput
+            data-test="lien-libelle"
+            placeholder="Libellé"
+            autocomplete="off"
+            [id]="'lien-libelle-' + i"
+            [value]="lien.label"
+            [forceInvalid]="!!erreurs()['links.' + i + '.label']"
+            (input)="modifierLeLien(i, { label: valeur($event) })"
+          />
+          @if (erreurs()['links.' + i + '.label']; as message) {
+          <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+          }
+        </div>
+        <div hlmField class="col-start-1 md:col-start-2 md:row-start-1">
+          <label hlmFieldLabel class="sr-only" [for]="'lien-adresse-' + i"
+            >Adresse du lien {{ i + 1 }}</label
+          >
+          <input
+            hlmInput
+            type="url"
+            inputmode="url"
+            data-test="lien-adresse"
+            placeholder="https://"
+            autocomplete="off"
+            [id]="'lien-adresse-' + i"
+            [value]="lien.url"
+            [forceInvalid]="!!erreurs()['links.' + i + '.url']"
+            (input)="modifierLeLien(i, { url: valeur($event) })"
+          />
+          @if (erreurs()['links.' + i + '.url']; as message) {
+          <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+          }
+        </div>
+        <button
+          hlmBtn
+          type="button"
+          variant="ghost"
+          size="icon"
+          class="col-start-2 row-start-1 md:col-start-3"
+          data-test="retirer-le-lien"
+          [attr.aria-label]="'Retirer le lien ' + (i + 1)"
+          (click)="retirerLeLien(i)"
+        >
+          <ng-icon name="matCloseOutline" aria-hidden="true" />
+        </button>
+      </div>
+      }
+      <div>
+        <button
+          hlmBtn
+          type="button"
+          variant="secondary"
+          size="sm"
+          data-test="ajouter-un-lien"
+          (click)="ajouterUnLien()"
+        >
+          <ng-icon name="matAddLinkOutline" aria-hidden="true" />
+          Ajouter un lien
+        </button>
+      </div>
+      @if (erreurs()['links']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+    </fieldset>
+  </dccm-form-page>
+</dccm-state>

@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { cloisonner } from './espace/cloisonnement';
+import { lireLeModeleDeDonnees, lireLeSchema } from './espace/modeles';
 import { porteeCourante } from './espace/portee';
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient, type Prisma } from '../generated/prisma/client';
 
 /**
  * Le point d'accès unique aux données, et le seul endroit où le filtrage par
@@ -23,6 +24,7 @@ export class PrismaService {
     const client = new PrismaClient({
       adapter: new PrismaPg({ connectionString }),
     });
+    const schema = lireLeSchema(lireLeModeleDeDonnees(client));
 
     // `$extends` rend un nouveau client plutôt que de modifier celui-ci : c'est
     // lui que l'on conserve derrière la façade. L'extension ne change aucun
@@ -35,6 +37,7 @@ export class PrismaService {
               cloisonner(
                 { model, operation, args: args as Record<string, unknown> },
                 porteeCourante(),
+                schema,
               ),
             );
           },
@@ -60,10 +63,6 @@ export class PrismaService {
     return this.#client.user;
   }
 
-  get trace() {
-    return this.#client.trace;
-  }
-
   get event() {
     return this.#client.event;
   }
@@ -80,6 +79,78 @@ export class PrismaService {
     return this.#client.unresolvedCommand;
   }
 
+  get ingredient() {
+    return this.#client.ingredient;
+  }
+
+  get ingredientAlias() {
+    return this.#client.ingredientAlias;
+  }
+
+  get foodPreference() {
+    return this.#client.foodPreference;
+  }
+
+  get recipe() {
+    return this.#client.recipe;
+  }
+
+  get recipeLine() {
+    return this.#client.recipeLine;
+  }
+
+  get pantryItem() {
+    return this.#client.pantryItem;
+  }
+
+  get cookedMeal() {
+    return this.#client.cookedMeal;
+  }
+
+  get cookedMealLine() {
+    return this.#client.cookedMealLine;
+  }
+
+  get shoppingList() {
+    return this.#client.shoppingList;
+  }
+
+  get shoppingListItem() {
+    return this.#client.shoppingListItem;
+  }
+
+  get mealPlan() {
+    return this.#client.mealPlan;
+  }
+
+  get mealPlanEntry() {
+    return this.#client.mealPlanEntry;
+  }
+
+  get generationRound() {
+    return this.#client.generationRound;
+  }
+
+  get mealWish() {
+    return this.#client.mealWish;
+  }
+
+  get project() {
+    return this.#client.project;
+  }
+
+  get projectExpense() {
+    return this.#client.projectExpense;
+  }
+
+  get publicPresentation() {
+    return this.#client.publicPresentation;
+  }
+
+  get pageContent() {
+    return this.#client.pageContent;
+  }
+
   get trainingSession() {
     return this.#client.trainingSession;
   }
@@ -90,6 +161,20 @@ export class PrismaService {
 
   get loginTransaction() {
     return this.#client.loginTransaction;
+  }
+
+  /**
+   * Des opérations de délégué exécutées ensemble, ou pas du tout. Seule la
+   * forme en lot est exposée : chaque opération passe par la garde comme
+   * les autres. La forme interactive donnerait un client de transaction, et
+   * avec lui le SQL brut que la façade refuse.
+   */
+  $transaction<P extends Prisma.PrismaPromise<unknown>[]>(operations: [...P]) {
+    // Le type l'interdit déjà ; un appel non typé ne doit pas l'obtenir non plus.
+    if (!Array.isArray(operations)) {
+      throw new Error("Une transaction ne s'ouvre qu'en lot d'opérations.");
+    }
+    return this.#client.$transaction(operations);
   }
 
   async $connect(): Promise<void> {

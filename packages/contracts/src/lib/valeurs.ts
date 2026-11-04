@@ -68,8 +68,8 @@ export function periodeDuMois(
   const annee = Number(correspondance[1]);
   const indice = Number(correspondance[2]) - 1;
 
-  const debut = minuitDans(fuseau, annee, indice);
-  const suivant = minuitDans(fuseau, annee, indice + 1);
+  const debut = minuitDans(fuseau, annee, indice, 1);
+  const suivant = minuitDans(fuseau, annee, indice + 1, 1);
 
   return {
     from: debut.toISOString(),
@@ -78,34 +78,60 @@ export function periodeDuMois(
 }
 
 /**
- * La période d'une semaine désignée par son lundi, du lundi à minuit au
+ * La période d'une semaine (un `zWeek`, son lundi), du lundi à minuit au
  * dimanche à 23:59:59.999, dans le fuseau donné.
  */
 export function periodeDeLaSemaine(
   lundi: string,
   fuseau = FUSEAU,
 ): { from: string; to: string } {
-  const [annee, mois, jour] = zWeek.parse(lundi).split('-').map(Number);
+  const debut = enMinuitUtc(zWeek.parse(lundi));
+  const annee = debut.getUTCFullYear();
+  const indice = debut.getUTCMonth();
+  const jour = debut.getUTCDate();
 
-  const debut = minuitDans(fuseau, annee, mois - 1, jour);
-  const suivant = minuitDans(fuseau, annee, mois - 1, jour + 7);
+  const suivant = minuitDans(fuseau, annee, indice, jour + 7);
 
   return {
-    from: debut.toISOString(),
+    from: minuitDans(fuseau, annee, indice, jour).toISOString(),
     to: new Date(suivant.getTime() - 1).toISOString(),
   };
 }
 
 /**
- * Un jour à minuit, heure du fuseau (le premier du mois par défaut). Minuit ne
- * tombe jamais dans un changement d'heure à Paris : un seul décalage le
- * désigne.
+ * L'instant d'une heure murale d'un jour civil, dans le fuseau donné : le
+ * déjeuner de midi à Paris, en UTC. L'heure ne doit pas tomber dans un
+ * changement d'heure (entre 2 h et 3 h à Paris), où elle serait ambiguë.
+ */
+export function instantDans(
+  jour: string,
+  heure: number,
+  minute: number,
+  fuseau = FUSEAU,
+): string {
+  const date = enMinuitUtc(zDay.parse(jour));
+  const muraleUtc = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    heure,
+    minute,
+  );
+  const premier = muraleUtc - decalage(fuseau, muraleUtc);
+
+  return new Date(muraleUtc - decalage(fuseau, premier)).toISOString();
+}
+
+/**
+ * Un jour à minuit, heure du fuseau (`Date.UTC` reporte un jour qui déborde
+ * du mois). Minuit ne tombe jamais dans un changement d'heure à Paris : un
+ * seul décalage le désigne.
  */
 function minuitDans(
   fuseau: string,
   annee: number,
   indice: number,
-  jour = 1,
+  jour: number,
 ): Date {
   const minuitUtc = Date.UTC(annee, indice, jour);
   const premier = minuitUtc - decalage(fuseau, minuitUtc);

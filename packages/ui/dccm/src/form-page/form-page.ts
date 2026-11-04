@@ -1,8 +1,13 @@
+import { FocusTrapFactory, type FocusTrap } from '@angular/cdk/a11y';
 import {
   booleanAttribute,
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
+  effect,
+  ElementRef,
+  inject,
   input,
   output,
 } from '@angular/core';
@@ -47,6 +52,11 @@ let prochainId = 0;
  * Il n'enregistre rien de lui-même : il émet `submitted`, l'écran envoie. Les
  * erreurs de champ s'affichent dans les `hlmField` projetés, depuis
  * `erreursDeChamp` (docs/design-system.md, « Composer un écran »).
+ *
+ * En feuille, il est modal, comme un dialogue : il prend le focus à son
+ * ouverture, le garde à la tabulation, se ferme par Échap (`cancelled`) et
+ * rend le focus à ce qui l'avait à sa fermeture. L'écran pose le voile qui
+ * bloque le pointeur derrière lui.
  */
 @Component({
   selector: 'dccm-form-page',
@@ -55,8 +65,10 @@ let prochainId = 0;
   host: {
     'data-slot': 'form-page',
     '[attr.data-presentation]': 'presentation()',
-    '[attr.role]': "presentation() === 'page' ? null : 'region'",
+    '[attr.role]': '_role()',
+    '[attr.aria-modal]': "presentation() === 'sheet' ? 'true' : null",
     '[attr.aria-labelledby]': "presentation() === 'page' ? null : _idTitre",
+    '(keydown.escape)': '_echap($event)',
   },
   template: `
     @if (presentation() === 'page') {
@@ -168,6 +180,23 @@ export class DccmFormPage {
   protected readonly _idTitre = `dccm-form-page-${prochainId++}`;
   protected readonly _iconeFermer = matCloseOutline;
 
+  protected readonly _role = computed(() => {
+    switch (this.presentation()) {
+      case 'page':
+        return null;
+      case 'panel':
+        return 'region';
+      case 'sheet':
+        return 'dialog';
+    }
+  });
+
+  private readonly _hote = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly _pieges = inject(FocusTrapFactory);
+  private _piege: FocusTrap | null = null;
+  /** Ce qui avait le focus quand la feuille s'est ouverte. */
+  private _focusARendre: HTMLElement | null = null;
+
   protected readonly _refusSansChamp = computed(() => {
     const refus = this.error();
     return refus && !refus.fields?.length ? refus.message : null;
@@ -190,6 +219,51 @@ export class DccmFormPage {
 
   constructor() {
     classes(() => presentations[this.presentation()]);
+
+    effect(() => {
+      if (this.presentation() === 'sheet') {
+        this._pieger();
+      } else {
+        this._liberer();
+      }
+    });
+
+    inject(DestroyRef).onDestroy(() => {
+      this._liberer();
+      if (this._focusARendre?.isConnected) {
+        this._focusARendre.focus();
+      }
+      this._focusARendre = null;
+    });
+  }
+
+  /**
+   * Échap ferme la feuille, sauf quand il revient d'abord à ce qu'elle
+   * contient d'ouvert : la liste d'un `hlm-select` garde le focus sur son
+   * déclencheur (`aria-expanded="true"`) et se ferme par la surcouche du CDK,
+   * à l'écoute sur le `body`, donc après la feuille.
+   */
+  protected _echap(evenement: Event): void {
+    if (this.presentation() !== 'sheet' || evenement.defaultPrevented) return;
+    const cible = evenement.target;
+    if (cible instanceof Element && cible.closest('[aria-expanded="true"]')) {
+      return;
+    }
+    this.cancelled.emit();
+  }
+
+  private _pieger(): void {
+    if (this._piege) return;
+    const actif = this._hote.nativeElement.ownerDocument.activeElement;
+    this._focusARendre = actif instanceof HTMLElement ? actif : null;
+    this._piege = this._pieges.create(this._hote.nativeElement, true);
+    this._piege.attachAnchors();
+    void this._piege.focusInitialElementWhenReady();
+  }
+
+  private _liberer(): void {
+    this._piege?.destroy();
+    this._piege = null;
   }
 
   protected _envoyer(): void {

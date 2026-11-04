@@ -95,22 +95,49 @@ et lève `food.list_already_closed`.
 | Séance, Objectif                         | `TrainingSession`, `TrainingGoal`                                |
 | Prévu, Réalisé, statut (d'une Séance)    | `planned*`, `actual*`, `PLANNED`, `DONE`, `MISSED`               |
 | Ingrédient, Alias, Unité canonique       | `Ingredient`, `IngredientAlias`, `canonicalUnit`                 |
+| Résolveur d'ingrédients                  | `resoudre`, `IngredientResolution`                               |
+| Unité de recette                         | `RecipeUnit`, `UNITES_DE_RECETTE`                                |
 | Recette                                  | `Recipe`                                                         |
+| Ligne (d'une Recette), Origine           | `RecipeLine`, `RecipeSource` (`MANUAL`, `GENERATED`)             |
 | Planning de repas, Repas planifié        | `MealPlan`, `MealPlanEntry`                                      |
+| Moment (déjeuner, dîner)                 | `MealMoment` : `LUNCH`, `DINNER`                                 |
+| Décision (approuvé, proposé, refusé)     | `MealPlanEntryDecision` : `APPROVED`, `PROPOSED`, `REFUSED`      |
+| Planning ouvert, arrêté                  | `MealPlanStatus` : `OPEN`, `STOPPED`                             |
+| Portions (d'un Repas planifié)           | `servings`, `portions()`                                         |
 | Tour de génération, Souhait              | `GenerationRound`, `MealWish`                                    |
+| Contrôle (d'un tour), créneau écarté     | `controler`, `RejectedSlot` (`rejected`), `RejectionReason`      |
 | Préférence alimentaire, Allergène        | `FoodPreference`, `Allergen`                                     |
+| Allergie, aliment exclu, peu apprécié    | `FoodPreferenceKind` : `ALLERGY`, `EXCLUDED`, `DISLIKED`         |
+| Contraintes d'un repas                   | `contraintesDuRepas` : `interdits`, `evites`                     |
 | Liste de courses, Article de courses     | `ShoppingList`, `ShoppingListItem`                               |
+| Liste ouverte, close                     | `ShoppingListStatus` : `OPEN`, `CLOSED`                          |
+| Origine d'un Article (planning, manuel)  | `ShoppingListItemOrigin` : `PLAN`, `MANUAL`                      |
+| Consolidateur, Article coché             | `consolider`, `checked`                                          |
 | Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
 | Stock domestique                         | `PantryItem`                                                     |
+| Péremption (d'une ligne de stock)        | `expiresOn`                                                      |
+| Recaleur, mouvement de stock             | `recaler`, `ACHAT`, `CONSOMMATION`, `CORRECTION`                 |
 | Repas cuisiné                            | `CookedMeal`                                                     |
+| Ligne (d'un Repas cuisiné)               | `CookedMealLine`                                                 |
+| Manque (ce que le stock n'avait pas)     | `shortfalls` (`CookedMealShortfall`), `consommer`                |
 | Projet, Présentation publique            | `Project`, `PublicPresentation`                                  |
+| État de publication                      | `PublicationState` : `UNPUBLISHED`, `READY`, `PUBLISHED`         |
+| Langue (du portfolio)                    | `Lang` : `FR`, `EN`                                              |
+| Dépense de projet, Lien de projet        | `ProjectExpense`, `links` (`ProjectLink`)                        |
 | Page de contenu                          | `PageContent`                                                    |
+| CV (du portfolio)                        | `Cv`, routes `/cv/:lang`                                         |
+| Portfolio public (lecture sans session)  | routes `/public/…`, `@LecturePublique()`, `PORTEE_PUBLIQUE`      |
+| Stockage objet                           | `StockageObjet`, module `storage`, `STORAGE_PROVIDER`            |
+| Présentation, Expériences, Compétences   | `slug` : `about`, `experience`, `skills`                         |
 | Port IA, Trace IA (d'un appel au modèle) | `GenerateurIA`, `AiTrace`                                        |
 | Barre de commande, Catalogue d'actions   | `command-bar`, `CommandCatalog`, `CommandAction`, `@Command`     |
 | Commande non comprise                    | `UnresolvedCommand`                                              |
+| À faire, Calculateur d'À faire           | `Todo`, `aFaire`                                                 |
+| Résumé de module, Résumeur de module     | `ModuleSummary`, `ResumeurDeModule`, `SummaryRegistry`           |
+| Signal, Indicateur (d'un Résumé)         | `Signal`, `SummaryIndicator`                                     |
 
 Les modules Nest : `calendar`, `agenda`, `household`, `training`, `food`, `projects`,
-`portfolio`, `dashboard`, `command-bar`, `ai`. Un terme absent de cette table se
+`portfolio`, `dashboard`, `command-bar`, `ai`, `storage`. Un terme absent de cette table se
 traduit en restant au plus près du glossaire, et la traduction s'ajoute ici
 dans la même PR.
 
@@ -159,6 +186,12 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
   pousse jamais directement, et la PR `develop` → `main` est faite à la main.
 - Une migration ne retire jamais ce que la version précédente utilise encore
   (ADR 0024).
+- **Un ticket qui ajoute un module ajoute son semeur** au jeu de démo
+  (`packages/database/src/demo/`, un fichier par module, inscrit dans
+  `SEMEURS`). Le staging est réinitialisé à partir de ce jeu (ADR 0031), et
+  `seeders.spec.ts` échoue si un modèle cloisonné n'appartient à aucun semeur.
+  Ses dates sont relatives au jour du semis (`demo.le(decalage, heure)`), jamais
+  en dur. Vérifier : `pnpm exec nx test-integration database`.
 - **Aucun secret commité**, même factice au format réel : la CI scanne
   l'historique de la PR (gitleaks). Une exception s'écrit dans
   `.gitleaks.toml`, jamais par un commentaire dans le code ni par un

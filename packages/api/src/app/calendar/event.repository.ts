@@ -31,6 +31,9 @@ export interface EventExceptionRecord extends ExceptionDOccurrence {
   eventId: string;
 }
 
+/** Ce qu'une exception pose sur l'occurrence qu'elle vise. */
+export type EventExceptionWrite = Omit<ExceptionDOccurrence, 'originalStart'>;
+
 /** La rangée telle que Prisma la rend : la règle n'y est qu'un JSON. */
 type RangeeEvenement = Omit<EventRecord, 'recurrence'> & {
   recurrence: unknown;
@@ -95,6 +98,20 @@ export class EventRepository {
     return rangees.map(enEvenement);
   }
 
+  /**
+   * Le plus long délai de rappel des Échéances atteignables, en minutes : la
+   * plus lointaine qui puisse déjà se signaler (ADR 0017). `null` si aucune
+   * n'en porte.
+   */
+  async plusLongRappelDEcheance(): Promise<number | null> {
+    const { _max } = await this.prisma.event.aggregate({
+      where: { category: 'DEADLINE' },
+      _max: { reminderLeadMinutes: true },
+    });
+
+    return _max.reminderLeadMinutes;
+  }
+
   /** Les exceptions des Événements nommés, lues par la garde comme le reste. */
   exceptionsDe(eventIds: readonly string[]): Promise<EventExceptionRecord[]> {
     if (eventIds.length === 0) {
@@ -148,6 +165,29 @@ export class EventRepository {
 
   async supprimer(id: string): Promise<EventRecord> {
     return enEvenement(await this.prisma.event.delete({ where: { id } }));
+  }
+
+  /**
+   * Pose l'exception d'une occurrence, ou remplace celle qui la visait déjà :
+   * une occurrence n'en a qu'une. Elle est dans l'Espace de son Événement.
+   */
+  async poserLException(
+    evenement: Pick<EventRecord, 'id' | 'scopeId'>,
+    originalStart: Date,
+    exception: EventExceptionWrite,
+  ): Promise<void> {
+    await this.prisma.eventException.upsert({
+      where: {
+        eventId_originalStart: { eventId: evenement.id, originalStart },
+      },
+      create: {
+        ...exception,
+        eventId: evenement.id,
+        scopeId: evenement.scopeId,
+        originalStart,
+      },
+      update: exception,
+    });
   }
 }
 

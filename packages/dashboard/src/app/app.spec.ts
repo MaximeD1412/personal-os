@@ -41,7 +41,6 @@ describe('App', () => {
           { path: '', pathMatch: 'full', redirectTo: 'agenda' },
           { path: 'agenda', component: Ecran },
           { path: 'calendrier', component: Ecran },
-          { path: 'fil-traceur', component: Ecran },
         ]),
         provideHttpClient(withInterceptorsFromDi()),
         provideHttpClientTesting(),
@@ -176,12 +175,6 @@ describe('App', () => {
     const { racine } = await monter();
 
     expect(entree(racine, 'Accueil').hasAttribute('href')).toBe(false);
-  });
-
-  it('ne met plus le fil traceur dans la navigation', async () => {
-    const { racine } = await monter();
-
-    expect(texte(racine)).not.toContain('Fil traceur');
   });
 
   it("ne propose que les Espaces que l'API renvoie", async () => {

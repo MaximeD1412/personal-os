@@ -51,6 +51,7 @@ function envelopper(erreur: unknown, horsDeRoute: boolean): ApiError {
       status: erreur.status,
       code: erreur.code,
       message: erreur.message,
+      ...(erreur.fields ? { fields: [...erreur.fields] } : {}),
     };
   }
   if (erreur instanceof ZodValidationException) {
@@ -121,6 +122,18 @@ function refusDEspace(raison: RaisonDuRefus, message: string): ApiError {
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         code: 'scope.undeclared',
+        message: MESSAGE_DE_DEFAUT,
+      };
+    case 'imbrication':
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: 'scope.nested_write',
+        message: MESSAGE_DE_DEFAUT,
+      };
+    case 'lecture-publique':
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: 'scope.public_read',
         message: MESSAGE_DE_DEFAUT,
       };
   }

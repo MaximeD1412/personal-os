@@ -1,0 +1,132 @@
+<div class="flex flex-col gap-margin-mobile md:gap-margin">
+  <dccm-page-header
+    heading="Trace de génération"
+    [subtitle]="sousTitre()"
+    [breadcrumb]="fil"
+  >
+    <a
+      hlmBtn
+      variant="secondary"
+      data-test="retour"
+      routerLink="/repas/planning"
+      [queryParams]="retour"
+    >
+      <ng-icon [svg]="icones.retour" aria-hidden="true" />
+      Revenir au planning
+    </a>
+  </dccm-page-header>
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="detail"
+    loadingLabel="Chargement de la trace…"
+    errorHeading="La trace n'a pas pu être lue"
+    (retry)="lecture.reload()"
+  >
+    @if (trace(); as trace) {
+    <div class="flex flex-col gap-gutter">
+      @if (trace.error; as echec) {
+      <div hlmAlert tone="error" data-test="echec">
+        <hlm-alert-icon />
+        <div hlmAlertContent>
+          <p hlmAlertTitle>L'appel n'a rien rendu d'utilisable</p>
+          <p hlmAlertDescription>{{ echec }}</p>
+        </div>
+      </div>
+      }
+
+      <section hlmCard>
+        <dl class="grid gap-gutter md:grid-cols-3">
+          <div class="flex min-w-0 flex-col gap-space-xs">
+            <dt class="text-label-micro font-semibold uppercase text-outline">
+              Modèle
+            </dt>
+            <dd
+              class="break-words text-title-sm text-on-surface"
+              data-test="modele"
+            >
+              {{ trace.model }}
+            </dd>
+          </div>
+          <div class="flex min-w-0 flex-col gap-space-xs">
+            <dt class="text-label-micro font-semibold uppercase text-outline">
+              Jetons
+            </dt>
+            <dd
+              class="text-title-sm tabular-nums text-on-surface"
+              data-test="jetons"
+            >
+              {{ jetons() }}
+            </dd>
+          </div>
+          <div class="flex min-w-0 flex-col gap-space-xs">
+            <dt class="text-label-micro font-semibold uppercase text-outline">
+              Coût
+            </dt>
+            <dd
+              class="text-title-sm tabular-nums text-secondary"
+              data-test="cout"
+            >
+              {{ cout() }}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section hlmCard data-test="consigne">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Consigne</h2>
+          <p hlmCardDescription>Ce que le modèle reçoit à chaque tour.</p>
+        </div>
+        <div hlmCardContent>
+          <pre
+            class="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-container-lowest p-space-md font-mono text-code-mono text-on-surface-variant"
+          >
+{{ trace.system }}</pre
+          >
+        </div>
+      </section>
+
+      <section hlmCard data-test="demande">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Demande</h2>
+          <p hlmCardDescription>
+            Les créneaux, les Préférences, les Souhaits et le stock de la
+            semaine.
+          </p>
+        </div>
+        <div hlmCardContent>
+          <pre
+            class="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-container-lowest p-space-md font-mono text-code-mono text-on-surface-variant"
+          >
+{{ trace.input }}</pre
+          >
+        </div>
+      </section>
+
+      <section hlmCard data-test="reponse">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Réponse brute</h2>
+          <p hlmCardDescription>
+            Telle que le modèle l'a rendue, avant le contrôle.
+          </p>
+        </div>
+        <div hlmCardContent>
+          @if (trace.output; as reponse) {
+          <pre
+            class="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded bg-surface-container-lowest p-space-md font-mono text-code-mono text-secondary"
+          >
+{{ reponse }}</pre
+          >
+          } @else {
+          <p class="text-body-default text-outline">
+            Aucune réponse du modèle.
+          </p>
+          }
+        </div>
+      </section>
+    </div>
+    }
+  </dccm-state>
+</div>

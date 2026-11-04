@@ -1,267 +1,342 @@
-<section hlmCard class="mt-6">
-  <div hlmCardHeader>
-    <h2 hlmCardTitle>Calendrier</h2>
-    <p hlmCardDescription>
-      Les Événements de vos Espaces. L'Espace est choisi à la création, jamais
-      deviné.
-    </p>
-  </div>
-
-  <div hlmCardContent>
-    <label class="mb-4 flex w-fit flex-col gap-1.5">
-      <span hlmLabel>Mois</span>
-      <input
-        hlmInput
-        type="month"
-        data-test="mois"
-        [value]="mois()"
-        (input)="afficherLeMois($event)"
-      />
-    </label>
-
-    @if (ignores().length > 0) {
-    <p
-      class="border-border text-muted-foreground mb-4 rounded-md border px-3 py-2 text-sm"
-      data-test="ignores"
+<div class="flex flex-col gap-margin-mobile md:gap-margin">
+  <dccm-page-header
+    heading="Calendrier"
+    subtitle="Les Événements de vos Espaces. L'Espace est choisi à chaque saisie, jamais deviné."
+    [breadcrumb]="[{ label: 'Organisation' }, { label: 'Calendrier' }]"
+  >
+    <a
+      hlmBtn
+      data-test="nouvel-evenement"
+      routerLink="/calendrier/evenements/nouveau"
+      [queryParams]="parametresDeCreation()"
     >
-      Ces valeurs n'ont pas pu être reprises : {{ ignores().join(', ') }}.
-    </p>
-    }
+      <ng-icon [svg]="icones.ajouter" aria-hidden="true" />
+      Nouvel événement
+    </a>
+  </dccm-page-header>
 
-    <form
-      class="flex flex-wrap items-start gap-3"
-      (submit)="$event.preventDefault(); enregistrer()"
+  <div
+    class="grid items-start gap-gutter"
+    [class]="resserree() ? 'grid-cols-[minmax(0,1fr)_22rem]' : ''"
+  >
+    <section
+      aria-labelledby="calendrier-mois"
+      class="flex min-w-0 flex-col gap-gutter"
     >
-      <label class="flex flex-col gap-1.5">
-        <span hlmLabel>Intitulé</span>
-        <input
-          hlmInput
-          class="w-56"
-          type="text"
-          data-test="titre"
-          placeholder="Intitulé"
-          [value]="saisie().titre"
-          (input)="saisir('titre', $event)"
-        />
-        @if (erreursDeChamp()['title']; as message) {
-        <span class="text-destructive text-xs" data-test="erreur-title"
-          >{{ message }}</span
-        >
-        }
-      </label>
-
-      <label class="flex flex-col gap-1.5">
-        <span hlmLabel>Début</span>
-        <input
-          hlmInput
-          type="datetime-local"
-          data-test="debut"
-          [value]="saisie().debut"
-          [disabled]="horairesVerrouilles()"
-          (input)="saisir('debut', $event)"
-        />
-        @if (erreursDeChamp()['startsAt']; as message) {
-        <span class="text-destructive text-xs" data-test="erreur-startsAt"
-          >{{ message }}</span
-        >
-        }
-      </label>
-
-      <label class="flex flex-col gap-1.5">
-        <span hlmLabel>Fin</span>
-        <input
-          hlmInput
-          type="datetime-local"
-          data-test="fin"
-          [value]="saisie().fin"
-          [disabled]="horairesVerrouilles()"
-          (input)="saisir('fin', $event)"
-        />
-        @if (erreursDeChamp()['endsAt']; as message) {
-        <span class="text-destructive text-xs" data-test="erreur-endsAt"
-          >{{ message }}</span
-        >
-        }
-      </label>
-
-      @if (horairesVerrouilles()) {
-      <p
-        class="text-muted-foreground basis-full text-xs"
-        data-test="horaires-verrouilles"
-      >
-        Les horaires d’une série ne se modifient pas depuis l’une de ses
-        occurrences.
-      </p>
-      }
-
-      <div class="flex flex-col gap-1.5">
-        <label hlmLabel for="calendrier-categorie">Catégorie</label>
-        <hlm-select
-          data-test="categorie"
-          [value]="saisie().categorie"
-          [itemToString]="nomDeLaCategorie"
-          (valueChange)="choisir('categorie', $event)"
-        >
-          <hlm-select-trigger buttonId="calendrier-categorie" class="w-44">
-            <hlm-select-value />
-          </hlm-select-trigger>
-          <hlm-select-content *hlmSelectPortal>
-            @for (categorie of categories; track categorie.valeur) {
-            <hlm-select-item [value]="categorie.valeur"
-              >{{ categorie.libelle }}</hlm-select-item
-            >
-            }
-          </hlm-select-content>
-        </hlm-select>
-        @if (erreursDeChamp()['category']; as message) {
-        <span class="text-destructive text-xs" data-test="erreur-category"
-          >{{ message }}</span
-        >
-        }
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <label hlmLabel for="calendrier-espace">Espace</label>
-        <hlm-select
-          data-test="espace"
-          [value]="saisie().espaceId"
-          [itemToString]="nomDeLEspace"
-          (valueChange)="choisir('espaceId', $event)"
-        >
-          <hlm-select-trigger buttonId="calendrier-espace" class="w-44">
-            <hlm-select-value placeholder="Choisir un Espace" />
-          </hlm-select-trigger>
-          <hlm-select-content *hlmSelectPortal>
-            @for (espace of espaces(); track espace.id) {
-            <hlm-select-item [value]="espace.id"
-              >{{ espace.label }}</hlm-select-item
-            >
-            }
-          </hlm-select-content>
-        </hlm-select>
-        @if (erreursDeChamp()['scopeId']; as message) {
-        <span class="text-destructive text-xs" data-test="erreur-scopeId"
-          >{{ message }}</span
-        >
-        }
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <label hlmLabel for="calendrier-rappel">Rappel</label>
-        <hlm-select
-          data-test="rappel"
-          [value]="saisie().rappel"
-          [itemToString]="nomDuRappel"
-          (valueChange)="choisir('rappel', $event)"
-        >
-          <hlm-select-trigger buttonId="calendrier-rappel" class="w-44">
-            <hlm-select-value placeholder="Sans rappel" />
-          </hlm-select-trigger>
-          <hlm-select-content *hlmSelectPortal>
-            <hlm-select-item value="">Sans rappel</hlm-select-item>
-            @for (palier of paliersOfferts(); track palier.minutes) {
-            <hlm-select-item [value]="palier.minutes.toString()"
-              >{{ palier.libelle }} avant</hlm-select-item
-            >
-            }
-          </hlm-select-content>
-        </hlm-select>
-        @if (erreursDeChamp()['reminderLeadMinutes']; as message) {
-        <span
-          class="text-destructive text-xs"
-          data-test="erreur-reminderLeadMinutes"
-          >{{ message }}</span
-        >
-        }
-      </div>
-
-      <div class="flex gap-2 self-end">
+      <div class="flex flex-wrap items-center gap-space-sm">
         <button
           hlmBtn
-          type="submit"
-          data-test="enregistrer"
-          [disabled]="!pretAEnregistrer()"
+          variant="secondary"
+          size="icon"
+          type="button"
+          data-test="mois-precedent"
+          aria-label="Mois précédent"
+          (click)="changerDeMois(-1)"
         >
-          {{ enEdition() ? 'Enregistrer' : 'Créer' }}
+          <ng-icon [svg]="icones.precedent" aria-hidden="true" />
         </button>
-
-        @if (enEdition()) {
+        <button
+          hlmBtn
+          variant="secondary"
+          size="icon"
+          type="button"
+          data-test="mois-suivant"
+          aria-label="Mois suivant"
+          (click)="changerDeMois(1)"
+        >
+          <ng-icon [svg]="icones.suivant" aria-hidden="true" />
+        </button>
         <button
           hlmBtn
           variant="secondary"
           type="button"
-          data-test="annuler"
-          (click)="annuler()"
+          data-test="aujourdhui"
+          (click)="revenirAujourdhui()"
         >
-          Annuler
+          Aujourd'hui
         </button>
-        }
+        <h2
+          id="calendrier-mois"
+          data-test="titre-mois"
+          aria-live="polite"
+          class="ms-space-sm text-title-sm text-on-surface first-letter:uppercase"
+        >
+          {{ titre() }}
+        </h2>
       </div>
-    </form>
 
-    @if (erreur(); as message) {
-    <p class="text-destructive mt-3 text-sm" data-test="erreur">
-      {{ message }}
-    </p>
-    }
-
-    <ul class="mt-4 divide-y">
-      @for (evenement of evenements(); track evenement.eventId +
-      evenement.originalStart) {
-      <li
-        data-test="evenement"
-        class="flex flex-wrap items-baseline gap-3 py-2.5"
+      <dccm-state
+        [status]="etat()"
+        [error]="calendrier.lecture.error()"
+        skeleton="detail"
+        [rows]="5"
+        errorHeading="Le Calendrier n'a pas pu être lu"
+        (retry)="calendrier.lecture.reload()"
       >
-        <span class="flex-1 text-sm font-medium">{{ evenement.title }}</span>
+        @if (large()) {
+        <div
+          class="flex flex-col gap-space-xs rounded-md border border-surface-container-highest bg-surface-container-low p-space-sm"
+        >
+          <div class="grid grid-cols-7 gap-space-xs" aria-hidden="true">
+            @for (jour of joursDeLaSemaine; track $index) {
+            <span
+              class="py-space-xs text-center text-label-micro font-semibold uppercase text-outline"
+              >{{ jour }}</span
+            >
+            }
+          </div>
 
-        <span class="text-muted-foreground text-xs tabular-nums">
-          {{ evenement.startsAt | date: 'dd/MM/yyyy HH:mm' }} @if
-          (evenement.endsAt) { → {{ evenement.endsAt | date: 'dd/MM/yyyy HH:mm'
-          }} }
-        </span>
+          @for (semaine of semaines(); track semaine[0].jour) {
+          <div class="grid grid-cols-7 gap-space-xs">
+            @for (cellule of semaine; track cellule.jour) {
+            <section
+              data-test="jour"
+              [attr.aria-label]="cellule.libelle"
+              [attr.aria-current]="cellule.estAujourdhui ? 'date' : null"
+              [attr.data-hors-mois]="cellule.dansLeMois ? null : ''"
+              class="flex min-h-28 min-w-0 flex-col gap-space-xs rounded-sm border-t-2 p-space-xs"
+              [class]="
+                cellule.estAujourdhui
+                  ? 'border-primary bg-surface-container-high'
+                  : cellule.dansLeMois
+                    ? 'border-transparent bg-surface-container'
+                    : 'border-transparent bg-surface-container-lowest'
+              "
+            >
+              <span
+                class="flex items-center gap-space-xs text-label-regular tabular-nums"
+                [class]="
+                  cellule.estAujourdhui
+                    ? 'font-bold text-primary'
+                    : cellule.dansLeMois
+                      ? 'text-on-surface'
+                      : 'text-outline'
+                "
+              >
+                {{ cellule.numero }} @if (cellule.estAujourdhui && !resserree()) {
+                <span class="text-label-micro font-semibold uppercase"
+                  >Aujourd'hui</span
+                >
+                }
+              </span>
 
-        @if (estUneEcheance(evenement)) {
-        <span hlmBadge tone="error" data-test="echeance">Échéance</span>
+              <ul class="flex min-w-0 flex-col gap-0.5">
+                @for (occurrence of cellule.occurrences; track occurrence.cle) {
+                <li class="min-w-0">
+                  <a
+                    data-test="evenement"
+                    class="flex min-w-0 items-center gap-space-xs rounded-sm border-s-2 px-space-xs py-0.5 text-label-micro text-on-surface hover:bg-surface-bright focus-visible:outline-2 focus-visible:outline-primary"
+                    [class]="occurrence.categorie.teinte"
+                    [attr.title]="
+                      occurrence.heure +
+                      ' · ' +
+                      occurrence.titre +
+                      ' · ' +
+                      occurrence.espace
+                    "
+                    [routerLink]="occurrence.lien.chemin"
+                    [queryParams]="occurrence.lien.parametres"
+                  >
+                    <ng-icon
+                      [svg]="occurrence.categorie.icone"
+                      class="icon-2xs shrink-0"
+                      [class]="occurrence.categorie.encre"
+                      aria-hidden="true"
+                    />
+                    <time
+                      class="shrink-0 font-semibold tabular-nums"
+                      [class.sr-only]="resserree()"
+                      >{{ occurrence.heure }}</time
+                    >
+                    <span class="truncate">{{ occurrence.titre }}</span>
+                    <span
+                      class="sr-only"
+                      [attr.data-test]="occurrence.echeance ? 'echeance' : null"
+                      >, {{ occurrence.categorie.libelle }}</span
+                    >
+                  </a>
+                </li>
+                }
+              </ul>
+            </section>
+            }
+          </div>
+          }
+        </div>
         } @else {
-        <span hlmBadge variant="tag"
-          >{{ nomDeLaCategorie(evenement.category) }}</span
-        >
-        } @if (evenement.reminderLeadMinutes !== null) {
-        <span hlmBadge tone="neutral" data-test="rappel">
-          Rappel {{ libelleDuRappel(evenement.reminderLeadMinutes) }} avant
-        </span>
+        <div class="flex flex-col gap-gutter">
+          <div
+            class="flex flex-col gap-space-sm rounded-md border border-surface-container-highest bg-surface-container p-space-md"
+          >
+            <div class="flex items-center justify-between gap-space-sm">
+              <p class="flex items-center gap-space-sm">
+                <span class="text-title-sm text-on-surface"
+                  >Semaine {{ numeroDeSemaine() }}</span
+                >
+                @if (duJour().estAujourdhui) {
+                <span hlmBadge tone="info">Aujourd'hui</span>
+                }
+              </p>
+              <div class="flex items-center gap-space-xs">
+                <button
+                  hlmBtn
+                  variant="secondary"
+                  size="icon"
+                  type="button"
+                  data-test="semaine-precedente"
+                  aria-label="Semaine précédente"
+                  (click)="changerDeSemaine(-1)"
+                >
+                  <ng-icon [svg]="icones.precedent" aria-hidden="true" />
+                </button>
+                <button
+                  hlmBtn
+                  variant="secondary"
+                  size="icon"
+                  type="button"
+                  data-test="semaine-suivante"
+                  aria-label="Semaine suivante"
+                  (click)="changerDeSemaine(1)"
+                >
+                  <ng-icon [svg]="icones.suivant" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+
+            <ul class="grid grid-cols-7 gap-space-xs" aria-label="Jours de la semaine">
+              @for (jour of bandeau(); track jour.jour) {
+              <li>
+                <button
+                  type="button"
+                  data-test="jour-du-bandeau"
+                  class="flex w-full flex-col items-center gap-0.5 rounded-md py-space-xs outline-none focus-visible:outline-2 focus-visible:outline-primary"
+                  [class]="
+                    jour.choisi
+                      ? 'bg-primary-20 text-primary'
+                      : jour.dansLeMois
+                        ? 'bg-surface-container-low text-on-surface'
+                        : 'text-outline'
+                  "
+                  [attr.aria-pressed]="jour.choisi"
+                  [attr.aria-current]="jour.estAujourdhui ? 'date' : null"
+                  [attr.aria-label]="
+                    jour.libelle +
+                    ', ' +
+                    nombreDEvenements(jour.occurrences.length)
+                  "
+                  (click)="choisirLeJour(jour.jour)"
+                >
+                  <span class="text-label-micro uppercase">{{ jour.initiale }}</span>
+                  <span
+                    class="text-label-regular tabular-nums"
+                    [class.font-bold]="jour.estAujourdhui || jour.choisi"
+                    >{{ jour.numero }}</span
+                  >
+                  <span class="flex h-1.5 items-center gap-0.5" aria-hidden="true">
+                    @for (point of jour.points; track point.cle) {
+                    <span class="size-1.5 rounded-full" [class]="point.categorie.point"></span>
+                    }
+                  </span>
+                </button>
+              </li>
+              }
+            </ul>
+          </div>
+
+          <section
+            data-test="liste-du-jour"
+            aria-labelledby="calendrier-jour"
+            class="flex flex-col gap-space-sm"
+          >
+            <header class="flex items-center justify-between gap-space-sm">
+              <h3
+                id="calendrier-jour"
+                class="text-title-sm text-on-surface first-letter:uppercase"
+              >
+                {{ duJour().libelle }}
+              </h3>
+              <span hlmBadge tone="info"
+                >{{ nombreDEvenements(duJour().occurrences.length) }}</span
+              >
+            </header>
+
+            @for (occurrence of duJour().occurrences; track occurrence.cle) {
+            <article
+              data-test="evenement"
+              class="flex flex-col gap-space-sm rounded-md border border-s-2 border-surface-container-highest bg-surface-container p-space-md"
+              [class]="occurrence.categorie.teinte"
+            >
+              <div class="flex flex-wrap items-center gap-space-xs">
+                @if (occurrence.echeance) {
+                <span hlmBadge tone="error" data-test="echeance">
+                  <ng-icon [svg]="occurrence.categorie.icone" aria-hidden="true" />
+                  {{ occurrence.categorie.libelle }}
+                </span>
+                } @else {
+                <span hlmBadge variant="tag">
+                  <ng-icon
+                    [svg]="occurrence.categorie.icone"
+                    [class]="occurrence.categorie.encre"
+                    aria-hidden="true"
+                  />
+                  {{ occurrence.categorie.libelle }}
+                </span>
+                }
+                <span hlmBadge variant="tag">{{ occurrence.espace }}</span>
+                @if (occurrence.rappel; as rappel) {
+                <span hlmBadge tone="neutral" data-test="rappel">
+                  <ng-icon [svg]="icones.rappel" aria-hidden="true" />
+                  {{ rappel }}
+                </span>
+                }
+              </div>
+              <div class="flex items-end justify-between gap-space-sm">
+                <div class="flex min-w-0 flex-col gap-0.5">
+                  <h4 class="text-body-default font-semibold break-words text-on-surface">
+                    {{ occurrence.titre }}
+                  </h4>
+                  <p
+                    data-test="horaire"
+                    class="text-body-dense tabular-nums text-on-surface-variant"
+                  >
+                    {{ occurrence.horaire }}
+                  </p>
+                </div>
+                <a
+                  hlmBtn
+                  variant="secondary"
+                  size="sm"
+                  data-test="modifier"
+                  [routerLink]="occurrence.lien.chemin"
+                  [queryParams]="occurrence.lien.parametres"
+                  >Modifier<span class="sr-only"> {{ occurrence.titre }}</span></a
+                >
+              </div>
+            </article>
+            } @empty {
+            <dccm-empty-state
+              heading="Aucun Événement ce jour-là"
+              description="Un Événement créé à cette date s'affichera ici."
+              [icon]="icones.vide"
+            />
+            }
+          </section>
+        </div>
         }
+      </dccm-state>
+    </section>
 
-        <span hlmBadge variant="tag"
-          >{{ nomDeLEspace(evenement.scopeId) }}</span
-        >
-
-        <button
-          hlmBtn
-          variant="ghost"
-          size="sm"
-          type="button"
-          data-test="modifier"
-          (click)="reprendre(evenement)"
-        >
-          Modifier
-        </button>
-        <button
-          hlmBtn
-          variant="ghost"
-          size="sm"
-          type="button"
-          data-test="supprimer"
-          (click)="supprimer(evenement.eventId)"
-        >
-          Supprimer
-        </button>
-      </li>
-      } @empty {
-      <li class="text-muted-foreground py-2 text-sm">
-        Aucun Événement ce mois-ci dans vos Espaces.
-      </li>
-      }
-    </ul>
+    @if (formulaireOuvert() && !bureau()) {
+    <div
+      class="fixed inset-0 z-40 bg-surface-container-lowest-80"
+      aria-hidden="true"
+      (click)="fermer()"
+    ></div>
+    }
+    <router-outlet
+      class="hidden"
+      (activate)="formulaireOuvert.set(true)"
+      (deactivate)="formulaireOuvert.set(false)"
+    />
   </div>
-</section>
+</div>

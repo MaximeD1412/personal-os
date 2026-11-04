@@ -9,7 +9,7 @@ import { DccmConfirm } from './confirm';
 // arrêter, déclarer, publier, fusionner, supprimer) passe toujours par lui ;
 // une création ou une modification simple, jamais.
 
-type Forme = 'cloture' | 'suppression' | 'portee';
+type Forme = 'cloture' | 'suppression' | 'portee' | 'choix';
 
 @Component({
   selector: 'dccm-confirm-demo',
@@ -20,6 +20,7 @@ type Forme = 'cloture' | 'suppression' | 'portee';
         <button hlmBtn variant="secondary" (click)="ouvrir('cloture')">Clôturer la liste…</button>
         <button hlmBtn variant="secondary" (click)="ouvrir('suppression')">Supprimer la séance…</button>
         <button hlmBtn variant="secondary" (click)="ouvrir('portee')">Modifier l'occurrence…</button>
+        <button hlmBtn variant="secondary" (click)="ouvrir('choix')">Départager deux occurrences…</button>
       </div>
       <p class="text-body-dense text-on-surface-variant" role="status">
         Choix renvoyé : <code class="font-mono text-code-mono text-on-surface">{{ choix() }}</code>
@@ -52,6 +53,21 @@ class StoryConfirm {
             seriesDescription:
               'Applique la modification à cette séance et à toutes les occurrences de la série.',
           })
+        : forme === 'choix'
+          ? await this._confirm.choose({
+              title: 'Quelle occurrence de « Piscine » ?',
+              description: 'Deux occurrences de la série tombent le lundi 5 octobre à 18:00.',
+              confirmLabel: 'Continuer',
+              choicesLabel: 'Occurrences',
+              choices: [
+                { value: '2026-10-05', label: 'Piscine', description: 'Prévue le lundi 5 octobre.' },
+                {
+                  value: '2026-10-12',
+                  label: 'Piscine déplacée',
+                  description: 'Prévue le lundi 12 octobre, déplacée au 5.',
+                },
+              ],
+            })
         : forme === 'suppression'
           ? await this._confirm.confirm({
               title: 'Supprimer la séance ?',
@@ -98,4 +114,10 @@ export const ChoixDePortee: Story = {
   name: 'Choix de portée',
   tags: ['!autodocs'],
   args: { ouvertAuDemarrage: 'portee' },
+};
+
+export const Choix: Story = {
+  name: 'Choix parmi plusieurs options',
+  tags: ['!autodocs'],
+  args: { ouvertAuDemarrage: 'choix' },
 };

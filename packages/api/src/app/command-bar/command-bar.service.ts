@@ -6,7 +6,7 @@ import type {
   UnresolvedCommandPage,
 } from '@personal-os/contracts';
 import { GenerateurIA } from '../ai/generateur-ia';
-import { espacePersonnel } from '../espace/espace-personnel';
+import { espacePersonnelCourant } from '../espace/espace-personnel';
 import { CATALOGUE_DE_COMMANDES } from './catalogue/catalogue';
 import { resoudre } from './resolution/resoudre';
 import { UnresolvedCommandRepository } from './unresolved-command.repository';
@@ -28,7 +28,7 @@ export class CommandBarService {
   async resoudre(text: string): Promise<CommandResolution> {
     // Le journal, comme la trace de l'appel au modèle, vit dans l'Espace
     // personnel de l'auteur de la commande.
-    const scopeId = espacePersonnel();
+    const scopeId = espacePersonnelCourant();
     const resolution = await resoudre(text, {
       catalogue: this.catalogue,
       generateur: this.generateur,

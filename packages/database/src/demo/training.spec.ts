@@ -1,28 +1,53 @@
-import { seancesDeLaSemaine } from './training';
+import { aParis, decalerLeJour } from './dates';
+import type { Demo } from './seeder';
+import { seancesDeDemo, training } from './training';
 
-/** Le lundi 19 octobre 2026, minuit à Paris. */
-const LUNDI = new Date('2026-10-18T22:00:00.000Z');
-const SEMAINE_MS = 7 * 24 * 3_600_000;
+/** Le mercredi 4 novembre 2026, jour du semis. */
+const AUJOURDHUI = '2026-11-04';
+const MAINTENANT = aParis(AUJOURDHUI, '12:00');
 
-const aUnPrevu = (s: ReturnType<typeof seancesDeLaSemaine>[number]) =>
+const DEMO: Demo = {
+  a: { email: 'a@demo.test', userId: 'compte-a', espacePersonnel: 'espace-a' },
+  b: { email: 'b@demo.test', userId: 'compte-b', espacePersonnel: 'espace-b' },
+  espaceFoyer: 'espace-foyer',
+  aujourdhui: AUJOURDHUI,
+  le: (decalage, heure) => aParis(decalerLeJour(AUJOURDHUI, decalage), heure),
+};
+
+type SeanceSemee = ReturnType<typeof seancesDeDemo>[number];
+
+const aUnPrevu = (s: SeanceSemee) =>
   [s.plannedDistanceM, s.plannedDurationS, s.plannedIntent].some(
     (valeur) => valeur != null,
   );
-const aUnRealise = (s: ReturnType<typeof seancesDeLaSemaine>[number]) =>
+const aUnRealise = (s: SeanceSemee) =>
   [s.actualDistanceM, s.actualDurationS, s.actualNotes].some(
     (valeur) => valeur != null,
   );
 
 describe('Le semeur de démo du Sport', () => {
-  const seances = seancesDeLaSemaine(LUNDI, 'espace-a');
+  const seances = seancesDeDemo(DEMO);
 
-  it('sème une semaine de Séances dans l’Espace donné', () => {
-    expect(seances.length).toBeGreaterThanOrEqual(4);
-    for (const seance of seances) {
-      const debut = new Date(seance.startsAt).getTime();
-      expect(seance.scopeId).toBe('espace-a');
-      expect(debut).toBeGreaterThanOrEqual(LUNDI.getTime());
-      expect(debut).toBeLessThan(LUNDI.getTime() + SEMAINE_MS);
+  it('ne sème que dans les Espaces personnels, comme le module', () => {
+    expect(training.espaces).toEqual(['PERSONAL']);
+    expect(training.modeles).toEqual(['TrainingSession']);
+    expect(new Set(seances.map(({ scopeId }) => scopeId))).toEqual(
+      new Set(['espace-a', 'espace-b']),
+    );
+  });
+
+  it('cale ses Séances sur les jours autour du semis, à moins d’une semaine', () => {
+    const SEMAINE_MS = 7 * 24 * 3_600_000;
+    for (const { startsAt } of seances) {
+      const ecart = new Date(startsAt).getTime() - MAINTENANT.getTime();
+      expect(Math.abs(ecart)).toBeLessThan(SEMAINE_MS);
+    }
+  });
+
+  it('ne laisse prévue qu’une Séance à venir, et n’achève que le passé', () => {
+    for (const { status, startsAt } of seances) {
+      const avenir = new Date(startsAt).getTime() > MAINTENANT.getTime();
+      expect(status === 'PLANNED').toBe(avenir);
     }
   });
 
@@ -50,7 +75,7 @@ describe('Le semeur de démo du Sport', () => {
     }
   });
 
-  it('est déterministe : la même semaine donne les mêmes Séances', () => {
-    expect(seancesDeLaSemaine(LUNDI, 'espace-a')).toEqual(seances);
+  it('est déterministe : le même jour donne les mêmes Séances', () => {
+    expect(seancesDeDemo(DEMO)).toEqual(seances);
   });
 });

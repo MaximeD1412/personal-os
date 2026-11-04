@@ -7,7 +7,7 @@ import type {
   TrainingSessionUpdate,
 } from '@personal-os/contracts';
 import { Introuvable } from '../erreurs/erreur-metier';
-import { espacePersonnel } from '../espace/espace-personnel';
+import { espacePersonnelCourant } from '../espace/espace-personnel';
 import { completer, manquer, modifier, type Transition } from './seance';
 import {
   TrainingSessionRepository,
@@ -53,7 +53,7 @@ export class TrainingSessionService {
         actualDistanceM: saisie.actualDistanceM ?? null,
         actualDurationS: saisie.actualDurationS ?? null,
         actualNotes: saisie.actualNotes ?? null,
-        scopeId: espacePersonnel(),
+        scopeId: espacePersonnelCourant(),
       }),
     );
   }
