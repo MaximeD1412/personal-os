@@ -58,3 +58,21 @@ export function quantiteCanonique(
 ): string {
   return `${NOMBRE.format(quantity)}\u00a0${UNITES_CANONIQUES[unit]}`;
 }
+
+/**
+ * Un nombre de conditionnements d'un Produit : « 1 boîte », « 2 boîtes »,
+ * « 2 bocaux », « 2 pots de yaourt ». Le nom se saisit au singulier ; seul
+ * son premier mot s'accorde, selon la règle courante du pluriel.
+ */
+export function conditionnements(nombre: number, libelle: string): string {
+  if (nombre < 2) return `${NOMBRE.format(nombre)} ${libelle}`;
+  const [premier, ...reste] = libelle.split(' ');
+  return `${NOMBRE.format(nombre)} ${[pluriel(premier), ...reste].join(' ')}`;
+}
+
+function pluriel(mot: string): string {
+  if (/[sxz]$/i.test(mot)) return mot;
+  if (/al$/i.test(mot)) return `${mot.slice(0, -2)}aux`;
+  if (/(au|eu)$/i.test(mot)) return `${mot}x`;
+  return `${mot}s`;
+}

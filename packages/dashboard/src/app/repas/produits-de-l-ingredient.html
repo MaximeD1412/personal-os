@@ -1,0 +1,210 @@
+<section hlmCard class="md:max-w-2xl" data-test="produits">
+  <div hlmCardHeader>
+    <h2 hlmCardTitle>Produits</h2>
+    <p hlmCardDescription>
+      Les façons de l'acheter. Le produit préféré compte l'ingrédient en
+      conditionnements sur la liste de courses.
+    </p>
+  </div>
+
+  <div hlmCardContent class="flex flex-col gap-space-md">
+    @if (refus(); as erreur) {
+    <div hlmAlert tone="error" data-test="refus-produit">
+      <hlm-alert-icon />
+      <div hlmAlertContent>
+        <p hlmAlertTitle>{{ erreur.message }}</p>
+      </div>
+    </div>
+    }
+
+    <dccm-state
+      [status]="etat()"
+      [error]="lecture.error()"
+      loadingLabel="Chargement des produits…"
+      errorHeading="Les produits n'ont pas pu être lus"
+      (retry)="lecture.reload()"
+    >
+      @if (produits().length) {
+      <ul class="flex flex-col" aria-label="Produits de l'ingrédient">
+        @for (produit of produits(); track produit.id) {
+        <li [attr.data-produit]="produit.id">
+          <dccm-list-row
+            [label]="nomDuProduit(produit)"
+            [meta]="conditionnement(produit)"
+          >
+            @if (estPrefere(produit)) {
+            <span hlmBadge tone="success" data-test="prefere">
+              <ng-icon name="matStarOutline" aria-hidden="true" />
+              Produit préféré
+            </span>
+            <button
+              hlmBtn
+              type="button"
+              variant="ghost"
+              size="sm"
+              data-test="ne-plus-preferer"
+              [disabled]="enCours() !== null"
+              (click)="preferer(null)"
+            >
+              Ne plus préférer
+            </button>
+            } @else {
+            <button
+              hlmBtn
+              type="button"
+              variant="ghost"
+              size="sm"
+              data-test="preferer"
+              [disabled]="enCours() !== null"
+              (click)="preferer(produit)"
+            >
+              <ng-icon name="matStarOutline" aria-hidden="true" />
+              Préférer
+            </button>
+            }
+            <button
+              hlmBtn
+              type="button"
+              variant="ghost"
+              size="icon"
+              data-test="retirer"
+              [disabled]="enCours() !== null"
+              [attr.aria-label]="'Retirer le produit ' + nomDuProduit(produit)"
+              (click)="retirer(produit)"
+            >
+              <ng-icon name="matDeleteOutline" aria-hidden="true" />
+            </button>
+          </dccm-list-row>
+        </li>
+        }
+      </ul>
+      } @else {
+      <p class="text-body-dense text-outline" data-test="aucun-produit">
+        Aucun produit rattaché : la liste de courses compte l'ingrédient dans
+        son unité.
+      </p>
+      }
+    </dccm-state>
+
+    <form
+      class="flex flex-col gap-space-sm border-t border-surface-container-high pt-space-md"
+      data-test="ajout-produit"
+      aria-label="Ajouter un produit"
+      (submit)="ajouter($event)"
+    >
+      <h3 class="text-title-sm text-on-surface">Ajouter un produit</h3>
+      @if (refusSansChamp(); as erreur) {
+      <div hlmAlert tone="error" data-test="refus-ajout-produit">
+        <hlm-alert-icon />
+        <div hlmAlertContent>
+          <p hlmAlertTitle>{{ erreur.message }}</p>
+        </div>
+      </div>
+      }
+      <div class="grid gap-space-sm sm:grid-cols-2">
+        <div hlmField>
+          <label hlmFieldLabel for="produit-marque">Marque</label>
+          <input
+            hlmInput
+            id="produit-marque"
+            data-test="marque"
+            autocomplete="off"
+            placeholder="Facultative"
+            [value]="marque()"
+            [forceInvalid]="!!erreurs()['brand']"
+            (input)="saisir('marque', $event)"
+          />
+          @if (erreurs()['brand']; as message) {
+          <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="produit-forme">Forme</label>
+          <hlm-select
+            data-test="forme"
+            [value]="forme()"
+            [itemToString]="nomDeLaForme"
+            (valueChange)="choisirLaForme($event)"
+          >
+            <hlm-select-trigger buttonId="produit-forme" class="w-full">
+              <hlm-select-value placeholder="Choisir une forme" />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              @for (forme of formes; track forme.valeur) {
+              <hlm-select-item [value]="forme.valeur"
+                >{{ forme.libelle }}</hlm-select-item
+              >
+              }
+            </hlm-select-content>
+          </hlm-select>
+          @if (erreurs()['form']; as message) {
+          <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="produit-conditionnement"
+            >Conditionnement</label
+          >
+          <input
+            hlmInput
+            id="produit-conditionnement"
+            data-test="conditionnement"
+            autocomplete="off"
+            placeholder="boîte, sachet, bouteille…"
+            [value]="libelle()"
+            [forceInvalid]="!!erreurs()['packageLabel']"
+            (input)="saisir('libelle', $event)"
+          />
+          @if (erreurs()['packageLabel']; as message) {
+          <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+          } @else {
+          <p hlmFieldDescription>Au singulier : la liste l'accorde.</p>
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="produit-contenance">Contenance</label>
+          <div hlmInputGroup>
+            <input
+              hlmInput
+              id="produit-contenance"
+              data-test="contenance"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="any"
+              class="tabular-nums"
+              [value]="contenance() ?? ''"
+              [forceInvalid]="!!erreurs()['packageQuantity']"
+              (input)="saisirLaContenance($event)"
+            />
+            <span class="text-label-regular text-outline" data-test="unite"
+              >{{ unite() }}</span
+            >
+          </div>
+          @if (erreurs()['packageQuantity']; as message) {
+          <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+          } @else {
+          <p hlmFieldDescription>
+            Ce que contient un conditionnement, dans l'unité de l'ingrédient.
+          </p>
+          }
+        </div>
+      </div>
+      <div>
+        <button
+          hlmBtn
+          type="submit"
+          variant="secondary"
+          data-test="ajouter-produit"
+          [loading]="envoi()"
+        >
+          <ng-icon name="matAddOutline" aria-hidden="true" />
+          Ajouter le produit
+        </button>
+      </div>
+    </form>
+  </div>
+</section>

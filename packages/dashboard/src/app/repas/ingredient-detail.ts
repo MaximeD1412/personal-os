@@ -7,6 +7,7 @@ import {
   LIBELLES_DES_ALLERGENES,
   LIBELLES_DES_UNITES,
   UNITES_AVEC_POIDS_A_LA_PIECE,
+  type Ingredient,
 } from '@personal-os/contracts';
 import { HlmBadge } from '@personal-os/ui/badge';
 import { HlmButton } from '@personal-os/ui/button';
@@ -18,12 +19,14 @@ import {
   type DccmCrumb,
 } from '@personal-os/ui/dccm';
 import { IngredientService } from './ingredient.service';
+import { ProduitsDeLIngredient } from './produits-de-l-ingredient';
 import { FIL_DES_INGREDIENTS } from './ingredients';
 
 /**
  * La fiche d'un Ingrédient : son unité canonique, son poids moyen à la pièce,
- * ses Allergènes et sa conservation. « Modifier » mène au formulaire ; il n'y a pas de
- * suppression, un doublon se fusionne (CUISINE-4).
+ * ses Allergènes et sa conservation, puis ses Produits (CUISINE-12). « Modifier »
+ * mène au formulaire ; il n'y a pas de suppression, un doublon se fusionne
+ * (CUISINE-4).
  */
 @Component({
   imports: [
@@ -34,6 +37,7 @@ import { FIL_DES_INGREDIENTS } from './ingredients';
     HlmCardImports,
     DccmPageHeader,
     DccmState,
+    ProduitsDeLIngredient,
   ],
   providers: [provideIcons({ matEditOutline })],
   templateUrl: './ingredient-detail.html',
@@ -48,6 +52,11 @@ export class FicheDIngredient {
   protected readonly ingredient = computed(() =>
     this.lecture.hasValue() ? this.lecture.value() : undefined,
   );
+
+  /** Un changement de Produit préféré rend l'Ingrédient : la fiche le reprend. */
+  protected reprendre(ingredient: Ingredient): void {
+    this.lecture.set(ingredient);
+  }
 
   protected readonly titre = computed(
     () => this.ingredient()?.displayName ?? 'Ingrédient',

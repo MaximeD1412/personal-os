@@ -112,7 +112,7 @@ describe('Le jeu de démo', () => {
     expect(await photographier()).toEqual(avant);
   });
 
-  it("vide aussi le catalogue d'Ingrédients et les Pages de contenu saisis à la main", async () => {
+  it("vide aussi le catalogue d'Ingrédients, ses Produits et les Pages de contenu saisis à la main", async () => {
     await semer(prisma, COMPTES, { maintenant: MAINTENANT });
     const catalogue = await photographierLeGlobal();
 
@@ -129,6 +129,14 @@ describe('Le jeu de démo', () => {
     });
     await prisma.ingredientAlias.create({
       data: { label: 'alias du staging', ingredientId: existant.id },
+    });
+    await prisma.product.create({
+      data: {
+        ingredientId: existant.id,
+        form: 'OTHER',
+        packageQuantity: 3,
+        packageLabel: 'lot du staging',
+      },
     });
     await prisma.pageContent.create({
       data: {
@@ -209,6 +217,15 @@ describe('Le jeu de démo', () => {
       alias: await prisma.ingredientAlias.findMany({
         select: { label: true },
         orderBy: { label: 'asc' },
+      }),
+      produits: await prisma.product.findMany({
+        select: {
+          ingredient: { select: { name: true } },
+          packageLabel: true,
+          packageQuantity: true,
+          preferredBy: { select: { name: true } },
+        },
+        orderBy: [{ ingredient: { name: 'asc' } }, { packageQuantity: 'asc' }],
       }),
       pages: await prisma.pageContent.findMany({
         select: { slug: true, lang: true, title: true },

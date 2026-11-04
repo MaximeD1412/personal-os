@@ -118,6 +118,8 @@ et lève `food.list_already_closed`.
 | Consolidateur, Article coché             | `consolider`, `checked`                                          |
 | Clôture (d'une liste), quantité achetée  | `cloturer`, `ShoppingListClosure`, `purchasedQuantity`           |
 | Produit, Produit préféré                 | `Product`, `preferredProduct`                                    |
+| Conditionnement, contenance, forme       | `packageLabel`, `packageQuantity`, `packages`, `ProductForm`     |
+| Arrondi au conditionnement               | `enConditionnements`, `POST /ingredients/:id/preferred-product`  |
 | Stock domestique                         | `PantryItem`                                                     |
 | Péremption (d'une ligne de stock)        | `expiresOn`                                                      |
 | Recaleur, mouvement de stock             | `recaler`, `ACHAT`, `CONSOMMATION`, `CORRECTION`                 |

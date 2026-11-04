@@ -81,6 +81,11 @@
         </div>
       </dl>
     </section>
+
+    <pos-produits-de-l-ingredient
+      [ingredient]="ingredient"
+      (ingredientChange)="reprendre($event)"
+    />
     }
   </dccm-state>
 </div>

@@ -32,6 +32,10 @@ export const FARINE: ShoppingListItem = {
   label: null,
   quantity: 550,
   unit: 'GRAM',
+  productId: null,
+  packages: null,
+  packageQuantity: null,
+  packageLabel: null,
   origin: 'PLAN',
   checked: false,
   position: 0,
@@ -48,9 +52,34 @@ export const LAIT: ShoppingListItem = {
   label: null,
   quantity: 1000,
   unit: 'MILLILITER',
+  productId: null,
+  packages: null,
+  packageQuantity: null,
+  packageLabel: null,
   origin: 'PLAN',
   checked: true,
   position: 1,
+};
+
+/** Un article au conditionnement de son Produit préféré : 700 g, deux boîtes de 400 g. */
+export const TOMATES: ShoppingListItem = {
+  id: 'article-tomates',
+  ingredient: {
+    id: 'ingredient-tomates',
+    displayName: 'Tomates concassées',
+    canonicalUnit: 'GRAM',
+    perishable: false,
+  },
+  label: null,
+  quantity: 700,
+  unit: 'GRAM',
+  productId: 'produit-mutti',
+  packages: 2,
+  packageQuantity: 400,
+  packageLabel: 'boîte',
+  origin: 'PLAN',
+  checked: false,
+  position: 3,
 };
 
 export const EPONGES: ShoppingListItem = {
@@ -59,6 +88,10 @@ export const EPONGES: ShoppingListItem = {
   label: 'Éponges',
   quantity: 2,
   unit: null,
+  productId: null,
+  packages: null,
+  packageQuantity: null,
+  packageLabel: null,
   origin: 'MANUAL',
   checked: false,
   position: 2,

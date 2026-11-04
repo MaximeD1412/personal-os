@@ -3,6 +3,7 @@ import {
   perimeBientot,
   UNITES_AVEC_POIDS_A_LA_PIECE,
   zIngredientInput,
+  zProductInput,
   zRecipeInput,
 } from '@personal-os/contracts';
 import { ID_ESPACE_FOYER } from '../lib/espace/foyer';
@@ -13,12 +14,14 @@ import {
   CORIANDRE_DE_DEMO,
   INGREDIENTS_DE_DEMO,
   LISTE_DE_DEMO,
+  PRODUITS_DE_DEMO,
   RECETTES_DE_DEMO,
   REPAS_DE_DEMO,
   semerLaCuisine,
   semerLaListe,
   semerLePlanning,
   semerLesPreferences,
+  semerLesProduits,
   semerLeStock,
   STOCK_DE_DEMO,
 } from './food';
@@ -506,6 +509,139 @@ describe('semerLePlanning', () => {
   });
 });
 
+describe('Les Produits de démo', () => {
+  it('se saisissent comme le contrat le veut, sur un Ingrédient du catalogue', () => {
+    for (const {
+      ingredient,
+      prefere: _prefere,
+      ...produit
+    } of PRODUITS_DE_DEMO) {
+      expect(() => trouver(ingredient)).not.toThrow();
+      expect(
+        zProductInput.safeParse({ ingredientId: 'id', ...produit }).success,
+      ).toBe(true);
+    }
+  });
+
+  it('ne donnent qu’un Produit préféré par Ingrédient', () => {
+    const preferes = PRODUITS_DE_DEMO.filter(({ prefere }) => prefere).map(
+      ({ ingredient }) => ingredient,
+    );
+
+    expect(preferes.length).toBeGreaterThan(0);
+    expect(new Set(preferes).size).toBe(preferes.length);
+  });
+});
+
+describe('semerLesProduits', () => {
+  function unFauxPrisma(existants: Record<string, string> = {}) {
+    const prisma = {
+      ingredient: {
+        findMany: jest.fn(() =>
+          Promise.resolve(
+            INGREDIENTS_DE_DEMO.map(({ displayName }) => ({
+              id: `id-${displayName}`,
+              name: normaliserLibelle(displayName),
+            })),
+          ),
+        ),
+        update: jest.fn(() => Promise.resolve({})),
+      },
+      product: {
+        findFirst: jest.fn(
+          ({
+            where,
+          }: {
+            where: {
+              ingredientId: string;
+              packageLabel: string;
+              packageQuantity: number;
+            };
+          }) => {
+            const id =
+              existants[
+                `${where.ingredientId}/${where.packageLabel}/${where.packageQuantity}`
+              ];
+            return Promise.resolve(id ? { id } : null);
+          },
+        ),
+        create: jest.fn(
+          ({
+            data,
+          }: {
+            data: { ingredientId: string; packageQuantity: number };
+          }) =>
+            Promise.resolve({
+              id: `produit-${data.ingredientId}-${data.packageQuantity}`,
+            }),
+        ),
+        update: jest.fn(({ where }: { where: { id: string } }) =>
+          Promise.resolve({ id: where.id }),
+        ),
+      },
+    };
+
+    return { prisma, service: prisma as unknown as PrismaService };
+  }
+
+  it('crée chaque Produit sur son Ingrédient, et en fait le préféré quand il l’est', async () => {
+    const { prisma, service } = unFauxPrisma();
+
+    await semerLesProduits(service);
+
+    expect(prisma.product.create).toHaveBeenCalledTimes(
+      PRODUITS_DE_DEMO.length,
+    );
+    expect(prisma.product.create).toHaveBeenCalledWith({
+      data: {
+        ingredientId: 'id-Pavé de saumon',
+        brand: null,
+        form: 'FRESH',
+        packageQuantity: 250,
+        packageLabel: 'barquette',
+      },
+      select: { id: true },
+    });
+    expect(prisma.ingredient.update).toHaveBeenCalledWith({
+      where: { id: 'id-Pavé de saumon' },
+      data: { preferredProductId: 'produit-id-Pavé de saumon-250' },
+    });
+    expect(prisma.ingredient.update).toHaveBeenCalledTimes(
+      PRODUITS_DE_DEMO.filter(({ prefere }) => prefere).length,
+    );
+  });
+
+  it('remet dans son état un Produit déjà semé, sans le doubler', async () => {
+    const { prisma, service } = unFauxPrisma({
+      'id-Pavé de saumon/barquette/250': 'saumon-existant',
+    });
+
+    await semerLesProduits(service);
+
+    expect(prisma.product.create).toHaveBeenCalledTimes(
+      PRODUITS_DE_DEMO.length - 1,
+    );
+    expect(prisma.product.update).toHaveBeenCalledWith({
+      where: { id: 'saumon-existant' },
+      data: { brand: null, form: 'FRESH' },
+      select: { id: true },
+    });
+    expect(prisma.ingredient.update).toHaveBeenCalledWith({
+      where: { id: 'id-Pavé de saumon' },
+      data: { preferredProductId: 'saumon-existant' },
+    });
+  });
+
+  it('refuse de semer sans le catalogue de démo', async () => {
+    const { prisma, service } = unFauxPrisma();
+    prisma.ingredient.findMany.mockResolvedValue([]);
+
+    await expect(semerLesProduits(service)).rejects.toThrow(
+      /n'est pas dans le catalogue de démo/,
+    );
+  });
+});
+
 describe('semerLeStock', () => {
   const JOUR = '2026-10-20';
 
@@ -624,11 +760,24 @@ describe('semerLaListe', () => {
       ingredient: {
         findMany: () =>
           Promise.resolve(
-            INGREDIENTS_DE_DEMO.map(({ displayName, canonicalUnit }) => ({
-              id: `id-${displayName}`,
-              name: normaliserLibelle(displayName),
-              canonicalUnit,
-            })),
+            INGREDIENTS_DE_DEMO.map(({ displayName, canonicalUnit }) => {
+              const prefere = PRODUITS_DE_DEMO.find(
+                ({ ingredient, prefere }) =>
+                  prefere && ingredient === displayName,
+              );
+              return {
+                id: `id-${displayName}`,
+                name: normaliserLibelle(displayName),
+                canonicalUnit,
+                preferredProduct: prefere
+                  ? {
+                      id: `produit-${displayName}`,
+                      packageQuantity: prefere.packageQuantity,
+                      packageLabel: prefere.packageLabel,
+                    }
+                  : null,
+              };
+            }),
           ),
       },
       shoppingList: {
@@ -713,6 +862,37 @@ describe('semerLaListe', () => {
         typesAcceptes: ['HOUSEHOLD'],
       });
     }
+  });
+
+  it('compte au conditionnement du Produit préféré, et seulement là', () => {
+    for (const { ingredient, quantity, conditionnements } of LISTE_DE_DEMO) {
+      const prefere = PRODUITS_DE_DEMO.find(
+        (produit) => produit.prefere && produit.ingredient === ingredient,
+      );
+
+      expect(conditionnements).toBe(
+        prefere ? Math.ceil(quantity / prefere.packageQuantity) : undefined,
+      );
+    }
+  });
+
+  it('fige le conditionnement du Produit préféré sur l’article', async () => {
+    const { prisma, creees } = prismaDeDemo();
+
+    await semerLaListe(prisma, MAINTENANT);
+
+    const articles = (
+      creees[0].data['items'] as { create: Record<string, unknown>[] }
+    ).create;
+    expect(
+      articles.find(({ ingredientId }) => ingredientId === 'id-Pavé de saumon'),
+    ).toMatchObject({
+      quantity: 300,
+      productId: 'produit-Pavé de saumon',
+      packages: 2,
+      packageQuantity: 250,
+      packageLabel: 'barquette',
+    });
   });
 
   it('ne donne pas une seconde liste à un planning qui en a une', async () => {
