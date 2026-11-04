@@ -1,6 +1,6 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, type ParamMap } from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import {
   matEventBusyOutline,
@@ -68,7 +68,8 @@ const DATE_LONGUE = new Intl.DateTimeFormat('fr-FR', {
  * - elle est adressable et préremplie par son lien
  *   (`/sport/seances/:id?plannedDistanceM=12000`, ADR 0030) : les paramètres
  *   portent les noms des champs de `zTrainingSessionUpdate` et s'appliquent
- *   sur la Séance lue, une fois, sans rien enregistrer. Un paramètre refusé
+ *   sur la Séance lue, une fois par lien, sans rien enregistrer : une autre
+ *   Séance ou d'autres paramètres, dans le même écran, sont un autre lien. Un paramètre refusé
  *   par le contrat, ou qui vise un champ que l'écran ne modifie pas sur cette
  *   Séance, est signalé, jamais appliqué.
  */
@@ -136,13 +137,23 @@ export class Seance {
     ...SAISIE_VIERGE,
   });
 
-  /** Ce que le lien apporte à la modification, lu une fois. */
-  private readonly lien = prefillDepuisRequete(
-    zTrainingSessionUpdate,
-    this.route.snapshot.queryParamMap,
+  /**
+   * Les paramètres du lien, suivis : le routeur réutilise l'écran d'une
+   * Séance à l'autre, et quand seuls les paramètres changent.
+   */
+  private readonly requete = toSignal(this.route.queryParamMap, {
+    initialValue: this.route.snapshot.queryParamMap,
+  });
+  /** Ce que le lien apporte à la modification. */
+  private readonly lien = computed(() =>
+    prefillDepuisRequete(zTrainingSessionUpdate, this.requete()),
   );
-  /** Le lien ne s'applique qu'à la première lecture, pas après une écriture. */
-  private lienApplique = false;
+  /**
+   * Le dernier lien appliqué (la Séance et ses paramètres) : un lien ne
+   * s'applique qu'une fois, pas de nouveau à la relecture qui suit une
+   * écriture.
+   */
+  private lienApplique: string | null = null;
   /** Les paramètres du lien écartés, montrés sur la modification. */
   protected readonly ignoresDuLien = signal<string[]>([]);
 
@@ -285,7 +296,13 @@ export class Seance {
   }
 
   private reprendre(lue: TrainingSession): void {
-    const seance = this.lienApplique ? lue : this.appliquerLeLien(lue);
+    const lien = `${this.id()}?${enChaine(this.requete())}`;
+    // Une lecture encore celle de la Séance précédente attend la sienne.
+    const nouveau = lue.id === this.id() && lien !== this.lienApplique;
+    if (nouveau) {
+      this.lienApplique = lien;
+    }
+    const seance = nouveau ? this.appliquerLeLien(lue) : lue;
     this.prevu.set(
       saisieDesMesures({
         distanceM: seance.plannedDistanceM,
@@ -310,7 +327,7 @@ export class Seance {
    * modification porte pour ce statut. Le reste du lien est signalé.
    */
   private appliquerLeLien(seance: TrainingSession): TrainingSession {
-    this.lienApplique = true;
+    const { valeurs, ignores: refuses } = this.lien();
     const modifiables = new Set<string>([
       'plannedDistanceM',
       'plannedDurationS',
@@ -320,14 +337,12 @@ export class Seance {
         : []),
     ]);
     const appliques: Partial<TrainingSession> = {};
-    const ignores = [...this.lien.ignores];
-    for (const [champ, valeur] of Object.entries(this.lien.valeurs)) {
+    const ignores = [...refuses];
+    for (const [champ, valeur] of Object.entries(valeurs)) {
       if (modifiables.has(champ)) {
         Object.assign(appliques, { [champ]: valeur });
       } else {
-        ignores.push(
-          `${champ}=${this.route.snapshot.queryParamMap.get(champ)}`,
-        );
+        ignores.push(`${champ}=${this.requete().get(champ)}`);
       }
     }
     this.ignoresDuLien.set(ignores);
@@ -370,4 +385,14 @@ function changementsSur(
       ([champ, valeur]) => seance[champ as keyof TrainingSession] !== valeur,
     ),
   ) as TrainingSessionUpdate;
+}
+
+/** Les paramètres d'un lien, dans un ordre stable : deux liens égaux s'écrivent pareil. */
+function enChaine(parametres: ParamMap): string {
+  return [...parametres.keys]
+    .sort()
+    .flatMap((nom) =>
+      parametres.getAll(nom).map((valeur) => `${nom}=${valeur}`),
+    )
+    .join('&');
 }

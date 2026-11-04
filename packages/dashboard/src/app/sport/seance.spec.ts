@@ -292,6 +292,37 @@ describe('Seance', () => {
       expect(modification(racine, 'planned-distance')?.value).toBe('11');
     });
 
+    it('suit le lien d’une Séance à l’autre, puis un changement de ses seuls paramètres', async () => {
+      const { harness, racine } = await ouvrir(
+        PREVUE,
+        '?plannedDistanceM=12000',
+      );
+      expect(modification(racine, 'planned-distance')?.value).toBe('12');
+
+      // Le même écran, réutilisé par le routeur pour une autre Séance.
+      await harness.navigateByUrl(
+        `/sport/seances/${REALISEE.id}?plannedDistanceM=8000`,
+      );
+      lecture(REALISEE.id).flush(REALISEE);
+      await stabiliser(harness);
+      const ecran = harness.routeNativeElement as HTMLElement;
+      expect(modification(ecran, 'planned-distance')?.value).toBe('8');
+      expect(modification(ecran, 'actual-texte')?.value).toBe('Bonnes jambes');
+
+      // Seuls les paramètres changent : la Séance n'est pas relue.
+      await harness.navigateByUrl(
+        `/sport/seances/${REALISEE.id}?plannedDistanceM=9000`,
+      );
+      await stabiliser(harness);
+      expect(modification(ecran, 'planned-distance')?.value).toBe('9');
+
+      await harness.navigateByUrl(`/sport/seances/${REALISEE.id}?sport=BIKE`);
+      await stabiliser(harness);
+      expect(modification(ecran, 'planned-distance')?.value).toBe('10');
+      expect(ignores(ecran)).toContain('sport=BIKE');
+      httpMock.expectNone(({ method }) => method !== 'GET');
+    });
+
     it('préremplit le réalisé d’une Séance réalisée', async () => {
       const { racine } = await ouvrir(
         REALISEE,
