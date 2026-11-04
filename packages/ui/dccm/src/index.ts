@@ -1,5 +1,6 @@
 // Les composants du design system qui n'ont pas d'équivalent spartan/ui.
 // Un dossier par composant, exporté ici (docs/design-system.md).
+export * from './command-bar/command-bar';
 export * from './confirm/confirm';
 export * from './empty-state/empty-state';
 export * from './form-page/form-page';

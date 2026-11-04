@@ -6,7 +6,12 @@
     [userName]="nom()"
     (logout)="seDeconnecter()"
   >
-    <!-- La zone de recherche : la barre de commande (CMD-3) s'y logera. -->
+    <button
+      dccmTopBarSearch
+      dccmCommandBarTrigger
+      label="Que veux-tu faire ?"
+      (click)="barre.open()"
+    ></button>
   </dccm-top-bar>
 
   <dccm-sidebar [groups]="groupes" [footer]="pied" [status]="etat()" />
@@ -18,7 +23,13 @@
   />
 
   <dccm-mobile-header [status]="etat()">
-    <!-- Le bouton de commande (CMD-3) s'y logera, en [dccmMobileHeaderCommand]. -->
+    <button
+      dccmMobileHeaderCommand
+      dccmCommandBarTrigger
+      compact
+      label="Que veux-tu faire ?"
+      (click)="barre.open()"
+    ></button>
   </dccm-mobile-header>
 
   <dccm-tab-bar [entries]="onglets">
@@ -88,6 +99,9 @@
 
   <router-outlet />
 </dccm-shell>
+
+<!-- La barre de commande, posée une fois : ses déclencheurs et Ctrl+K l'ouvrent. -->
+<pos-barre-de-commande #barre />
 
 <!-- Les retours d'une action réussie (showToast), posés une fois. -->
 <hlm-toaster />

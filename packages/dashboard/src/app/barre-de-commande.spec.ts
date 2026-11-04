@@ -1,0 +1,175 @@
+import { InteractivityChecker } from '@angular/cdk/a11y';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
+import { Component } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
+import type { CommandResolution } from '@personal-os/contracts';
+import { API_BASE_URL } from './api-base-url';
+import { INTERCEPTEURS } from './app.config';
+import { BarreDeCommande } from './barre-de-commande';
+
+const BASE = 'http://api.test/api';
+
+// jsdom ne calcule aucune mise en page : le piège de focus du CDK n'y
+// trouverait rien à focaliser.
+const atteignable = (element: HTMLElement) =>
+  element.tabIndex >= 0 && !(element as HTMLButtonElement).disabled;
+const toujoursFocalisable: Partial<InteractivityChecker> = {
+  isFocusable: atteignable,
+  isTabbable: atteignable,
+  isVisible: () => true,
+  isDisabled: (element) => (element as HTMLButtonElement).disabled,
+};
+
+@Component({ template: '' })
+class Ecran {}
+
+const pause = () => new Promise((resolve) => setTimeout(resolve));
+
+async function monter() {
+  TestBed.configureTestingModule({
+    providers: [
+      provideRouter([
+        { path: 'agenda', component: Ecran },
+        { path: 'calendrier/evenements/nouveau', component: Ecran },
+      ]),
+      provideHttpClient(withInterceptors(INTERCEPTEURS)),
+      provideHttpClientTesting(),
+      { provide: API_BASE_URL, useValue: BASE },
+      { provide: InteractivityChecker, useValue: toujoursFocalisable },
+    ],
+  });
+  const router = TestBed.inject(Router);
+  const httpMock = TestBed.inject(HttpTestingController);
+  await router.navigateByUrl('/agenda');
+
+  const fixture = TestBed.createComponent(BarreDeCommande);
+  document.body.appendChild(fixture.nativeElement);
+  await fixture.whenStable();
+
+  const stable = async () => {
+    await fixture.whenStable();
+    await pause();
+    await fixture.whenStable();
+  };
+  const palette = () =>
+    document.querySelector<HTMLElement>('[data-slot="command-bar-palette"]');
+
+  /** Ouvre la barre par Ctrl+K, écrit la phrase et l'envoie. */
+  const commander = async (texte: string) => {
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }),
+    );
+    await stable();
+    const champ = palette()?.querySelector('input') as HTMLInputElement;
+    champ.value = texte;
+    champ.dispatchEvent(new Event('input'));
+    await stable();
+    champ.form?.requestSubmit();
+    await stable();
+    const requete = httpMock.expectOne(`${BASE}/command-bar/resolve`);
+    expect(requete.request.method).toBe('POST');
+    expect(requete.request.body).toEqual({ text: texte });
+    return requete;
+  };
+
+  const repondre = async (
+    requete: ReturnType<HttpTestingController['expectOne']>,
+    resolution: CommandResolution,
+  ) => {
+    requete.flush(resolution);
+    await stable();
+  };
+
+  return { fixture, router, httpMock, palette, commander, repondre, stable };
+}
+
+afterEach(() => {
+  document.body.innerHTML = '';
+});
+
+describe('BarreDeCommande', () => {
+  it('ouvre le formulaire prérempli d’une intention connue, sans rien enregistrer', async () => {
+    const { router, httpMock, palette, commander, repondre } = await monter();
+
+    const requete = await commander('ajoute un dentiste jeudi à 9h30');
+    await repondre(requete, {
+      kind: 'action',
+      url: '/calendrier/evenements/nouveau?title=Dentiste&startsAt=2026-11-05T08:30:00.000Z',
+      ignored: [],
+    });
+
+    expect(router.url).toBe(
+      '/calendrier/evenements/nouveau?title=Dentiste&startsAt=2026-11-05T08:30:00.000Z',
+    );
+    expect(palette()).toBeNull();
+    // La résolution est la seule requête : rien n'est écrit.
+    httpMock.verify();
+  });
+
+  it('dit franchement qu’elle ne sait pas, et propose l’écran le plus proche', async () => {
+    const { router, httpMock, palette, commander, repondre } = await monter();
+
+    const requete = await commander('quel temps fera-t-il demain ?');
+    await repondre(requete, {
+      kind: 'none',
+      nearestUrl: '/calendrier/evenements/nouveau',
+    });
+
+    expect(router.url).toBe('/agenda');
+    const statut = palette()?.querySelector('[role="status"]');
+    expect(statut?.textContent).toContain('Je ne sais pas encore faire ça.');
+    expect(statut?.querySelector('a')?.getAttribute('href')).toBe(
+      '/calendrier/evenements/nouveau',
+    );
+    httpMock.verify();
+  });
+
+  it('affiche le message de l’API quand la résolution échoue', async () => {
+    const { router, httpMock, palette, commander, stable } = await monter();
+
+    const requete = await commander('ajoute un dentiste');
+    requete.flush(
+      {
+        status: 422,
+        code: 'ai.monthly_cap_reached',
+        message: 'Le plafond mensuel de l’IA est atteint.',
+      },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+    await stable();
+
+    expect(router.url).toBe('/agenda');
+    expect(palette()?.querySelector('[role="alert"]')?.textContent).toContain(
+      'Le plafond mensuel de l’IA est atteint.',
+    );
+    httpMock.verify();
+  });
+
+  it('repart vierge à la réouverture', async () => {
+    const { fixture, httpMock, palette, commander, repondre, stable } =
+      await monter();
+    const requete = await commander('quel temps fera-t-il demain ?');
+    await repondre(requete, { kind: 'none' });
+
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+    );
+    (palette()?.querySelector('input') as HTMLInputElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }),
+    );
+    await stable();
+    expect(palette()).toBeNull();
+
+    fixture.componentInstance.open();
+    await stable();
+    expect(palette()?.querySelector('[role="status"]')?.textContent?.trim()).toBe(
+      '',
+    );
+    httpMock.verify();
+  });
+});

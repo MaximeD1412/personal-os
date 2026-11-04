@@ -221,7 +221,7 @@ remplit dans la PR qui l'implémente.
 | 03 Data Display | `Table/HeaderCell`     | `b4QLdx` | UI-6 (#107) | `HlmTh` (`th[hlmTableHead]`, `@personal-os/ui/table`)                                                                |
 | 03 Data Display | `Table/Cell`           | `sUITn`  | UI-6 (#107) | `HlmTd` (`td[hlmTableCell]`), `HlmTable`, `HlmTr`…                                                                   |
 | 03 Data Display | `ListRow`              | `DHctf`  | UI-6 (#107) | `DccmListRow` (`@personal-os/ui/dccm`)                                                                               |
-| 04 Navigation   | `TopBar`               | `DVUUC`  | UI-2 (#60)  | `DccmTopBar` (`@personal-os/ui/dccm`), zone de recherche projetée `[dccmTopBarSearch]`                               |
+| 04 Navigation   | `TopBar`               | `DVUUC`  | UI-2 (#60)  | `DccmTopBar` (`@personal-os/ui/dccm`), zone de recherche `[dccmTopBarSearch]` : `DccmCommandBarTrigger`              |
 | 04 Navigation   | `Sidebar`              | `EDbRo`  | UI-2 (#60)  | `DccmSidebar`, `variant="full"` (240 px)                                                                             |
 | 04 Navigation   | `Rail`                 | `GfuO7`  | UI-2 (#60)  | `DccmSidebar variant="rail"` (72 px, libellés en infobulle `HlmTooltip`)                                             |
 | 04 Navigation   | `MobileTabBar`         | `jFjwa`  | UI-2 (#60)  | `DccmTabBar`                                                                                                         |
@@ -231,7 +231,7 @@ remplit dans la PR qui l'implémente.
 | 04 Navigation   | `Breadcrumb/Item`      | `D5oZd`  | UI-2 (#60)  | `HlmBreadcrumbItem`, `HlmBreadcrumbLink`, `HlmBreadcrumbPage` (`@personal-os/ui/breadcrumb`)                         |
 | 04 Navigation   | `Breadcrumb/Separator` | `yKOOs`  | UI-2 (#60)  | `HlmBreadcrumbSeparator`                                                                                             |
 | 04 Navigation   | `Breadcrumb`           | `PVPne`  | UI-2 (#60)  | `HlmBreadcrumb`, `HlmBreadcrumbList`                                                                                 |
-| 04 Navigation   | `MobileHeader`         | `LNnJM`  | UI-2 (#60)  | `DccmMobileHeader`, bouton de commande projeté `[dccmMobileHeaderCommand]`                                           |
+| 04 Navigation   | `MobileHeader`         | `LNnJM`  | UI-2 (#60)  | `DccmMobileHeader`, bouton `[dccmMobileHeaderCommand]` : `DccmCommandBarTrigger compact`                             |
 | 04 Navigation   | `PageHeader`           | `xMGff`  | UI-2 (#60)  | `DccmPageHeader`                                                                                                     |
 | 05 Feedback     | `Banner`               | `L9HFJ`  | UI-3 (#62)  | `HlmAlert` (`@personal-os/ui/alert`), `tone`, et ses parties `hlm-alert-icon`, `hlmAlertContent`, `hlmAlertTitle`…   |
 | 05 Feedback     | `Toast`                | `bESqe`  | UI-3 (#62)  | `HlmToast` par `showToast()`, dans `HlmToaster` (`@personal-os/ui/sonner`)                                           |
@@ -366,6 +366,17 @@ Les planches 04 Navigation et 06 Layout, leurs stories sous `Navigation/*` et
   dépôt : l'emblème est l'icône `diamond` sur `surface-container-high`.
 - **`DccmMobileHeader`** : la marque en tag accentué, la pastille d'état en
   badge `dot` sur `surface-container-low`, le bouton de commande projeté.
+- **`DccmCommandBar`** (ADR 0018, frames `lhQ7A` et `ASbPE` de
+  `personalos.pen`, sans master) : une palette en `HlmDialog`, ancrée à 56 px
+  du haut, 700 px de large, sur `surface-container` ; plein écran sous
+  768 px. Un champ `HlmInputGroup size="lg"`, puis un seul retour à la fois :
+  « Je cherche… », l'échec franc (« Je ne sais pas encore faire ça. » et le
+  lien vers l'écran le plus proche, s'il y en a un) ou le `message` de l'API
+  en `HlmAlert tone="error"`. Elle ne résout rien : elle émet la phrase
+  (`submitted`), et l'écran navigue. Elle s'ouvre par Ctrl+K / Cmd+K et par
+  `DccmCommandBarTrigger` (« Que veux-tu faire ? » et son `HlmKbd` dans la
+  `TopBar`, `compact` dans le `MobileHeader`), qui appelle `open()`. Posée
+  une seule fois, hors de `dccm-shell`.
 - **`DccmTabBar`** : les onglets reçus, puis ceux qu'on projette (« Plus »
   sur un `button[dccmTabBarItem]`). Cible 64 × 48.
 - **`DccmPageHeader`** : fil d'Ariane (`HlmBreadcrumb`), titre
