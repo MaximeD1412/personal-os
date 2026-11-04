@@ -41,7 +41,9 @@ export interface Prefill<T> {
  * visé) ne le concernent pas : ils ne sont ni repris ni signalés.
  *
  * Un paramètre répété ne donne qu'une valeur, la première valable : les
- * autres sont signalées.
+ * autres sont signalées. Sauf pour un champ tableau (les jours d'une série,
+ * `?weekdays=TU&weekdays=TH`) : chaque répétition en est un élément, lu par
+ * le schéma de l'élément, et un élément refusé ou déjà donné est signalé.
  *
  * Une union discriminée (la cible d'une Préférence alimentaire) se lit champ
  * par champ : un paramètre vaut si une des branches qui le nomment
@@ -58,6 +60,23 @@ export function prefillDepuisRequete<S extends SchemaDeSaisie>(
   const ignores: string[] = [];
 
   for (const [nom, champs] of champsDe(schema)) {
+    const elements = champs.flatMap((champ) => elementDe(champ) ?? []);
+    if (elements.length > 0) {
+      const lus: unknown[] = [];
+      for (const brut of parametres.getAll(nom)) {
+        const valeur = lireParUn(elements, brut);
+        if (valeur === undefined || lus.includes(valeur)) {
+          ignores.push(`${nom}=${brut}`);
+        } else {
+          lus.push(valeur);
+        }
+      }
+      if (lus.length > 0) {
+        valeurs[nom] = lus;
+      }
+      continue;
+    }
+
     for (const brut of parametres.getAll(nom)) {
       const valeur = nom in valeurs ? undefined : lireParUn(champs, brut);
       if (valeur === undefined) {
@@ -82,6 +101,21 @@ function champsDe(schema: SchemaDeSaisie): Map<string, z.ZodType[]> {
     }
   }
   return champs;
+}
+
+/** Le schéma d'un élément, si le champ est un tableau (même optionnel). */
+function elementDe(champ: z.ZodType): z.ZodType | undefined {
+  const def = champ._zod.def as {
+    type: string;
+    element?: z.ZodType;
+    innerType?: z.ZodType;
+  };
+  if (def.type === 'array') {
+    return def.element;
+  }
+  return def.type === 'optional' && def.innerType
+    ? elementDe(def.innerType)
+    : undefined;
 }
 
 function lireParUn(champs: readonly z.ZodType[], brut: string): unknown {

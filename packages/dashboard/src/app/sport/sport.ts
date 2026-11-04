@@ -8,6 +8,7 @@ import {
   matChevronLeftOutline,
   matChevronRightOutline,
   matFitnessCenterOutline,
+  matFlagOutline,
   matNotesOutline,
 } from '@ng-icons/material-symbols/outline';
 import { periodeDeLaSemaine } from '@personal-os/contracts';
@@ -58,6 +59,7 @@ export class Sport {
   protected readonly icones = {
     ajouter: matAddOutline,
     nonPlanifiee: matBoltOutline,
+    objectifs: matFlagOutline,
     precedente: matChevronLeftOutline,
     suivante: matChevronRightOutline,
     vide: matFitnessCenterOutline,

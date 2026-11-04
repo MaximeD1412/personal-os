@@ -5,6 +5,7 @@ import type {
   TrainingSessionInput,
   TrainingSessionListQuery,
   TrainingSessionUpdate,
+  TrainingSeriesInput,
 } from '@personal-os/contracts';
 import { Introuvable } from '../erreurs/erreur-metier';
 import { espacePersonnelCourant } from '../espace/espace-personnel';
@@ -32,6 +33,41 @@ export class TrainingSessionService {
     const seances = await this.repository.listerEntre(
       new Date(periode.from),
       new Date(periode.to),
+    );
+
+    return seances.map(exposer);
+  }
+
+  /** Les Séances liées à un Objectif, que l'appelant a déjà trouvé. */
+  async listerDeLObjectif(goalId: string): Promise<TrainingSession[]> {
+    return (await this.repository.listerDeLObjectif(goalId)).map(exposer);
+  }
+
+  /**
+   * Crée, liée à un Objectif que l'appelant a déjà trouvé, une Séance prévue
+   * à chacun de ces débuts, toutes avec le même prévu. Elles restent ensuite
+   * indépendantes (ADR 0022).
+   */
+  async creerEnSerie(
+    goalId: string,
+    debuts: readonly string[],
+    serie: TrainingSeriesInput,
+  ): Promise<TrainingSession[]> {
+    const scopeId = espacePersonnelCourant();
+    const seances = await this.repository.creerPlusieurs(
+      debuts.map((debut) => ({
+        startsAt: new Date(debut),
+        sport: serie.sport,
+        status: 'PLANNED',
+        plannedDistanceM: serie.plannedDistanceM ?? null,
+        plannedDurationS: serie.plannedDurationS ?? null,
+        plannedIntent: serie.plannedIntent ?? null,
+        actualDistanceM: null,
+        actualDurationS: null,
+        actualNotes: null,
+        goalId,
+        scopeId,
+      })),
     );
 
     return seances.map(exposer);

@@ -188,6 +188,30 @@ export const appRoutes: Route[] = [
     loadComponent: async () =>
       (await import('./sport/nouvelle-seance')).NouvelleSeance,
   },
+  // Les Objectifs et leurs séries ; `nouveau` est déclaré avant `:id`.
+  {
+    path: 'sport/objectifs',
+    loadComponent: async () => (await import('./sport/objectifs')).Objectifs,
+  },
+  {
+    path: 'sport/objectifs/nouveau',
+    loadComponent: async () =>
+      (await import('./sport/formulaire-d-objectif')).FormulaireDObjectif,
+  },
+  {
+    path: 'sport/objectifs/:id/modifier',
+    loadComponent: async () =>
+      (await import('./sport/formulaire-d-objectif')).FormulaireDObjectif,
+  },
+  {
+    path: 'sport/objectifs/:id/seances/nouvelles',
+    loadComponent: async () =>
+      (await import('./sport/nouvelle-serie')).NouvelleSerie,
+  },
+  {
+    path: 'sport/objectifs/:id',
+    loadComponent: async () => (await import('./sport/objectif')).Objectif,
+  },
   {
     path: 'sport/seances/:id',
     loadComponent: async () => (await import('./sport/seance')).Seance,

@@ -3,6 +3,7 @@ import {
   zEventInput,
   zFoodPreferenceInput,
   zIngredientInput,
+  zTrainingSeriesInputFields,
 } from '@personal-os/contracts';
 import { erreursDeChamp, prefillDepuisRequete } from './formulaire';
 
@@ -121,6 +122,27 @@ describe('prefillDepuisRequete', () => {
       'target=RECIPE',
       'allergen=NUTS',
     ]);
+  });
+
+  it('lit un champ tableau dans un paramètre répété, élément par élément', () => {
+    const serie = (parametres: Record<string, string | string[]>) =>
+      prefillDepuisRequete(
+        zTrainingSeriesInputFields,
+        convertToParamMap(parametres),
+      );
+
+    expect(serie({ weekdays: ['TU', 'XX', 'TH', 'TU'] })).toEqual({
+      valeurs: { weekdays: ['TU', 'TH'] },
+      ignores: ['weekdays=XX', 'weekdays=TU'],
+    });
+    expect(serie({ weekdays: 'SA' })).toEqual({
+      valeurs: { weekdays: ['SA'] },
+      ignores: [],
+    });
+    expect(serie({ weekdays: 'XX' })).toEqual({
+      valeurs: {},
+      ignores: ['weekdays=XX'],
+    });
   });
 
   it('ne lit pas les paramètres étrangers au schéma', () => {

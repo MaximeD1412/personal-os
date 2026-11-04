@@ -42,7 +42,9 @@ export interface DccmCrumb {
       </nav>
     }
     <div class="flex flex-wrap items-end justify-between gap-gutter">
-      <div class="flex min-w-0 flex-1 flex-col gap-1">
+      <!-- Le titre garde au moins 16rem : faute de place, les actions passent
+           dessous plutôt que de l'écraser. -->
+      <div class="flex min-w-[min(100%,16rem)] flex-1 flex-col gap-1">
         <h1 class="text-headline-lg-mobile text-on-surface md:text-headline-lg">
           {{ heading() }}
         </h1>

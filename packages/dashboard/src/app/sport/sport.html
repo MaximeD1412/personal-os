@@ -7,12 +7,21 @@
     <a
       hlmBtn
       variant="secondary"
+      routerLink="/sport/objectifs"
+      data-test="objectifs"
+    >
+      <ng-icon [svg]="icones.objectifs" aria-hidden="true" />
+      <span class="max-sm:sr-only">Objectifs</span>
+    </a>
+    <a
+      hlmBtn
+      variant="secondary"
       routerLink="/sport/seances/nouvelle"
       [queryParams]="{ status: 'DONE' }"
       data-test="sortie-non-planifiee"
     >
       <ng-icon [svg]="icones.nonPlanifiee" aria-hidden="true" />
-      Sortie non planifiée
+      <span class="max-sm:sr-only">Sortie non planifiée</span>
     </a>
     <a hlmBtn routerLink="/sport/seances/nouvelle" data-test="nouvelle-seance">
       <ng-icon [svg]="icones.ajouter" aria-hidden="true" />
