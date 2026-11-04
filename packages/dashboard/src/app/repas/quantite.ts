@@ -65,9 +65,9 @@ export function quantiteCanonique(
  * son premier mot s'accorde, selon la règle courante du pluriel.
  */
 export function conditionnements(nombre: number, libelle: string): string {
-  if (nombre < 2) return `${NOMBRE.format(nombre)} ${libelle}`;
+  if (nombre < 2) return `${NOMBRE.format(nombre)}\u00a0${libelle}`;
   const [premier, ...reste] = libelle.split(' ');
-  return `${NOMBRE.format(nombre)} ${[pluriel(premier), ...reste].join(' ')}`;
+  return `${NOMBRE.format(nombre)}\u00a0${[pluriel(premier), ...reste].join(' ')}`;
 }
 
 function pluriel(mot: string): string {

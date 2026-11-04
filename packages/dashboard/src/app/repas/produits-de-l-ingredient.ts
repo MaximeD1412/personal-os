@@ -126,7 +126,7 @@ export class ProduitsDeLIngredient {
         showToast({
           tone: 'success',
           message: produit
-            ? `« ${nomDuProduit(produit)} » est le produit préféré.`
+            ? `«\u00a0${nomDuProduit(produit)}\u00a0» est le produit préféré.`
             : "L'ingrédient n'a plus de produit préféré.",
         });
       },
@@ -141,7 +141,7 @@ export class ProduitsDeLIngredient {
     const nom = nomDuProduit(produit);
     const prefere = this.estPrefere(produit);
     const confirme = await this.confirmation.confirm({
-      title: `Retirer le produit « ${nom} » ?`,
+      title: `Retirer le produit «\u00a0${nom}\u00a0» ?`,
       description: prefere
         ? "C'est le produit préféré : les prochaines listes de courses compteront l'ingrédient dans son unité. Les listes déjà produites gardent leurs conditionnements."
         : 'Les listes de courses déjà produites gardent leurs conditionnements.',
@@ -164,7 +164,7 @@ export class ProduitsDeLIngredient {
         }
         showToast({
           tone: 'success',
-          message: `« ${nom} » est retiré.`,
+          message: `«\u00a0${nom}\u00a0» est retiré.`,
         });
       },
       error: (erreur: ErreurApi) => {
@@ -247,7 +247,7 @@ export class ProduitsDeLIngredient {
         this.libelle.set('');
         showToast({
           tone: 'success',
-          message: `« ${nomDuProduit(produit)} » est ajouté aux produits.`,
+          message: `«\u00a0${nomDuProduit(produit)}\u00a0» est ajouté aux produits.`,
         });
       },
       error: (erreur: ErreurApi) => {
