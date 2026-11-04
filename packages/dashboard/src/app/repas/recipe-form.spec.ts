@@ -255,6 +255,128 @@ describe('La saisie d’une Recette', () => {
     expect(champ(el(), 'inconnu')).not.toBeNull();
   });
 
+  it('ne rattache pas une ligne dont le libellé a changé pendant la résolution : il le résout de nouveau', async () => {
+    const ouvert = await ouvrirLesRecettes(`${NOUVELLE}?title=Gâteau`);
+    const { el, http, harness } = ouvert;
+    await harness.fixture.whenStable();
+
+    await remplirLaLigne(ouvert, 0, {
+      quantite: '200',
+      unite: 'Gramme (g)',
+      libelle: 'farine',
+    });
+    soumettre(el());
+    const premiere = http.expectOne(`${BASE}/ingredients/resolve`);
+    expect(premiere.request.body).toEqual({ labels: ['farine'] });
+
+    // La réponse tarde : le libellé change entre-temps.
+    saisir(champ(lignes(el())[0], 'libelle'), 'cacahuètes');
+    premiere.flush([{ label: 'farine', ingredientId: 'ingredient-1' }]);
+
+    http.expectNone(`${BASE}/recipes`);
+    const seconde = http.expectOne(`${BASE}/ingredients/resolve`);
+    expect(seconde.request.body).toEqual({ labels: ['cacahuètes'] });
+    seconde.flush([{ label: 'cacahuètes', unknown: true, suggestions: [] }]);
+    TestBed.tick();
+    http
+      .expectOne((requete) => requete.url === `${BASE}/ingredients`)
+      .flush([]);
+    await harness.fixture.whenStable();
+
+    expect(champ(el(), 'inconnu').textContent).toContain('cacahuètes');
+    expect(champ(el(), 'reconnu')).toBeNull();
+    http.expectNone(`${BASE}/recipes`);
+  });
+
+  it('montre sous sa ligne le libellé que le résolveur refuse', async () => {
+    const ouvert = await ouvrirLesRecettes(`${NOUVELLE}?title=Gratin`);
+    const { el, http, harness } = ouvert;
+    await harness.fixture.whenStable();
+
+    await remplirLaLigne(ouvert, 0, {
+      quantite: '200',
+      unite: 'Gramme (g)',
+      libelle: 'lentilles',
+    });
+    (champ(el(), 'ajouter-ligne') as unknown as HTMLButtonElement).click();
+    await harness.fixture.whenStable();
+    await remplirLaLigne(ouvert, 1, {
+      quantite: '1',
+      unite: 'Pièce',
+      libelle: '?!',
+    });
+    soumettre(el());
+    http.expectOne(`${BASE}/ingredients/resolve`).flush(
+      {
+        status: 400,
+        code: 'validation.invalid_body',
+        message: 'La saisie est invalide.',
+        fields: [
+          {
+            path: 'labels.1',
+            code: 'custom',
+            message: 'Le nom doit contenir au moins une lettre.',
+          },
+        ],
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
+    await harness.fixture.whenStable();
+
+    const [premiere, seconde] = lignes(el());
+    expect(premiere.textContent).not.toContain('au moins une lettre');
+    expect(seconde.textContent).toContain(
+      'Le nom doit contenir au moins une lettre.',
+    );
+    http.expectNone(`${BASE}/recipes`);
+  });
+
+  it('garde une suggestion inactive tant que le catalogue ne la nomme pas, et propose de le relire', async () => {
+    const ouvert = await ouvrirLesRecettes(NOUVELLE);
+    const { el, http, harness } = ouvert;
+    await harness.fixture.whenStable();
+
+    await remplirLaLigne(ouvert, 0, {
+      quantite: '2',
+      unite: 'Pièce',
+      libelle: 'Oignons',
+    });
+    soumettre(el());
+    http
+      .expectOne(`${BASE}/ingredients/resolve`)
+      .flush([
+        { label: 'Oignons', unknown: true, suggestions: ['ingredient-2'] },
+      ]);
+    TestBed.tick();
+    http.expectOne((requete) => requete.url === `${BASE}/ingredients`).flush(
+      {
+        status: 503,
+        code: 'service_unavailable',
+        message: 'Le catalogue est momentanément indisponible.',
+      },
+      { status: 503, statusText: 'Service Unavailable' },
+    );
+    await harness.fixture.whenStable();
+
+    const suggestion = (): HTMLButtonElement =>
+      champ(el(), 'suggestion') as unknown as HTMLButtonElement;
+    expect(suggestion().disabled).toBe(true);
+    expect(champ(el(), 'inconnu').textContent).toContain(
+      'Le catalogue est momentanément indisponible.',
+    );
+
+    (champ(el(), 'relire-catalogue') as unknown as HTMLButtonElement).click();
+    TestBed.tick();
+    http
+      .expectOne((requete) => requete.url === `${BASE}/ingredients`)
+      .flush([OIGNON]);
+    await harness.fixture.whenStable();
+
+    expect(suggestion().disabled).toBe(false);
+    expect(suggestion().textContent?.trim()).toBe('Oignon jaune');
+    expect(champ(el(), 'relire-catalogue')).toBeNull();
+  });
+
   describe('« Créer l’ingrédient »', () => {
     /** Une recette dont le libellé « Poireau » est inconnu, sans suggestion. */
     async function avecUnPoireauInconnu(): Promise<Ouvert> {

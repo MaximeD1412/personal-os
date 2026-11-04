@@ -14,6 +14,7 @@ import {
   matArrowUpwardOutline,
   matCheckCircleOutline,
   matDeleteOutline,
+  matRefreshOutline,
 } from '@ng-icons/material-symbols/outline';
 import {
   LIBELLES_DES_UNITES_DE_RECETTE,
@@ -94,6 +95,7 @@ function estSaisie(ligne: LigneSaisie): boolean {
       matArrowUpwardOutline,
       matCheckCircleOutline,
       matDeleteOutline,
+      matRefreshOutline,
     }),
   ],
   templateUrl: './recipe-form.html',
@@ -143,7 +145,7 @@ export class FormulaireDeRecette {
           !this.nomsConnus().has(rattachement.ingredientId)),
     ),
   );
-  private readonly catalogue = this.ingredients.catalogue(
+  protected readonly catalogue = this.ingredients.catalogue(
     () => '',
     this.catalogueUtile,
   );
@@ -162,6 +164,8 @@ export class FormulaireDeRecette {
   protected readonly rattachementEnCours = signal<number | null>(null);
   protected readonly refus = signal<ErreurApi | null>(null);
   protected readonly erreurs = computed(() => erreursDeChamp(this.refus()));
+  /** Les lignes soumises au résolveur, dans leur ordre : ses `fields` (`labels.<n>`) y renvoient. */
+  private readonly lignesResolues = signal<readonly number[]>([]);
   /** Les lignes et les étapes envoyées, dans leur ordre : `fields` y renvoie par rang. */
   private readonly lignesEnvoyees = signal<readonly number[]>([]);
   private readonly etapesEnvoyees = signal<readonly number[]>([]);
@@ -225,9 +229,16 @@ export class FormulaireDeRecette {
     return rang < 0 ? undefined : this.erreurs()[`lines.${rang}.${champ}`];
   }
 
+  /** Le refus du libellé par le résolveur. */
+  protected erreurDuLibelle(cle: number): string | undefined {
+    const rang = this.lignesResolues().indexOf(cle);
+    return rang < 0 ? undefined : this.erreurs()[`labels.${rang}`];
+  }
+
   /** La première erreur de la ligne, sous elle. */
   protected erreurDeLaLigne(cle: number): string | undefined {
     return (
+      this.erreurDuLibelle(cle) ??
       this.erreurDeLigne(cle, 'quantity') ??
       this.erreurDeLigne(cle, 'unit') ??
       this.erreurDeLigne(cle, 'ingredientId')
@@ -358,7 +369,11 @@ export class FormulaireDeRecette {
     });
   }
 
-  /** Résout ce qui ne l'est pas encore, puis enregistre si chaque ligne a son Ingrédient. */
+  /**
+   * Résout ce qui ne l'est pas encore, puis enregistre si chaque ligne a son
+   * Ingrédient. Un libellé changé pendant la résolution est résolu de nouveau
+   * avant tout enregistrement.
+   */
   protected enregistrer(): void {
     const aResoudre = this.lignes().filter(
       (ligne) =>
@@ -371,15 +386,16 @@ export class FormulaireDeRecette {
     }
 
     this.envoi.set(true);
+    this.lignesResolues.set(aResoudre.map(({ cle }) => cle));
     this.ingredients
       .resoudre(aResoudre.map(({ libelle }) => libelle))
       .subscribe({
         next: (resolutions) => {
           this.appliquer(aResoudre, resolutions);
-          if (this.inconnus() === 0) {
-            this.envoyer();
-          } else {
+          if (this.inconnus() > 0) {
             this.envoi.set(false);
+          } else {
+            this.enregistrer();
           }
         },
         error: (erreur: ErreurApi) => {
@@ -433,18 +449,31 @@ export class FormulaireDeRecette {
     });
   }
 
-  /** Le sort de chaque libellé, dans l'ordre de la demande. */
+  /**
+   * Le sort de chaque libellé, dans l'ordre de la demande. Une ligne dont le
+   * libellé a changé depuis la demande garde le sien à résoudre.
+   */
   private appliquer(
     resolues: readonly LigneSaisie[],
     resolutions: readonly IngredientResolution[],
   ): void {
     const parCle = new Map(
-      resolues.map(({ cle }, rang) => [cle, resolutions[rang]]),
+      resolues.map(({ cle, libelle }, rang) => [
+        cle,
+        { libelle, resolution: resolutions[rang] },
+      ]),
     );
     this.lignes.update((lignes) =>
       lignes.map((ligne) => {
-        const resolution = parCle.get(ligne.cle);
-        if (!resolution) return ligne;
+        const demande = parCle.get(ligne.cle);
+        if (
+          !demande?.resolution ||
+          demande.libelle !== ligne.libelle ||
+          ligne.rattachement.etat !== 'a-resoudre'
+        ) {
+          return ligne;
+        }
+        const { resolution } = demande;
         return {
           ...ligne,
           refus: null,

@@ -119,7 +119,10 @@
               placeholder="Libellé : lentilles corail, oignon…"
               [attr.aria-label]="'Libellé, ingrédient ' + (rang + 1)"
               [value]="ligne.libelle"
-              [forceInvalid]="!!erreurDeLigne(ligne.cle, 'ingredientId')"
+              [forceInvalid]="
+                !!erreurDuLibelle(ligne.cle) ||
+                !!erreurDeLigne(ligne.cle, 'ingredientId')
+              "
               (input)="saisirLeLibelle(ligne.cle, $event)"
             />
             <button
@@ -155,7 +158,12 @@
                 existant, et il sera reconnu la prochaine fois. Ou créez
                 l'Ingrédient. } @else { Aucun Ingrédient proche : créez-le. }
               </p>
-              @if (ligne.refus; as message) {
+              @if (suggestions.length && catalogue.error(); as erreur) {
+              <hlm-field-error forceShow data-test="catalogue-indisponible"
+                >Les suggestions n'ont pas pu être nommées.
+                {{ erreur.message }}</hlm-field-error
+              >
+              } @if (ligne.refus; as message) {
               <hlm-field-error forceShow data-test="refus-rattachement"
                 >{{ message }}</hlm-field-error
               >
@@ -171,11 +179,25 @@
                 size="sm"
                 data-test="suggestion"
                 [attr.data-ingredient]="suggestion"
-                [disabled]="rattachementEnCours() !== null"
+                [disabled]="
+                  rattachementEnCours() !== null || !nomDe(suggestion)
+                "
                 [loading]="rattachementEnCours() === ligne.cle"
                 (click)="rattacher(ligne, suggestion)"
               >
                 {{ nomDe(suggestion) ?? '…' }}
+              </button>
+              } @if (suggestions.length && catalogue.error()) {
+              <button
+                hlmBtn
+                type="button"
+                variant="secondary"
+                size="sm"
+                data-test="relire-catalogue"
+                (click)="catalogue.reload()"
+              >
+                <ng-icon name="matRefreshOutline" aria-hidden="true" />
+                Réessayer
               </button>
               }
               <button
@@ -199,7 +221,7 @@
         }
       </ul>
 
-      @if (erreurs()['lines']; as message) {
+      @if (erreurs()['lines'] ?? erreurs()['labels']; as message) {
       <hlm-field-error forceShow>{{ message }}</hlm-field-error>
       }
       <div>
