@@ -160,6 +160,32 @@ export class ShoppingListRepository {
     });
   }
 
+  /** Les articles de chaque liste déjà produite pour ce planning, ouverte ou close. */
+  listesDuPlanning(mealPlanId: string): Promise<
+    {
+      items: {
+        ingredientId: string | null;
+        quantity: Decimal | null;
+        unit: CanonicalUnit | null;
+        origin: ShoppingListItemOrigin;
+      }[];
+    }[]
+  > {
+    return this.prisma.shoppingList.findMany({
+      where: { mealPlanId },
+      select: {
+        items: {
+          select: {
+            ingredientId: true,
+            quantity: true,
+            unit: true,
+            origin: true,
+          },
+        },
+      },
+    });
+  }
+
   /** Le Stock domestique de ces Ingrédients, en Unité canonique. */
   stockDe(
     ingredientIds: readonly string[],

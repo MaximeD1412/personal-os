@@ -7,6 +7,7 @@ import type {
   GenerationRound,
   MealPlan,
   MealPlanEntry,
+  ShoppingGap,
   ShoppingList,
 } from '@personal-os/contracts';
 import {
@@ -43,6 +44,18 @@ function souhaitsDe(ouvert: Ouvert, semaine: string): TestRequest {
   );
 }
 
+/**
+ * Répond « rien ne manque » à l'écart que lit un planning arrêté : sa lecture
+ * en cours retiendrait `whenStable`.
+ */
+async function sansEcart(ouvert: Ouvert): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve));
+  TestBed.tick();
+  ouvert.http
+    .match(({ url }) => url.endsWith('/shopping-gap'))
+    .forEach((lecture) => lecture.flush({ missing: [] } satisfies ShoppingGap));
+}
+
 /** L'écran ouvert, devant le Foyer, le planning et les Souhaits de sa semaine. */
 async function ouvrir(
   url = `/repas/planning?semaine=${LUNDI}`,
@@ -52,6 +65,7 @@ async function ouvrir(
   ouvert.http.expectOne(`${BASE}/household`).flush(FOYER);
   lectureDe(ouvert, planning.week).flush(planning);
   souhaitsDe(ouvert, planning.week).flush([]);
+  await sansEcart(ouvert);
   await ouvert.harness.fixture.whenStable();
   return ouvert;
 }
@@ -232,6 +246,7 @@ describe('Le Planning de repas', () => {
     const arret = http.expectOne(`${BASE}/meal-plans/planning-1/stop`);
     expect(arret.request.method).toBe('POST');
     arret.flush({ ...PLANNING_STATUE, status: 'STOPPED' } satisfies MealPlan);
+    await sansEcart(ouvert);
     await harness.fixture.whenStable();
 
     expect(bouton(el(), 'statut').textContent).toContain('Arrêté');
@@ -300,6 +315,7 @@ describe('Le Planning de repas', () => {
       entries: [],
       status: 'STOPPED',
     } satisfies MealPlan);
+    await sansEcart(ouvert);
     await harness.fixture.whenStable();
   });
 
@@ -448,6 +464,73 @@ describe('Le Planning de repas', () => {
         'Œuf : il faudrait son poids à la pièce.',
       ]);
       expect(router.url).toBe(`/repas/planning?semaine=${LUNDI}`);
+    });
+
+    it('signale ce que les listes déjà produites ne couvrent plus, et en produit le complément', async () => {
+      const ouvert = await ouvrirLePlanning(`/repas/planning?semaine=${LUNDI}`);
+      const { el, http, harness, confirmations, router } = ouvert;
+      http.expectOne(`${BASE}/household`).flush(FOYER);
+      lectureDe(ouvert, LUNDI).flush(ARRETE);
+      souhaitsDe(ouvert, LUNDI).flush([]);
+      await new Promise((resolve) => setTimeout(resolve));
+      TestBed.tick();
+      http.expectOne(`${BASE}/meal-plans/planning-1/shopping-gap`).flush({
+        missing: [
+          {
+            ingredient: { id: 'ingredient-basilic', displayName: 'Basilic' },
+            quantity: 10,
+            unit: 'GRAM',
+          },
+        ],
+      } satisfies ShoppingGap);
+      await harness.fixture.whenStable();
+
+      const bandeau = el().querySelector('[data-test="ecart"]');
+      expect(bandeau?.textContent).toContain(
+        'Le planning a changé : 1 ingrédient manque.',
+      );
+      expect(bandeau?.textContent).toContain('Basilic');
+
+      bouton(el(), 'produire-complement').click();
+      await apresLaConfirmation(ouvert);
+      expect(confirmations[0].confirmLabel).toBe('Produire le complément');
+      const production = http.expectOne(
+        ({ url, params }) =>
+          url === `${BASE}/meal-plans/planning-1/shopping-lists` &&
+          params.get('complement') === 'true',
+      );
+      const arrive = arrivee(router);
+      production.flush({
+        id: 'liste-2',
+        mealPlan: { id: 'planning-1', week: LUNDI },
+        status: 'OPEN',
+        producedAt: '2026-10-21T10:00:00.000Z',
+        closedAt: null,
+        items: [],
+      } satisfies ShoppingList);
+      await arrive;
+
+      expect(router.url).toBe('/courses/liste-2');
+      // L'écran de la liste la lit, avec les autres listes et son écart.
+      http.match(
+        ({ url }) =>
+          url.startsWith(`${BASE}/shopping-lists`) ||
+          url.endsWith('/shopping-gap'),
+      );
+    });
+
+    it('ne lit pas l’écart d’un planning ouvert', async () => {
+      // Sans `ouvrir`, qui répondrait lui-même à une lecture de l'écart.
+      const ouvert = await ouvrirLePlanning(`/repas/planning?semaine=${LUNDI}`);
+      ouvert.http.expectOne(`${BASE}/household`).flush(FOYER);
+      lectureDe(ouvert, LUNDI).flush(PLANNING);
+      souhaitsDe(ouvert, LUNDI).flush([]);
+      await new Promise((resolve) => setTimeout(resolve));
+      TestBed.tick();
+      await ouvert.harness.fixture.whenStable();
+
+      ouvert.http.expectNone(({ url }) => url.endsWith('/shopping-gap'));
+      expect(ouvert.el().querySelector('[data-test="ecart"]')).toBeNull();
     });
 
     it('ne se produit pas quand on renonce', async () => {
@@ -765,6 +848,7 @@ describe('La génération du Planning de repas', () => {
     ouvert.http
       .expectOne(`${BASE}/meal-plans/planning-1/stop`)
       .flush({ ...PLANNING_STATUE, status: 'STOPPED' } satisfies MealPlan);
+    await sansEcart(ouvert);
     await ouvert.harness.fixture.whenStable();
   });
 });

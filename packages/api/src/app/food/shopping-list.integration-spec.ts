@@ -3,12 +3,14 @@ import { Test } from '@nestjs/testing';
 import {
   zApiError,
   zHousehold,
+  zShoppingGap,
   zShoppingList,
   zShoppingListItem,
   type Ingredient,
   type MealPlan,
   type MealPlanEntry,
   type Recipe,
+  type ShoppingGap,
   type ShoppingList,
   type ShoppingListItem,
 } from '@personal-os/contracts';
@@ -42,6 +44,19 @@ const UNE_LISTE = zShoppingList
   .extend({
     mealPlan: zShoppingList.shape.mealPlan.unwrap().strict().nullable(),
     items: z.array(UN_ARTICLE),
+  })
+  .strict();
+
+const UN_ECART = zShoppingGap
+  .extend({
+    missing: z.array(
+      zShoppingGap.shape.missing.element
+        .extend({
+          ingredient:
+            zShoppingGap.shape.missing.element.shape.ingredient.strict(),
+        })
+        .strict(),
+    ),
   })
   .strict();
 
@@ -260,6 +275,170 @@ describe('Listes de courses', () => {
         .post(`/api/meal-plans/${INCONNU}/shopping-lists`)
         .expect(401)
         .expect(codeDErreur('auth.required'));
+    });
+  });
+
+  describe('GET /meal-plans/:id/shopping-gap', () => {
+    it("signale exactement les Ingrédients d'un repas ajouté après la production, conforme au contrat", async () => {
+      const { planning, pates, parmesan, basilic } = await unPlanningEcarte();
+
+      const reponse = await request(app.getHttpServer())
+        .get(`/api/meal-plans/${planning.id}/shopping-gap`)
+        .set('Cookie', jeu.b.session)
+        .expect(200)
+        .expect(conformeA(UN_ECART));
+
+      // Les pâtes : 200 g sont déjà sur la liste, le nouveau repas en veut
+      // 200 de plus. Le parmesan et le basilic n'y étaient pas.
+      expect(reponse.body).toEqual({
+        missing: [
+          {
+            ingredient: { id: basilic.id, displayName: basilic.displayName },
+            quantity: 10,
+            unit: 'GRAM',
+          },
+          {
+            ingredient: { id: parmesan.id, displayName: parmesan.displayName },
+            quantity: 50,
+            unit: 'GRAM',
+          },
+          {
+            ingredient: { id: pates.id, displayName: pates.displayName },
+            quantity: 200,
+            unit: 'GRAM',
+          },
+        ],
+      });
+    });
+
+    it("ne signale rien tant qu'aucune liste n'est produite, ni un repas retiré après la liste", async () => {
+      const pates = await ingredient(`Pâtes ${semaines} (écart)`, 'GRAM');
+      const plat = await recette(`Pâtes ${semaines} (écart)`, 2, [
+        { ingredientId: pates.id, quantity: 200, unit: 'G' },
+      ]);
+      const planning = await unPlanning();
+      await ajouter(planning, 0, { recipeId: plat.id });
+      const retire = await ajouter(planning, 1, { recipeId: plat.id });
+      await arreter(planning);
+      expect(await ecartDe(planning)).toEqual({ missing: [] });
+
+      await produire(planning);
+      await rouvrir(planning);
+      await request(app.getHttpServer())
+        .delete(`/api/meal-plans/${planning.id}/entries/${retire.id}`)
+        .set('Cookie', jeu.a.session)
+        .expect(204);
+
+      expect(await ecartDe(planning)).toEqual({ missing: [] });
+    });
+
+    it('refuse en 404 un planning inconnu', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/meal-plans/${INCONNU}/shopping-gap`)
+        .set('Cookie', jeu.a.session)
+        .expect(404)
+        .expect(codeDErreur('food.plan_not_found'));
+    });
+
+    it('refuse en 401 une lecture sans session', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/meal-plans/${INCONNU}/shopping-gap`)
+        .expect(401)
+        .expect(codeDErreur('auth.required'));
+    });
+  });
+
+  describe('POST /meal-plans/:id/shopping-lists?complement=true', () => {
+    it('produit une liste des seuls manquants, sans toucher à la liste figée, ses cochages ni ses ajouts', async () => {
+      const { planning, premiere, pates, parmesan, basilic } =
+        await unPlanningEcarte();
+      await request(app.getHttpServer())
+        .post(
+          `/api/shopping-lists/${premiere.id}/items/${premiere.items[0].id}/check`,
+        )
+        .set('Cookie', jeu.a.session)
+        .expect(200);
+      await ajout(premiere, { label: 'Éponges' });
+      const figee = await lire(premiere.id);
+
+      const reponse = await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+        .query({ complement: true })
+        .set('Cookie', jeu.b.session)
+        .expect(201)
+        .expect(conformeA(UNE_LISTE));
+
+      const complement = reponse.body as ShoppingList;
+      expect(complement.id).not.toBe(premiere.id);
+      expect(complement).toMatchObject({
+        mealPlan: { id: planning.id },
+        status: 'OPEN',
+      });
+      expect(
+        complement.items.map(({ ingredient, quantity, origin, checked }) => ({
+          ingredientId: ingredient?.id,
+          quantity,
+          origin,
+          checked,
+        })),
+      ).toEqual([
+        {
+          ingredientId: basilic.id,
+          quantity: 10,
+          origin: 'PLAN',
+          checked: false,
+        },
+        {
+          ingredientId: parmesan.id,
+          quantity: 50,
+          origin: 'PLAN',
+          checked: false,
+        },
+        {
+          ingredientId: pates.id,
+          quantity: 200,
+          origin: 'PLAN',
+          checked: false,
+        },
+      ]);
+      expect(await lire(premiere.id)).toEqual(figee);
+      expect(await ecartDe(planning)).toEqual({ missing: [] });
+    });
+
+    it('refuse en 422 un complément quand rien ne manque, et ne crée aucune liste', async () => {
+      const planning = await unPlanning();
+      await ajouter(planning, 0, { title: 'Soupe' });
+      await arreter(planning);
+      const avant = await ouvertes();
+
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+        .query({ complement: true })
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('food.no_shopping_gap'));
+      expect(await ouvertes()).toEqual(avant);
+    });
+
+    it("refuse en 422 le complément d'un planning qui n'est pas arrêté", async () => {
+      const { planning } = await unPlanningEcarte();
+      await rouvrir(planning);
+
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+        .query({ complement: true })
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('food.plan_not_stopped'));
+    });
+
+    it('refuse en 400 un `complement` qui n’est pas un booléen, sur `complement`', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${INCONNU}/shopping-lists`)
+        .query({ complement: 'peut-etre' })
+        .set('Cookie', jeu.a.session)
+        .expect(400)
+        .expect(champsEnErreur(['complement']));
     });
   });
 
@@ -625,6 +804,50 @@ describe('Listes de courses', () => {
       .post(`/api/meal-plans/${planning.id}/stop`)
       .set('Cookie', jeu.a.session)
       .expect(200);
+  }
+
+  /**
+   * Un planning dont une liste est produite, puis rouvert pour un repas de
+   * plus qui reprend un Ingrédient de la liste et en demande deux nouveaux,
+   * et arrêté de nouveau.
+   */
+  async function unPlanningEcarte() {
+    const n = semaines;
+    const pates = await ingredient(`Pâtes ${n} (écart)`, 'GRAM');
+    const parmesan = await ingredient(`Parmesan ${n} (écart)`, 'GRAM');
+    const basilic = await ingredient(`Basilic ${n} (écart)`, 'GRAM');
+    const nature = await recette(`Pâtes nature ${n} (écart)`, 2, [
+      { ingredientId: pates.id, quantity: 200, unit: 'G' },
+    ]);
+    const pesto = await recette(`Pâtes au pesto ${n} (écart)`, 2, [
+      { ingredientId: pates.id, quantity: 200, unit: 'G' },
+      { ingredientId: parmesan.id, quantity: 50, unit: 'G' },
+      { ingredientId: basilic.id, quantity: 10, unit: 'G' },
+    ]);
+    const planning = await unPlanning();
+    await ajouter(planning, 0, { recipeId: nature.id });
+    await arreter(planning);
+    const premiere = await produire(planning);
+
+    await rouvrir(planning);
+    await ajouter(planning, 1, { recipeId: pesto.id });
+    await arreter(planning);
+    return { planning, premiere, pates, parmesan, basilic };
+  }
+
+  async function rouvrir(planning: MealPlan): Promise<void> {
+    await request(app.getHttpServer())
+      .post(`/api/meal-plans/${planning.id}/reopen`)
+      .set('Cookie', jeu.a.session)
+      .expect(200);
+  }
+
+  async function ecartDe(planning: MealPlan): Promise<ShoppingGap> {
+    const reponse = await request(app.getHttpServer())
+      .get(`/api/meal-plans/${planning.id}/shopping-gap`)
+      .set('Cookie', jeu.a.session)
+      .expect(200);
+    return reponse.body as ShoppingGap;
   }
 
   async function produire(planning: MealPlan): Promise<ShoppingList> {

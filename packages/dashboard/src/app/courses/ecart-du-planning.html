@@ -1,0 +1,45 @@
+@if (refus(); as erreur) {
+<div hlmAlert tone="error" data-test="refus-complement">
+  <hlm-alert-icon />
+  <div hlmAlertContent>
+    <p hlmAlertTitle>{{ erreur.message }}</p>
+    @if (erreur.fields?.length) {
+    <ul hlmAlertDescription class="list-disc ps-space-md">
+      @for (champ of erreur.fields; track champ.path) {
+      <li>{{ champ.message }}</li>
+      }
+    </ul>
+    }
+  </div>
+</div>
+} @if (lecture.error(); as erreur) {
+<dccm-state
+  data-test="lecture-de-l-ecart"
+  status="error"
+  [error]="erreur"
+  errorHeading="L'écart avec les listes déjà produites n'a pas pu être lu"
+  (retry)="lecture.reload()"
+/>
+} @else if (manquants().length) {
+<div hlmAlert tone="warning" data-test="ecart">
+  <hlm-alert-icon />
+  <div hlmAlertContent>
+    <p hlmAlertTitle>{{ titre() }}</p>
+    <p hlmAlertDescription>{{ description() }}</p>
+  </div>
+  <div hlmAlertAction>
+    <button
+      hlmBtn
+      size="sm"
+      hlmAlertPrimaryAction
+      type="button"
+      data-test="produire-complement"
+      [loading]="envoi()"
+      (click)="produire()"
+    >
+      <ng-icon name="matPlaylistAddOutline" aria-hidden="true" />
+      Produire une liste de complément
+    </button>
+  </div>
+</div>
+}

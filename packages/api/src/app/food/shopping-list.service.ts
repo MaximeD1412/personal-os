@@ -2,14 +2,18 @@ import { Injectable } from '@nestjs/common';
 import {
   portions,
   type ApiFieldError,
+  type ShoppingGap,
   type ShoppingList,
   type ShoppingListItem,
   type ShoppingListItemInput,
+  type ShoppingListProductionQuery,
   type ShoppingListQuery,
 } from '@personal-os/contracts';
+import type Decimal from 'decimal.js';
 import { ErreurMetier, Introuvable } from '../erreurs/erreur-metier';
 import type { EchecDeConversion } from './conversion/convertir';
 import { consolider, type EchecDeConsolidation } from './courses/consolider';
+import { ecart } from './courses/ecart';
 import {
   codePrisma,
   ShoppingListRepository,
@@ -23,7 +27,7 @@ import {
  * Les Listes de courses du Foyer, figées à leur production (ADR 0012) : rien
  * ne les recalcule. Les saisies arrivent validées par leur schéma (ADR 0030) ;
  * il reste ici ce qu'un schéma ne juge pas seul. Un planning qui n'est pas
- * arrêté, un Ingrédient qui ne se convertit pas, un Ingrédient inconnu, une
+ * arrêté, un complément sans rien qui manque, un Ingrédient qui ne se convertit pas, un Ingrédient inconnu, une
  * liste close, un article du planning qu'on voudrait retirer.
  */
 @Injectable()
@@ -41,10 +45,101 @@ export class ShoppingListService {
   /**
    * Produit une liste depuis un planning arrêté : ses besoins, consolidés par
    * Ingrédient en Unité canonique, moins le Stock domestique. Produire de
-   * nouveau depuis le même planning crée une autre liste.
+   * nouveau depuis le même planning crée une autre liste. Une liste de
+   * complément ne porte que l'écart avec les listes déjà produites pour lui.
    */
-  async produire(planId: string): Promise<ShoppingList> {
+  async produire(
+    planId: string,
+    { complement = false }: ShoppingListProductionQuery = {},
+  ): Promise<ShoppingList> {
     const planning = await this.planningArrete(planId);
+    const besoins = complement
+      ? await this.manquants(planning)
+      : await this.besoinActuel(planning);
+    if (complement && besoins.length === 0) {
+      throw new ErreurMetier(
+        'food.no_shopping_gap',
+        "Rien ne manque aux listes déjà produites pour ce planning : il n'y a pas de liste de complément à produire.",
+      );
+    }
+
+    const articles = besoins.map(({ ingredient, quantite }) => ({
+      ingredientId: ingredient.id,
+      label: null,
+      quantity: quantite.toFixed(3),
+      unit: ingredient.canonicalUnit,
+    }));
+
+    try {
+      return exposer(await this.repository.produire(planId, articles));
+    } catch (erreur) {
+      if (codePrisma(erreur) !== 'P2025') {
+        throw erreur;
+      }
+      // Le planning a été rouvert depuis qu'on l'a lu.
+      await this.planningArrete(planId);
+      throw erreur;
+    }
+  }
+
+  /**
+   * L'écart entre un planning et ses listes figées (ADR 0012) : ce que sa
+   * consolidation actuelle exige au-delà de ce qu'elles couvrent. Un planning
+   * ouvert a aussi un écart : on le voit pendant qu'on le modifie.
+   */
+  async lireLEcart(planId: string): Promise<ShoppingGap> {
+    const manquants = await this.manquants(await this.planning(planId));
+    return {
+      missing: manquants.map(({ ingredient, quantite }) => ({
+        ingredient: { id: ingredient.id, displayName: ingredient.displayName },
+        quantity: quantite.toNumber(),
+        unit: ingredient.canonicalUnit,
+      })),
+    };
+  }
+
+  /**
+   * Les besoins du planning qu'aucune liste déjà produite pour lui ne couvre.
+   * Sans liste, il n'y a pas d'écart : le planning attend sa première liste.
+   */
+  private async manquants(
+    planning: PlanningAConsoliderRecord,
+  ): Promise<Besoin[]> {
+    const listes = await this.repository.listesDuPlanning(planning.id);
+    if (listes.length === 0) return [];
+
+    const besoins = await this.besoinActuel(planning);
+    const { manquants } = ecart(
+      besoins.map(({ ingredient, quantite }) => ({
+        ingredientId: ingredient.id,
+        quantite,
+        unite: ingredient.canonicalUnit,
+      })),
+      listes.map(({ items }) => ({
+        articles: items.map(({ ingredientId, quantity, unit, origin }) => ({
+          ingredientId,
+          quantite: quantity?.toString() ?? null,
+          unite: unit,
+          origin,
+        })),
+      })),
+    );
+    const ingredientDe = new Map(
+      besoins.map(({ ingredient }) => [ingredient.id, ingredient]),
+    );
+    return manquants.map(({ ingredientId, quantite }) => ({
+      ingredient: ingredientDe.get(ingredientId) as IngredientAConsoliderRecord,
+      quantite,
+    }));
+  }
+
+  /**
+   * La consolidation actuelle du planning, dans l'ordre alphabétique où une
+   * liste se lit au magasin. Une conversion impossible la refuse entière.
+   */
+  private async besoinActuel(
+    planning: PlanningAConsoliderRecord,
+  ): Promise<Besoin[]> {
     const ingredients = ingredientsDe(planning);
     const stock = await this.repository.stockDe([...ingredients.keys()]);
 
@@ -83,32 +178,14 @@ export class ShoppingListService {
       throw conversionImpossible(consolidation.echecs, ingredients);
     }
 
-    // Au magasin, une liste se lit dans l'ordre alphabétique.
-    const articles = consolidation.articles
+    return consolidation.articles
       .map(({ ingredientId, quantite }) => ({
         ingredient: ingredients.get(
           ingredientId,
         ) as IngredientAConsoliderRecord,
         quantite,
       }))
-      .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name, 'fr'))
-      .map(({ ingredient, quantite }) => ({
-        ingredientId: ingredient.id,
-        label: null,
-        quantity: quantite.toFixed(3),
-        unit: ingredient.canonicalUnit,
-      }));
-
-    try {
-      return exposer(await this.repository.produire(planId, articles));
-    } catch (erreur) {
-      if (codePrisma(erreur) !== 'P2025') {
-        throw erreur;
-      }
-      // Le planning a été rouvert depuis qu'on l'a lu.
-      await this.planningArrete(planId);
-      throw erreur;
-    }
+      .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name, 'fr'));
   }
 
   /**
@@ -215,7 +292,7 @@ export class ShoppingListService {
     return article;
   }
 
-  private async planningArrete(id: string): Promise<PlanningAConsoliderRecord> {
+  private async planning(id: string): Promise<PlanningAConsoliderRecord> {
     const planning = await this.repository.planningAConsolider(id);
     if (!planning) {
       throw new Introuvable(
@@ -223,6 +300,11 @@ export class ShoppingListService {
         'Aucun Planning de repas de cet identifiant.',
       );
     }
+    return planning;
+  }
+
+  private async planningArrete(id: string): Promise<PlanningAConsoliderRecord> {
+    const planning = await this.planning(id);
     if (planning.status !== 'STOPPED') {
       throw new ErreurMetier(
         'food.plan_not_stopped',
@@ -258,6 +340,12 @@ export class ShoppingListService {
       throw erreur;
     }
   }
+}
+
+/** Un besoin à acheter, en Unité canonique de son Ingrédient. */
+interface Besoin {
+  ingredient: IngredientAConsoliderRecord;
+  quantite: Decimal;
 }
 
 /** Chaque Ingrédient que les recettes du planning citent, une fois. */

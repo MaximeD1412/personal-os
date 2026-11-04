@@ -50,6 +50,7 @@ import { map, type Observable } from 'rxjs';
 import { decaler, formaterJour } from '../dates';
 import type { ErreurApi } from '../erreur-api.interceptor';
 import { HouseholdService } from '../household.service';
+import { EcartDuPlanning } from '../courses/ecart-du-planning';
 import { ShoppingListService } from '../courses/shopping-list.service';
 import { MealPlanService } from './meal-plan.service';
 import { raisonDuRejet } from './rejet';
@@ -189,6 +190,9 @@ interface Jour {
  * tour » attend que chaque repas soit statué, et qu'il reste un refusé ou un
  * créneau écarté à remplir ; un créneau écarté dit pourquoi, à sa place.
  * Chaque tour mène à sa Trace IA.
+ *
+ * Arrêté, le planning signale ce que ses listes déjà produites ne couvrent
+ * plus (un repas ajouté après elles), et produit la liste de complément.
  */
 @Component({
   imports: [
@@ -201,6 +205,7 @@ interface Jour {
     DccmPageHeader,
     DccmState,
     SouhaitsDeLaSemaine,
+    EcartDuPlanning,
   ],
   templateUrl: './planning.html',
 })
@@ -255,6 +260,14 @@ export class PlanningDeRepas {
   );
   protected readonly ouvert = computed(
     () => this.planning()?.status === 'OPEN',
+  );
+  /** Le planning dont l'écart se lit : arrêté seulement, seul cas où le complément se produit. */
+  protected readonly planningArrete = computed(
+    () => {
+      const planning = this.planning();
+      return planning?.status === 'STOPPED' ? { id: planning.id } : null;
+    },
+    { equal: (a, b) => a?.id === b?.id },
   );
 
   /** Ce qui s'envoie, le temps de la requête : les autres gestes attendent. */

@@ -46,6 +46,7 @@ import { ErreurApi } from '../erreur-api.interceptor';
 import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { IngredientService } from '../repas/ingredient.service';
 import { quantiteCanonique, UNITES_CANONIQUES } from '../repas/quantite';
+import { EcartDuPlanning } from './ecart-du-planning';
 import { ShoppingListService } from './shopping-list.service';
 
 /** Le fil d'Ariane des écrans de courses. */
@@ -86,6 +87,9 @@ function nomDeListe(liste: ShoppingList): string {
  * en tête de liste, prend un Ingrédient du catalogue (la recherche le
  * propose) ou un simple libellé, et s'envoie par Entrée. Retirer un ajout
  * manuel se confirme ; un article du planning ne se retire pas.
+ *
+ * Si le planning a changé depuis, un bandeau dit ce qui manque aux listes
+ * déjà produites pour lui, et propose une liste de complément.
  */
 @Component({
   imports: [
@@ -100,6 +104,7 @@ function nomDeListe(liste: ShoppingList): string {
     DccmListRow,
     DccmPageHeader,
     DccmState,
+    EcartDuPlanning,
   ],
   providers: [provideIcons({ matAddOutline, matDeleteOutline })],
   templateUrl: './courses.html',
@@ -140,6 +145,14 @@ export class Courses {
     return this.ouvertes.hasValue() ? this.ouvertes.value()[0] : undefined;
   });
   protected readonly ouverte = computed(() => this.liste()?.status === 'OPEN');
+  /**
+   * Le planning de la liste, pour son écart : le même tant que la liste en
+   * vient, un cochage ne relit rien.
+   */
+  protected readonly planningDeLaListe = computed(
+    () => this.liste()?.mealPlan ?? null,
+    { equal: (a, b) => a?.id === b?.id },
+  );
   /** Les autres listes ouvertes, où l'on peut passer. */
   protected readonly autres = computed(() => {
     const affichee = this.liste()?.id;

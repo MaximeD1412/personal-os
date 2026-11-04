@@ -7,6 +7,7 @@ import type {
   GenerationRound,
   MealPlan,
   MealPlanEntry,
+  ShoppingGap,
 } from '@personal-os/contracts';
 import {
   arrivee,
@@ -503,6 +504,12 @@ describe('La génération de la semaine', () => {
     http
       .expectOne(`${BASE}/meal-plans/planning-1/stop`)
       .flush({ ...relance, status: 'STOPPED' } satisfies MealPlan);
+    // Arrêté, le planning lit son écart avec les listes déjà produites.
+    await new Promise((resolve) => setTimeout(resolve));
+    TestBed.tick();
+    http
+      .expectOne(`${BASE}/meal-plans/planning-1/shopping-gap`)
+      .flush({ missing: [] } satisfies ShoppingGap);
     await harness.fixture.whenStable();
 
     expect(bouton(el(), 'statut').textContent).toContain('Arrêté');

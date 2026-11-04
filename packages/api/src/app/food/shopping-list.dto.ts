@@ -1,7 +1,9 @@
 import {
+  zShoppingGap,
   zShoppingList,
   zShoppingListItem,
   zShoppingListItemInput,
+  zShoppingListProductionQuery,
   zShoppingListQuery,
 } from '@personal-os/contracts';
 import { createZodDto } from 'nestjs-zod';
@@ -20,3 +22,9 @@ export class ShoppingListQueryDto extends createZodDto(zShoppingListQuery) {}
 export class ShoppingListItemInputDto extends createZodDto(
   zShoppingListItemInput,
 ) {}
+
+export class ShoppingListProductionQueryDto extends createZodDto(
+  zShoppingListProductionQuery,
+) {}
+
+export class ShoppingGapDto extends createZodDto(zShoppingGap) {}
