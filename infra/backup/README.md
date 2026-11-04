@@ -5,15 +5,15 @@ celui du serveur** ([ADR 0020](../../docs/adr/0020-sauvegardes-restic-chez-un-au
 et restauration scriptée réutilisable comme banc d'essai de migration
 ([ADR 0021](../../docs/adr/0021-pas-de-staging-la-restauration-sert-de-banc-d-essai.md)).
 
-| Fichier | Rôle |
-| --- | --- |
-| `bin/backup.sh` | Dump PostgreSQL, envoi vers Restic, rétention, vérification |
-| `bin/restore.sh` | Restauration vers une cible jetable, remontée optionnelle dans PostgreSQL |
-| `bin/notify-failure.sh` | Courriel + témoin d'inactivité, appelé par `OnFailure=` |
-| `bin/watch.sh` | Vérifie qu'un instantané a moins de 26 heures, toutes les 6 heures |
-| `bin/install.sh` | Pose les scripts et les unités systemd, idempotent |
-| `backup.conf.example` | Configuration — cibles, rétention, alertes. **Sans secret** |
-| `restic.env.example` | Modèle de secrets. Le fichier renseigné n'entre jamais dans Git |
+| Fichier                 | Rôle                                                                      |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `bin/backup.sh`         | Dump PostgreSQL, envoi vers Restic, rétention, vérification               |
+| `bin/restore.sh`        | Restauration vers une cible jetable, remontée optionnelle dans PostgreSQL |
+| `bin/notify-failure.sh` | Courriel + témoin d'inactivité, appelé par `OnFailure=`                   |
+| `bin/watch.sh`          | Vérifie qu'un instantané a moins de 26 heures, toutes les 6 heures        |
+| `bin/install.sh`        | Pose les scripts et les unités systemd, idempotent                        |
+| `backup.conf.example`   | Configuration — cibles, rétention, alertes. **Sans secret**               |
+| `restic.env.example`    | Modèle de secrets. Le fichier renseigné n'entre jamais dans Git           |
 
 ## Périmètre actuel
 
@@ -75,7 +75,8 @@ chmod 600 /etc/personal-os/restic-password
 cp restic.env.example /etc/personal-os/restic.env
 chmod 600 /etc/personal-os/restic.env
 # renseigner RESTIC_REPOSITORY, B2_ACCOUNT_ID, B2_ACCOUNT_KEY,
-# et S3_MIRROR_ACCESS_KEY_ID, S3_MIRROR_SECRET_ACCESS_KEY pour le bucket
+# et S3_MIRROR_ACCESS_KEY_ID, S3_MIRROR_SECRET_ACCESS_KEY pour le bucket,
+# et BACKUP_STATUS_TOKEN : la même valeur que dans /opt/personal-os/.env (voir plus bas)
 
 set -a; . /etc/personal-os/restic.env; set +a
 restic init      # UNE SEULE FOIS — voir l'avertissement ci-dessous
@@ -160,12 +161,41 @@ un arrêt machine est rattrapée au démarrage suivant, plutôt que sautée.
 Deux canaux, parce qu'ils tombent en panne différemment.
 
 - **`OnFailure=` systemd** envoie un courriel avec les 50 dernières lignes du
-  journal. Il dit *pourquoi*, mais dépend d'un relais SMTP.
+  journal. Il dit _pourquoi_, mais dépend d'un relais SMTP.
 - **Témoin d'inactivité** (`BACKUP_HEARTBEAT_URL`) : pingué au démarrage et au
-  succès. Il dit seulement *que* quelque chose ne va pas, mais c'est le seul à
+  succès. Il dit seulement _que_ quelque chose ne va pas, mais c'est le seul à
   détecter le mode de panne dangereux — la sauvegarde qui **ne tourne plus du
   tout**. Un `OnFailure` ne se déclenche que si l'unité s'exécute ; timer masqué
   ou machine éteinte, personne n'est prévenu.
+
+## État transmis au tableau de bord
+
+L'API ne voit pas Restic. À la fin de chaque exécution, réussie ou non,
+`backup.sh` lui transmet son résultat (`report_status`, `lib/common.sh`) :
+l'Accueil du tableau de bord affiche la date de la dernière sauvegarde
+réussie, et la signale en À faire au-delà de 26 heures (DASH-3).
+
+- **L'adresse** : `BACKUP_STATUS_URL` dans `backup.conf`, le port de l'API
+  publié sur la machine (`http://127.0.0.1:3001/api/internal/backup-status`).
+  Vide, rien n'est transmis. La route n'est pas routée par le proxy du tableau
+  de bord : elle ne se joint que de la machine.
+- **Le jeton** : `BACKUP_STATUS_TOKEN` dans `restic.env`, la même valeur que
+  dans `/opt/personal-os/.env` (modèle : `infra/deploy/stack.env.example`), côté API. Il se génère sur la machine
+  (`openssl rand -hex 32`) et passe à curl par son entrée, jamais par sa ligne
+  de commande.
+- **Un échec transmet sa cause** : le message du `die`, ou la commande qui a
+  interrompu le script. Une réussite efface la cause du dernier échec.
+- **Une API injoignable n'échoue pas la sauvegarde** : le journal le note, et
+  le courriel d'échec comme le témoin d'inactivité restent les alertes.
+
+Vérifier après la pose du jeton, des deux côtés :
+
+```bash
+sudo systemctl start personal-os-backup.service
+journalctl -u personal-os-backup.service -n 5   # sans « état non transmis »
+```
+
+puis l'Accueil montre la sauvegarde qui vient de se terminer.
 
 ## Vérification de fraîcheur
 

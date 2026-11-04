@@ -155,6 +155,9 @@ services:
       # Le stockage objet (le CV du portfolio). La production exige `s3`, le
       # bucket OVH Object Storage, et refuse de démarrer sur `disk` : le disque
       # du conteneur ne survit pas au déploiement suivant.
+      # Le jeton de l'agent de sauvegarde, qui transmet l'état des sauvegardes
+      # par le port publié ci-dessous, depuis la machine (DASH-3).
+      BACKUP_STATUS_TOKEN: ${BACKUP_STATUS_TOKEN:-}
       STORAGE_PROVIDER: ${STORAGE_PROVIDER:?STORAGE_PROVIDER manquant}
       STORAGE_DISK_DIR: ${STORAGE_DISK_DIR:-}
       S3_ENDPOINT: ${S3_ENDPOINT:-}

@@ -107,11 +107,25 @@ if [ "$DRY_RUN" = 1 ]; then
   plan "restic forget $(retention_args | tr '\n' ' ')--prune"
   plan "restic check"
   plan "témoin ${BACKUP_HEARTBEAT_URL:-<aucun>}"
+  plan "état transmis à ${BACKUP_STATUS_URL:-<aucune API>}"
   exit 0
 fi
 
+# La commande qui a interrompu le script, quand ce n'est pas un `die` : c'est
+# la cause que l'échec transmet à l'API.
+COMMANDE_EN_ECHEC=""
+trap 'COMMANDE_EN_ECHEC="« $BASH_COMMAND » a échoué (code $?)"' ERR
+
+echec() {
+  local code=$?
+  heartbeat fail
+  report_status FAILED "${DERNIERE_ERREUR:-${COMMANDE_EN_ECHEC:-sauvegarde interrompue (code $code)}}"
+  (exit "$code")
+  cleanup
+}
+
 heartbeat start
-trap 'heartbeat fail; cleanup' EXIT
+trap echec EXIT
 
 STAGING=$(mktemp -d)
 chmod 700 "$STAGING"
@@ -149,4 +163,5 @@ restic check
 
 trap cleanup EXIT
 heartbeat success
+report_status SUCCEEDED
 log "sauvegarde terminée"

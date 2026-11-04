@@ -347,6 +347,23 @@
       ],
       "commande": "sudo infra/backup/bin/install.sh && systemctl list-timers personal-os-backup-watch.timer",
       "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "backup-status-token",
+      "phase": "env",
+      "source": "#83",
+      "titre": "Générer BACKUP_STATUS_TOKEN et le poser côté API et côté agent de sauvegarde",
+      "pourquoi": "L'agent de sauvegarde transmet le résultat de chaque exécution à l'API, qui l'affiche sur l'Accueil. Sans le même jeton des deux côtés, l'API refuse l'état transmis et l'Accueil signale qu'aucune sauvegarde réussie n'a été reçue.",
+      "etapes": [
+        "Sur le VPS, générer le jeton : openssl rand -hex 32",
+        "Le poser en BACKUP_STATUS_TOKEN dans /opt/personal-os/.env (stack.env) ; il s'applique au déploiement suivant",
+        "Poser la même valeur en BACKUP_STATUS_TOKEN dans /etc/personal-os/restic.env (mode 600)",
+        "Ajouter à /etc/personal-os/backup.conf BACKUP_STATUS_URL=http://127.0.0.1:3001/api/internal/backup-status (le port API_PORT de stack.env), puis relancer sudo infra/backup/bin/install.sh pour poser les nouveaux scripts",
+        "Après le déploiement, lancer une sauvegarde (sudo systemctl start personal-os-backup.service) : le journal ne dit pas « état non transmis », et l'Accueil montre la sauvegarde qui vient de se terminer",
+        "Vérifier depuis l'extérieur que la route n'est pas joignable : curl -X POST https://<hôte du tableau de bord>/api/internal/backup-status répond 404"
+      ],
+      "commande": "sudo systemctl start personal-os-backup.service && journalctl -u personal-os-backup.service -n 5",
+      "ajouteLe": "2026-11-04"
     }
   ],
   "format": "élément = { id (stable), phase, source (#n), titre, pourquoi, etapes: [], commande (facultative), ajouteLe (YYYY-MM-DD) }"

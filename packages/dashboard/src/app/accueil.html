@@ -55,7 +55,13 @@
               [meta]="tuile.meta"
               [link]="lien.libelle"
               [tone]="tuile.ton"
-            ></a>
+            >
+              @if (tuile.statut; as statut) {
+              <span hlmBadge data-test="statut-tuile" [tone]="statut.ton" dot
+                >{{ statut.libelle }}</span
+              >
+              }
+            </a>
             } @else {
             <dccm-kpi-tile
               data-test="tuile"
@@ -65,7 +71,13 @@
               [value]="tuile.valeur"
               [meta]="tuile.meta"
               [tone]="tuile.ton"
-            />
+            >
+              @if (tuile.statut; as statut) {
+              <span hlmBadge data-test="statut-tuile" [tone]="statut.ton" dot
+                >{{ statut.libelle }}</span
+              >
+              }
+            </dccm-kpi-tile>
             }
           </li>
           }
