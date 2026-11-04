@@ -348,14 +348,16 @@ describe('La saisie d’une Recette', () => {
         { label: 'Oignons', unknown: true, suggestions: ['ingredient-2'] },
       ]);
     TestBed.tick();
-    http.expectOne((requete) => requete.url === `${BASE}/ingredients`).flush(
-      {
-        status: 503,
-        code: 'service_unavailable',
-        message: 'Le catalogue est momentanément indisponible.',
-      },
-      { status: 503, statusText: 'Service Unavailable' },
-    );
+    http
+      .expectOne((requete) => requete.url === `${BASE}/ingredients`)
+      .flush(
+        {
+          status: 503,
+          code: 'service_unavailable',
+          message: 'Le catalogue est momentanément indisponible.',
+        },
+        { status: 503, statusText: 'Service Unavailable' },
+      );
     await harness.fixture.whenStable();
 
     const suggestion = (): HTMLButtonElement =>

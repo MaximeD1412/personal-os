@@ -56,14 +56,16 @@ export function portions(repas: {
 /**
  * Un Repas planifié : une Recette, ou un intitulé libre quand on ne cuisine
  * pas d'après une recette (des restes, un restaurant). Ses portions se
- * déduisent toujours de ses Participants et de ses Invités.
+ * déduisent toujours de ses Participants et de ses Invités. Sa recette dit si
+ * elle est gardée : une recette générée qu'on apprécie se garde depuis le
+ * repas (CUISINE-19).
  */
 export const zMealPlanEntry = /* @__PURE__ */ z.object({
   id: /* @__PURE__ */ z.string(),
   day: zDay,
   moment: zMealMoment,
   recipe: /* @__PURE__ */ z
-    .object({ id: z.string(), title: z.string() })
+    .object({ id: z.string(), title: z.string(), kept: z.boolean() })
     .nullable(),
   title: /* @__PURE__ */ z.string().nullable(),
   participantIds: /* @__PURE__ */ z.array(z.string()),
@@ -257,9 +259,9 @@ export type MealPlanEntryDecisionInput = z.infer<
  * Un Tour de génération qui vient d'être lancé, avec les Repas planifiés
  * qu'il propose : chacun attend qu'on l'approuve ou le refuse.
  */
-export const zGenerationRound = /* @__PURE__ */ zGenerationRoundSummary.extend(
-  { entries: /* @__PURE__ */ z.array(zMealPlanEntry) },
-);
+export const zGenerationRound = /* @__PURE__ */ zGenerationRoundSummary.extend({
+  entries: /* @__PURE__ */ z.array(zMealPlanEntry),
+});
 
 export type GenerationRound = z.infer<typeof zGenerationRound>;
 

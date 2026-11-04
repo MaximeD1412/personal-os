@@ -168,7 +168,8 @@ export const zTrainingSessionCompletion = /* @__PURE__ */ z
     actualNotes: zTexte.optional(),
   })
   .refine(
-    (realise) => CHAMPS_DU_REALISE.some((champ) => realise[champ] !== undefined),
+    (realise) =>
+      CHAMPS_DU_REALISE.some((champ) => realise[champ] !== undefined),
     {
       path: ['actualDistanceM'],
       error: 'Une Séance réalisée porte une distance, une durée ou des notes.',

@@ -48,6 +48,13 @@ export class RecipeController {
     return this.recettes.creer(saisie);
   }
 
+  @Post(':id/keep')
+  @HttpCode(200)
+  @ZodResponse({ status: 200, type: RecipeDto })
+  garder(@Param('id') id: string) {
+    return this.recettes.garder(id);
+  }
+
   @Patch(':id')
   @ZodResponse({ status: 200, type: RecipeDto })
   modifier(@Param('id') id: string, @Body() saisie: RecipeUpdateDto) {

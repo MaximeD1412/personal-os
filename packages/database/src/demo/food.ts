@@ -217,12 +217,18 @@ export interface RecetteDeDemo {
   servings: number;
   steps: string[];
   lines: { ingredient: string; quantity: number; unit: RecipeUnit }[];
+  /**
+   * Une recette qu'un Tour de génération a proposée et que le Foyer n'a pas
+   * encore gardée (CUISINE-19). Les autres sont saisies, donc gardées.
+   */
+  generee?: true;
 }
 
 /**
- * Six recettes de tous les jours, sur le catalogue de démo. Chaque unité se
- * convertit vers l'Unité canonique de son Ingrédient : des cuillères pour un
- * liquide, des pièces pour ce qui a un poids à la pièce.
+ * Sept recettes de tous les jours, sur le catalogue de démo : six saisies, et
+ * une générée qu'on n'a pas encore gardée. Chaque unité se convertit vers
+ * l'Unité canonique de son Ingrédient : des cuillères pour un liquide, des
+ * pièces pour ce qui a un poids à la pièce.
  */
 export const RECETTES_DE_DEMO: readonly RecetteDeDemo[] = [
   {
@@ -334,6 +340,23 @@ export const RECETTES_DE_DEMO: readonly RecetteDeDemo[] = [
       { ingredient: 'Sel fin', quantity: 8, unit: 'G' },
     ],
   },
+  {
+    title: 'Omelette aux courgettes et au parmesan',
+    servings: 2,
+    steps: [
+      'Couper la courgette en fines rondelles et la faire dorer dans l’huile d’olive.',
+      'Battre les œufs avec le parmesan et le sel.',
+      'Verser sur la courgette et cuire à feu doux jusqu’à ce que l’omelette prenne.',
+    ],
+    lines: [
+      { ingredient: 'Œufs', quantity: 4, unit: 'PIECE' },
+      { ingredient: 'Courgette', quantity: 250, unit: 'G' },
+      { ingredient: 'Parmesan', quantity: 30, unit: 'G' },
+      { ingredient: 'Huile d’olive', quantity: 1, unit: 'TBSP' },
+      { ingredient: 'Sel fin', quantity: 2, unit: 'G' },
+    ],
+    generee: true,
+  },
 ];
 
 /** La Cuisine vit dans l'Espace foyer : ses recettes s'y sèment, sous la garde. */
@@ -386,10 +409,13 @@ async function semerUneRecette(
   recette: RecetteDeDemo,
   ids: ReadonlyMap<string, string>,
 ): Promise<void> {
+  // Resemée, une recette générée qu'on avait gardée entre-temps redevient à garder.
   const donnees = {
     title: recette.title,
     servings: recette.servings,
     steps: recette.steps,
+    source: recette.generee ? ('GENERATED' as const) : ('MANUAL' as const),
+    kept: !recette.generee,
   };
   const lignes = recette.lines.map(
     ({ ingredient, quantity, unit }, position) => ({
@@ -418,7 +444,6 @@ async function semerUneRecette(
   await prisma.recipe.create({
     data: {
       ...donnees,
-      source: 'MANUAL',
       scope: { connect: { id: ID_ESPACE_FOYER } },
       lines: { create: lignes },
     },
@@ -624,6 +649,11 @@ export const REPAS_DE_DEMO: readonly RepasDeDemo[] = [
   { jour: 1, moment: 'DINNER', recette: 'Poulet sauté aux courgettes' },
   { jour: 2, moment: 'LUNCH', intitule: 'Restes du dahl', seul: true },
   { jour: 3, moment: 'DINNER', recette: 'Saumon, riz basmati et citron' },
+  {
+    jour: 4,
+    moment: 'DINNER',
+    recette: 'Omelette aux courgettes et au parmesan',
+  },
   { jour: 5, moment: 'DINNER', recette: 'Gratin dauphinois', invites: 2 },
   { jour: 6, moment: 'LUNCH', recette: 'Crêpes' },
 ];
