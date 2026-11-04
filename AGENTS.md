@@ -201,6 +201,34 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
   attend l'approbation humaine : `agent-loop` met la PR en attente, puis la
   merge sur le label `revue-visuelle-ok` (ou une review « Approve »), ou la
   reprend en correction sur `revue-visuelle-ko`.
+  - **Prendre les captures** : pile locale lancée (tableau de bord et API sur
+    la base de `DATABASE_URL`), `pnpm demo:seed`, puis
+    `scripts/captures.sh /agenda '/calendrier/evenements/nouveau?titre=Dîner'`.
+    Chaque chemin donne `captures/<slug>-mobile.png` (390×844) et
+    `captures/<slug>-desktop.png` (1280×800), sous une Session du premier
+    Compte de `DEMO_ACCOUNT_EMAILS` qui n'existe que le temps de la commande
+    (refusée avec `APP_ENV=production`). `CAPTURES_URL` change l'origine
+    (`http://localhost:${DASHBOARD_PORT:-4200}` par défaut) et `CAPTURES_DIR`
+    le dossier ; ces réglages se lisent aussi dans `.env`, sans écraser
+    l'environnement. `captures/` n'est pas versionné.
+  - **Les publier** : sur une branche dédiée `captures/<n>`, **jamais sur la
+    branche du ticket** (les images ne passent pas dans `develop`) :
+
+    ```bash
+    n=<numéro du ticket>; dossier=$(mktemp -d)
+    git fetch origin "captures/$n" 2>/dev/null &&
+      git worktree add -B "captures/$n" "$dossier" "origin/captures/$n" ||
+      git worktree add --orphan -b "captures/$n" "$dossier"
+    cp captures/*.png "$dossier/"
+    git -C "$dossier" add . && git -C "$dossier" commit -m "captures #$n"
+    git -C "$dossier" push -u origin "captures/$n"
+    git worktree remove "$dossier"
+    ```
+
+    Dans la description de la PR, chaque image pointe sur
+    `https://github.com/MaximeD1412/personal-os/blob/captures/<n>/<fichier>?raw=true`
+    (jamais `raw.githubusercontent.com`, en 404 sur un dépôt privé), à côté
+    de l'URL de l'écran.
 
 ### Les fichiers de pilotage
 

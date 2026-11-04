@@ -1,16 +1,18 @@
 import type { ComptesDeDemo } from './seed';
 
-type Environnement = Readonly<Record<string, string | undefined>>;
+export type Environnement = Readonly<Record<string, string | undefined>>;
 
 /**
- * Le jeu de démo **vide les données métier** avant de semer. Il ne tourne donc
- * jamais en production : la commande le refuse avant même d'ouvrir la base.
+ * Le jeu de démo **vide les données métier** avant de semer, et la Session de
+ * capture ouvre un accès sans Authentik. Ni l'un ni l'autre ne tourne donc en
+ * production : la commande le refuse avant même d'ouvrir la base.
  */
-export function refuserLaProduction(env: Environnement): void {
+export function refuserLaProduction(
+  env: Environnement,
+  raison = 'le jeu de démo vide les données métier avant de semer, il ne tourne jamais en production',
+): void {
   if (env['APP_ENV']?.trim().toLowerCase() === 'production') {
-    throw new Error(
-      'APP_ENV vaut « production » : le jeu de démo vide les données métier avant de semer, il ne tourne jamais en production.',
-    );
+    throw new Error(`APP_ENV vaut « production » : ${raison}.`);
   }
 }
 
