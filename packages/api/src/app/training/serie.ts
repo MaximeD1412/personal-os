@@ -5,6 +5,7 @@ import {
   type TrainingSeriesInput,
   type Weekday,
 } from '@personal-os/contracts';
+import { enHeureMurale } from '../calendar/recurrence/heure-de-paris';
 import { ErreurMetier } from '../erreurs/erreur-metier';
 
 /** Ce qui situe les Séances d'une série dans le calendrier. */
@@ -23,7 +24,9 @@ const UN_JOUR_MS = 24 * 60 * 60 * 1000;
  * Il n'existe ni plan ni semaine (ADR 0022) : la série ne laisse que des
  * Séances indépendantes. Elle en donne au moins une, et au plus
  * `SEANCES_PAR_SERIE_AU_PLUS` : au-delà, c'est une erreur de saisie plus
- * qu'une préparation, et rien n'est créé.
+ * qu'une préparation, et rien n'est créé. Une heure que l'horloge de Paris
+ * saute un des jours (entre 2 h et 3 h au passage à l'heure d'été) refuse
+ * aussi la série, plutôt que de poser la Séance à une autre heure.
  */
 export function planifierLaSerie(serie: JoursDeLaSerie): string[] {
   const jours = new Set(serie.weekdays);
@@ -46,9 +49,21 @@ export function planifierLaSerie(serie: JoursDeLaSerie): string[] {
         `Une série crée au plus ${SEANCES_PAR_SERIE_AU_PLUS} Séances : raccourcissez la période ou retirez des jours.`,
       );
     }
-    debuts.push(
-      instantDans(date.toISOString().slice(0, 10), heure ?? 0, minute ?? 0),
+    const debut = instantDans(
+      date.toISOString().slice(0, 10),
+      heure ?? 0,
+      minute ?? 0,
     );
+    if (
+      enHeureMurale(new Date(debut)).heure !==
+      ((heure ?? 0) * 60 + (minute ?? 0)) * 60_000
+    ) {
+      throw new ErreurMetier(
+        'training.series_nonexistent_time',
+        `${serie.time} n'existe pas à Paris le ${jourEnClair(date)}, jour du passage à l'heure d'été : choisissez une autre heure.`,
+      );
+    }
+    debuts.push(debut);
   }
 
   if (debuts.length === 0) {
@@ -64,4 +79,12 @@ export function planifierLaSerie(serie: JoursDeLaSerie): string[] {
 /** Le jour de la semaine d'un jour à minuit UTC, au nom d'iCalendar. */
 function jourDe(date: Date): Weekday {
   return JOURS_DE_LA_SEMAINE[(date.getUTCDay() + 6) % 7];
+}
+
+/** Un jour à minuit UTC, écrit en français : « dimanche 28 mars 2027 ». */
+function jourEnClair(date: Date): string {
+  return new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'UTC',
+    dateStyle: 'full',
+  }).format(date);
 }

@@ -403,6 +403,21 @@ describe('Sport : Objectifs', () => {
       expect(await seancesDe(jeu.a, objectif.id)).toEqual([]);
     });
 
+    it("refuse en 422 une heure qui n'existe pas au passage à l'heure d'été, et ne crée rien", async () => {
+      const objectif = await creerObjectif(jeu.a, SEMI);
+
+      await creerLaSerie(jeu.a, objectif.id, {
+        ...SERIE_DE_MAI,
+        weekdays: ['SU'],
+        from: '2030-03-24',
+        to: '2030-04-07',
+        time: '02:30',
+      })
+        .expect(422)
+        .expect(codeDErreur('training.series_nonexistent_time'));
+      expect(await seancesDe(jeu.a, objectif.id)).toEqual([]);
+    });
+
     it('refuse en 422 une série de plus de cent Séances, et ne crée rien', async () => {
       const objectif = await creerObjectif(jeu.a, SEMI);
 

@@ -56,6 +56,38 @@ describe('planifierLaSerie', () => {
     ]);
   });
 
+  it("refuse une heure qui n'existe pas le jour du passage à l'heure d'été", () => {
+    const printemps: JoursDeLaSerie = {
+      weekdays: ['SU'],
+      from: '2027-03-21',
+      to: '2027-04-04',
+      time: '02:30',
+    };
+
+    expect(codeDe(() => planifierLaSerie(printemps))).toBe(
+      'training.series_nonexistent_time',
+    );
+    expect(
+      planifierLaSerie({ ...printemps, from: '2027-03-29', to: '2027-04-04' }),
+    ).toEqual(['2027-04-04T00:30:00.000Z']);
+  });
+
+  it("accepte une heure qui existe deux fois au retour à l'heure d'hiver", () => {
+    const [debut] = planifierLaSerie({
+      weekdays: ['SU'],
+      from: '2029-10-28',
+      to: '2029-10-28',
+      time: '02:30',
+    });
+
+    expect(
+      new Intl.DateTimeFormat('fr-FR', {
+        timeZone: 'Europe/Paris',
+        timeStyle: 'short',
+      }).format(new Date(debut)),
+    ).toBe('02:30');
+  });
+
   it("refuse une série qui ne tombe sur aucun jour : aucune Séance n'est créée", () => {
     expect(
       codeDe(() =>
