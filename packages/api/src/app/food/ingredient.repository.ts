@@ -10,6 +10,7 @@ export interface IngredientRecord {
   gramsPerPiece: number | null;
   allergens: Allergen[];
   perishable: boolean;
+  preferredProductId: string | null;
   createdAt: Date;
 }
 
@@ -54,6 +55,22 @@ export class IngredientRepository {
 
   async creer(saisie: IngredientWrite): Promise<IngredientRecord> {
     return enIngredient(await this.prisma.ingredient.create({ data: saisie }));
+  }
+
+  /**
+   * Pose le Produit préféré, ou l'ôte. Que le Produit soit l'un de ceux de
+   * l'Ingrédient se juge avant, au service.
+   */
+  async preferer(
+    id: string,
+    preferredProductId: string | null,
+  ): Promise<IngredientRecord> {
+    return enIngredient(
+      await this.prisma.ingredient.update({
+        where: { id },
+        data: { preferredProductId },
+      }),
+    );
   }
 
   async modifier(

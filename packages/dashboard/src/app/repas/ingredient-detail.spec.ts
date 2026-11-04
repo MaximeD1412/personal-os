@@ -7,6 +7,16 @@ import {
   ouvrirLeCatalogue,
 } from '../../testing/catalogue';
 
+/** La section « Produits » lit les Produits une fois l'Ingrédient arrivé. */
+async function sansProduits(
+  http: HttpTestingController,
+  id: string,
+): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve));
+  TestBed.tick();
+  http.expectOne(`${BASE}/ingredients/${id}/products`).flush([]);
+}
+
 function texte(el: HTMLElement, nom: string): string {
   return (
     el
@@ -23,6 +33,7 @@ describe('La fiche d’un Ingrédient', () => {
       '/repas/ingredients/ingredient-1',
     );
     http.expectOne(`${BASE}/ingredients/ingredient-1`).flush(BEURRE);
+    await sansProduits(http, 'ingredient-1');
     await harness.fixture.whenStable();
 
     expect(el().querySelector('h1')?.textContent).toContain('Beurre doux');
@@ -44,6 +55,7 @@ describe('La fiche d’un Ingrédient', () => {
       '/repas/ingredients/ingredient-2',
     );
     http.expectOne(`${BASE}/ingredients/ingredient-2`).flush(OIGNON);
+    await sansProduits(http, 'ingredient-2');
     await harness.fixture.whenStable();
 
     expect(texte(el(), 'allergenes')).toContain(
@@ -63,6 +75,7 @@ describe('La fiche d’un Ingrédient', () => {
       displayName: 'Lait entier',
       canonicalUnit: 'MILLILITER',
     });
+    await sansProduits(http, 'ingredient-3');
     await harness.fixture.whenStable();
 
     expect(el().querySelector('[data-test="poids"]')).toBeNull();

@@ -27,12 +27,22 @@ export interface StockAConsolider {
 
 export interface IngredientAConsolider extends IngredientAConvertir {
   id: string;
+  /**
+   * Le Produit repris dans la liste, et ce que contient l'un de ses
+   * conditionnements, en Unité canonique de l'Ingrédient.
+   */
+  produitPrefere?: { id: string; contenance: Decimal.Value } | null;
 }
 
-/** Un besoin qui reste à acheter, en Unité canonique, au millième. */
+/**
+ * Un besoin qui reste à acheter, en Unité canonique, au millième, et le
+ * nombre de conditionnements du Produit préféré qui le couvrent, s'il y en a
+ * un.
+ */
 export interface ArticleConsolide {
   ingredientId: string;
   quantite: Decimal;
+  conditionnement: { productId: string; nombre: number } | null;
 }
 
 export interface EchecDeConsolidation {
@@ -55,7 +65,9 @@ export type Consolidation =
  * Les articles suivent l'ordre où leur Ingrédient apparaît pour la première
  * fois. Le calcul est exact ; seule la quantité restante s'arrondit, au
  * millième supérieur, celui que la base garde : on n'achète pas moins que le
- * besoin.
+ * besoin. Quand l'Ingrédient a un Produit préféré, l'article compte aussi ses
+ * conditionnements, toujours arrondis au supérieur ; la quantité, elle, reste
+ * le besoin.
  */
 export function consolider(
   repas: readonly RepasAConsolider[],
@@ -118,10 +130,30 @@ export function consolider(
   for (const [ingredientId, besoin] of besoins) {
     const reste = soustraire(besoin, enStock.get(ingredientId) ?? rationnel(0));
     if (reste.numerateur > ZERO) {
-      articles.push({ ingredientId, quantite: auMillemeSuperieur(reste) });
+      const produit = ingredientDe.get(ingredientId)?.produitPrefere ?? null;
+      articles.push({
+        ingredientId,
+        quantite: auMillemeSuperieur(reste),
+        conditionnement: produit && {
+          productId: produit.id,
+          nombre: auSuperieur(diviser(reste, rationnel(produit.contenance))),
+        },
+      });
     }
   }
   return { articles };
+}
+
+/**
+ * Le nombre de conditionnements qui couvrent une quantité positive, arrondi
+ * au supérieur : on n'achète pas moins que le besoin. La quantité et la
+ * contenance sont dans la même unité.
+ */
+export function enConditionnements(
+  quantite: Decimal.Value,
+  contenance: Decimal.Value,
+): number {
+  return auSuperieur(diviser(rationnel(quantite), rationnel(contenance)));
 }
 
 /**
@@ -191,6 +223,14 @@ function auMillemeSuperieur({ numerateur, denominateur }: Rationnel): Decimal {
     milliemes / denominateur +
     (milliemes % denominateur === ZERO ? ZERO : BigInt(1));
   return new Decimal(quotient.toString()).dividedBy(1000);
+}
+
+/** L'entier supérieur ou égal à une fraction positive. */
+function auSuperieur({ numerateur, denominateur }: Rationnel): number {
+  return Number(
+    numerateur / denominateur +
+      (numerateur % denominateur === ZERO ? ZERO : BigInt(1)),
+  );
 }
 
 /** Un repas qui cite une recette absente des données est un défaut de l'appelant. */

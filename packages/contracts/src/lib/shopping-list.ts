@@ -25,6 +25,13 @@ export type ShoppingListItemOrigin = z.infer<typeof zShoppingListItemOrigin>;
  * vide sans Ingrédient ou sans quantité, une quantité de libellé se compte.
  * L'Ingrédient porte son Unité canonique et son caractère périssable
  * d'aujourd'hui : ce que la clôture demande (CUISINE-10).
+ *
+ * Issu du planning, un Ingrédient qui avait un Produit préféré donne un
+ * article au conditionnement (CUISINE-12) : `packages` conditionnements de
+ * `packageQuantity` (dans `unit`), nommés `packageLabel` au singulier,
+ * arrondis au supérieur ; `quantity` reste le besoin. Le conditionnement est
+ * figé avec la liste : `productId` devient vide si le Produit est retiré,
+ * le reste demeure. Un article sans Produit n'a aucun des quatre.
  */
 export const zShoppingListItem = /* @__PURE__ */ z.object({
   id: /* @__PURE__ */ z.string(),
@@ -39,6 +46,10 @@ export const zShoppingListItem = /* @__PURE__ */ z.object({
   label: /* @__PURE__ */ z.string().nullable(),
   quantity: /* @__PURE__ */ z.number().nullable(),
   unit: /* @__PURE__ */ zCanonicalUnit.nullable(),
+  productId: /* @__PURE__ */ z.string().nullable(),
+  packages: /* @__PURE__ */ z.int().nullable(),
+  packageQuantity: /* @__PURE__ */ z.number().nullable(),
+  packageLabel: /* @__PURE__ */ z.string().nullable(),
   origin: zShoppingListItemOrigin,
   checked: /* @__PURE__ */ z.boolean(),
   position: /* @__PURE__ */ z.int(),
@@ -157,7 +168,8 @@ export type ShoppingListItemInput = z.infer<typeof zShoppingListItemInput>;
 /**
  * La clôture d'une liste (`POST /shopping-lists/:id/close`) : ce que le
  * magasin a changé aux articles cochés. Un article coché absent d'ici est
- * acheté dans la quantité de la liste. `purchasedQuantity` est en Unité
+ * acheté dans la quantité de la liste : celle de ses conditionnements entiers
+ * quand il en porte (`packages` × `packageQuantity`). `purchasedQuantity` est en Unité
  * canonique ; `expiresOn` est exigé, par une règle métier, pour un Ingrédient
  * périssable. Un article non coché n'est pas acheté, quoi qu'on en dise ici.
  */

@@ -152,4 +152,56 @@ describe('acheter', () => {
       ],
     });
   });
+
+  describe('au conditionnement', () => {
+    const deuxBoites = { nombre: 2, contenance: '400' };
+
+    it('monte le stock de la quantité des conditionnements achetés, pas du besoin', () => {
+      expect(
+        enClair(
+          acheter(
+            [article('a', { quantite: '700', conditionnement: deuxBoites })],
+            new Map(),
+            new Map(),
+          ),
+        ),
+      ).toEqual([
+        {
+          ingredientId: 'tomates',
+          avant: null,
+          apres: { quantite: '800', expireLe: null },
+        },
+      ]);
+    });
+
+    it('préfère encore la quantité achetée au conditionnement', () => {
+      expect(
+        enClair(
+          acheter(
+            [article('a', { conditionnement: deuxBoites })],
+            new Map([['a', { quantiteAchetee: '1000' }]]),
+            new Map(),
+          ),
+        ),
+      ).toEqual([
+        {
+          ingredientId: 'tomates',
+          avant: null,
+          apres: { quantite: '1000', expireLe: null },
+        },
+      ]);
+    });
+
+    it("exige la quantité achetée quand l'Ingrédient a changé d'unité depuis la liste", () => {
+      expect(
+        acheter(
+          [article('a', { unite: 'PIECE', conditionnement: deuxBoites })],
+          new Map(),
+          new Map(),
+        ),
+      ).toEqual({
+        echecs: [{ articleId: 'a', raison: 'quantite_manquante' }],
+      });
+    });
+  });
 });

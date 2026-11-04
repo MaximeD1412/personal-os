@@ -133,6 +133,11 @@ export const zIngredient = /* @__PURE__ */ z.object({
   gramsPerPiece: /* @__PURE__ */ z.number().nullable(),
   allergens: /* @__PURE__ */ z.array(zAllergen),
   perishable: /* @__PURE__ */ z.boolean(),
+  /**
+   * Le Produit repris dans la liste de courses, l'un des siens ; vide sans
+   * Produit préféré (CUISINE-12).
+   */
+  preferredProductId: /* @__PURE__ */ z.string().nullable(),
   createdAt: zInstant,
 });
 

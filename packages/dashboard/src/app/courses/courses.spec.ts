@@ -10,6 +10,7 @@ import {
   LISTE,
   LISTE_PRECEDENTE,
   ouvrirLesCourses,
+  TOMATES,
 } from '../../testing/courses';
 
 type Ouvert = Awaited<ReturnType<typeof ouvrirLesCourses>>;
@@ -138,6 +139,14 @@ describe('La Liste de courses', () => {
     expect(
       el().querySelector('[data-test="achetes"]')?.textContent?.trim(),
     ).toBe('1 / 3 achetés');
+  });
+
+  it('compte au conditionnement un article de Produit préféré, et garde sa quantité', async () => {
+    const { el } = await ouvrir([{ ...LISTE, items: [FARINE, TOMATES] }]);
+
+    expect(texte(article(el(), TOMATES.id))).toContain('2 boîtes (700 g)');
+    expect(texte(article(el(), FARINE.id))).toContain('550 g');
+    expect(texte(article(el(), FARINE.id))).not.toContain('(');
   });
 
   it('mène aux autres listes ouvertes, et ouvre une liste par son lien', async () => {
@@ -660,6 +669,32 @@ describe('La Liste de courses', () => {
       expect(el().querySelector('[data-test="close"]')?.textContent).toContain(
         'Close',
       );
+    });
+
+    it('propose comme quantité achetée celle des conditionnements', async () => {
+      const ouvert = await ouvrir([
+        { ...LISTE, items: [{ ...TOMATES, checked: true }] },
+      ]);
+      await ouvrirLeRecap(ouvert);
+
+      const tomates = ligneDuRecap(ouvert.el(), TOMATES.id);
+      expect(
+        (
+          tomates.querySelector(
+            '[data-test="quantite-achetee"]',
+          ) as HTMLInputElement
+        ).value,
+      ).toBe('800');
+      expect(texte(tomates)).toContain('2 boîtes (700 g) sur la liste');
+      bouton(ouvert.el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+
+      const envoi = ouvert.http.expectOne(CLOTURE);
+      expect(envoi.request.body).toEqual({
+        items: [{ itemId: TOMATES.id, purchasedQuantity: 800 }],
+      });
+      envoi.flush({ ...LISTE, status: 'CLOSED', closedAt: LISTE.producedAt });
+      await ouvert.harness.fixture.whenStable();
     });
 
     it("ne demande pas de péremption pour un Ingrédient qui ne périt pas, et laisse le serveur prendre la quantité de la liste si on l'efface", async () => {

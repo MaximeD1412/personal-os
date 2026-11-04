@@ -14,6 +14,11 @@ export interface ArticleAchete {
   /** La quantité de la liste, dans l'unité qu'elle avait à l'ajout. */
   quantite: Decimal.Value | null;
   unite: CanonicalUnit | null;
+  /**
+   * Les conditionnements figés sur la liste, et ce que chacun contient, dans
+   * l'unité de la liste ; aucun pour un article sans Produit.
+   */
+  conditionnement?: { nombre: number; contenance: Decimal.Value } | null;
   coche: boolean;
 }
 
@@ -41,7 +46,9 @@ export type Achat =
 /**
  * Ce que la clôture d'une liste fait au Stock domestique (ADR 0013) : chaque
  * article coché d'un Ingrédient y entre, de sa quantité achetée, ou à défaut
- * de sa quantité de liste. Un article non coché n'est pas acheté ; un simple
+ * de ce que la liste dit d'acheter : ses conditionnements entiers quand elle
+ * en porte (deux boîtes de 400 g font 800 g, même pour un besoin de 700 g),
+ * sa quantité sinon. Un article non coché n'est pas acheté ; un simple
  * libellé n'a pas de stock. Deux articles du même Ingrédient montent sa seule
  * ligne l'un après l'autre, et le recaleur garde la péremption la plus proche.
  *
@@ -64,12 +71,25 @@ export function acheter(
     { avant: LigneRecalee | null; apres: LigneRecalee }
   >();
 
-  for (const { id, ingredient, quantite, unite, coche } of articles) {
+  for (const {
+    id,
+    ingredient,
+    quantite,
+    unite,
+    conditionnement,
+    coche,
+  } of articles) {
     if (!coche || !ingredient) continue;
     const precision = precisions.get(id) ?? {};
     const achetee =
       precision.quantiteAchetee ??
-      (unite === ingredient.canonicalUnit ? quantite : null);
+      (unite !== ingredient.canonicalUnit
+        ? null
+        : conditionnement
+          ? new Decimal(conditionnement.contenance).times(
+              conditionnement.nombre,
+            )
+          : quantite);
     if (ingredient.perishable && precision.expireLe === undefined) {
       peremptions.push(id);
     }

@@ -21,66 +21,73 @@
     (retry)="lecture.reload()"
   >
     @if (ingredient(); as ingredient) {
-    <section hlmCard class="md:max-w-2xl">
-      <div hlmCardHeader>
-        <h2 hlmCardTitle>Fiche de l'ingrédient</h2>
-        <p hlmCardDescription>
-          Catalogue du Foyer, partagé par les deux Comptes.
-        </p>
-      </div>
-      <dl hlmCardContent class="grid gap-gutter sm:grid-cols-2">
-        <div class="flex flex-col gap-1" data-test="unite">
-          <dt class="text-label-regular text-outline">Unité canonique</dt>
-          <dd class="text-body-default font-semibold text-on-surface">
-            {{ unite() }}
-          </dd>
+    <div class="flex flex-col gap-margin">
+      <section hlmCard class="md:max-w-2xl">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle>Fiche de l'ingrédient</h2>
+          <p hlmCardDescription>
+            Catalogue du Foyer, partagé par les deux Comptes.
+          </p>
         </div>
+        <dl hlmCardContent class="grid gap-gutter sm:grid-cols-2">
+          <div class="flex flex-col gap-1" data-test="unite">
+            <dt class="text-label-regular text-outline">Unité canonique</dt>
+            <dd class="text-body-default font-semibold text-on-surface">
+              {{ unite() }}
+            </dd>
+          </div>
 
-        <div class="flex flex-col gap-1" data-test="conservation">
-          <dt class="text-label-regular text-outline">Conservation</dt>
-          <dd class="text-body-default font-semibold text-on-surface">
-            {{ ingredient.perishable ? 'Périssable' : 'Non périssable' }}
-          </dd>
-        </div>
+          <div class="flex flex-col gap-1" data-test="conservation">
+            <dt class="text-label-regular text-outline">Conservation</dt>
+            <dd class="text-body-default font-semibold text-on-surface">
+              {{ ingredient.perishable ? 'Périssable' : 'Non périssable' }}
+            </dd>
+          </div>
 
-        @if (avecPoidsALaPiece()) {
-        <div class="flex flex-col gap-1" data-test="poids">
-          <dt class="text-label-regular text-outline">
-            Poids moyen d'une pièce
-          </dt>
-          <dd
-            class="text-body-default font-semibold tabular-nums text-on-surface"
-          >
-            @if (ingredient.gramsPerPiece !== null) {
-            <span>{{ ingredient.gramsPerPiece }} g</span>
-            } @else {
-            <span class="font-normal text-outline">Non renseigné</span>
-            }
-          </dd>
-          <dd class="text-label-regular text-outline">
-            Utilisé pour additionner des recettes en pièces et en grammes.
-          </dd>
-        </div>
-        }
-
-        <div class="flex flex-col gap-1 sm:col-span-2" data-test="allergenes">
-          <dt class="text-label-regular text-outline">Allergènes déclarés</dt>
-          <dd>
-            @if (allergenes().length) {
-            <ul class="flex flex-wrap gap-space-sm">
-              @for (allergene of allergenes(); track allergene) {
-              <li><span hlmBadge tone="warning">{{ allergene }}</span></li>
-              }
-            </ul>
-            } @else {
-            <span class="text-body-default font-semibold text-secondary"
-              >Aucun parmi les 14 familles de l'UE</span
+          @if (avecPoidsALaPiece()) {
+          <div class="flex flex-col gap-1" data-test="poids">
+            <dt class="text-label-regular text-outline">
+              Poids moyen d'une pièce
+            </dt>
+            <dd
+              class="text-body-default font-semibold tabular-nums text-on-surface"
             >
-            }
-          </dd>
-        </div>
-      </dl>
-    </section>
+              @if (ingredient.gramsPerPiece !== null) {
+              <span>{{ ingredient.gramsPerPiece }} g</span>
+              } @else {
+              <span class="font-normal text-outline">Non renseigné</span>
+              }
+            </dd>
+            <dd class="text-label-regular text-outline">
+              Utilisé pour additionner des recettes en pièces et en grammes.
+            </dd>
+          </div>
+          }
+
+          <div class="flex flex-col gap-1 sm:col-span-2" data-test="allergenes">
+            <dt class="text-label-regular text-outline">Allergènes déclarés</dt>
+            <dd>
+              @if (allergenes().length) {
+              <ul class="flex flex-wrap gap-space-sm">
+                @for (allergene of allergenes(); track allergene) {
+                <li><span hlmBadge tone="warning">{{ allergene }}</span></li>
+                }
+              </ul>
+              } @else {
+              <span class="text-body-default font-semibold text-secondary"
+                >Aucun parmi les 14 familles de l'UE</span
+              >
+              }
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <pos-produits-de-l-ingredient
+        [ingredient]="ingredient"
+        (ingredientChange)="reprendre($event)"
+      />
+    </div>
     }
   </dccm-state>
 </div>

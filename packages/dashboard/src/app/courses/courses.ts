@@ -47,7 +47,11 @@ import { formaterInstant, formaterJour } from '../dates';
 import { ErreurApi } from '../erreur-api.interceptor';
 import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { IngredientService } from '../repas/ingredient.service';
-import { quantiteCanonique, UNITES_CANONIQUES } from '../repas/quantite';
+import {
+  conditionnements,
+  quantiteCanonique,
+  UNITES_CANONIQUES,
+} from '../repas/quantite';
 import { EcartDuPlanning } from './ecart-du-planning';
 import { ShoppingListService } from './shopping-list.service';
 
@@ -73,14 +77,24 @@ const LETTRES_POUR_CHERCHER = 2;
 
 const NOMBRE = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 });
 
-/** La quantité d'un article : en Unité canonique, ou un compte pour un libellé. */
+/**
+ * La quantité d'un article : en Unité canonique, ou un compte pour un
+ * libellé. Au conditionnement de son Produit préféré, le nombre de
+ * conditionnements d'abord, et le besoin entre parenthèses :
+ * « 2 boîtes (800 g) ».
+ */
 export function quantiteDArticle(
-  article: Pick<ShoppingListItem, 'quantity' | 'unit'>,
+  article: Pick<
+    ShoppingListItem,
+    'quantity' | 'unit' | 'packages' | 'packageLabel'
+  >,
 ): string | undefined {
   if (article.quantity === null) return undefined;
-  return article.unit
-    ? quantiteCanonique(article.quantity, article.unit)
-    : `×\u00a0${NOMBRE.format(article.quantity)}`;
+  if (!article.unit) return `×\u00a0${NOMBRE.format(article.quantity)}`;
+  const quantite = quantiteCanonique(article.quantity, article.unit);
+  return article.packages !== null && article.packageLabel !== null
+    ? `${conditionnements(article.packages, article.packageLabel)} (${quantite})`
+    : quantite;
 }
 
 /** « Semaine du 2 novembre », pour nommer une liste par son planning. */
@@ -274,13 +288,17 @@ export class Courses {
     return parArticle;
   });
 
-  /** La quantité achetée affichée : la saisie, sinon celle de la liste. */
+  /**
+   * La quantité achetée affichée : la saisie, sinon celle de la liste, celle
+   * de ses conditionnements quand l'article en a (CUISINE-12).
+   */
   protected quantiteAchetee(article: ArticleDuStock): number | null {
     const saisie = this.precisions()[article.id]?.quantite;
     if (saisie !== undefined) return saisie;
-    return article.unit === article.ingredient.canonicalUnit
-      ? article.quantity
-      : null;
+    if (article.unit !== article.ingredient.canonicalUnit) return null;
+    return article.packages !== null && article.packageQuantity !== null
+      ? Math.round(article.packages * article.packageQuantity * 1000) / 1000
+      : article.quantity;
   }
 
   protected peremption(article: ArticleDuStock): string {

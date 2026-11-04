@@ -19,6 +19,7 @@ import {
   IngredientUpdateDto,
 } from './ingredient.dto';
 import { IngredientService } from './ingredient.service';
+import { PreferredProductInputDto } from './product.dto';
 
 /**
  * Le catalogue d'Ingrédients. Il est global, hors Espace (`Ingredient` est
@@ -66,5 +67,16 @@ export class IngredientController {
   @ZodResponse({ status: 200, type: IngredientDto })
   modifier(@Param('id') id: string, @Body() saisie: IngredientUpdateDto) {
     return this.ingredients.modifier(id, saisie);
+  }
+
+  /** Choisit le Produit préféré, repris dans la liste de courses (CUISINE-12). */
+  @Post(':id/preferred-product')
+  @HttpCode(200)
+  @ZodResponse({ status: 200, type: IngredientDto })
+  preferer(
+    @Param('id') id: string,
+    @Body() { productId }: PreferredProductInputDto,
+  ) {
+    return this.ingredients.preferer(id, productId);
   }
 }

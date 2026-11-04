@@ -17,6 +17,27 @@ export interface ArticleDeListe {
   quantite: Decimal.Value | null;
   unite: CanonicalUnit | null;
   origin: ShoppingListItemOrigin;
+  /**
+   * Les conditionnements prévus pour l'article et ce que chacun contient, en
+   * Unité canonique, quand la liste l'a compté au conditionnement (CUISINE-12).
+   */
+  conditionnements?: number | null;
+  contenance?: Decimal.Value | null;
+}
+
+/**
+ * Ce qu'un article couvre : ses conditionnements entiers quand il en a, car
+ * c'est ce qui sera acheté, sinon sa quantité.
+ */
+function couvertureDe({
+  quantite,
+  conditionnements,
+  contenance,
+}: ArticleDeListe): Decimal.Value | null {
+  if (conditionnements && contenance !== null && contenance !== undefined) {
+    return new Decimal(contenance).times(conditionnements);
+  }
+  return quantite;
 }
 
 export interface ListeDuPlanning {
@@ -44,12 +65,15 @@ export function ecart(
   besoinActuel: readonly BesoinActuel[],
   listesDuPlanning: readonly ListeDuPlanning[],
 ): { manquants: Manquant[] } {
-  // Seul ce que le planning a mis sur une liste la couvre : un ajout manuel
+  // Seul ce que le planning a mis sur une liste la couvre, conditionnements
+  // entiers compris (deux boîtes de 400 g couvrent 800 g) : un ajout manuel
   // répond à un autre besoin. Un article figé dans une unité qui n'est plus
   // l'Unité canonique de son Ingrédient ne se compare pas.
   const couvert = new Map<string, Decimal>();
   for (const { articles } of listesDuPlanning) {
-    for (const { ingredientId, quantite, unite, origin } of articles) {
+    for (const article of articles) {
+      const { ingredientId, unite, origin } = article;
+      const quantite = couvertureDe(article);
       if (origin !== 'PLAN' || ingredientId === null || quantite === null) {
         continue;
       }

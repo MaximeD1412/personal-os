@@ -1307,6 +1307,228 @@ describe('Listes de courses', () => {
     });
   });
 
+  describe('Au conditionnement du Produit préféré (CUISINE-12)', () => {
+    it("arrondit au conditionnement l'article d'un Ingrédient qui a un Produit préféré, et laisse l'autre inchangé", async () => {
+      const tomate = await ingredient(`Tomate ${semaines} (boîtes)`, 'GRAM');
+      const ail = await ingredient(`Ail ${semaines} (boîtes)`, 'GRAM');
+      const boite = await produitPrefere(tomate.id, 400, 'boîte');
+      const plat = await recette(`Sauce ${semaines} (boîtes)`, 2, [
+        { ingredientId: tomate.id, quantity: 800, unit: 'G' },
+        { ingredientId: ail.id, quantity: 10, unit: 'G' },
+      ]);
+      const planning = await unPlanning();
+      await ajouter(planning, 0, { recipeId: plat.id });
+      await arreter(planning);
+
+      const reponse = await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+        .set('Cookie', jeu.a.session)
+        .expect(201)
+        .expect(conformeA(UNE_LISTE));
+
+      const liste = reponse.body as ShoppingList;
+      expect(liste.items).toMatchObject([
+        {
+          ingredient: { id: ail.id },
+          quantity: 10,
+          unit: 'GRAM',
+          productId: null,
+          packages: null,
+          packageQuantity: null,
+          packageLabel: null,
+        },
+        {
+          ingredient: { id: tomate.id },
+          quantity: 800,
+          unit: 'GRAM',
+          productId: boite,
+          packages: 2,
+          packageQuantity: 400,
+          packageLabel: 'boîte',
+        },
+      ]);
+    });
+
+    it('compte les conditionnements après le stock, au conditionnement supérieur', async () => {
+      const pois = await ingredient(`Pois ${semaines} (boîtes)`, 'GRAM');
+      await produitPrefere(pois.id, 400, 'boîte');
+      const plat = await recette(`Pois ${semaines} (boîtes)`, 2, [
+        { ingredientId: pois.id, quantity: 900, unit: 'G' },
+      ]);
+      await stocker(pois.id, 450);
+      const planning = await unPlanning();
+      await ajouter(planning, 0, { recipeId: plat.id });
+      await arreter(planning);
+
+      const liste = await produire(planning);
+
+      expect(liste.items).toMatchObject([
+        { quantity: 450, packages: 2, packageQuantity: 400 },
+      ]);
+    });
+
+    it('compte les conditionnements d’un complément sur ce qui manque', async () => {
+      const mais = await ingredient(`Maïs ${semaines} (boîtes)`, 'GRAM');
+      await produitPrefere(mais.id, 400, 'boîte');
+      const salade = await recette(`Salade ${semaines} (boîtes)`, 2, [
+        { ingredientId: mais.id, quantity: 300, unit: 'G' },
+      ]);
+      const planning = await unPlanning();
+      await ajouter(planning, 0, { recipeId: salade.id });
+      await arreter(planning);
+      await produire(planning);
+      await rouvrir(planning);
+      await ajouter(planning, 1, { recipeId: salade.id });
+      await arreter(planning);
+
+      const reponse = await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+        .query({ complement: true })
+        .set('Cookie', jeu.a.session)
+        .expect(201);
+
+      // La boîte déjà prévue contient 400 g : il en manque 200, une boîte.
+      expect((reponse.body as ShoppingList).items).toMatchObject([
+        { ingredient: { id: mais.id }, quantity: 200, packages: 1 },
+      ]);
+    });
+
+    it('ne demande aucun complément quand les conditionnements prévus couvrent déjà le nouveau besoin', async () => {
+      const tomates = await ingredient(
+        `Tomates ${semaines} (couvertes)`,
+        'GRAM',
+      );
+      await produitPrefere(tomates.id, 400, 'boîte');
+      const sauce = await recette(`Sauce ${semaines} (couverte)`, 2, [
+        { ingredientId: tomates.id, quantity: 700, unit: 'G' },
+      ]);
+      const garniture = await recette(`Garniture ${semaines} (couverte)`, 2, [
+        { ingredientId: tomates.id, quantity: 50, unit: 'G' },
+      ]);
+      const planning = await unPlanning();
+      await ajouter(planning, 0, { recipeId: sauce.id });
+      await arreter(planning);
+      const liste = await produire(planning);
+      expect(liste.items).toMatchObject([{ quantity: 700, packages: 2 }]);
+      await rouvrir(planning);
+      await ajouter(planning, 1, { recipeId: garniture.id });
+      await arreter(planning);
+
+      // 750 g restent sous les 800 g des deux boîtes déjà prévues.
+      const reponse = await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+        .query({ complement: true })
+        .set('Cookie', jeu.a.session)
+        .expect(422);
+      expect(reponse.body).toMatchObject({ code: 'food.no_shopping_gap' });
+    });
+
+    it('garde le conditionnement figé quand le Produit est modifié ou retiré après la production', async () => {
+      const thon = await ingredient(`Thon ${semaines} (boîtes)`, 'GRAM');
+      const boite = await produitPrefere(thon.id, 140, 'boîte');
+      const plat = await recette(`Thon ${semaines} (boîtes)`, 2, [
+        { ingredientId: thon.id, quantity: 280, unit: 'G' },
+      ]);
+      const planning = await unPlanning();
+      await ajouter(planning, 0, { recipeId: plat.id });
+      await arreter(planning);
+      const liste = await produire(planning);
+
+      await request(app.getHttpServer())
+        .patch(`/api/products/${boite}`)
+        .set('Cookie', jeu.a.session)
+        .send({ packageQuantity: 200, packageLabel: 'conserve' })
+        .expect(200);
+      expect((await lire(liste.id)).items).toMatchObject([
+        { productId: boite, packages: 2, packageQuantity: 140 },
+      ]);
+
+      await request(app.getHttpServer())
+        .delete(`/api/products/${boite}`)
+        .set('Cookie', jeu.a.session)
+        .expect(204);
+      expect((await lire(liste.id)).items).toMatchObject([
+        {
+          productId: null,
+          packages: 2,
+          packageQuantity: 140,
+          packageLabel: 'boîte',
+        },
+      ]);
+    });
+
+    it("n'arrondit pas un article ajouté à la main", async () => {
+      const liste = await uneListe();
+      const olives = await ingredient(`Olives ${semaines} (boîtes)`, 'GRAM');
+      await produitPrefere(olives.id, 150, 'bocal');
+
+      const article = await ajout(liste, {
+        ingredientId: olives.id,
+        quantity: 200,
+      });
+
+      expect(article).toMatchObject({
+        quantity: 200,
+        productId: null,
+        packages: null,
+      });
+    });
+
+    it('monte au stock, à la clôture, la quantité des conditionnements achetés', async () => {
+      const tomate = await ingredient(`Tomate ${semaines} (clôture)`, 'GRAM');
+      const pates = await ingredient(`Pâtes ${semaines} (clôture)`, 'GRAM');
+      await produitPrefere(tomate.id, 400, 'boîte');
+      const plat = await recette(`Sauce ${semaines} (clôture)`, 2, [
+        { ingredientId: tomate.id, quantity: 700, unit: 'G' },
+        { ingredientId: pates.id, quantity: 250, unit: 'G' },
+      ]);
+      const planning = await unPlanning();
+      await ajouter(planning, 0, { recipeId: plat.id });
+      await arreter(planning);
+      const liste = await produire(planning);
+      for (const article of liste.items) {
+        await cocher(liste, article);
+      }
+
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [] })
+        .expect(200);
+
+      // Deux boîtes de 400 g pour 700 g de besoin ; les pâtes, sans Produit,
+      // montent de leur quantité de liste.
+      expect(await stockDe([tomate.id, pates.id])).toEqual({
+        [tomate.id]: { quantity: 800, expiresOn: null },
+        [pates.id]: { quantity: 250, expiresOn: null },
+      });
+    });
+
+    it('préfère, à la clôture, la quantité achetée saisie aux conditionnements', async () => {
+      const lait = await ingredient(`Lait ${semaines} (clôture)`, 'MILLILITER');
+      await produitPrefere(lait.id, 1000, 'brique');
+      const plat = await recette(`Béchamel ${semaines} (clôture)`, 2, [
+        { ingredientId: lait.id, quantity: 1.5, unit: 'L' },
+      ]);
+      const planning = await unPlanning();
+      await ajouter(planning, 0, { recipeId: plat.id });
+      await arreter(planning);
+      const liste = await produire(planning);
+      const [brique] = liste.items;
+      await cocher(liste, brique);
+
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [{ itemId: brique.id, purchasedQuantity: 1500 }] })
+        .expect(200);
+
+      expect(await stockDe([lait.id])).toEqual({
+        [lait.id]: { quantity: 1500, expiresOn: null },
+      });
+    });
+  });
+
   /** Une semaine de 2031 que ce fichier n'a pas encore prise. */
   async function unPlanning(): Promise<MealPlan> {
     const lundi = new Date(Date.UTC(2031, 0, 6 + 7 * semaines++));
@@ -1510,6 +1732,26 @@ describe('Listes de courses', () => {
       .send({ title, servings, lines })
       .expect(201);
     return reponse.body as Recipe;
+  }
+
+  /** Un Produit de l'Ingrédient, fait son Produit préféré ; rend son id. */
+  async function produitPrefere(
+    ingredientId: string,
+    packageQuantity: number,
+    packageLabel: string,
+  ): Promise<string> {
+    const produit = await request(app.getHttpServer())
+      .post('/api/products')
+      .set('Cookie', jeu.a.session)
+      .send({ ingredientId, form: 'CANNED', packageQuantity, packageLabel })
+      .expect(201);
+    const id = (produit.body as { id: string }).id;
+    await request(app.getHttpServer())
+      .post(`/api/ingredients/${ingredientId}/preferred-product`)
+      .set('Cookie', jeu.a.session)
+      .send({ productId: id })
+      .expect(200);
+    return id;
   }
 
   async function ingredient(

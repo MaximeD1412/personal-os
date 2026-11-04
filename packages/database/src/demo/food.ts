@@ -6,6 +6,7 @@ import {
   type Allergen,
   type CanonicalUnit,
   type MealMoment,
+  type ProductForm,
   type RecipeUnit,
 } from '@personal-os/contracts';
 import { ID_ESPACE_FOYER, ID_FOYER } from '../lib/espace/foyer';
@@ -462,6 +463,118 @@ function idDe(
   return id;
 }
 
+/** Un Produit du jeu de démo, tel qu'on le saisirait sur la fiche de son Ingrédient. */
+export interface ProduitDeDemo {
+  ingredient: string;
+  brand: string | null;
+  form: ProductForm;
+  /** Dans l'Unité canonique de l'Ingrédient. */
+  packageQuantity: number;
+  packageLabel: string;
+  /** Le Produit préféré de son Ingrédient. */
+  prefere?: boolean;
+}
+
+/**
+ * Quelques façons d'acheter (CUISINE-12) : de quoi voir, sur la liste de
+ * démo, des articles comptés en conditionnements, et sur la fiche de la
+ * tomate en conserve un préféré parmi deux Produits.
+ */
+export const PRODUITS_DE_DEMO: readonly ProduitDeDemo[] = [
+  {
+    ingredient: 'Crème fraîche épaisse',
+    brand: null,
+    form: 'FRESH',
+    packageQuantity: 200,
+    packageLabel: 'pot',
+    prefere: true,
+  },
+  {
+    ingredient: 'Lentilles corail',
+    brand: null,
+    form: 'DRY',
+    packageQuantity: 500,
+    packageLabel: 'sachet',
+    prefere: true,
+  },
+  {
+    ingredient: 'Pavé de saumon',
+    brand: null,
+    form: 'FRESH',
+    packageQuantity: 250,
+    packageLabel: 'barquette',
+    prefere: true,
+  },
+  {
+    ingredient: 'Pavé de saumon',
+    brand: null,
+    form: 'FROZEN',
+    packageQuantity: 1000,
+    packageLabel: 'sachet',
+  },
+  {
+    ingredient: 'Tomate en conserve',
+    brand: 'Casa Rossa',
+    form: 'CANNED',
+    packageQuantity: 400,
+    packageLabel: 'boîte',
+    prefere: true,
+  },
+  {
+    ingredient: 'Tomate en conserve',
+    brand: null,
+    form: 'CANNED',
+    packageQuantity: 800,
+    packageLabel: 'boîte',
+  },
+];
+
+/**
+ * Les Produits de démo, globaux comme le catalogue. Il passe après
+ * `semerLaCuisine`, dont il lit les Ingrédients. Un Produit se retrouve par
+ * son Ingrédient, son conditionnement et sa contenance : deux semis de suite
+ * donnent les mêmes Produits, et les mêmes préférés.
+ */
+export async function semerLesProduits(prisma: PrismaService): Promise<void> {
+  const catalogue = await prisma.ingredient.findMany({
+    where: {
+      name: {
+        in: PRODUITS_DE_DEMO.map(({ ingredient }) =>
+          normaliserLibelle(ingredient),
+        ),
+      },
+    },
+    select: { id: true, name: true },
+  });
+  const ids = new Map(catalogue.map(({ id, name }) => [name, id] as const));
+
+  for (const { ingredient, prefere, ...produit } of PRODUITS_DE_DEMO) {
+    const ingredientId = idDe(normaliserLibelle(ingredient), ids, ingredient);
+    const { brand, form, packageQuantity, packageLabel } = produit;
+    const existant = await prisma.product.findFirst({
+      where: { ingredientId, packageLabel, packageQuantity },
+      select: { id: true },
+    });
+    const { id } = existant
+      ? await prisma.product.update({
+          where: { id: existant.id },
+          data: { brand, form },
+          select: { id: true },
+        })
+      : await prisma.product.create({
+          data: { ingredientId, brand, form, packageQuantity, packageLabel },
+          select: { id: true },
+        });
+
+    if (prefere) {
+      await prisma.ingredient.update({
+        where: { id: ingredientId },
+        data: { preferredProductId: id },
+      });
+    }
+  }
+}
+
 /** Les identifiants des deux Comptes de démo, le premier puis le second. */
 export type ComptesDeLaCuisine = readonly [string, string];
 
@@ -748,6 +861,8 @@ function jourApres(lundi: string, decalage: number): string {
 export interface ArticleDeDemo {
   ingredient: string;
   quantity: number;
+  /** Le nombre de conditionnements du Produit préféré, s'il en a un. */
+  conditionnements?: number;
   /** Déjà dans le chariot. */
   coche?: boolean;
 }
@@ -755,21 +870,27 @@ export interface ArticleDeDemo {
 /**
  * Ce que la production donne du planning de démo, moins le stock de démo :
  * le consolidateur de l'API (`courses/consolider.ts`) ne se lit pas d'ici,
- * son résultat est recopié, dans l'ordre alphabétique de la liste. Les
- * quantités ne sont pas arrondies au conditionnement (CUISINE-12).
+ * son résultat est recopié, dans l'ordre alphabétique de la liste. Un
+ * Ingrédient qui a un Produit préféré (`PRODUITS_DE_DEMO`) se compte en
+ * conditionnements, arrondis au-dessus ; sa quantité reste le besoin
+ * (CUISINE-12).
  */
 export const LISTE_DE_DEMO: readonly ArticleDeDemo[] = [
   { ingredient: 'Ail', quantity: 2.667 },
   { ingredient: 'Blanc de poulet', quantity: 300 },
   { ingredient: 'Citron jaune', quantity: 1 },
   { ingredient: 'Courgette', quantity: 250, coche: true },
-  { ingredient: 'Crème fraîche épaisse', quantity: 133.334 },
+  {
+    ingredient: 'Crème fraîche épaisse',
+    quantity: 133.334,
+    conditionnements: 1,
+  },
   { ingredient: 'Graines de sésame', quantity: 5 },
   { ingredient: 'Huile d’olive', quantity: 37.5 },
-  { ingredient: 'Lentilles corail', quantity: 125 },
+  { ingredient: 'Lentilles corail', quantity: 125, conditionnements: 1 },
   { ingredient: 'Oignon jaune', quantity: 0.5 },
   { ingredient: 'Oignon rouge', quantity: 0.5 },
-  { ingredient: 'Pavé de saumon', quantity: 300 },
+  { ingredient: 'Pavé de saumon', quantity: 300, conditionnements: 2 },
   { ingredient: 'Pomme de terre', quantity: 1000, coche: true },
   { ingredient: 'Sauce soja', quantity: 22.5 },
   { ingredient: 'Sel fin', quantity: 10.334 },
@@ -813,14 +934,27 @@ export async function semerLaListe(
           ),
         },
       },
-      select: { id: true, name: true, canonicalUnit: true },
+      select: {
+        id: true,
+        name: true,
+        canonicalUnit: true,
+        preferredProduct: {
+          select: { id: true, packageQuantity: true, packageLabel: true },
+        },
+      },
     });
     const parNom = new Map(catalogue.map((ligne) => [ligne.name, ligne]));
     const ids = new Map(catalogue.map(({ id, name }) => [name, id] as const));
 
     const articles = LISTE_DE_DEMO.map(
-      ({ ingredient, quantity, coche }, position) => {
+      ({ ingredient, quantity, conditionnements, coche }, position) => {
         const nom = normaliserLibelle(ingredient);
+        const produit = parNom.get(nom)?.preferredProduct;
+        if (conditionnements !== undefined && !produit) {
+          throw new Error(
+            `${ingredient} n'a pas de Produit préféré : semerLesProduits passe avant la liste.`,
+          );
+        }
         return {
           ingredientId: idDe(nom, ids, ingredient),
           label: null,
@@ -829,6 +963,14 @@ export async function semerLaListe(
           origin: 'PLAN' as const,
           checked: coche ?? false,
           position,
+          // Figé comme l'API le fait : l'article garde son conditionnement.
+          ...(produit &&
+            conditionnements !== undefined && {
+              productId: produit.id,
+              packages: conditionnements,
+              packageQuantity: produit.packageQuantity,
+              packageLabel: produit.packageLabel,
+            }),
         };
       },
     );
@@ -859,7 +1001,7 @@ export async function semerLaListe(
 }
 
 /**
- * Le semeur du module `food`, sur l'Espace foyer : la Cuisine, les
+ * Le semeur du module `food`, sur l'Espace foyer : la Cuisine, ses Produits, les
  * Préférences, le Stock, le Planning de la semaine et sa Liste de courses,
  * dans cet ordre, chacun lisant ce que le précédent a posé. Le semis les a
  * vidés juste avant : chacun repart d'une base sans données de la Cuisine.
@@ -876,6 +1018,7 @@ export const food: Semeur = {
     // Ingrédient ou un Alias saisi sur le staging ne lui survit pas.
     'Ingredient',
     'IngredientAlias',
+    'Product',
     'Recipe',
     'RecipeLine',
     'FoodPreference',
@@ -894,6 +1037,7 @@ export const food: Semeur = {
     // Midi à Paris : le jour du semis, quel que soit le fuseau de la machine.
     const maintenant = demo.le(0, '12:00');
     await semerLaCuisine(prisma);
+    await semerLesProduits(prisma);
     const comptes = [demo.a.userId, demo.b.userId] as const;
     await semerLesPreferences(prisma, comptes);
     await semerLeStock(prisma, demo.aujourdhui);

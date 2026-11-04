@@ -14,7 +14,11 @@ import {
 import type Decimal from 'decimal.js';
 import { ErreurMetier, Introuvable } from '../erreurs/erreur-metier';
 import type { EchecDeConversion } from './conversion/convertir';
-import { consolider, type EchecDeConsolidation } from './courses/consolider';
+import {
+  consolider,
+  enConditionnements,
+  type EchecDeConsolidation,
+} from './courses/consolider';
 import { ecart } from './courses/ecart';
 import { acheter, type EchecDAchat } from './stock/acheter';
 import {
@@ -85,12 +89,25 @@ export class ShoppingListService {
         );
       }
 
-      const articles = besoins.map(({ ingredient, quantite }) => ({
-        ingredientId: ingredient.id,
-        label: null,
-        quantity: quantite.toFixed(3),
-        unit: ingredient.canonicalUnit,
-      }));
+      // Le conditionnement se fige avec la liste (ADR 0012) : un Produit
+      // modifié ou retiré ensuite ne la change pas.
+      const articles = besoins.map(
+        ({ ingredient, quantite, conditionnements }) => ({
+          ingredientId: ingredient.id,
+          label: null,
+          quantity: quantite.toFixed(3),
+          unit: ingredient.canonicalUnit,
+          ...(ingredient.preferredProduct && conditionnements !== null
+            ? {
+                productId: ingredient.preferredProduct.id,
+                packages: conditionnements,
+                packageQuantity:
+                  ingredient.preferredProduct.packageQuantity.toString(),
+                packageLabel: ingredient.preferredProduct.packageLabel,
+              }
+            : {}),
+        }),
+      );
 
       try {
         return exposer(
@@ -201,24 +218,43 @@ export class ShoppingListService {
         unite: ingredient.canonicalUnit,
       })),
       ouvertes.map(({ items }) => ({
-        articles: items.map(({ ingredientId, quantity, unit, origin }) => ({
-          ingredientId,
-          quantite: quantity?.toString() ?? null,
-          unite: unit,
-          origin,
-        })),
+        articles: items.map(
+          ({
+            ingredientId,
+            quantity,
+            unit,
+            origin,
+            packages,
+            packageQuantity,
+          }) => ({
+            ingredientId,
+            quantite: quantity?.toString() ?? null,
+            unite: unit,
+            origin,
+            conditionnements: packages,
+            contenance: packageQuantity?.toString() ?? null,
+          }),
+        ),
       })),
     );
     const ingredientDe = new Map(
       besoins.map(({ ingredient }) => [ingredient.id, ingredient]),
     );
     return {
-      besoins: manquants.map(({ ingredientId, quantite }) => ({
-        ingredient: ingredientDe.get(
+      besoins: manquants.map(({ ingredientId, quantite }) => {
+        const ingredient = ingredientDe.get(
           ingredientId,
-        ) as IngredientAConsoliderRecord,
-        quantite,
-      })),
+        ) as IngredientAConsoliderRecord;
+        // Un complément compte ses conditionnements sur ce qui manque.
+        const produit = ingredient.preferredProduct;
+        return {
+          ingredient,
+          quantite,
+          conditionnements: produit
+            ? enConditionnements(quantite, produit.packageQuantity.toString())
+            : null,
+        };
+      }),
       listesLues,
     };
   }
@@ -261,11 +297,17 @@ export class ShoppingListService {
         ingredientId,
         quantite: quantity.toString(),
       })),
-      [...ingredients.values()].map(({ id, canonicalUnit, gramsPerPiece }) => ({
-        id,
-        canonicalUnit,
-        gramsPerPiece: gramsPerPiece?.toString() ?? null,
-      })),
+      [...ingredients.values()].map(
+        ({ id, canonicalUnit, gramsPerPiece, preferredProduct }) => ({
+          id,
+          canonicalUnit,
+          gramsPerPiece: gramsPerPiece?.toString() ?? null,
+          produitPrefere: preferredProduct && {
+            id: preferredProduct.id,
+            contenance: preferredProduct.packageQuantity.toString(),
+          },
+        }),
+      ),
     );
 
     if ('echecs' in consolidation) {
@@ -273,11 +315,12 @@ export class ShoppingListService {
     }
 
     return consolidation.articles
-      .map(({ ingredientId, quantite }) => ({
+      .map(({ ingredientId, quantite, conditionnement }) => ({
         ingredient: ingredients.get(
           ingredientId,
         ) as IngredientAConsoliderRecord,
         quantite,
+        conditionnements: conditionnement?.nombre ?? null,
       }))
       .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name, 'fr'));
   }
@@ -401,13 +444,27 @@ export class ShoppingListService {
       ),
     ];
     const achat = acheter(
-      liste.items.map(({ id, ingredient, quantity, unit, checked }) => ({
-        id,
-        ingredient,
-        quantite: quantity?.toString() ?? null,
-        unite: unit,
-        coche: checked,
-      })),
+      liste.items.map(
+        ({
+          id,
+          ingredient,
+          quantity,
+          unit,
+          packages,
+          packageQuantity,
+          checked,
+        }) => ({
+          id,
+          ingredient,
+          quantite: quantity?.toString() ?? null,
+          unite: unit,
+          conditionnement:
+            packages !== null && packageQuantity !== null
+              ? { nombre: packages, contenance: packageQuantity.toString() }
+              : null,
+          coche: checked,
+        }),
+      ),
       new Map(
         precisions.map(({ itemId, purchasedQuantity, expiresOn }) => [
           itemId,
@@ -527,10 +584,14 @@ export class ShoppingListService {
   }
 }
 
-/** Un besoin à acheter, en Unité canonique de son Ingrédient. */
+/**
+ * Un besoin à acheter, en Unité canonique de son Ingrédient, et le nombre de
+ * conditionnements de son Produit préféré qui le couvrent, s'il en a un.
+ */
 interface Besoin {
   ingredient: IngredientAConsoliderRecord;
   quantite: Decimal;
+  conditionnements: number | null;
 }
 
 /** Chaque Ingrédient que les recettes du planning citent, une fois. */
@@ -643,6 +704,10 @@ function exposerLArticle(article: ShoppingListItemRecord): ShoppingListItem {
     label: article.label,
     quantity: article.quantity?.toNumber() ?? null,
     unit: article.unit,
+    productId: article.productId,
+    packages: article.packages,
+    packageQuantity: article.packageQuantity?.toNumber() ?? null,
+    packageLabel: article.packageLabel,
     origin: article.origin,
     checked: article.checked,
     position: article.position,

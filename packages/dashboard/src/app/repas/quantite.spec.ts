@@ -1,4 +1,4 @@
-import { portions, quantiteDeLigne } from './quantite';
+import { conditionnements, portions, quantiteDeLigne } from './quantite';
 
 describe('La quantité d’une ligne de recette', () => {
   it.each([
@@ -22,5 +22,21 @@ describe('La quantité d’une ligne de recette', () => {
   it('accorde les portions', () => {
     expect(portions(1)).toBe('1\u00a0portion');
     expect(portions(4)).toBe('4\u00a0portions');
+  });
+});
+
+describe('Un nombre de conditionnements', () => {
+  it.each([
+    [1, 'boîte', '1\u00a0boîte'],
+    [2, 'boîte', '2\u00a0boîtes'],
+    [3, 'sachet', '3\u00a0sachets'],
+    [2, 'bocal', '2\u00a0bocaux'],
+    [2, 'pot de yaourt', '2\u00a0pots de yaourt'],
+    [2, 'filet de 3', '2\u00a0filets de 3'],
+    [4, 'noix', '4\u00a0noix'],
+    [2, 'cageots', '2\u00a0cageots'],
+    [2, 'tonneau', '2\u00a0tonneaux'],
+  ] as const)('écrit %s × « %s » comme « %s »', (nombre, libelle, attendu) => {
+    expect(conditionnements(nombre, libelle)).toBe(attendu);
   });
 });

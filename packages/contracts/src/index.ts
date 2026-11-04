@@ -17,6 +17,7 @@ export * from './lib/meal-wish';
 export * from './lib/page-content';
 export * from './lib/pantry-item';
 export * from './lib/presentation';
+export * from './lib/product';
 export * from './lib/project';
 export * from './lib/public';
 export * from './lib/publication';
