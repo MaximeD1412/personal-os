@@ -10,6 +10,7 @@ et restauration scriptée réutilisable comme banc d'essai de migration
 | `bin/backup.sh` | Dump PostgreSQL, envoi vers Restic, rétention, vérification |
 | `bin/restore.sh` | Restauration vers une cible jetable, remontée optionnelle dans PostgreSQL |
 | `bin/notify-failure.sh` | Courriel + témoin d'inactivité, appelé par `OnFailure=` |
+| `bin/watch.sh` | Vérifie qu'un instantané a moins de 26 heures, toutes les 6 heures |
 | `bin/install.sh` | Pose les scripts et les unités systemd, idempotent |
 | `backup.conf.example` | Configuration — cibles, rétention, alertes. **Sans secret** |
 | `restic.env.example` | Modèle de secrets. Le fichier renseigné n'entre jamais dans Git |
@@ -147,6 +148,8 @@ rclone copy /var/tmp/verification/<chemin>/objets "objets:$S3_MIRROR_BUCKET"
 systemctl list-timers personal-os-backup.timer   # prochaine exécution
 journalctl -u personal-os-backup.service -n 50   # dernière exécution
 systemctl start personal-os-backup.service       # déclencher à la main
+systemctl list-timers personal-os-backup-watch.timer  # prochaine vérification
+journalctl -u personal-os-backup-watch.service -n 5   # dernière vérification
 ```
 
 Le timer tourne à 03:30 avec `Persistent=true` : une exécution manquée pendant
@@ -164,12 +167,59 @@ Deux canaux, parce qu'ils tombent en panne différemment.
   tout**. Un `OnFailure` ne se déclenche que si l'unité s'exécute ; timer masqué
   ou machine éteinte, personne n'est prévenu.
 
+## Vérification de fraîcheur
+
+Le témoin d'inactivité dépend d'un service extérieur et d'une URL qu'on peut
+oublier de renseigner. Une seconde garde tourne donc **sur la machine**,
+indépendamment de la sauvegarde : `personal-os-backup-watch.timer`, toutes les
+6 heures (00:00, 06:00, 12:00, 18:00, rattrapées au démarrage).
+
+`bin/watch.sh` lit le dépôt Restic lui-même — `restic snapshots --no-lock
+--tag personal-os --latest 1 --json` — et retient l'horodatage du plus récent
+instantané. Il surveille donc **ce qui est arrivé chez le fournisseur**, pas ce
+que l'unité de sauvegarde croit avoir fait. L'unité échoue, et l'alerte part
+par le même `OnFailure=` que la sauvegarde (courriel + témoin en échec), dans
+trois cas :
+
+- le dernier instantané a **plus de 26 heures** (une sauvegarde quotidienne
+  plus sa marge) : timer désactivé, unité absente après une réinstallation,
+  sauvegarde qui échoue depuis plus d'un jour ;
+- le dépôt n'a **aucun instantané** ;
+- le dépôt **ne répond pas** (identifiants révoqués, fournisseur injoignable) :
+  ne pas pouvoir vérifier vaut alerte.
+
+Elle ne couvre pas la machine éteinte : rien ne tourne pour le dire. C'est le
+rôle du témoin d'inactivité.
+
+### Tester l'alerte
+
+Sans attendre 26 heures, en faisant pointer la vérification sur un dépôt vide :
+
+```bash
+sudo restic init --repo /var/tmp/depot-vide --password-file /etc/personal-os/restic-password
+sudo RESTIC_ENV_FILE=/dev/null RESTIC_REPOSITORY=/var/tmp/depot-vide \
+  RESTIC_PASSWORD_FILE=/etc/personal-os/restic-password \
+  /opt/personal-os/backup/bin/watch.sh; echo "code $?"
+# attendu : « ERREUR: aucun instantané dans /var/tmp/depot-vide », code 1
+sudo /opt/personal-os/backup/bin/notify-failure.sh personal-os-backup-watch.service
+sudo rm -rf /var/tmp/depot-vide
+```
+
+`notify-failure.sh` est ce que lance `OnFailure=` : le courriel doit arriver à
+`BACKUP_ALERT_EMAIL`, et le témoin passer en échec. La sauvegarde suivante le
+remet au vert. Contre le vrai dépôt, `systemctl start
+personal-os-backup-watch.service` doit réussir et journaliser l'âge de la
+dernière sauvegarde.
+
 ## Tests
 
 ```bash
-pnpm exec nx run backup:test              # dry-run, garde-fous, refus — sans infrastructure
+pnpm exec nx run backup:test              # dry-run, garde-fous, refus, fraîcheur — sans infrastructure
 pnpm exec nx run backup:test-integration  # va-et-vient réel — exige restic et docker
 ```
+
+La vérification de fraîcheur est aussi testée contre un vrai dépôt Restic local,
+avec des instantanés datés dans le passé (`restic backup --time`).
 
 La campagne d'intégration initialise un vrai dépôt Restic local, sauvegarde une
 base PostgreSQL semée, la restaure dans un conteneur jetable et **interroge la

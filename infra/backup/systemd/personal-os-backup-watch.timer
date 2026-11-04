@@ -1,0 +1,12 @@
+[Unit]
+Description=Vérifie toutes les 6 heures qu'une sauvegarde récente existe
+
+[Timer]
+# Indépendant du timer de sauvegarde : c'est justement lui qu'on surveille.
+OnCalendar=*-*-* 00/6:00:00
+# Une vérification manquée pendant un arrêt machine est faite au démarrage.
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target
