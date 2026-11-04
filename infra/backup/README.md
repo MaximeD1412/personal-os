@@ -10,6 +10,7 @@ et restauration scriptée réutilisable comme banc d'essai de migration
 | `bin/backup.sh` | Dump PostgreSQL, envoi vers Restic, rétention, vérification |
 | `bin/restore.sh` | Restauration vers une cible jetable, remontée optionnelle dans PostgreSQL |
 | `bin/notify-failure.sh` | Courriel + témoin d'inactivité, appelé par `OnFailure=` |
+| `bin/watch.sh` | Vérifie qu'un instantané a moins de 26 heures, toutes les 6 heures |
 | `bin/install.sh` | Pose les scripts et les unités systemd, idempotent |
 | `backup.conf.example` | Configuration — cibles, rétention, alertes. **Sans secret** |
 | `restic.env.example` | Modèle de secrets. Le fichier renseigné n'entre jamais dans Git |
@@ -27,13 +28,21 @@ Toute la configuration d'Authentik — fournisseur OIDC, comptes, flux — vit e
 `BACKUP_PATHS`. N'en sauvegarder qu'une laisserait une restauration où
 l'application revient intacte mais où plus personne ne peut se connecter.
 
-Pas encore couvert, faute d'exister : le **stockage objet** (issue #23). Il
-s'ajoutera en une ligne de `BACKUP_PATHS`, sans toucher au script.
+Le **stockage objet** (le CV du portfolio, #23) vit dans un bucket OVH, pas
+sur la machine : `BACKUP_PATHS` ne peut pas l'atteindre. Quand `S3_MIRROR_BUCKET`
+est renseigné dans `backup.conf`, le script le recopie d'abord dans le transit
+(rclone, dans un conteneur à version fixée), sous `objets/`. Ses clés vivent
+dans `restic.env` et passent à rclone par l'environnement, jamais par la ligne
+de commande. Une copie qui échoue interrompt la sauvegarde, plutôt qu'un
+instantané auquel il manquerait les fichiers. rclone écrit dans son conteneur,
+et `docker cp` en extrait les fichiers : un montage `-v` serait résolu par le
+démon Docker dans le `/tmp` de la machine, pas dans le `/tmp` privé du service
+(`PrivateTmp=yes`), et Restic sauvegarderait un dossier vide.
 
-Les deux bases partent dans le **même** instantané, sous
-`postgres/<base>.dump`. Deux instantanés séparés se restaureraient à des dates
-différentes, et plus rien ne garantirait que les comptes correspondent aux
-données.
+Les deux bases et le bucket partent dans le **même** instantané, sous
+`postgres/<base>.dump` et `objets/`. Deux instantanés séparés se
+restaureraient à des dates différentes, et plus rien ne garantirait que les
+comptes correspondent aux données.
 
 ## Ce qui ne peut pas être automatisé
 
@@ -65,7 +74,8 @@ chmod 600 /etc/personal-os/restic-password
 
 cp restic.env.example /etc/personal-os/restic.env
 chmod 600 /etc/personal-os/restic.env
-# renseigner RESTIC_REPOSITORY, B2_ACCOUNT_ID, B2_ACCOUNT_KEY
+# renseigner RESTIC_REPOSITORY, B2_ACCOUNT_ID, B2_ACCOUNT_KEY,
+# et S3_MIRROR_ACCESS_KEY_ID, S3_MIRROR_SECRET_ACCESS_KEY pour le bucket
 
 set -a; . /etc/personal-os/restic.env; set +a
 restic init      # UNE SEULE FOIS — voir l'avertissement ci-dessous
@@ -122,12 +132,24 @@ ne dirait pas pourquoi.
 **Chronométrer cette exécution** : cette durée est le RTO réel, et le
 déploiement (#4) la paiera à chaque livraison.
 
+Les fichiers du **stockage objet** reviennent avec le reste, sous `objets/`
+dans la cible. Rien ne les repose seul dans le bucket : un bucket perdu se
+recrée (`infra/deploy`, « Le stockage objet OVH »), puis on y recopie le
+dossier restauré, avec les mêmes variables `RCLONE_CONFIG_OBJETS_*` que
+`backup.sh` :
+
+```bash
+rclone copy /var/tmp/verification/<chemin>/objets "objets:$S3_MIRROR_BUCKET"
+```
+
 ## Exploitation courante
 
 ```bash
 systemctl list-timers personal-os-backup.timer   # prochaine exécution
 journalctl -u personal-os-backup.service -n 50   # dernière exécution
 systemctl start personal-os-backup.service       # déclencher à la main
+systemctl list-timers personal-os-backup-watch.timer  # prochaine vérification
+journalctl -u personal-os-backup-watch.service -n 5   # dernière vérification
 ```
 
 Le timer tourne à 03:30 avec `Persistent=true` : une exécution manquée pendant
@@ -145,16 +167,66 @@ Deux canaux, parce qu'ils tombent en panne différemment.
   tout**. Un `OnFailure` ne se déclenche que si l'unité s'exécute ; timer masqué
   ou machine éteinte, personne n'est prévenu.
 
+## Vérification de fraîcheur
+
+Le témoin d'inactivité dépend d'un service extérieur et d'une URL qu'on peut
+oublier de renseigner. Une seconde garde tourne donc **sur la machine**,
+indépendamment de la sauvegarde : `personal-os-backup-watch.timer`, toutes les
+6 heures (00:00, 06:00, 12:00, 18:00, rattrapées au démarrage).
+
+`bin/watch.sh` lit le dépôt Restic lui-même — `restic snapshots --no-lock
+--tag personal-os --latest 1 --json` — et retient l'horodatage du plus récent
+instantané. Il surveille donc **ce qui est arrivé chez le fournisseur**, pas ce
+que l'unité de sauvegarde croit avoir fait. L'unité échoue, et l'alerte part
+par le même `OnFailure=` que la sauvegarde (courriel + témoin en échec), dans
+trois cas :
+
+- le dernier instantané a **plus de 26 heures** (une sauvegarde quotidienne
+  plus sa marge) : timer désactivé, unité absente après une réinstallation,
+  sauvegarde qui échoue depuis plus d'un jour ;
+- le dépôt n'a **aucun instantané** ;
+- le dépôt **ne répond pas** (identifiants révoqués, fournisseur injoignable) :
+  ne pas pouvoir vérifier vaut alerte.
+
+Elle ne couvre pas la machine éteinte : rien ne tourne pour le dire. C'est le
+rôle du témoin d'inactivité.
+
+### Tester l'alerte
+
+Sans attendre 26 heures, en faisant pointer la vérification sur un dépôt vide :
+
+```bash
+sudo restic init --repo /var/tmp/depot-vide --password-file /etc/personal-os/restic-password
+sudo RESTIC_ENV_FILE=/dev/null RESTIC_REPOSITORY=/var/tmp/depot-vide \
+  RESTIC_PASSWORD_FILE=/etc/personal-os/restic-password \
+  /opt/personal-os/backup/bin/watch.sh; echo "code $?"
+# attendu : « ERREUR: aucun instantané dans /var/tmp/depot-vide », code 1
+sudo /opt/personal-os/backup/bin/notify-failure.sh personal-os-backup-watch.service
+sudo rm -rf /var/tmp/depot-vide
+```
+
+`notify-failure.sh` est ce que lance `OnFailure=` : le courriel doit arriver à
+`BACKUP_ALERT_EMAIL`, et le témoin passer en échec. La sauvegarde suivante le
+remet au vert. Contre le vrai dépôt, `systemctl start
+personal-os-backup-watch.service` doit réussir et journaliser l'âge de la
+dernière sauvegarde.
+
 ## Tests
 
 ```bash
-pnpm exec nx run backup:test              # dry-run, garde-fous, refus — sans infrastructure
+pnpm exec nx run backup:test              # dry-run, garde-fous, refus, fraîcheur — sans infrastructure
 pnpm exec nx run backup:test-integration  # va-et-vient réel — exige restic et docker
 ```
 
+La vérification de fraîcheur est aussi testée contre un vrai dépôt Restic local,
+avec des instantanés datés dans le passé (`restic backup --time`).
+
 La campagne d'intégration initialise un vrai dépôt Restic local, sauvegarde une
 base PostgreSQL semée, la restaure dans un conteneur jetable et **interroge la
-base restaurée**. Simuler Restic reviendrait à tester la simulation, alors que
+base restaurée**. Elle recopie aussi un bucket servi par un serveur S3 jetable
+(`rclone serve s3`), le script tournant sous un `/tmp` privé comme celui du
+service (`unshare`, qui exige les espaces de noms utilisateur), et lit le CV
+dans l'instantané. Simuler Restic reviendrait à tester la simulation, alors que
 c'est justement la restauration qu'on ne peut pas croire sur parole.
 
 ## Migration vers le homelab

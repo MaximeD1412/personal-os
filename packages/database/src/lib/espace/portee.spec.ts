@@ -3,6 +3,7 @@ import {
   porteeCourante,
   poserPortee,
   sousPortee,
+  type Portee,
   type PorteeEspace,
 } from './portee';
 
@@ -16,7 +17,7 @@ describe("Portée d'Espace", () => {
     expect(porteeCourante()).toBeNull();
   });
 
-  it('reste vide tant que la garde ne l\'a pas posée', () => {
+  it("reste vide tant que la garde ne l'a pas posée", () => {
     ouvrirPorteeVide(() => {
       expect(porteeCourante()).toBeNull();
     });
@@ -30,7 +31,7 @@ describe("Portée d'Espace", () => {
     });
   });
 
-  it('ne survit pas à la requête qui l\'a posée', async () => {
+  it("ne survit pas à la requête qui l'a posée", async () => {
     await ouvrirPorteeVide(async () => poserPortee(PORTEE));
 
     expect(porteeCourante()).toBeNull();
@@ -41,7 +42,7 @@ describe("Portée d'Espace", () => {
       espaces: [{ id: 'espace-personnel', kind: 'PERSONAL' }],
       typesAcceptes: ['PERSONAL'],
     };
-    const vues: (PorteeEspace | null)[] = [];
+    const vues: (Portee | null)[] = [];
 
     await Promise.all([
       ouvrirPorteeVide(async () => {
@@ -62,7 +63,7 @@ describe("Portée d'Espace", () => {
     expect(() => poserPortee(PORTEE)).toThrow(/requête/);
   });
 
-  it('sert aussi hors HTTP, quand la portée est connue d\'avance', async () => {
+  it("sert aussi hors HTTP, quand la portée est connue d'avance", async () => {
     const vue = await sousPortee(PORTEE, async () => porteeCourante());
 
     expect(vue).toEqual(PORTEE);

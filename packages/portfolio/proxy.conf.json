@@ -1,0 +1,7 @@
+{
+  "//": "Le portfolio lit l'API sous SA propre origine, comme derrière le nginx de l'image en production, qui ne relaie que /api/public/.",
+  "/api/public": {
+    "target": "http://localhost:3000",
+    "secure": false
+  }
+}

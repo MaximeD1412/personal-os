@@ -1,6 +1,9 @@
 import {
+  zGenerationRound,
+  zGenerationRoundInput,
   zMealPlan,
   zMealPlanEntry,
+  zMealPlanEntryDecisionInput,
   zMealPlanEntryInput,
   zMealPlanEntryUpdate,
   zMealPlanQuery,
@@ -22,4 +25,14 @@ export class MealPlanEntryUpdateDto extends createZodDto(
   zMealPlanEntryUpdate,
 ) {}
 
+export class MealPlanEntryDecisionInputDto extends createZodDto(
+  zMealPlanEntryDecisionInput,
+) {}
+
 export class MealPlanQueryDto extends createZodDto(zMealPlanQuery) {}
+
+export class GenerationRoundDto extends createZodDto(zGenerationRound) {}
+
+export class GenerationRoundInputDto extends createZodDto(
+  zGenerationRoundInput,
+) {}

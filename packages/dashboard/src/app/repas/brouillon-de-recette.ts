@@ -1,6 +1,11 @@
 import { Injectable } from '@angular/core';
 import type { RecipeUnit } from '@personal-os/contracts';
 
+/** Le paramètre du retour depuis la création d'un Ingrédient : reprendre la saisie. */
+export const PARAMETRE_DE_BROUILLON = 'brouillon';
+/** L'Ingrédient créé, au retour, pour la ligne qui l'attendait. */
+export const PARAMETRE_D_INGREDIENT = 'ingredient';
+
 /** Ce qu'on sait de l'Ingrédient d'une ligne. */
 export type Rattachement =
   /** Le libellé n'a pas encore été soumis au résolveur. */

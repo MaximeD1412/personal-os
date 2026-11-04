@@ -1,0 +1,54 @@
+# Staging de démonstration (ADR 0031) : projet Compose à part,
+# `personal-os-staging`, rempli du seul jeu de démo.
+#
+# Le Caddy interne de la prod le joint par le réseau partagé
+# `personal-os-staging-edge`, où ne se trouvent que lui et les deux services
+# exposés du staging. Leurs noms (`staging-dashboard`, `staging-portfolio`)
+# diffèrent de ceux de la prod : sur ce réseau, un `dashboard` de staging
+# serait résolu à côté de celui de la prod.
+#
+# Le staging arrêté, ces hôtes répondent 502 ; la prod, elle, ne bouge pas :
+# Caddy résout l'amont à chaque requête, pas au démarrage.
+#
+# Les deux noms sont exigés par le compose de la prod, comme les autres : un
+# nom vide donnerait une adresse de site que Caddy refuse, et c'est tout le
+# proxy interne qui ne démarrerait pas.
+
+# Les deux hôtes passent par Authentik **avant** le staging (SEC-4) : le code
+# de `develop`, qui n'a pas été relu, ne répond à personne sans session.
+# L'authentification propre au tableau de bord ne suffit pas : son nginx,
+# comme celui du portfolio, relaie /api/public/ sans cookie.
+#
+# C'est le forward auth de l'outpost intégré d'Authentik, un fournisseur proxy
+# « Forward auth (single application) » par hôte (docs/pilotage/mep.json,
+# `staging-forward-auth`). Ses chemins /outpost.goauthentik.io/ restent
+# ouverts : c'est par eux qu'on se connecte. `route` garde l'ordre écrit.
+(staging_authentik) {
+	route {
+		reverse_proxy /outpost.goauthentik.io/* authentik:9000
+		forward_auth authentik:9000 {
+			uri /outpost.goauthentik.io/auth/caddy
+			trusted_proxies private_ranges
+		}
+		reverse_proxy {args[0]}
+	}
+}
+
+# Le tableau de bord du staging. Derrière le forward auth, il s'authentifie
+# encore par l'Authentik de la prod, avec son propre client OIDC.
+http://{$STAGING_DASHBOARD_HOST} {
+	encode gzip zstd
+	import staging_authentik staging-dashboard:80
+	log {
+		output stderr
+	}
+}
+
+# Le portfolio du staging : public en prod, pas ici.
+http://{$STAGING_PORTFOLIO_HOST} {
+	encode gzip zstd
+	import staging_authentik staging-portfolio:80
+	log {
+		output stderr
+	}
+}

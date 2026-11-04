@@ -4,30 +4,70 @@
     [subtitle]="titre()"
     [breadcrumb]="fil"
   >
-    @if (planning(); as planning) { @if (planning.status === 'OPEN') {
+    @if (planning(); as planning) { @if (planning.status === 'OPEN') { @if
+    (generable()) {
+    <a
+      hlmBtn
+      data-test="generer"
+      routerLink="/repas/planning/generer"
+      [queryParams]="parametresDeLaSemaine()"
+    >
+      <ng-icon [svg]="icones.generer" aria-hidden="true" />
+      Générer la semaine
+    </a>
+    } @else {
+    <button
+      hlmBtn
+      variant="secondary"
+      type="button"
+      data-test="relancer"
+      [disabled]="!relancable() || transition()"
+      [loading]="enCours() === 'relancer'"
+      (click)="relancer()"
+    >
+      <ng-icon [svg]="icones.relancer" aria-hidden="true" />
+      Relancer un tour
+    </button>
+    }
     <button
       hlmBtn
       variant="secondary"
       type="button"
       data-test="arreter"
-      [loading]="transition()"
+      [disabled]="enAttente() > 0 || transition()"
+      [loading]="enCours() === 'arreter'"
       (click)="arreter()"
     >
       <ng-icon [svg]="icones.arreter" aria-hidden="true" />
       Arrêter le planning
     </button>
     } @else {
-    <button
-      hlmBtn
-      variant="secondary"
-      type="button"
-      data-test="rouvrir"
-      [loading]="transition()"
-      (click)="rouvrir()"
-    >
-      <ng-icon [svg]="icones.rouvrir" aria-hidden="true" />
-      Rouvrir le planning
-    </button>
+    <!-- Deux actions : elles passent à la ligne sur un téléphone. -->
+    <div class="flex flex-wrap gap-space-sm">
+      <button
+        hlmBtn
+        type="button"
+        data-test="produire"
+        [loading]="enCours() === 'produire'"
+        [disabled]="transition()"
+        (click)="produire()"
+      >
+        <ng-icon [svg]="icones.produire" aria-hidden="true" />
+        Produire la liste de courses
+      </button>
+      <button
+        hlmBtn
+        variant="secondary"
+        type="button"
+        data-test="rouvrir"
+        [loading]="enCours() === 'rouvrir'"
+        [disabled]="transition()"
+        (click)="rouvrir()"
+      >
+        <ng-icon [svg]="icones.rouvrir" aria-hidden="true" />
+        Rouvrir le planning
+      </button>
+    </div>
     } }
   </dccm-page-header>
 
@@ -72,6 +112,11 @@
       [tone]="planning.status === 'OPEN' ? 'info' : 'success'"
       >{{ planning.status === 'OPEN' ? 'Ouvert' : 'Arrêté' }}</span
     >
+    } @if (enAttente() > 0) {
+    <span class="text-body-dense text-on-surface-variant" data-test="en-attente"
+      >{{ enAttente() }} repas {{ enAttente() > 1 ? 'attendent' : 'attend' }}
+      une décision avant de relancer ou d'arrêter.</span
+    >
     }
   </div>
 
@@ -80,8 +125,55 @@
     <hlm-alert-icon />
     <div hlmAlertContent>
       <p hlmAlertTitle>{{ erreur.message }}</p>
+      @if (erreur.fields?.length) {
+      <ul hlmAlertDescription class="list-disc ps-space-md">
+        @for (champ of erreur.fields; track champ.path) {
+        <li>{{ champ.message }}</li>
+        }
+      </ul>
+      }
     </div>
   </div>
+  }
+
+  <pos-souhaits-de-la-semaine [semaine]="semaine()" [noms]="noms()" />
+
+  @if (vueDesTours().length) {
+  <section hlmCard data-test="tours" aria-labelledby="tours-de-generation">
+    <div hlmCardHeader>
+      <h2 hlmCardTitle id="tours-de-generation">Tours de génération</h2>
+    </div>
+    <ul class="flex flex-col">
+      @for (tour of vueDesTours(); track tour.id) {
+      <li
+        class="flex flex-wrap items-center justify-between gap-x-gutter gap-y-space-xs border-t border-surface-container-highest py-space-sm first:border-t-0 first:pt-0 last:pb-0"
+      >
+        <div class="flex min-w-0 flex-col">
+          <span class="text-label-regular font-semibold text-on-surface"
+            >{{ tour.titre }}</span
+          >
+          <span class="text-body-dense text-on-surface-variant"
+            >{{ tour.date }} · {{ tour.ecartes }}</span
+          >
+        </div>
+        @if (tour.traceId; as traceId) {
+        <a
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          data-test="trace"
+          [routerLink]="['/repas/generation/traces', traceId]"
+          [queryParams]="parametresDeLaSemaine()"
+          [attr.aria-label]="'Voir la trace du ' + tour.titre.toLowerCase()"
+        >
+          <ng-icon [svg]="icones.trace" aria-hidden="true" />
+          Voir la trace
+        </a>
+        }
+      </li>
+      }
+    </ul>
+  </section>
   }
 
   <dccm-state
@@ -149,7 +241,12 @@
                 {{ repas.decision }}
               </span>
               <p
-                class="break-words text-label-regular font-semibold text-on-surface"
+                class="break-words text-label-regular font-semibold"
+                [class]="
+                  repas.refuse
+                    ? 'text-outline line-through'
+                    : 'text-on-surface'
+                "
               >
                 {{ repas.titre }}
               </p>
@@ -176,7 +273,67 @@
                   }
                 </span>
               </div>
+              @if (repas.propose && ouvert()) {
+              <div
+                class="grid grid-cols-2 gap-space-xs pt-space-xs xl:grid-cols-1"
+              >
+                <button
+                  hlmBtn
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  data-test="approuver"
+                  [disabled]="transition()"
+                  [loading]="decisionEnCours(repas.id, 'APPROVED')"
+                  [attr.aria-label]="'Approuver ' + repas.titre"
+                  (click)="decider(repas.id, 'APPROVED')"
+                >
+                  <ng-icon [svg]="icones.approuver" aria-hidden="true" />
+                  Approuver
+                </button>
+                <button
+                  hlmBtn
+                  variant="destructive"
+                  size="sm"
+                  type="button"
+                  data-test="refuser"
+                  [disabled]="transition()"
+                  [loading]="decisionEnCours(repas.id, 'REFUSED')"
+                  [attr.aria-label]="'Refuser ' + repas.titre"
+                  (click)="decider(repas.id, 'REFUSED')"
+                >
+                  <ng-icon [svg]="icones.refuser" aria-hidden="true" />
+                  Refuser
+                </button>
+              </div>
+              } @if (repas.approuve) {
+              <a
+                hlmBtn
+                variant="ghost"
+                size="sm"
+                class="self-start"
+                data-test="cuisine"
+                routerLink="/repas/cuisine/nouveau"
+                [queryParams]="{ mealPlanEntryId: repas.id }"
+                [attr.aria-label]="'Déclarer cuisiné : ' + repas.titre"
+              >
+                <ng-icon [svg]="icones.cuisine" aria-hidden="true" />
+                Cuisiné
+              </a>
+              }
             </article>
+            } @if (creneau.ecarte; as raison) {
+            <p
+              data-test="ecarte"
+              class="flex items-start gap-space-xs rounded bg-tertiary-15 p-space-sm text-body-dense text-tertiary"
+            >
+              <ng-icon
+                [svg]="icones.ecarte"
+                class="mt-0.5 shrink-0 icon-xs"
+                aria-hidden="true"
+              />
+              <span class="min-w-0 break-words">{{ raison }}</span>
+            </p>
             } @if (ouvert()) {
             <a
               hlmBtn
@@ -198,7 +355,7 @@
               <ng-icon [svg]="icones.ajouter" aria-hidden="true" />
               Ajouter
             </a>
-            } @else if (!creneau.repas.length) {
+            } @else if (!creneau.repas.length && !creneau.ecarte) {
             <p class="text-body-dense text-outline">Aucun repas.</p>
             }
           </div>

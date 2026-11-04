@@ -14,17 +14,22 @@ import {
   type IngredientRecord,
   type IngredientWrite,
 } from './ingredient.repository';
+import { PantryItemRepository } from './pantry-item.repository';
 
 /**
  * Les saisies arrivent validées par leur schéma (ADR 0030) : il ne reste ici
  * que ce qu'un schéma ne peut pas juger seul. Un nom déjà pris, un poids à la
  * pièce sur un Ingrédient compté en millilitres (une modification peut n'en
  * porter qu'un des deux, l'autre est en base), une modification vide, un
- * Ingrédient introuvable.
+ * Ingrédient introuvable, une Unité canonique qui changerait le sens d'une
+ * quantité en stock.
  */
 @Injectable()
 export class IngredientService {
-  constructor(private readonly repository: IngredientRepository) {}
+  constructor(
+    private readonly repository: IngredientRepository,
+    private readonly stock: PantryItemRepository,
+  ) {}
 
   /** Tout le catalogue, ou les Ingrédients dont le nom contient chaque mot de `q`. */
   async lister({ q }: IngredientListQuery): Promise<Ingredient[]> {
@@ -69,6 +74,18 @@ export class IngredientService {
         ? changements.gramsPerPiece
         : actuel.gramsPerPiece,
     );
+    if (
+      changements.canonicalUnit !== undefined &&
+      changements.canonicalUnit !== actuel.canonicalUnit &&
+      (await this.stock.aDuStock(id))
+    ) {
+      // La ligne de stock compte dans l'unité de son Ingrédient : 1 000 g
+      // deviendraient 1 000 pièces.
+      throw new ErreurMetier(
+        'food.ingredient_unit_in_stock',
+        "L'Unité canonique ne change pas tant que l'Ingrédient a du stock : mettez sa ligne à zéro ou retirez-la d'abord.",
+      );
+    }
 
     return exposer(
       await uniqueSinon(this.repository.modifier(id, changements)),

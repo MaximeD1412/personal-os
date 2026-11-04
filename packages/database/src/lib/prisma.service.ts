@@ -99,12 +99,56 @@ export class PrismaService {
     return this.#client.recipeLine;
   }
 
+  get pantryItem() {
+    return this.#client.pantryItem;
+  }
+
+  get cookedMeal() {
+    return this.#client.cookedMeal;
+  }
+
+  get cookedMealLine() {
+    return this.#client.cookedMealLine;
+  }
+
+  get shoppingList() {
+    return this.#client.shoppingList;
+  }
+
+  get shoppingListItem() {
+    return this.#client.shoppingListItem;
+  }
+
   get mealPlan() {
     return this.#client.mealPlan;
   }
 
   get mealPlanEntry() {
     return this.#client.mealPlanEntry;
+  }
+
+  get generationRound() {
+    return this.#client.generationRound;
+  }
+
+  get mealWish() {
+    return this.#client.mealWish;
+  }
+
+  get project() {
+    return this.#client.project;
+  }
+
+  get projectExpense() {
+    return this.#client.projectExpense;
+  }
+
+  get publicPresentation() {
+    return this.#client.publicPresentation;
+  }
+
+  get pageContent() {
+    return this.#client.pageContent;
   }
 
   get session() {

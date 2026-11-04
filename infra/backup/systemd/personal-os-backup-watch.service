@@ -1,0 +1,26 @@
+[Unit]
+Description=Vérifie qu'une sauvegarde Restic de Personal OS a réussi depuis moins de 26 heures
+Documentation=https://github.com/MaximeD1412/personal-os/blob/develop/infra/backup/README.md
+After=network-online.target
+Wants=network-online.target
+# Une sauvegarde trop ancienne, ou un dépôt injoignable, fait échouer l'unité :
+# l'alerte part par le même canal qu'un échec de sauvegarde.
+OnFailure=personal-os-backup-failure@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/personal-os/backup/bin/watch.sh
+
+# Mêmes secrets que la sauvegarde, lus par le script dans
+# /etc/personal-os/restic.env.
+User=root
+Group=root
+
+# Lister les instantanés prend quelques secondes ; au-delà de dix minutes, le
+# dépôt ne répond plus, et c'est précisément ce qu'il faut signaler.
+TimeoutStartSec=10min
+
+Nice=10
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes

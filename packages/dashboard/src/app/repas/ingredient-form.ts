@@ -30,7 +30,7 @@ import type { ErreurApi } from '../erreur-api.interceptor';
 import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { IngredientService } from './ingredient.service';
 import { FIL_DES_INGREDIENTS } from './ingredients';
-import { PARAMETRE_D_INGREDIENT } from './recipe-form';
+import { PARAMETRE_D_INGREDIENT } from './brouillon-de-recette';
 
 /** Un retour n'est suivi que vers la saisie d'une recette : jamais hors de l'application. */
 function retourAdmis(retour: string | null): string | null {

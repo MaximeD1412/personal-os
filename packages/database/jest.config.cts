@@ -6,6 +6,7 @@ module.exports = {
     '^.+\\.[tj]s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
+  testPathIgnorePatterns: ['\\.integration-spec\\.ts$'],
   passWithNoTests: true,
   coverageDirectory: '../../coverage/packages/database',
 };

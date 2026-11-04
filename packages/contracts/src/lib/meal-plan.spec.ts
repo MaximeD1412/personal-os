@@ -1,5 +1,6 @@
 import {
   portions,
+  zMealPlanEntryDecisionInput,
   zMealPlanEntryInput,
   zMealPlanEntryUpdate,
   zMealPlanQuery,
@@ -99,4 +100,21 @@ describe('zMealPlanQuery', () => {
       cheminsEnErreur(zMealPlanQuery.safeParse({ week: '2028-03-15' })),
     ).toEqual(['week']);
   });
+});
+
+describe('zMealPlanEntryDecisionInput', () => {
+  it.each(['APPROVED', 'REFUSED'])('accepte %s', (decision) => {
+    expect(zMealPlanEntryDecisionInput.parse({ decision })).toEqual({
+      decision,
+    });
+  });
+
+  it.each(['PROPOSED', 'MAYBE', undefined])(
+    'refuse %s, sur `decision`',
+    (decision) => {
+      expect(
+        cheminsEnErreur(zMealPlanEntryDecisionInput.safeParse({ decision })),
+      ).toEqual(['decision']);
+    },
+  );
 });

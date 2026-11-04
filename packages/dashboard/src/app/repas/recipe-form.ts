@@ -42,6 +42,8 @@ import type { ErreurApi } from '../erreur-api.interceptor';
 import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import {
   BrouillonsDeRecette,
+  PARAMETRE_D_INGREDIENT,
+  PARAMETRE_DE_BROUILLON,
   type EtapeSaisie,
   type LigneSaisie,
   type Rattachement,
@@ -49,11 +51,6 @@ import {
 import { IngredientService } from './ingredient.service';
 import { RecipeService } from './recipe.service';
 import { FIL_DES_RECETTES } from './recipes';
-
-/** Le paramètre du retour depuis la création d'un Ingrédient : reprendre la saisie. */
-export const PARAMETRE_DE_BROUILLON = 'brouillon';
-/** L'Ingrédient créé au retour, pour la ligne qui l'attendait. */
-export const PARAMETRE_D_INGREDIENT = 'ingredient';
 
 const A_RESOUDRE: Rattachement = { etat: 'a-resoudre' };
 

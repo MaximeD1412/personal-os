@@ -11,6 +11,8 @@ import {
 import { ID_ESPACE_FOYER, ID_FOYER } from '../lib/espace/foyer';
 import { sousPortee } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
+import { compter } from './delegate';
+import type { Semeur } from './seeder';
 
 /** Un Ingrédient du jeu de démo, tel qu'on le saisirait. */
 export interface IngredientDeDemo {
@@ -346,8 +348,8 @@ const PORTEE_DU_FOYER = {
  * son nom normalisé, chaque recette par son titre, et les remet dans l'état
  * du jeu : deux semis de suite donnent la même Cuisine.
  *
- * Le point d'entrée commun des semeurs (`semer`, `SEMEURS`) est INFRA-6 : ce
- * semeur s'y branche tel quel.
+ * `semer` le branche, avec les autres semeurs de la Cuisine, par `food` (en
+ * fin de fichier).
  */
 export async function semerLaCuisine(prisma: PrismaService): Promise<void> {
   const ids = new Map<string, string>();
@@ -423,12 +425,39 @@ async function semerUneRecette(
   });
 }
 
-function idDe(ingredient: string, ids: ReadonlyMap<string, string>): string {
-  const id = ids.get(ingredient);
+function idDe(
+  cle: string,
+  ids: ReadonlyMap<string, string>,
+  ingredient = cle,
+): string {
+  const id = ids.get(cle);
   if (!id) {
     throw new Error(`${ingredient} n'est pas dans le catalogue de démo.`);
   }
   return id;
+}
+
+/** Les identifiants des deux Comptes de démo, le premier puis le second. */
+export type ComptesDeLaCuisine = readonly [string, string];
+
+/**
+ * Les Comptes à qui donner Préférences et repas : ceux que nomme le semis
+ * (`DEMO_ACCOUNT_EMAILS`), sinon les deux plus anciens du Foyer. Le semis les
+ * nomme toujours : un Compte qui n'est plus de la démo reste en base, et ne
+ * doit rien recevoir.
+ */
+async function lesComptes(
+  prisma: PrismaService,
+  comptes: ComptesDeLaCuisine | undefined,
+): Promise<{ id: string }[]> {
+  if (comptes) {
+    return comptes.map((id) => ({ id }));
+  }
+  return prisma.user.findMany({
+    where: { householdId: ID_FOYER },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: { id: true },
+  });
 }
 
 /** Le libellé de l'Ingrédient que le second Compte n'apprécie guère. */
@@ -451,12 +480,9 @@ const ESPACE_FOYER = {
  */
 export async function semerLesPreferences(
   prisma: PrismaService,
+  comptes?: ComptesDeLaCuisine,
 ): Promise<void> {
-  const [premier, second = premier] = await prisma.user.findMany({
-    where: { householdId: ID_FOYER },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    select: { id: true },
-  });
+  const [premier, second = premier] = await lesComptes(prisma, comptes);
   if (!premier) {
     return;
   }
@@ -502,6 +528,80 @@ export async function semerLesPreferences(
   });
 }
 
+/** Une ligne du stock de démo : sa péremption se compte en jours depuis le semis. */
+export interface LigneDeStockDeDemo {
+  ingredient: string;
+  /** En Unité canonique de l'Ingrédient. */
+  quantity: number;
+  /** Dans combien de jours elle périme ; absente pour un sec ou une conserve. */
+  perimeDansJours?: number;
+}
+
+/**
+ * Le stock d'un frigo et d'un placard ordinaires. Le lait et les yaourts
+ * périment dans les trois jours : l'écran les met en avant.
+ */
+export const STOCK_DE_DEMO: readonly LigneDeStockDeDemo[] = [
+  { ingredient: 'Lait demi-écrémé', quantity: 1000, perimeDansJours: 2 },
+  { ingredient: 'Yaourt nature', quantity: 4, perimeDansJours: 1 },
+  { ingredient: 'Beurre doux', quantity: 250, perimeDansJours: 18 },
+  { ingredient: 'Œufs', quantity: 6, perimeDansJours: 12 },
+  { ingredient: 'Gruyère râpé', quantity: 150, perimeDansJours: 9 },
+  { ingredient: 'Parmesan', quantity: 200, perimeDansJours: 40 },
+  { ingredient: 'Spaghetti', quantity: 500 },
+  { ingredient: 'Riz basmati', quantity: 1000 },
+  { ingredient: 'Farine de blé', quantity: 750 },
+  { ingredient: 'Tomate en conserve', quantity: 800 },
+];
+
+/**
+ * Le Stock domestique de démo, dans l'Espace foyer. Il passe après
+ * `semerLaCuisine`, dont il lit le catalogue. Chaque ligne est remise dans
+ * l'état du jeu, ses péremptions recomptées depuis `jour` : un semis de la
+ * veille se rafraîchit, deux semis du même jour donnent le même stock.
+ */
+export async function semerLeStock(
+  prisma: PrismaService,
+  jour: string = aujourdhui(),
+): Promise<void> {
+  const catalogue = await prisma.ingredient.findMany({
+    where: {
+      name: {
+        in: STOCK_DE_DEMO.map(({ ingredient }) =>
+          normaliserLibelle(ingredient),
+        ),
+      },
+    },
+    select: { id: true, name: true },
+  });
+  const ids = new Map(catalogue.map(({ id, name }) => [name, id] as const));
+  const lignes = STOCK_DE_DEMO.map(
+    ({ ingredient, quantity, perimeDansJours }) => ({
+      ingredientId: idDe(normaliserLibelle(ingredient), ids, ingredient),
+      quantity,
+      expiresOn:
+        perimeDansJours === undefined
+          ? null
+          : new Date(
+              Date.parse(`${jour}T00:00:00Z`) + perimeDansJours * 86_400_000,
+            ),
+    }),
+  );
+
+  // Une requête Prisma ne part qu'à l'`await` : il se fait sous la portée.
+  await sousPortee(ESPACE_FOYER, async () => {
+    for (const { ingredientId, ...ligne } of lignes) {
+      await prisma.pantryItem.upsert({
+        where: {
+          scopeId_ingredientId: { scopeId: ID_ESPACE_FOYER, ingredientId },
+        },
+        create: { scopeId: ID_ESPACE_FOYER, ingredientId, ...ligne },
+        update: ligne,
+      });
+    }
+  });
+}
+
 /** Un Repas planifié de démo : son jour (0 pour le lundi), une recette ou un intitulé. */
 export interface RepasDeDemo {
   jour: number;
@@ -539,12 +639,9 @@ export const REPAS_DE_DEMO: readonly RepasDeDemo[] = [
 export async function semerLePlanning(
   prisma: PrismaService,
   maintenant = new Date(),
+  comptes?: ComptesDeLaCuisine,
 ): Promise<void> {
-  const [premier, second = premier] = await prisma.user.findMany({
-    where: { householdId: ID_FOYER },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    select: { id: true },
-  });
+  const [premier, second = premier] = await lesComptes(prisma, comptes);
   if (!premier) {
     return;
   }
@@ -616,3 +713,162 @@ function jourApres(lundi: string, decalage: number): string {
   jour.setUTCDate(jour.getUTCDate() + decalage);
   return jour.toISOString().slice(0, 10);
 }
+
+/** Un article de la liste de démo, en Unité canonique de son Ingrédient. */
+export interface ArticleDeDemo {
+  ingredient: string;
+  quantity: number;
+  /** Déjà dans le chariot. */
+  coche?: boolean;
+}
+
+/**
+ * Ce que la production donne du planning de démo, moins le stock de démo :
+ * le consolidateur de l'API (`courses/consolider.ts`) ne se lit pas d'ici,
+ * son résultat est recopié, dans l'ordre alphabétique de la liste. Les
+ * quantités ne sont pas arrondies au conditionnement (CUISINE-12).
+ */
+export const LISTE_DE_DEMO: readonly ArticleDeDemo[] = [
+  { ingredient: 'Ail', quantity: 2.667 },
+  { ingredient: 'Blanc de poulet', quantity: 300 },
+  { ingredient: 'Citron jaune', quantity: 1 },
+  { ingredient: 'Courgette', quantity: 250, coche: true },
+  { ingredient: 'Crème fraîche épaisse', quantity: 133.334 },
+  { ingredient: 'Graines de sésame', quantity: 5 },
+  { ingredient: 'Huile d’olive', quantity: 37.5 },
+  { ingredient: 'Lentilles corail', quantity: 125 },
+  { ingredient: 'Oignon jaune', quantity: 0.5 },
+  { ingredient: 'Oignon rouge', quantity: 0.5 },
+  { ingredient: 'Pavé de saumon', quantity: 300 },
+  { ingredient: 'Pomme de terre', quantity: 1000, coche: true },
+  { ingredient: 'Sauce soja', quantity: 22.5 },
+  { ingredient: 'Sel fin', quantity: 10.334 },
+  { ingredient: 'Sucre en poudre', quantity: 10 },
+];
+
+/** L'ajout manuel de la liste de démo : un simple libellé, hors catalogue. */
+export const AJOUT_DE_DEMO = 'Liquide vaisselle';
+
+/**
+ * Une Liste de courses ouverte, issue du planning de la semaine en cours. Elle
+ * passe après `semerLePlanning`, dont elle lit le planning. Le planning de
+ * démo reste ouvert : une liste figée n'en dépend plus.
+ *
+ * Un planning qui a déjà une liste n'en reçoit pas d'autre : deux semis de
+ * suite donnent la même liste, et ce qu'on y a coché entre-temps reste.
+ */
+export async function semerLaListe(
+  prisma: PrismaService,
+  maintenant = new Date(),
+): Promise<void> {
+  const lundi = lundiDe(aujourdhui(FUSEAU, maintenant));
+
+  // Une requête Prisma ne part qu'à l'`await` : il se fait sous la portée.
+  await sousPortee(ESPACE_FOYER, async () => {
+    const planning = await prisma.mealPlan.findUnique({
+      where: {
+        scopeId_week: { scopeId: ID_ESPACE_FOYER, week: enDate(lundi) },
+      },
+      select: { id: true, _count: { select: { shoppingLists: true } } },
+    });
+    if (!planning || planning._count.shoppingLists > 0) {
+      return;
+    }
+
+    const catalogue = await prisma.ingredient.findMany({
+      where: {
+        name: {
+          in: LISTE_DE_DEMO.map(({ ingredient }) =>
+            normaliserLibelle(ingredient),
+          ),
+        },
+      },
+      select: { id: true, name: true, canonicalUnit: true },
+    });
+    const parNom = new Map(catalogue.map((ligne) => [ligne.name, ligne]));
+    const ids = new Map(catalogue.map(({ id, name }) => [name, id] as const));
+
+    const articles = LISTE_DE_DEMO.map(
+      ({ ingredient, quantity, coche }, position) => {
+        const nom = normaliserLibelle(ingredient);
+        return {
+          ingredientId: idDe(nom, ids, ingredient),
+          label: null,
+          quantity,
+          unit: parNom.get(nom)?.canonicalUnit ?? null,
+          origin: 'PLAN' as const,
+          checked: coche ?? false,
+          position,
+        };
+      },
+    );
+
+    await prisma.shoppingList.create({
+      data: {
+        scopeId: ID_ESPACE_FOYER,
+        mealPlanId: planning.id,
+        // Un article prend l'Espace de sa liste, par leur clé étrangère.
+        items: {
+          create: [
+            ...articles,
+            {
+              ingredientId: null,
+              label: AJOUT_DE_DEMO,
+              quantity: null,
+              unit: null,
+              origin: 'MANUAL' as const,
+              checked: false,
+              position: articles.length,
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+  });
+}
+
+/**
+ * Le semeur du module `food`, sur l'Espace foyer : la Cuisine, les
+ * Préférences, le Stock, le Planning de la semaine et sa Liste de courses,
+ * dans cet ordre, chacun lisant ce que le précédent a posé. Le semis les a
+ * vidés juste avant : chacun repart d'une base sans données de la Cuisine.
+ *
+ * Les Tours de génération, Souhaits et Repas cuisinés ne sont pas semés, mais
+ * le semeur les possède : le semis les vide comme le reste.
+ */
+export const food: Semeur = {
+  module: 'food',
+  // Dans l'ordre du remplissage : le vidage le parcourt à l'envers, une ligne
+  // avant ce qu'elle cite.
+  modeles: [
+    // Le catalogue est global, hors Espace : le semis le vide quand même, un
+    // Ingrédient ou un Alias saisi sur le staging ne lui survit pas.
+    'Ingredient',
+    'IngredientAlias',
+    'Recipe',
+    'RecipeLine',
+    'FoodPreference',
+    'PantryItem',
+    'MealPlan',
+    'GenerationRound',
+    'MealWish',
+    'MealPlanEntry',
+    'CookedMeal',
+    'CookedMealLine',
+    'ShoppingList',
+    'ShoppingListItem',
+  ],
+  espaces: ['HOUSEHOLD'],
+  async semer(prisma, demo) {
+    // Midi à Paris : le jour du semis, quel que soit le fuseau de la machine.
+    const maintenant = demo.le(0, '12:00');
+    await semerLaCuisine(prisma);
+    const comptes = [demo.a.userId, demo.b.userId] as const;
+    await semerLesPreferences(prisma, comptes);
+    await semerLeStock(prisma, demo.aujourdhui);
+    await semerLePlanning(prisma, maintenant, comptes);
+    await semerLaListe(prisma, maintenant);
+    return compter(prisma, this.modeles);
+  },
+};

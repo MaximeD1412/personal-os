@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { zAllergen } from './ingredient';
 import { zDay, zInstant, zWeek } from './valeurs';
 
 /** Le moment d'un Repas planifié : le déjeuner ou le dîner. */
@@ -75,6 +76,90 @@ export const zMealPlanEntry = /* @__PURE__ */ z.object({
 export type MealPlanEntry = z.infer<typeof zMealPlanEntry>;
 
 /**
+ * Un créneau d'un Tour de génération : un jour, un moment, et la tablée pour
+ * qui l'IA propose un repas. Ses Participants sont des Comptes du Foyer.
+ */
+export const zGenerationSlot = /* @__PURE__ */ z.object({
+  day: zDay,
+  moment: zMealMoment,
+  participantIds: /* @__PURE__ */ z.array(z.string()),
+  guestCount: /* @__PURE__ */ z.int(),
+});
+
+export type GenerationSlot = z.infer<typeof zGenerationSlot>;
+
+/**
+ * Pourquoi le contrôle a vidé un créneau. Il ne présente jamais un repas qu'il
+ * n'a pas pu vérifier (risque IA-1) :
+ *
+ * - `ALLERGEN` : un ingrédient porte un Allergène d'un Participant allergique ;
+ * - `EXCLUDED_INGREDIENT` : un ingrédient est interdit à un Participant
+ *   (allergie ou exclusion visant l'Ingrédient lui-même) ;
+ * - `UNKNOWN_INGREDIENT` : un libellé que le résolveur ne rattache à aucun
+ *   Ingrédient, la proposition n'est pas contrôlable ;
+ * - `UNKNOWN_RECIPE` : la proposition cite une Recette que le Foyer n'a pas ;
+ * - `NO_PROPOSAL` : l'IA n'a rien proposé pour ce créneau.
+ */
+export const RAISONS_DE_REJET = [
+  'ALLERGEN',
+  'EXCLUDED_INGREDIENT',
+  'UNKNOWN_INGREDIENT',
+  'UNKNOWN_RECIPE',
+  'NO_PROPOSAL',
+] as const;
+
+export const zRejectionReason = /* @__PURE__ */ z.enum(RAISONS_DE_REJET);
+
+export type RejectionReason = z.infer<typeof zRejectionReason>;
+
+export const LIBELLES_DES_RAISONS_DE_REJET: Readonly<
+  Record<RejectionReason, string>
+> = {
+  ALLERGEN: 'Contient un allergène',
+  EXCLUDED_INGREDIENT: 'Contient un aliment exclu',
+  UNKNOWN_INGREDIENT: 'Ingrédient inconnu',
+  UNKNOWN_RECIPE: 'Recette inconnue',
+  NO_PROPOSAL: 'Aucune proposition',
+};
+
+/**
+ * Un créneau que le contrôle a vidé, et pourquoi. `ingredient` est
+ * l'ingrédient en cause, sous le libellé proposé (ou celui de la Recette
+ * citée), avec son Ingrédient s'il a été résolu ; `allergen`, l'Allergène en
+ * cause ; `participantIds`, les Participants dont la Préférence l'a écarté.
+ * Le tour suivant retente ce créneau.
+ */
+export const zRejectedSlot = /* @__PURE__ */ z.object({
+  slot: zGenerationSlot,
+  reason: zRejectionReason,
+  ingredient: /* @__PURE__ */ z
+    .object({
+      label: /* @__PURE__ */ z.string(),
+      ingredientId: /* @__PURE__ */ z.string().nullable(),
+    })
+    .nullable(),
+  allergen: /* @__PURE__ */ zAllergen.nullable(),
+  participantIds: /* @__PURE__ */ z.array(z.string()),
+});
+
+export type RejectedSlot = z.infer<typeof zRejectedSlot>;
+
+/**
+ * Un Tour de génération, tel que le planning le relit : son numéro, à partir
+ * de 1, la Trace IA de son appel au modèle, et les créneaux que le contrôle a
+ * vidés.
+ */
+export const zGenerationRoundSummary = /* @__PURE__ */ z.object({
+  id: /* @__PURE__ */ z.string(),
+  number: /* @__PURE__ */ z.int(),
+  traceId: /* @__PURE__ */ z.string().nullable(),
+  rejected: /* @__PURE__ */ z.array(zRejectedSlot),
+  createdAt: zInstant,
+});
+
+export type GenerationRoundSummary = z.infer<typeof zGenerationRoundSummary>;
+
+/**
  * Le Planning de repas d'une semaine, et ses repas par jour puis par moment.
  * Il y en a un par semaine et par Foyer.
  */
@@ -83,6 +168,8 @@ export const zMealPlan = /* @__PURE__ */ z.object({
   week: zWeek,
   status: zMealPlanStatus,
   entries: /* @__PURE__ */ z.array(zMealPlanEntry),
+  /** Ses Tours de génération, dans leur ordre. */
+  rounds: /* @__PURE__ */ z.array(zGenerationRoundSummary),
   createdAt: zInstant,
 });
 
@@ -153,3 +240,50 @@ export type MealPlanEntryUpdate = z.infer<typeof zMealPlanEntryUpdate>;
 export const zMealPlanQuery = /* @__PURE__ */ z.object({ week: zWeek });
 
 export type MealPlanQuery = z.infer<typeof zMealPlanQuery>;
+
+/**
+ * La décision sur un repas proposé : on l'approuve ou on le refuse. Qu'il soit
+ * encore proposé est une règle métier.
+ */
+export const zMealPlanEntryDecisionInput = /* @__PURE__ */ z.object({
+  decision: /* @__PURE__ */ zMealPlanEntryDecision.exclude(['PROPOSED']),
+});
+
+export type MealPlanEntryDecisionInput = z.infer<
+  typeof zMealPlanEntryDecisionInput
+>;
+
+/**
+ * Un Tour de génération qui vient d'être lancé, avec les Repas planifiés
+ * qu'il propose : chacun attend qu'on l'approuve ou le refuse.
+ */
+export const zGenerationRound = /* @__PURE__ */ zGenerationRoundSummary.extend(
+  { entries: /* @__PURE__ */ z.array(zMealPlanEntry) },
+);
+
+export type GenerationRound = z.infer<typeof zGenerationRound>;
+
+/**
+ * Un créneau à remplir au premier tour. Qu'il soit dans la semaine du
+ * planning, et que ses Participants (au moins un) soient du Foyer, sont des
+ * règles métier.
+ */
+export const zGenerationSlotInput = /* @__PURE__ */ z.object({
+  day: zDay,
+  moment: zMealMoment,
+  participantIds: zParticipantIds,
+  guestCount: /* @__PURE__ */ zGuestCount.default(0),
+});
+
+export type GenerationSlotInput = z.infer<typeof zGenerationSlotInput>;
+
+/**
+ * Le lancement d'un tour. Les créneaux ne comptent qu'au premier : les tours
+ * suivants ne portent que sur les repas refusés et les créneaux que le
+ * contrôle a vidés. Quatorze créneaux font une semaine.
+ */
+export const zGenerationRoundInput = /* @__PURE__ */ z.object({
+  slots: /* @__PURE__ */ z.array(zGenerationSlotInput).max(14).default([]),
+});
+
+export type GenerationRoundInput = z.infer<typeof zGenerationRoundInput>;
