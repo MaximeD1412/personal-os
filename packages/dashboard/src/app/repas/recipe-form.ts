@@ -200,7 +200,7 @@ export class FormulaireDeRecette {
     if (this.reprendreLeBrouillon()) return;
 
     if (!this.id) {
-      this.remplir(this.prefill.valeurs);
+      this.remplir(undefined, this.prefill.valeurs);
       return;
     }
 
@@ -211,7 +211,7 @@ export class FormulaireDeRecette {
       const recette = this.recette();
       if (recette && !rempli) {
         rempli = true;
-        untracked(() => this.remplir({ ...recette, ...this.prefill.valeurs }));
+        untracked(() => this.remplir(recette, this.prefill.valeurs));
       }
     });
   }
@@ -421,8 +421,8 @@ export class FormulaireDeRecette {
         this.envoi.set(false);
         showToast({
           message: this.id
-            ? `« ${recette.title} » est enregistrée.`
-            : `« ${recette.title} » est ajoutée aux recettes.`,
+            ? `«\u00a0${recette.title}\u00a0» est enregistrée.`
+            : `«\u00a0${recette.title}\u00a0» est ajoutée aux recettes.`,
         });
         void this.router.navigate(['/repas/recettes', recette.id]);
       },
@@ -522,18 +522,24 @@ export class FormulaireDeRecette {
     return true;
   }
 
-  private remplir(valeurs: Partial<Recipe & RecipeInput>): void {
-    if (valeurs.title !== undefined) this.titre.set(valeurs.title);
-    if (valeurs.servings !== undefined) this.portions.set(valeurs.servings);
+  /** Remplit la saisie depuis la recette lue, puis depuis la requête (`title`, `servings`). */
+  private remplir(
+    recette: Recipe | undefined,
+    requete: { title?: string; servings?: number },
+  ): void {
+    const title = requete.title ?? recette?.title;
+    const servings = requete.servings ?? recette?.servings;
+    if (title !== undefined) this.titre.set(title);
+    if (servings !== undefined) this.portions.set(servings);
     this.etapes.set(
-      (valeurs.steps ?? []).map((texte) => ({
+      (recette?.steps ?? []).map((texte) => ({
         cle: this.prochaineCle++,
         texte,
       })),
     );
     if (this.etapes().length === 0) this.ajouterUneEtape();
 
-    const lues = (valeurs as Partial<Recipe>).lines ?? [];
+    const lues = recette?.lines ?? [];
     this.nomsConnus.set(
       new Map(
         lues.map(({ ingredient }) => [ingredient.id, ingredient.displayName]),
