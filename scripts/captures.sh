@@ -12,9 +12,10 @@
 # ou d'interruption, et ne vit de toute façon qu'une demi-heure. La commande
 # refuse de tourner avec APP_ENV=production.
 #
-# Variables : CAPTURES_URL (origine du tableau de bord, http://localhost:4200
-# par défaut), CAPTURES_DIR (dossier de sortie, captures/ par défaut). Les
-# variables de .env sont lues, sans écraser celles de l'environnement.
+# Variables : CAPTURES_URL (origine du tableau de bord, par défaut
+# http://localhost:${DASHBOARD_PORT:-4200}), CAPTURES_DIR (dossier de sortie,
+# captures/ par défaut). Elles sont lues dans l'environnement, puis dans .env
+# (ou le fichier de DOTENV_CONFIG_PATH), qui n'écrase jamais l'environnement.
 set -euo pipefail
 
 if (($# == 0)); then
@@ -25,15 +26,38 @@ fi
 racine=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$racine"
 
-origine=${CAPTURES_URL:-http://localhost:${DASHBOARD_PORT:-4200}}
-origine=${origine%/}
-sortie=${CAPTURES_DIR:-captures}
-navigateur="captures-$$"
-
 fail() {
   echo "ÉCHEC : $*" >&2
   exit 1
 }
+
+# Les réglages du shell absents de l'environnement sont pris dans .env, lu par
+# dotenv comme session.ts le lit, si bien que les deux voient la même chose.
+while IFS= read -r -d '' nom && IFS= read -r -d '' valeur; do
+  export "$nom=$valeur"
+done < <(
+  node -e '
+    const { readFileSync } = require("node:fs");
+    let lu = {};
+    try {
+      lu = require("dotenv").parse(readFileSync(process.env.DOTENV_CONFIG_PATH || ".env"));
+    } catch {}
+    for (const nom of ["APP_ENV", "CAPTURES_URL", "CAPTURES_DIR", "DASHBOARD_PORT"]) {
+      if (!(nom in process.env) && nom in lu) process.stdout.write(nom + "\0" + lu[nom] + "\0");
+    }
+  '
+)
+
+# session.ts refuse lui aussi la production, avant toute connexion. Le refus
+# passe ici d'abord pour ne rien lancer, pas même la tentative de nettoyage.
+if [[ $(printf '%s' "${APP_ENV:-}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]') == production ]]; then
+  fail "APP_ENV vaut « production » : la Session de capture ouvre le tableau de bord sans passer par Authentik, elle n'est jamais créée en production."
+fi
+
+origine=${CAPTURES_URL:-http://localhost:${DASHBOARD_PORT:-4200}}
+origine=${origine%/}
+sortie=${CAPTURES_DIR:-captures}
+navigateur="captures-$$"
 
 # Le script TS de la Session de démo, lancé comme `pnpm demo:seed`, avec .env.
 # Des options ts-node héritées (l'exécuteur jest de nx en pose) ne s'appliquent
@@ -83,11 +107,11 @@ trap nettoyer EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+# Un échec de l'ouverture ne prouve pas que la Session n'existe pas (processus
+# tué juste après l'écriture) : le nettoyage la supprime dans tous les cas.
 session_ouverte=1
-session ouvrir <<<"$token" || {
-  session_ouverte=""
-  fail "Session de capture non ouverte (voir ci-dessus)."
-}
+session ouvrir <<<"$token" || fail "Session de capture non ouverte (voir ci-dessus)."
+
 
 curl -fsS -o /dev/null -H @- "$origine/api/auth/me" <<<"Cookie: pos_session=$token" ||
   fail "$origine/api/auth/me ne reconnaît pas la Session de capture : la pile locale tourne-t-elle sur la même base que DATABASE_URL ?"

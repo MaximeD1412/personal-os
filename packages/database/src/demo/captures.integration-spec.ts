@@ -1,11 +1,13 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  existsSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -19,6 +21,8 @@ const SCRIPT = join(RACINE, 'scripts/captures.sh');
 
 /** Voir le fichier : il note ses appels et présente le cookie à l'origine. */
 const FAUX_NAVIGATEUR = resolve(__dirname, '../../test/faux-agent-browser.sh');
+/** Enveloppe le vrai node, pour faire échouer `session.ts ouvrir` après coup. */
+const FAUX_NODE = resolve(__dirname, '../../test/faux-node.sh');
 
 interface Resultat {
   code: number | null;
@@ -80,6 +84,9 @@ describe('scripts/captures.sh', () => {
     reconnus = [];
     dossier = mkdtempSync(join(tmpdir(), 'captures-'));
     symlinkSync(FAUX_NAVIGATEUR, join(dossier, 'agent-browser'));
+    symlinkSync(FAUX_NODE, join(dossier, 'node'));
+    // Le .env du poste n'entre pas dans les tests : chacun écrit le sien.
+    writeFileSync(join(dossier, '.env'), '');
   });
 
   afterEach(async () => {
@@ -94,23 +101,29 @@ describe('scripts/captures.sh', () => {
 
   function capturer(
     chemins: string[],
-    env: Record<string, string> = {},
+    env: Record<string, string | undefined> = {},
     pendant?: (enfant: ReturnType<typeof spawn>) => void,
   ): Promise<Resultat> {
+    const variables: Record<string, string | undefined> = {
+      ...process.env,
+      PATH: `${dossier}:${process.env['PATH']}`,
+      VRAI_NODE: process.execPath,
+      FAUX_ETAT: dossier,
+      DOTENV_CONFIG_PATH: join(dossier, '.env'),
+      DEMO_ACCOUNT_EMAILS: 'a@demo.test,b@demo.test',
+      APP_ENV: 'development',
+      CAPTURES_URL: origine,
+      CAPTURES_DIR: join(dossier, 'captures'),
+      ...env,
+    };
+    // Une variable à `undefined` est absente de l'environnement du script.
+    for (const [nom, valeur] of Object.entries(variables)) {
+      if (valeur === undefined) {
+        delete variables[nom];
+      }
+    }
     return new Promise((ok) => {
-      const enfant = spawn(SCRIPT, chemins, {
-        cwd: RACINE,
-        env: {
-          ...process.env,
-          PATH: `${dossier}:${process.env['PATH']}`,
-          FAUX_ETAT: dossier,
-          DEMO_ACCOUNT_EMAILS: 'a@demo.test,b@demo.test',
-          APP_ENV: 'development',
-          CAPTURES_URL: origine,
-          CAPTURES_DIR: join(dossier, 'captures'),
-          ...env,
-        },
-      });
+      const enfant = spawn(SCRIPT, chemins, { cwd: RACINE, env: variables });
       let stderr = '';
       enfant.stderr.on('data', (bloc) => (stderr += String(bloc)));
       enfant.on('error', (erreur) => ok({ code: -1, stderr: String(erreur) }));
@@ -207,6 +220,75 @@ describe('scripts/captures.sh', () => {
     expect(await prisma.session.count()).toBe(0);
   });
 
+  it("ne laisse aucune Session derrière elle quand l'ouverture échoue après l'avoir écrite", async () => {
+    const { code } = await capturer(['/agenda'], {
+      FAUX_NODE_ECHEC_OUVERTURE: '1',
+    });
+
+    expect(code).not.toBe(0);
+    expect(existsSync(join(dossier, 'session-creee'))).toBe(true);
+    expect(await prisma.session.count()).toBe(0);
+  });
+
+  describe('lit ses réglages dans .env', () => {
+    it("l'origine et le dossier de sortie", async () => {
+      writeFileSync(
+        join(dossier, '.env'),
+        `CAPTURES_URL=${origine}\nCAPTURES_DIR=${join(dossier, 'depuis-env')}\n`,
+      );
+
+      const { code } = await capturer(['/agenda'], {
+        CAPTURES_URL: undefined,
+        CAPTURES_DIR: undefined,
+      });
+
+      expect(code).toBe(0);
+      expect(readdirSync(join(dossier, 'depuis-env')).sort()).toEqual([
+        'agenda-desktop.png',
+        'agenda-mobile.png',
+      ]);
+    });
+
+    it('le port du tableau de bord, faute de CAPTURES_URL', async () => {
+      const port = new URL(origine).port;
+      writeFileSync(join(dossier, '.env'), `DASHBOARD_PORT=${port}\n`);
+
+      const { code } = await capturer(['/agenda'], {
+        CAPTURES_URL: undefined,
+      });
+
+      expect(code).toBe(0);
+      expect(appels()).toContain(`open http://localhost:${port}/agenda`);
+    });
+
+    it("sans écraser l'environnement", async () => {
+      writeFileSync(
+        join(dossier, '.env'),
+        `CAPTURES_DIR=${join(dossier, 'depuis-env')}\n`,
+      );
+
+      const { code } = await capturer(['/agenda']);
+
+      expect(code).toBe(0);
+      expect(existsSync(join(dossier, 'depuis-env'))).toBe(false);
+      expect(readdirSync(join(dossier, 'captures'))).toHaveLength(2);
+    });
+
+    it('APP_ENV=production, refusé sans Session ni navigateur', async () => {
+      writeFileSync(join(dossier, '.env'), 'APP_ENV=production\n');
+
+      const { code, stderr } = await capturer(['/agenda'], {
+        APP_ENV: undefined,
+      });
+
+      expect(code).not.toBe(0);
+      expect(stderr).toMatch(/APP_ENV vaut « production »/);
+      expect(stderr).not.toMatch(/ATTENTION/);
+      expect(await prisma.session.count()).toBe(0);
+      expect(() => appels()).toThrow();
+    });
+  });
+
   it('échoue si le tableau de bord ne reconnaît pas la Session', async () => {
     const { code, stderr } = await capturer(['/agenda'], {
       CAPTURES_URL: 'http://127.0.0.1:1',
@@ -224,6 +306,7 @@ describe('scripts/captures.sh', () => {
 
     expect(code).not.toBe(0);
     expect(stderr).toMatch(/APP_ENV vaut « production »/);
+    expect(stderr).not.toMatch(/ATTENTION/);
     expect(await prisma.session.count()).toBe(0);
     expect(() => appels()).toThrow();
   });

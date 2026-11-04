@@ -208,7 +208,9 @@ Une règle métier non triviale vit dans un module profond, testé en unitaire.
     `captures/<slug>-desktop.png` (1280×800), sous une Session du premier
     Compte de `DEMO_ACCOUNT_EMAILS` qui n'existe que le temps de la commande
     (refusée avec `APP_ENV=production`). `CAPTURES_URL` change l'origine
-    (`http://localhost:4200` par défaut). `captures/` n'est pas versionné.
+    (`http://localhost:${DASHBOARD_PORT:-4200}` par défaut) et `CAPTURES_DIR`
+    le dossier ; ces réglages se lisent aussi dans `.env`, sans écraser
+    l'environnement. `captures/` n'est pas versionné.
   - **Les publier** : sur une branche dédiée `captures/<n>`, **jamais sur la
     branche du ticket** (les images ne passent pas dans `develop`) :
 
