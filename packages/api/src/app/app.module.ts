@@ -5,6 +5,7 @@ import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AgendaModule } from './agenda/agenda.module';
 import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
+import { BackupModule } from './backup/backup.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { CommandBarModule } from './command-bar/command-bar.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -33,6 +34,7 @@ import { TrainingModule } from './training/training.module';
     ProjectsModule,
     PortfolioModule,
     TrainingModule,
+    BackupModule,
   ],
   providers: [
     // Tout body, query ou param typé par un DTO zod de `contracts` est validé

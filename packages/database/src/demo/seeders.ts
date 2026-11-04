@@ -1,3 +1,4 @@
+import { backup } from './backup';
 import { calendar } from './calendar';
 import { food } from './food';
 import { ai, commandBar, portfolio } from './modules-without-data';
@@ -20,6 +21,7 @@ export const SEMEURS: readonly Semeur[] = [
   projects,
   portfolio,
   training,
+  backup,
 ];
 
 /**
