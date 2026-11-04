@@ -405,8 +405,8 @@
       "categorie": "cui",
       "gravite": "moyenne",
       "titre": "Le catalogue d'Ingrédients se remplit de doublons",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Résolveur d'ingrédients et Alias",
@@ -415,8 +415,8 @@
         },
         {
           "texte": "Écran de fusion de deux Ingrédients",
-          "ref": "",
-          "fait": false
+          "ref": "#80",
+          "fait": true
         }
       ],
       "tickets": ["CUISINE-1", "CUISINE-3", "CUISINE-4", "CUISINE-6"]

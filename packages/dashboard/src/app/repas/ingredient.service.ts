@@ -9,6 +9,7 @@ import type {
   IngredientAlias,
   IngredientAliasInput,
   IngredientInput,
+  IngredientMergeInput,
   IngredientResolution,
   IngredientUpdate,
 } from '@personal-os/contracts';
@@ -57,6 +58,17 @@ export class IngredientService {
     return this.http.patch<Ingredient>(
       `${this.baseUrl}/ingredients/${id}`,
       changements,
+    );
+  }
+
+  /**
+   * Fusionne le doublon `id` dans l'Ingrédient `intoId`, qui en reprend tout ;
+   * rend l'Ingrédient conservé.
+   */
+  fusionner(id: string, saisie: IngredientMergeInput): Observable<Ingredient> {
+    return this.http.post<Ingredient>(
+      `${this.baseUrl}/ingredients/${id}/merge`,
+      saisie,
     );
   }
 

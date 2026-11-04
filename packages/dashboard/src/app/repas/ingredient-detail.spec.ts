@@ -28,7 +28,7 @@ function texte(el: HTMLElement, nom: string): string {
 describe('La fiche d’un Ingrédient', () => {
   afterEach(() => TestBed.inject(HttpTestingController).verify());
 
-  it('montre son unité, ses Allergènes, sa conservation, et mène à sa modification', async () => {
+  it('montre son unité, ses Allergènes, sa conservation, et mène à sa modification et à sa fusion', async () => {
     const { harness, http, el } = await ouvrirLeCatalogue(
       '/repas/ingredients/ingredient-1',
     );
@@ -48,6 +48,10 @@ describe('La fiche d’un Ingrédient', () => {
     expect(
       el().querySelector('[data-test="modifier"]')?.getAttribute('href'),
     ).toBe('/repas/ingredients/ingredient-1/modifier');
+    expect(
+      el().querySelector('[data-test="fusionner"]')?.getAttribute('href'),
+    ).toBe('/repas/ingredients/ingredient-1/fusionner');
+    expect(texte(el(), 'fusionner')).toContain('Fusionner avec…');
   });
 
   it('dit qu’un Ingrédient ne déclare aucun Allergène, et donne son poids à la pièce', async () => {

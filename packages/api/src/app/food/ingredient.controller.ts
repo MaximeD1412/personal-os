@@ -14,6 +14,7 @@ import {
   IngredientDto,
   IngredientInputDto,
   IngredientListQueryDto,
+  IngredientMergeInputDto,
   IngredientResolutionDto,
   IngredientResolveInputDto,
   IngredientUpdateDto,
@@ -27,7 +28,8 @@ import { PreferredProductInputDto } from './product.dto';
  * lisent et modifient le même catalogue.
  *
  * Pas de suppression : un Ingrédient en double se fusionne (CUISINE-4), pour
- * que les recettes qui le citent le suivent.
+ * que les recettes, le stock, les courses et les Préférences qui le citent le
+ * suivent.
  *
  * La résolution ne crée rien, pas même un Alias : elle répond 200.
  */
@@ -78,5 +80,19 @@ export class IngredientController {
     @Body() { productId }: PreferredProductInputDto,
   ) {
     return this.ingredients.preferer(id, productId);
+  }
+
+  /**
+   * Fusionne ce doublon dans l'Ingrédient `intoId`, et rend celui-ci
+   * (CUISINE-4). Le doublon disparaît : son nom devient un Alias du conservé.
+   */
+  @Post(':id/merge')
+  @HttpCode(200)
+  @ZodResponse({ status: 200, type: IngredientDto })
+  fusionner(
+    @Param('id') id: string,
+    @Body() { intoId }: IngredientMergeInputDto,
+  ) {
+    return this.ingredients.fusionner(id, intoId);
   }
 }

@@ -271,3 +271,13 @@ export const zIngredientAliasInput = /* @__PURE__ */ z.object({
 });
 
 export type IngredientAliasInput = z.infer<typeof zIngredientAliasInput>;
+
+/**
+ * La fusion d'un Ingrédient en doublon (`POST /ingredients/:id/merge`) :
+ * l'Ingrédient conservé, dans lequel le doublon disparaît (CUISINE-4).
+ */
+export const zIngredientMergeInput = /* @__PURE__ */ z.object({
+  intoId: /* @__PURE__ */ z.string().trim().min(1),
+});
+
+export type IngredientMergeInput = z.infer<typeof zIngredientMergeInput>;

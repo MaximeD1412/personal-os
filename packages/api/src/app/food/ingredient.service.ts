@@ -9,6 +9,7 @@ import {
   type IngredientUpdate,
 } from '@personal-os/contracts';
 import { ErreurMetier, Introuvable } from '../erreurs/erreur-metier';
+import { fusionner } from './fusion/fusionner';
 import {
   IngredientRepository,
   type IngredientRecord,
@@ -132,6 +133,57 @@ export class IngredientService {
     }
   }
 
+  /**
+   * Fusionne le doublon dans l'Ingrédient conservé, et rend celui-ci : tout ce
+   * qui citait le doublon le cite, son nom en devient un Alias, et le doublon
+   * disparaît (CUISINE-4). Une écriture concurrente fait recommencer la
+   * fusion sur ce qu'elle relit, quelques fois au plus.
+   */
+  async fusionner(id: string, intoId: string): Promise<Ingredient> {
+    for (let essai = 1; ; essai++) {
+      try {
+        return exposer(await this.essayerDeFusionner(id, intoId));
+      } catch (erreur) {
+        if (!['P2002', 'P2003', 'P2025'].includes(String(codePrisma(erreur)))) {
+          throw erreur;
+        }
+        if (essai === ESSAIS_DE_FUSION) {
+          throw new ErreurMetier(
+            'food.merge_busy',
+            'Ces Ingrédients changent en ce moment : relancez la fusion.',
+          );
+        }
+      }
+    }
+  }
+
+  private async essayerDeFusionner(
+    id: string,
+    intoId: string,
+  ): Promise<IngredientRecord> {
+    const doublon = await this.repository.aFusionner(id);
+    if (!doublon) {
+      throw new Introuvable(
+        'food.ingredient_not_found',
+        'Aucun Ingrédient de cet identifiant.',
+      );
+    }
+    const conserve =
+      intoId === id ? doublon : await this.repository.aFusionner(intoId);
+    if (!conserve) {
+      throw new ErreurMetier(
+        'food.unknown_ingredient',
+        "L'Ingrédient à conserver n'est pas au catalogue.",
+      );
+    }
+
+    return this.repository.fusionner(
+      doublon,
+      conserve,
+      fusionner(doublon, conserve),
+    );
+  }
+
   private async existant(id: string): Promise<IngredientRecord> {
     const ingredient = await this.repository.lire(id);
     if (!ingredient) {
@@ -143,6 +195,9 @@ export class IngredientService {
     return ingredient;
   }
 }
+
+/** Une fusion que des écritures concurrentes défont recommence, mais pas sans fin. */
+const ESSAIS_DE_FUSION = 3;
 
 /**
  * Un poids à la pièce relie des grammes et des pièces : il n'a pas de sens

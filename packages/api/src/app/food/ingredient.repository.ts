@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type { Allergen, CanonicalUnit } from '@personal-os/contracts';
-import { PrismaService } from '@personal-os/database';
+import {
+  ID_ESPACE_FOYER,
+  PrismaService,
+  sousPortee,
+} from '@personal-os/database';
+import type { IngredientAFusionner, PlanDeFusion } from './fusion/fusionner';
+import type { LigneDeStock } from './stock/recaler';
 
 export interface IngredientRecord {
   id: string;
@@ -27,6 +33,21 @@ export interface IngredientWrite {
 /** La rangée telle que Prisma la rend : le poids à la pièce y est un décimal. */
 type RangeeIngredient = Omit<IngredientRecord, 'gramsPerPiece'> & {
   gramsPerPiece: { toNumber(): number } | null;
+};
+
+/** Un Ingrédient tel que la fusion le lit : sa version, pour n'écrire que sur lui. */
+export interface IngredientLuPourFusion extends IngredientAFusionner {
+  updatedAt: Date;
+}
+
+/**
+ * Le stock, les Préférences et les lignes qui citent un Ingrédient vivent dans
+ * l'Espace foyer : la fusion, appelée par le catalogue hors Espace, y pose
+ * elle-même sa portée.
+ */
+const SOUS_L_ESPACE_FOYER = {
+  espaces: [{ id: ID_ESPACE_FOYER, kind: 'HOUSEHOLD' as const }],
+  typesAcceptes: ['HOUSEHOLD' as const],
 };
 
 /**
@@ -81,6 +102,174 @@ export class IngredientRepository {
       await this.prisma.ingredient.update({ where: { id }, data: saisie }),
     );
   }
+
+  /** Ce que la fusion lit d'un Ingrédient, ou rien s'il n'est pas au catalogue. */
+  async aFusionner(id: string): Promise<IngredientLuPourFusion | null> {
+    const ingredient = await this.prisma.ingredient.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        canonicalUnit: true,
+        preferredProductId: true,
+        updatedAt: true,
+      },
+    });
+    if (!ingredient) return null;
+
+    const [ligne, preferences] = await sousPortee(
+      SOUS_L_ESPACE_FOYER,
+      // Attendues ici : une requête Prisma ne part qu'à son premier `then`, et
+      // partirait sinon hors de cette portée.
+      async () =>
+        await Promise.all([
+          this.prisma.pantryItem.findUnique({
+            where: {
+              scopeId_ingredientId: {
+                scopeId: ID_ESPACE_FOYER,
+                ingredientId: id,
+              },
+            },
+            select: { quantity: true, expiresOn: true },
+          }),
+          this.prisma.foodPreference.findMany({
+            where: { ingredientId: id },
+            select: { id: true, userId: true, kind: true },
+          }),
+        ]),
+    );
+
+    return {
+      ...ingredient,
+      stock: ligne && {
+        quantite: ligne.quantity.toString(),
+        expireLe: enJour(ligne.expiresOn),
+      },
+      preferences,
+    };
+  }
+
+  /**
+   * La fusion en une seule écriture. Elle s'ouvre sur le doublon **tel que la
+   * fusion l'a lu**, et se ferme sur le conservé tel qu'elle l'a lu : un
+   * changement de l'un ou de l'autre entre-temps fait échouer le tout (P2025),
+   * et le service recommence sur ce qu'il relit. Chaque ligne de stock ne
+   * s'écrit que si elle a encore l'état lu (P2025 aussi). Une ligne de stock,
+   * une Préférence ou une référence au doublon apparue entre-temps fait
+   * échouer l'unicité (P2002) ou la suppression du doublon (P2003) : le
+   * service recommence de même.
+   *
+   * Réécrire le conservé fait grandir sa version : un Tour de génération
+   * contrôlé avant la fusion n'écrit plus (CUISINE-16), pas plus que pour un
+   * Compte dont une Préférence change.
+   */
+  async fusionner(
+    doublon: IngredientLuPourFusion,
+    conserve: IngredientLuPourFusion,
+    plan: PlanDeFusion,
+  ): Promise<IngredientRecord> {
+    const repointer = {
+      where: { ingredientId: doublon.id },
+      data: { ingredientId: conserve.id },
+    };
+    const ligneDe = (
+      ingredientId: string,
+      { quantite, expireLe }: LigneDeStock,
+    ) => ({
+      scopeId_ingredientId: { scopeId: ID_ESPACE_FOYER, ingredientId },
+      quantity: quantite.toString(),
+      expiresOn: versLaBase(expireLe),
+    });
+    const { stock } = plan;
+
+    const ecritures = [
+      // Le Produit préféré est unique : le doublon le lâche avant que le
+      // conservé ne le reprenne.
+      this.prisma.ingredient.update({
+        where: { id: doublon.id, updatedAt: doublon.updatedAt },
+        data: { preferredProductId: null },
+        select: { id: true },
+      }),
+      ...(stock.type === 'REPRENDRE'
+        ? [
+            this.prisma.pantryItem.update({
+              where: ligneDe(doublon.id, stock.avant),
+              data: { ingredientId: conserve.id },
+              select: { id: true },
+            }),
+          ]
+        : []),
+      ...(stock.type === 'ADDITIONNER'
+        ? [
+            this.prisma.pantryItem.update({
+              where: ligneDe(conserve.id, stock.duConserve),
+              data: {
+                quantity: stock.apres.quantite.toString(),
+                expiresOn: versLaBase(stock.apres.expireLe),
+              },
+              select: { id: true },
+            }),
+            this.prisma.pantryItem.delete({
+              where: ligneDe(doublon.id, stock.duDoublon),
+              select: { id: true },
+            }),
+          ]
+        : []),
+      this.prisma.foodPreference.deleteMany({
+        where: { id: { in: plan.preferencesEnDouble } },
+      }),
+      this.prisma.foodPreference.updateMany(repointer),
+      ...plan.comptesTouches.map((id) =>
+        this.prisma.user.update({
+          where: { id },
+          data: { foodPreferencesVersion: { increment: 1 } },
+          select: { id: true },
+        }),
+      ),
+      this.prisma.recipeLine.updateMany(repointer),
+      this.prisma.cookedMealLine.updateMany(repointer),
+      this.prisma.shoppingListItem.updateMany(repointer),
+      this.prisma.product.updateMany(repointer),
+      this.prisma.ingredientAlias.updateMany(repointer),
+      // Un Alias peut déjà porter le nom du doublon : il vient d'être
+      // repointé, et l'unicité du libellé le garde tel quel.
+      this.prisma.ingredientAlias.upsert({
+        where: { label: plan.alias },
+        create: { label: plan.alias, ingredientId: conserve.id },
+        update: { ingredientId: conserve.id },
+        select: { id: true },
+      }),
+      this.prisma.ingredient.delete({
+        where: { id: doublon.id },
+        select: { id: true },
+      }),
+    ];
+
+    const resultats = await sousPortee(
+      SOUS_L_ESPACE_FOYER,
+      // Attendue ici : le lot ne part qu'à son premier `then`.
+      async () =>
+        await this.prisma.$transaction([
+          ...ecritures,
+          this.prisma.ingredient.update({
+            where: { id: conserve.id, updatedAt: conserve.updatedAt },
+            data: { preferredProductId: plan.produitPrefere },
+          }),
+        ]),
+    );
+
+    // La dernière écriture du lot est le conservé réécrit.
+    return enIngredient(resultats[resultats.length - 1] as RangeeIngredient);
+  }
+}
+
+function enJour(date: Date | null): string | null {
+  return date?.toISOString().slice(0, 10) ?? null;
+}
+
+/** Un jour civil part en base comme le minuit UTC de ce jour, que `DATE` garde tel quel. */
+function versLaBase(jour: string | null): Date | null {
+  return jour === null ? null : new Date(`${jour}T00:00:00Z`);
 }
 
 function enIngredient(rangee: RangeeIngredient): IngredientRecord {

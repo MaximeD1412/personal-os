@@ -4,6 +4,7 @@ import {
   zIngredientAliasInput,
   zIngredientInput,
   zIngredientListQuery,
+  zIngredientMergeInput,
   zIngredientResolution,
   zIngredientResolveInput,
   zIngredientUpdate,
@@ -24,6 +25,10 @@ export class IngredientUpdateDto extends createZodDto(zIngredientUpdate) {}
 
 export class IngredientListQueryDto extends createZodDto(
   zIngredientListQuery,
+) {}
+
+export class IngredientMergeInputDto extends createZodDto(
+  zIngredientMergeInput,
 ) {}
 
 export class IngredientResolveInputDto extends createZodDto(

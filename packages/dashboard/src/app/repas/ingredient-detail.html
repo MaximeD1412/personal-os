@@ -4,6 +4,15 @@
     <a
       hlmBtn
       variant="secondary"
+      data-test="fusionner"
+      [routerLink]="['/repas/ingredients', id, 'fusionner']"
+    >
+      <ng-icon name="matCallMergeOutline" aria-hidden="true" />
+      Fusionner avec…
+    </a>
+    <a
+      hlmBtn
+      variant="secondary"
       data-test="modifier"
       [routerLink]="['/repas/ingredients', id, 'modifier']"
     >
