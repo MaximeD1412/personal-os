@@ -319,7 +319,12 @@ describe('La Liste de courses', () => {
       envoi.flush({
         ...FARINE,
         id: 'article-beurre',
-        ingredient: { id: BEURRE.id, displayName: 'Beurre doux' },
+        ingredient: {
+          id: BEURRE.id,
+          displayName: 'Beurre doux',
+          canonicalUnit: 'GRAM',
+          perishable: false,
+        },
         quantity: 250,
         origin: 'MANUAL',
         position: 3,
@@ -571,6 +576,316 @@ describe('La Liste de courses', () => {
       await apresLaConfirmation();
 
       expect(articles(ouvert.el(), 'ajouts').map(titre)).toEqual(['Éponges']);
+    });
+  });
+
+  describe('la clôture', () => {
+    const CLOTURE = `${BASE}/shopping-lists/${LISTE.id}/close`;
+
+    function recap(el: HTMLElement): HTMLElement | null {
+      return el.querySelector('[data-test="recapitulatif"]');
+    }
+
+    function ligneDuRecap(el: HTMLElement, id: string): HTMLElement {
+      return recap(el)?.querySelector(`[data-recap="${id}"]`) as HTMLElement;
+    }
+
+    function remplir(input: HTMLInputElement, valeur: string): void {
+      input.value = valeur;
+      input.dispatchEvent(new Event('input'));
+      TestBed.tick();
+    }
+
+    function bouton(el: HTMLElement, nom: string): HTMLButtonElement {
+      return el.querySelector(`[data-test="${nom}"]`) as HTMLButtonElement;
+    }
+
+    async function ouvrirLeRecap(ouvert: Ouvert): Promise<void> {
+      bouton(ouvert.el(), 'cloturer').click();
+      await ouvert.harness.fixture.whenStable();
+    }
+
+    it("récapitule les articles cochés, et envoie l'achat confirmé", async () => {
+      const ouvert = await ouvrir([
+        { ...LISTE, items: [FARINE, LAIT, { ...EPONGES, checked: true }] },
+      ]);
+      const { el, http, confirmations } = ouvert;
+      expect(recap(el())).toBeNull();
+      expect(texte(bouton(el(), 'cloturer'))).toContain('2/3 achetés');
+
+      await ouvrirLeRecap(ouvert);
+
+      // Seuls les articles cochés : le lait, et les éponges hors stock.
+      expect(ligneDuRecap(el(), FARINE.id)).toBeNull();
+      const lait = ligneDuRecap(el(), LAIT.id);
+      const quantite = lait.querySelector(
+        '[data-test="quantite-achetee"]',
+      ) as HTMLInputElement;
+      expect(quantite.value).toBe('1000');
+      expect(texte(lait)).toContain('ml');
+      expect(texte(ligneDuRecap(el(), EPONGES.id))).toContain('hors stock');
+      expect(ligneDuRecap(el(), EPONGES.id).querySelector('input')).toBeNull();
+
+      remplir(quantite, '1500');
+      remplir(
+        lait.querySelector('[data-test="peremption"]') as HTMLInputElement,
+        '2026-11-10',
+      );
+      bouton(el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+
+      expect(confirmations).toEqual([
+        expect.objectContaining({
+          title: 'Clôturer la liste de courses ?',
+          confirmLabel: 'Confirmer la clôture',
+        }),
+      ]);
+      const envoi = http.expectOne(CLOTURE);
+      expect(envoi.request.method).toBe('POST');
+      expect(envoi.request.body).toEqual({
+        items: [
+          { itemId: LAIT.id, purchasedQuantity: 1500, expiresOn: '2026-11-10' },
+        ],
+      });
+      envoi.flush({
+        ...LISTE,
+        status: 'CLOSED',
+        closedAt: '2026-11-03T10:00:00.000Z',
+      });
+      await ouvert.harness.fixture.whenStable();
+
+      expect(recap(el())).toBeNull();
+      expect(el().querySelector('[data-test="cloturer"]')).toBeNull();
+      expect(el().querySelector('[role="checkbox"]')).toBeNull();
+      expect(el().querySelector('[data-test="close"]')?.textContent).toContain(
+        'Close',
+      );
+    });
+
+    it("ne demande pas de péremption pour un Ingrédient qui ne périt pas, et laisse le serveur prendre la quantité de la liste si on l'efface", async () => {
+      const ouvert = await ouvrir([
+        { ...LISTE, items: [{ ...FARINE, checked: true }] },
+      ]);
+      await ouvrirLeRecap(ouvert);
+
+      const farine = ligneDuRecap(ouvert.el(), FARINE.id);
+      expect(farine.querySelector('[data-test="peremption"]')).toBeNull();
+      remplir(
+        farine.querySelector(
+          '[data-test="quantite-achetee"]',
+        ) as HTMLInputElement,
+        '',
+      );
+      bouton(ouvert.el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+
+      const envoi = ouvert.http.expectOne(CLOTURE);
+      expect(envoi.request.body).toEqual({ items: [{ itemId: FARINE.id }] });
+      envoi.flush({ ...LISTE, status: 'CLOSED', closedAt: LISTE.producedAt });
+      await ouvert.harness.fixture.whenStable();
+    });
+
+    it('attend la fin des cochages en route avant de clôturer, et fige les cases pendant l’envoi', async () => {
+      const ouvert = await ouvrir([{ ...LISTE, items: [FARINE] }]);
+      const { el, http } = ouvert;
+      const COCHAGE = `${BASE}/shopping-lists/${LISTE.id}/items/${FARINE.id}`;
+
+      // Cochée puis décochée avant la réponse du premier cochage.
+      caseDe(el(), FARINE.id).click();
+      TestBed.tick();
+      caseDe(el(), FARINE.id).click();
+      TestBed.tick();
+      const premier = http.expectOne(`${COCHAGE}/check`);
+      await ouvrirLeRecap(ouvert);
+      bouton(el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+
+      // La clôture attend : le serveur voit encore la farine cochée.
+      http.expectNone(CLOTURE);
+      expect(caseDe(el(), FARINE.id).disabled).toBe(true);
+      premier.flush({ ...FARINE, checked: true });
+      await apresLaConfirmation();
+      http.expectNone(CLOTURE);
+
+      http.expectOne(`${COCHAGE}/uncheck`).flush({ ...FARINE, checked: false });
+      await apresLaConfirmation();
+      const envoi = http.expectOne(CLOTURE);
+      expect(envoi.request.body).toEqual({ items: [] });
+      envoi.flush({ ...LISTE, items: [FARINE], status: 'CLOSED' });
+      await ouvert.harness.fixture.whenStable();
+    });
+
+    it('ne clôture pas si un cochage en route est refusé, et dit le refus', async () => {
+      const ouvert = await ouvrir([{ ...LISTE, items: [FARINE] }]);
+      const { el, http } = ouvert;
+
+      caseDe(el(), FARINE.id).click();
+      TestBed.tick();
+      const cochage = http.expectOne(
+        `${BASE}/shopping-lists/${LISTE.id}/items/${FARINE.id}/check`,
+      );
+      await ouvrirLeRecap(ouvert);
+      bouton(el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+
+      cochage.flush(
+        {
+          status: 422,
+          code: 'food.list_already_closed',
+          message:
+            'Cette Liste de courses est close : elle ne se modifie plus.',
+        },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+      await apresLaConfirmation();
+
+      http.expectNone(CLOTURE);
+      expect(texte(el().querySelector('[data-test="refus"]'))).toContain(
+        'Cette Liste de courses est close',
+      );
+      http.expectOne(OUVERTES).flush([{ ...LISTE, items: [FARINE] }]);
+      await ouvert.harness.fixture.whenStable();
+      expect(caseDe(el(), FARINE.id).disabled).toBe(false);
+    });
+
+    it('ne clôture pas si un cochage est refusé pendant la confirmation', async () => {
+      let confirmer!: (oui: boolean) => void;
+      const ouvert = await ouvrir([{ ...LISTE, items: [LAIT] }], {
+        confirme: new Promise<boolean>((resolve) => (confirmer = resolve)),
+      });
+      const { el, http } = ouvert;
+
+      // Le lait, coché, est décoché : le récapitulatif n'annonce aucun achat.
+      caseDe(el(), LAIT.id).click();
+      TestBed.tick();
+      const decochage = http.expectOne(
+        `${BASE}/shopping-lists/${LISTE.id}/items/${LAIT.id}/uncheck`,
+      );
+      await ouvrirLeRecap(ouvert);
+      bouton(el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+
+      // Le décochage échoue, le dialogue encore ouvert : le lait reste coché.
+      decochage.flush(
+        {
+          status: 503,
+          code: 'http.unavailable',
+          message: 'Le service est momentanément indisponible.',
+        },
+        { status: 503, statusText: 'Service Unavailable' },
+      );
+      TestBed.tick();
+      http.expectOne(OUVERTES).flush([{ ...LISTE, items: [LAIT] }]);
+      await ouvert.harness.fixture.whenStable();
+
+      confirmer(true);
+      await apresLaConfirmation();
+
+      http.expectNone(CLOTURE);
+      expect(texte(el().querySelector('[data-test="refus"]'))).toContain(
+        'momentanément indisponible',
+      );
+      expect(caseDe(el(), LAIT.id).getAttribute('aria-checked')).toBe('true');
+      expect(caseDe(el(), LAIT.id).disabled).toBe(false);
+    });
+
+    it("ne clôt rien si l'on renonce, et le récapitulatif reste ouvert", async () => {
+      const ouvert = await ouvrir([LISTE], { confirme: false });
+      await ouvrirLeRecap(ouvert);
+
+      bouton(ouvert.el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+
+      expect(recap(ouvert.el())).not.toBeNull();
+      // Aucun POST : le contrôle des requêtes ouvertes le vérifie.
+    });
+
+    it('se referme sans rien envoyer', async () => {
+      const ouvert = await ouvrir();
+      await ouvrirLeRecap(ouvert);
+
+      bouton(ouvert.el(), 'annuler-cloture').click();
+      await ouvert.harness.fixture.whenStable();
+
+      expect(recap(ouvert.el())).toBeNull();
+      expect(bouton(ouvert.el(), 'cloturer')).not.toBeNull();
+    });
+
+    it("dit le refus de l'API, et l'erreur sous l'article en cause", async () => {
+      const ouvert = await ouvrir();
+      const { el, http } = ouvert;
+      await ouvrirLeRecap(ouvert);
+
+      bouton(el(), 'confirmer-cloture').click();
+      await apresLaConfirmation();
+      http.expectOne(CLOTURE).flush(
+        {
+          status: 422,
+          code: 'food.expiry_required',
+          message:
+            "La liste n'est pas close : un article périssable n’a pas de date de péremption.",
+          fields: [
+            {
+              path: LAIT.id,
+              code: 'expiry_required',
+              message:
+                '« Lait demi-écrémé » périt : sa péremption est requise.',
+            },
+          ],
+        },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+      await ouvert.harness.fixture.whenStable();
+
+      expect(
+        texte(el().querySelector('[data-test="refus-cloture"]')),
+      ).toContain("La liste n'est pas close");
+      expect(texte(ligneDuRecap(el(), LAIT.id))).toContain(
+        'sa péremption est requise',
+      );
+      // Seul le champ en cause passe en erreur.
+      const lait = ligneDuRecap(el(), LAIT.id);
+      expect(
+        lait
+          .querySelector('[data-test="peremption"]')
+          ?.getAttribute('aria-invalid'),
+      ).toBe('true');
+      expect(
+        lait
+          .querySelector('[data-test="quantite-achetee"]')
+          ?.getAttribute('aria-invalid'),
+      ).not.toBe('true');
+      expect(bouton(el(), 'cloturer')).toBeNull();
+    });
+
+    it("dit quand aucun article n'est coché", async () => {
+      const ouvert = await ouvrir([{ ...LISTE, items: [FARINE] }]);
+      await ouvrirLeRecap(ouvert);
+
+      expect(texte(recap(ouvert.el()))).toContain('Aucun article coché');
+    });
+
+    it("s'ouvre depuis le lien, sans rien enregistrer", async () => {
+      const ouvert = await ouvrirLesCourses(`/courses/${LISTE.id}?cloture=1`);
+      ouvert.http.expectOne(OUVERTES).flush([LISTE]);
+      ouvert.http.expectOne(`${BASE}/shopping-lists/${LISTE.id}`).flush(LISTE);
+      await stable(ouvert);
+
+      expect(ligneDuRecap(ouvert.el(), LAIT.id)).not.toBeNull();
+    });
+
+    it('ne se propose pas sur une liste close', async () => {
+      const ouvert = await ouvrirLesCourses(`/courses/${LISTE.id}?cloture=1`);
+      ouvert.http.expectOne(OUVERTES).flush([]);
+      ouvert.http.expectOne(`${BASE}/shopping-lists/${LISTE.id}`).flush({
+        ...LISTE,
+        status: 'CLOSED',
+        closedAt: '2026-11-03T10:00:00.000Z',
+      });
+      await stable(ouvert);
+
+      expect(recap(ouvert.el())).toBeNull();
+      expect(ouvert.el().querySelector('[data-test="cloturer"]')).toBeNull();
     });
   });
 

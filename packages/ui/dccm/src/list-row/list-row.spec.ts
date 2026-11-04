@@ -10,6 +10,7 @@ import { DccmListRow } from './list-row';
       label="Œufs bio plein air"
       meta="Réfrigérateur • 6 unités"
       checkable
+      [checkboxDisabled]="fige()"
       [(checked)]="coche"
       (checkedChange)="bascules.push($event)"
     />
@@ -25,6 +26,7 @@ import { DccmListRow } from './list-row';
 })
 class Lignes {
   readonly coche = signal(false);
+  readonly fige = signal(false);
   readonly bascules: boolean[] = [];
   clics = 0;
 }
@@ -60,6 +62,18 @@ describe('DccmListRow', () => {
     await fixture.whenStable();
     expect(fixture.componentInstance.bascules).toEqual([true, false]);
     expect(ligne('case').dataset['checked']).toBeUndefined();
+  });
+
+  it('ne bascule pas une case figée', async () => {
+    const { fixture, caseACocher } = await rendre();
+    fixture.componentInstance.fige.set(true);
+    await fixture.whenStable();
+
+    caseACocher().click();
+    await fixture.whenStable();
+
+    expect(caseACocher().disabled).toBe(true);
+    expect(fixture.componentInstance.bascules).toEqual([]);
   });
 
   it('bascule aussi au clic sur le titre', async () => {

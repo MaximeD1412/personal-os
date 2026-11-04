@@ -41,6 +41,7 @@ let prochainId = 0;
       <hlm-checkbox
         [inputId]="_idCase"
         [checked]="checked()"
+        [disabled]="checkboxDisabled()"
         (checkedChange)="checked.set($event)"
       />
     }
@@ -92,6 +93,8 @@ export class DccmListRow {
   readonly checkable = input(false, { transform: booleanAttribute });
   /** La case est cochée : le titre est barré, en `outline`. */
   readonly checked = model(false);
+  /** La case ne se bascule pas (le bouton ou le lien hôte garde son `disabled` natif). */
+  readonly checkboxDisabled = input(false, { transform: booleanAttribute });
   /** La ligne est sélectionnée : fond `primary-10`, bordure `primary-40`. */
   readonly selected = input(false, { transform: booleanAttribute });
   /** Un chevron en fin de ligne, quand elle mène à un détail. */

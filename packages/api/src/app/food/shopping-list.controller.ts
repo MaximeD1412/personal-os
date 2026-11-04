@@ -12,6 +12,7 @@ import { ApiNoContentResponse } from '@nestjs/swagger';
 import { ZodResponse } from 'nestjs-zod';
 import { Espaces } from '../espace/espaces.decorator';
 import {
+  ShoppingListClosureDto,
   ShoppingGapDto,
   ShoppingListDto,
   ShoppingListItemDto,
@@ -61,6 +62,17 @@ export class ShoppingListController {
   @ZodResponse({ status: 200, type: ShoppingListItemDto })
   decocher(@Param('id') id: string, @Param('itemId') itemId: string) {
     return this.listes.cocher(id, itemId, false);
+  }
+
+  /**
+   * La clôture : les articles cochés montent le Stock domestique de leur
+   * quantité achetée, et la liste ne se modifie plus.
+   */
+  @Post(':id/close')
+  @HttpCode(200)
+  @ZodResponse({ status: 200, type: ShoppingListDto })
+  cloturer(@Param('id') id: string, @Body() saisie: ShoppingListClosureDto) {
+    return this.listes.cloturer(id, saisie);
   }
 
   /** Seul un ajout manuel se retire. */

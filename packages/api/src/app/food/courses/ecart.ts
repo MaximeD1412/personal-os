@@ -36,6 +36,9 @@ export interface Manquant {
  *
  * Un excédent (un repas retiré après la liste) n'est jamais signalé : les
  * courses faites restent faites.
+ *
+ * Seules les listes encore ouvertes sont à passer : l'achat d'une liste close
+ * est au stock, que `besoinActuel` a déjà déduit.
  */
 export function ecart(
   besoinActuel: readonly BesoinActuel[],

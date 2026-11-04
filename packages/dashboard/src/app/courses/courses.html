@@ -202,6 +202,7 @@
               [label]="designation(article)"
               [meta]="meta(article)"
               [checked]="article.checked"
+              [checkboxDisabled]="cloture()"
               (checkedChange)="cocher(article, $event)"
             />
           </li>
@@ -228,6 +229,7 @@
               [label]="designation(article)"
               [meta]="meta(article)"
               [checked]="article.checked"
+              [checkboxDisabled]="cloture()"
               (checkedChange)="cocher(article, $event)"
             >
               @if (ouverte()) {
@@ -253,6 +255,176 @@
         </p>
         }
       </section>
+
+      @if (ouverte()) { @if (recapitulatif()) {
+      <section
+        hlmCard
+        class="flex flex-col gap-space-md"
+        data-test="recapitulatif"
+        aria-labelledby="cloture-titre"
+      >
+        <div hlmCardHeader>
+          <h2 hlmCardTitle tone="tertiary" id="cloture-titre">
+            <ng-icon name="matInventory2Outline" aria-hidden="true" />
+            Clôturer la liste
+          </h2>
+          <p hlmCardDescription>
+            Ce qui entre au stock domestique : la quantité achetée, en unité du
+            catalogue, et la péremption de ce qui périt.
+          </p>
+        </div>
+
+        <div hlmCardContent class="flex flex-col gap-space-md">
+          @if (refusDeCloture(); as erreur) {
+          <div hlmAlert tone="error" data-test="refus-cloture">
+            <hlm-alert-icon />
+            <div hlmAlertContent>
+              <p hlmAlertTitle>{{ erreur.message }}</p>
+            </div>
+          </div>
+          } @if (achats().length || horsStock().length) {
+          <ul class="flex flex-col gap-space-sm" aria-label="Articles achetés">
+            @for (article of achats(); track article.id) {
+            <li
+              class="flex flex-col gap-space-xs border-b border-surface-container-high pb-space-sm last:border-b-0 last:pb-0"
+              [attr.data-recap]="article.id"
+            >
+              <p class="text-body-default font-semibold text-on-surface">
+                {{ designation(article) }} @if (quantiteDArticle(article); as
+                prevu) {
+                <span class="text-body-dense text-outline"
+                  >· {{ prevu }} sur la liste</span
+                >
+                }
+              </p>
+              <div
+                class="flex flex-col gap-space-sm sm:flex-row sm:items-start"
+              >
+                <div hlmField class="sm:w-44">
+                  <label hlmFieldLabel [for]="'achat-quantite-' + article.id"
+                    >Quantité achetée</label
+                  >
+                  <div hlmInputGroup>
+                    <input
+                      hlmInput
+                      data-test="quantite-achetee"
+                      type="number"
+                      inputmode="decimal"
+                      min="0"
+                      step="any"
+                      class="tabular-nums"
+                      [id]="'achat-quantite-' + article.id"
+                      [value]="quantiteAchetee(article) ?? ''"
+                      [forceInvalid]="erreursDeCloture()[article.id]?.champ === 'quantite'"
+                      (input)="saisirLaQuantiteAchetee(article, $event)"
+                    />
+                    <span class="text-label-regular text-outline"
+                      >{{ unites[article.ingredient.canonicalUnit] }}</span
+                    >
+                  </div>
+                </div>
+                @if (article.ingredient.perishable) {
+                <div hlmField class="sm:w-48">
+                  <label hlmFieldLabel [for]="'achat-peremption-' + article.id"
+                    >Péremption</label
+                  >
+                  <input
+                    hlmInput
+                    data-test="peremption"
+                    type="date"
+                    [id]="'achat-peremption-' + article.id"
+                    [value]="peremption(article)"
+                    [forceInvalid]="erreursDeCloture()[article.id]?.champ === 'peremption'"
+                    (input)="saisirLaPeremption(article, $event)"
+                  />
+                </div>
+                }
+              </div>
+              @if (erreursDeCloture()[article.id]; as erreur) {
+              <hlm-field-error forceShow>{{ erreur.message }}</hlm-field-error>
+              } @else if (article.ingredient.perishable) {
+              <p hlmFieldDescription>Périssable : la péremption est requise.</p>
+              }
+            </li>
+            } @for (article of horsStock(); track article.id) {
+            <li
+              class="flex flex-wrap items-baseline gap-x-space-xs border-b border-surface-container-high pb-space-sm last:border-b-0 last:pb-0"
+              [attr.data-recap]="article.id"
+            >
+              <span class="text-body-default font-semibold text-on-surface"
+                >{{ designation(article) }}</span
+              >
+              <span class="text-body-dense text-outline"
+                >· hors stock : un simple libellé n'y entre pas.</span
+              >
+            </li>
+            }
+          </ul>
+          } @else {
+          <p class="text-body-dense text-outline">
+            Aucun article coché : la liste se clôt sans rien ajouter au stock.
+          </p>
+          } @if (nonCoches()) {
+          <p class="text-body-dense text-outline" data-test="non-coches">
+            {{ nonCoches() === 1 ? "L'article non coché n'est pas acheté." :
+            nonCoches() + ' articles non cochés ne sont pas achetés.' }}
+          </p>
+          }
+        </div>
+
+        <div
+          class="flex flex-col-reverse gap-space-sm sm:flex-row sm:justify-end"
+        >
+          <button
+            hlmBtn
+            type="button"
+            variant="secondary"
+            data-test="annuler-cloture"
+            (click)="fermerLeRecapitulatif()"
+          >
+            Annuler
+          </button>
+          <button
+            hlmBtn
+            type="button"
+            data-test="confirmer-cloture"
+            [loading]="cloture()"
+            (click)="cloturer()"
+          >
+            <ng-icon name="matInventory2Outline" aria-hidden="true" />
+            Clôturer la liste
+          </button>
+        </div>
+      </section>
+      } @else {
+      <section hlmCard data-test="cloture" aria-labelledby="cloture-titre">
+        <div
+          class="flex flex-col gap-space-sm sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="flex flex-col gap-space-xs">
+            <h2 hlmCardTitle tone="tertiary" id="cloture-titre">
+              <ng-icon name="matInventory2Outline" aria-hidden="true" />
+              Fin des courses
+            </h2>
+            <p hlmCardDescription>
+              {{ achats().length === 0 ? 'Aucun article coché ne réapprovisionne
+              encore le stock.' : achats().length === 1 ? "L'article coché
+              réapprovisionnera le stock domestique." : achats().length + '
+              articles cochés réapprovisionneront le stock domestique.' }}
+            </p>
+          </div>
+          <button
+            hlmBtn
+            type="button"
+            class="tabular-nums"
+            data-test="cloturer"
+            (click)="ouvrirLeRecapitulatif()"
+          >
+            Clôturer la liste ({{ achetes() }}/{{ liste.items.length }} achetés)
+          </button>
+        </div>
+      </section>
+      } }
     </div>
     }
   </dccm-state>
