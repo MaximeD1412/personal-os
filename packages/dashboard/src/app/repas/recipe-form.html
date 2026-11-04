@@ -88,6 +88,9 @@
               [forceInvalid]="!!erreurDeLigne(ligne.cle, 'quantity')"
               (input)="saisirLaQuantite(ligne.cle, $event)"
             />
+            <label class="sr-only" [for]="'recette-unite-' + ligne.cle"
+              >Unité, ingrédient {{ rang + 1 }}</label
+            >
             <hlm-select
               [attr.data-test]="'unite-' + rang"
               [value]="ligne.unite"
@@ -95,8 +98,8 @@
               (valueChange)="choisirLUnite(ligne.cle, $event)"
             >
               <hlm-select-trigger
+                class="w-full"
                 [buttonId]="'recette-unite-' + ligne.cle"
-                [attr.aria-label]="'Unité, ingrédient ' + (rang + 1)"
               >
                 <hlm-select-value placeholder="Unité" />
               </hlm-select-trigger>
@@ -158,7 +161,8 @@
               >
               }
             </div>
-            <div hlmAlertAction>
+            <!-- Sur mobile, les suggestions passent à la ligne plutôt que de déborder. -->
+            <div hlmAlertAction class="shrink">
               @for (suggestion of suggestions; track suggestion) {
               <button
                 hlmBtn
