@@ -42,7 +42,7 @@
       "phase": "dep",
       "source": "#91",
       "titre": "Trancher le fileToken de la maquette pen.dev avant la prochaine livraison",
-      "pourquoi": "Le scan de secrets signale \"fileToken\": \"<uuid>\" dans design/personalos.pen (commit db8d399), le lien de la maquette vers personalos.lib.pen. Le commit n'est pas encore sur main : la PR develop → main et la livraison échoueront sur ce résultat tant qu'il n'est pas tranché.",
+      "pourquoi": "Le scan de secrets signale \"fileToken\": \"<uuid>\" dans design/personalos.pen (commit db8d399), le lien de la maquette vers personalos.lib.pen. Le commit n'est pas encore sur main : la PR develop → main, la livraison et la nuit (nightly.yml, qui scanne tout l'historique de develop, #90) échoueront sur ce résultat tant qu'il n'est pas tranché.",
       "etapes": [
         "Vérifier dans pen.dev si ce fileToken donne un accès (au compte, à la bibliothèque) ou s'il ne fait qu'identifier le fichier lié.",
         "S'il ne donne aucun accès : ajouter à .gitleaks.toml une exception limitée à la règle generic-api-key, au fichier design/personalos.pen et à ce résultat (regexTarget = \"match\"), dans une PR vers develop.",
@@ -363,6 +363,21 @@
         "Vérifier depuis l'extérieur que la route n'est pas joignable : curl -X POST https://<hôte du tableau de bord>/api/internal/backup-status répond 404"
       ],
       "commande": "sudo systemctl start personal-os-backup.service && journalctl -u personal-os-backup.service -n 5",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "actions-minutes-secret-quota",
+      "phase": "env",
+      "source": "#90",
+      "titre": "Créer le secret ACTIONS_BILLING_TOKEN et la variable ACTIONS_MINUTES_QUOTA du suivi des minutes Actions",
+      "pourquoi": "Le workflow « Minutes Actions » (actions-minutes.yml) lit chaque matin la consommation du mois du compte et échoue dès 80 % du quota, ou quand la projection à la fin du mois le dépasse. Sans le secret, il échoue chaque jour sur « Secret ACTIONS_BILLING_TOKEN manquant ». Sans la variable, il surveille les 3 000 minutes de GitHub Pro.",
+      "etapes": [
+        "Créer un jeton fin (fine-grained) sur le compte MaximeD1412 : Settings > Developer settings > Personal access tokens > Fine-grained tokens, permission de compte « Plan » en lecture, aucun accès aux dépôts.",
+        "Dans le dépôt, Settings > Secrets and variables > Actions : secret ACTIONS_BILLING_TOKEN = ce jeton.",
+        "Même page, onglet Variables : ACTIONS_MINUTES_QUOTA = les minutes incluses dans l'offre du compte (3000 pour GitHub Pro, 2000 pour GitHub Free), en entier, sans espace.",
+        "Lancer le workflow « Minutes Actions » à la main (Actions > Minutes Actions > Run workflow) et vérifier la ligne « Minutes Actions ce mois : … » du résumé."
+      ],
+      "commande": "gh workflow run actions-minutes.yml --ref develop && gh run watch",
       "ajouteLe": "2026-11-04"
     }
   ],

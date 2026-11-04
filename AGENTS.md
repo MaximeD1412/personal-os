@@ -172,6 +172,12 @@ peuvent tester en même temps.
   `pnpm exec nx affected -t lint test build --base=origin/develop`,
   plus les fichiers d'intégration des modules touchés.
 - **Jamais la suite d'intégration complète en local.** La CI la rejoue.
+- **Une nightly rouge se corrige en premier.** Les PR vers `develop` ne
+  rejouent que ce que leur diff atteint ; la nuit (`nightly.yml`) et la PR
+  de livraison vers `main` rejouent toute la campagne. Un échec de la nuit
+  passe avant tout autre ticket. S'il demande un geste humain, il va dans
+  `docs/pilotage/mep.json`. Les scripts de `.github/scripts/` se testent par
+  `node --test '.github/scripts/*.test.mjs'`.
 
 ### Ce que chaque route prouve (ADR 0030)
 

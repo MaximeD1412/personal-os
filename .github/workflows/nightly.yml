@@ -1,0 +1,37 @@
+name: Nuit
+
+# Le filet des propositions. Une proposition vers `develop` ne rejoue que ce
+# que son diff atteint, et elle est fusionnée sans regard humain : ce qu'elle a
+# sauté (un test que le graphe de Nx ne relie pas au diff, une dépendance qui
+# a bougé dehors) ne se verrait qu'à la livraison. Chaque nuit, la campagne
+# complète repasse donc sur `develop`.
+#
+# Une nuit rouge échoue comme n'importe quel workflow : GitHub l'envoie par
+# e-mail, et la règle d'AGENTS.md la fait corriger avant tout autre ticket.
+on:
+  schedule:
+    # 03:30 UTC : la machine des agents dort, et la campagne finit avant la
+    # première exécution du matin.
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+# Deux nuits ne se doublent pas : la seconde, lancée à la main, attend la
+# première. L'annuler à la place passerait une nuit rouge pour « annulée », et
+# l'échec n'arriverait jamais par e-mail.
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # Le scan de secrets lit la liste des commits par l'API.
+  pull-requests: read
+
+jobs:
+  verify:
+    # La nuit vérifie `develop`, et rien d'autre : un lancement à la main
+    # depuis une autre branche ne passerait pas pour une nuit verte.
+    if: github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/verify.yml
+    with:
+      portee: complete
