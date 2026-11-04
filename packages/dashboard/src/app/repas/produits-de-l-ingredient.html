@@ -33,8 +33,15 @@
             [meta]="conditionnement(produit)"
           >
             @if (estPrefere(produit)) {
-            <span hlmBadge tone="success" data-test="prefere">
-              <ng-icon name="matStarOutline" aria-hidden="true" />
+            <!-- Sur mobile, l'étoile pleine du bouton dit seule la préférence :
+                 le badge laisserait trop peu de place au nom. -->
+            <span
+              hlmBadge
+              tone="success"
+              class="hidden sm:inline-flex"
+              data-test="prefere"
+            >
+              <ng-icon name="matStarFillOutline" aria-hidden="true" />
               Produit préféré
             </span>
             <button
@@ -44,9 +51,15 @@
               size="sm"
               data-test="ne-plus-preferer"
               [disabled]="enCours() !== null"
+              [attr.aria-pressed]="true"
               (click)="preferer(null)"
             >
-              Ne plus préférer
+              <ng-icon
+                name="matStarFillOutline"
+                class="text-secondary sm:hidden"
+                aria-hidden="true"
+              />
+              <span class="sr-only sm:not-sr-only">Ne plus préférer</span>
             </button>
             } @else {
             <button
@@ -59,7 +72,7 @@
               (click)="preferer(produit)"
             >
               <ng-icon name="matStarOutline" aria-hidden="true" />
-              Préférer
+              <span class="sr-only sm:not-sr-only">Préférer</span>
             </button>
             }
             <button

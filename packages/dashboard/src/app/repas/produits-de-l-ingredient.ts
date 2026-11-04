@@ -10,6 +10,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   matAddOutline,
   matDeleteOutline,
+  matStarFillOutline,
   matStarOutline,
 } from '@ng-icons/material-symbols/outline';
 import {
@@ -69,7 +70,12 @@ function nomDuProduit(produit: Product): string {
     DccmState,
   ],
   providers: [
-    provideIcons({ matAddOutline, matDeleteOutline, matStarOutline }),
+    provideIcons({
+      matAddOutline,
+      matDeleteOutline,
+      matStarFillOutline,
+      matStarOutline,
+    }),
   ],
   templateUrl: './produits-de-l-ingredient.html',
 })
