@@ -444,6 +444,82 @@ describe('Listes de courses', () => {
       expect(await ecartDe(planning)).toEqual({ missing: [] });
     });
 
+    // Une liste close a monté le stock de son achat : c'est le stock qui le
+    // compte désormais, et la liste ne couvre plus rien.
+    async function cloturerLaPremiere(premiere: ShoppingList, achat: boolean) {
+      if (achat) await cocher(premiere, premiere.items[0]);
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${premiere.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [] })
+        .expect(200);
+    }
+
+    async function complementDe(planning: MealPlan) {
+      return (
+        await request(app.getHttpServer())
+          .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+          .query({ complement: true })
+          .set('Cookie', jeu.a.session)
+          .expect(201)
+      ).body as ShoppingList;
+    }
+
+    function quantites(liste: ShoppingList) {
+      return Object.fromEntries(
+        liste.items.map(({ ingredient, quantity }) => [
+          ingredient?.id,
+          quantity,
+        ]),
+      );
+    }
+
+    it("ne compte qu'une fois l'achat d'une liste close : au stock, plus sur la liste", async () => {
+      const { planning, premiere, pates, parmesan, basilic } =
+        await unPlanningEcarte();
+      await cloturerLaPremiere(premiere, true);
+      expect(await stockDe([pates.id])).toEqual({
+        [pates.id]: { quantity: 200, expiresOn: null },
+      });
+
+      // 400 g de pâtes demandés, 200 g au stock : il en manque toujours 200.
+      expect(quantites(await complementDe(planning))).toEqual({
+        [basilic.id]: 10,
+        [parmesan.id]: 50,
+        [pates.id]: 200,
+      });
+    });
+
+    it("compte encore comme manquant l'article d'une liste close qui n'a pas été acheté", async () => {
+      const { planning, premiere, pates } = await unPlanningEcarte();
+      await cloturerLaPremiere(premiere, false);
+
+      expect(quantites(await complementDe(planning))).toMatchObject({
+        [pates.id]: 400,
+      });
+    });
+
+    it("recalcule le complément d'une liste close entre sa lecture et celle du stock", async () => {
+      const { planning, premiere, pates } = await unPlanningEcarte();
+      await cocher(premiere, premiere.items[0]);
+      const original = ShoppingListRepository.prototype.stockDe;
+      const depot = app.get(ShoppingListRepository);
+      const lecture = jest
+        .spyOn(depot, 'stockDe')
+        .mockImplementationOnce(async (ids) => {
+          await cloturerLaPremiere(premiere, false);
+          return original.call(depot, ids);
+        });
+
+      try {
+        expect(quantites(await complementDe(planning))).toMatchObject({
+          [pates.id]: 200,
+        });
+      } finally {
+        lecture.mockRestore();
+      }
+    });
+
     it('refuse en 422 un complément quand rien ne manque, et ne crée aucune liste', async () => {
       const planning = await unPlanning();
       await ajouter(planning, 0, { title: 'Soupe' });

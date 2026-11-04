@@ -68,6 +68,12 @@ export interface PlanningAConsoliderRecord {
 }
 
 /** Ce qu'une production ou un ajout pose sur un article : la quantité en texte, sans flottant. */
+/** Les listes d'un planning lues par un complément : toutes, et les ouvertes. */
+export interface ListesLues {
+  toutes: readonly string[];
+  ouvertes: readonly string[];
+}
+
 export interface ShoppingListItemWrite {
   ingredientId: string | null;
   label: string | null;
@@ -194,6 +200,7 @@ export class ShoppingListRepository {
   listesDuPlanning(mealPlanId: string): Promise<
     {
       id: string;
+      status: ShoppingListStatus;
       items: {
         ingredientId: string | null;
         quantity: Decimal | null;
@@ -206,6 +213,7 @@ export class ShoppingListRepository {
       where: { mealPlanId },
       select: {
         id: true,
+        status: true,
         items: {
           select: {
             ingredientId: true,
@@ -264,15 +272,18 @@ export class ShoppingListRepository {
    * verrouille le planning **arrêté** : un planning rouvert entre-temps fait
    * échouer la production entière.
    *
-   * Un complément nomme les listes dont il a calculé l'écart (`listesLues`).
-   * Une fois le verrou pris, une seconde écriture, qui lit donc ce qui a été
-   * commité avant elle, échoue si une autre liste est apparue depuis : deux
-   * compléments simultanés ne portent jamais deux fois le même manque.
+   * Un complément nomme les listes dont il a calculé l'écart, et celles qu'il
+   * a lues ouvertes (`listesLues`). Une fois le verrou pris, une seconde
+   * écriture, qui lit donc ce qui a été commité avant elle, échoue si une
+   * autre liste est apparue depuis, ou si l'une des listes lues ouvertes a été
+   * close : deux compléments simultanés ne portent jamais deux fois le même
+   * manque, et l'achat d'une clôture n'est jamais compté deux fois, au stock
+   * et sur la liste.
    */
   async produire(
     planId: string,
     articles: readonly ShoppingListItemWrite[],
-    listesLues?: readonly string[],
+    listesLues?: ListesLues,
   ): Promise<ShoppingListRecord> {
     const verrou = this.prisma.mealPlan.update({
       where: { id: planId, status: 'STOPPED' },
@@ -286,7 +297,21 @@ export class ShoppingListRepository {
             this.prisma.mealPlan.update({
               where: {
                 id: planId,
-                shoppingLists: { every: { id: { in: [...listesLues] } } },
+                AND: [
+                  {
+                    shoppingLists: {
+                      every: { id: { in: [...listesLues.toutes] } },
+                    },
+                  },
+                  {
+                    shoppingLists: {
+                      none: {
+                        id: { in: [...listesLues.ouvertes] },
+                        status: 'CLOSED',
+                      },
+                    },
+                  },
+                ],
               },
               data: { status: 'STOPPED' },
               select: { id: true },

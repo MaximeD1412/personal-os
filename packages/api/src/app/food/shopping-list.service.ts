@@ -21,6 +21,7 @@ import {
   codePrisma,
   ShoppingListRepository,
   type IngredientAConsoliderRecord,
+  type ListesLues,
   type PlanningAConsoliderRecord,
   type ShoppingListItemRecord,
   type ShoppingListRecord,
@@ -95,7 +96,8 @@ export class ShoppingListService {
         }
         // Le planning a été rouvert depuis qu'on l'a lu.
         await this.planningArrete(planId);
-        // Sinon, un autre complément est passé avant : l'écart se recalcule.
+        // Sinon, un autre complément ou une clôture est passé avant : l'écart
+        // se recalcule.
         if (!complement || essai === ESSAIS_DE_COMPLEMENT) throw erreur;
       }
     }
@@ -121,14 +123,25 @@ export class ShoppingListService {
    * Les besoins du planning qu'aucune liste déjà produite pour lui ne couvre,
    * et ces listes. Sans liste, il n'y a pas d'écart : le planning attend sa
    * première liste.
+   *
+   * Seule une liste ouverte couvre encore un besoin. Une liste close a monté
+   * son achat au stock, que le besoin actuel déduit déjà ; ce qu'elle n'a pas
+   * acheté redevient un manque.
    */
   private async manquants(
     planning: PlanningAConsoliderRecord,
-  ): Promise<{ besoins: Besoin[]; listesLues: string[] }> {
+  ): Promise<{ besoins: Besoin[]; listesLues: ListesLues }> {
     const listes = await this.repository.listesDuPlanning(planning.id);
-    const listesLues = listes.map(({ id }) => id);
+    const ouvertes = listes.filter(({ status }) => status === 'OPEN');
+    const listesLues = {
+      toutes: listes.map(({ id }) => id),
+      ouvertes: ouvertes.map(({ id }) => id),
+    };
     if (listes.length === 0) return { besoins: [], listesLues };
 
+    // Le stock se lit après les listes : une clôture commitée entre les deux
+    // lectures fait échouer la production (`listesLues.ouvertes`), qui
+    // recommence.
     const besoins = await this.besoinActuel(planning);
     const { manquants } = ecart(
       besoins.map(({ ingredient, quantite }) => ({
@@ -136,7 +149,7 @@ export class ShoppingListService {
         quantite,
         unite: ingredient.canonicalUnit,
       })),
-      listes.map(({ items }) => ({
+      ouvertes.map(({ items }) => ({
         articles: items.map(({ ingredientId, quantity, unit, origin }) => ({
           ingredientId,
           quantite: quantity?.toString() ?? null,
