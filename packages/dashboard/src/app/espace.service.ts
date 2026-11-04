@@ -1,4 +1,8 @@
-import { HttpClient } from '@angular/common/http';
+import {
+  HttpClient,
+  httpResource,
+  type HttpResourceRef,
+} from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Scope } from '@personal-os/contracts';
 import type { Observable } from 'rxjs';
@@ -11,5 +15,12 @@ export class EspaceService {
 
   mesEspaces(): Observable<Scope[]> {
     return this.http.get<Scope[]>(`${this.baseUrl}/espaces`);
+  }
+
+  /** La même liste, lue par l'écran qui l'affiche. */
+  lecture(): HttpResourceRef<Scope[]> {
+    return httpResource<Scope[]>(() => `${this.baseUrl}/espaces`, {
+      defaultValue: [],
+    });
   }
 }

@@ -1,0 +1,62 @@
+<header
+  class="sticky top-0 z-10 border-b border-surface-container-highest bg-surface-container-lowest-90 backdrop-blur"
+>
+  <div
+    class="mx-auto flex max-w-[1100px] flex-wrap items-center justify-between gap-x-gutter gap-y-space-sm px-margin-mobile py-space-sm md:flex-nowrap md:px-margin"
+  >
+    <a
+      class="text-title-sm text-on-surface"
+      data-test="marque"
+      [routerLink]="['/', langue()]"
+      >{{ textes().marque }}</a
+    >
+
+    <nav
+      class="order-last flex w-full gap-gutter overflow-x-auto md:order-none md:w-auto"
+      [attr.aria-label]="textes().navigation"
+    >
+      @for (lien of liens(); track lien.ancre) {
+      <a
+        class="shrink-0 py-space-xs text-label-regular text-on-surface-variant hover:text-on-surface"
+        data-test="section"
+        [routerLink]="['/', langue()]"
+        [fragment]="lien.ancre"
+        >{{ lien.libelle }}</a
+      >
+      }
+    </nav>
+
+    <hlm-toggle-group
+      class="border border-surface-container-highest"
+      data-test="langue"
+      [attr.aria-label]="textes().selecteur"
+      [value]="langue()"
+      (valueChange)="changer($event)"
+    >
+      <button
+        hlmToggleGroupItem
+        value="fr"
+        data-langue="fr"
+        lang="fr"
+        aria-label="Français"
+      >
+        FR
+      </button>
+      <button
+        hlmToggleGroupItem
+        value="en"
+        data-langue="en"
+        lang="en"
+        aria-label="English"
+      >
+        EN
+      </button>
+    </hlm-toggle-group>
+  </div>
+</header>
+
+<main
+  class="mx-auto flex max-w-[1100px] flex-col px-margin-mobile pb-space-2xl md:px-margin"
+>
+  <router-outlet />
+</main>

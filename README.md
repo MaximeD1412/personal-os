@@ -30,9 +30,8 @@ docker compose up --build
 | Authentik       | http://authentik:9000 |
 | Base            | `localhost:5432`      |
 
-Le tableau de bord affiche une valeur lue en base via l'API : c'est le fil
-traceur qui prouve que les quatre couches se parlent. Il est protégé — s'y
-rendre renvoie vers Authentik.
+Le tableau de bord s'ouvre sur l'Agenda, lu en base via l'API. Il est
+protégé — s'y rendre renvoie vers Authentik.
 
 ### Se connecter en local
 
@@ -165,13 +164,16 @@ publié sans avoir passé exactement les mêmes tests qu'une PR ».
 
 | Workflow | Déclencheur | Ce qu'il fait |
 | --- | --- | --- |
-| [`ci.yml`](.github/workflows/ci.yml) | PR, push sur `develop` | Vérification, et construction des images |
-| [`livraison.yml`](.github/workflows/livraison.yml) | push sur `main` | Vérification, publication sur GHCR, déplacement du canal |
+| [`ci.yml`](.github/workflows/ci.yml) | PR, push sur `develop` | Vérification, et construction des images ; sur `develop`, publication sur GHCR et déploiement du staging |
+| [`livraison.yml`](.github/workflows/livraison.yml) | push sur `main` | Vérification, publication sur GHCR, déplacement du canal, déploiement de la production |
 
 **`main` est une branche de livraison** : un commit qui l'atteint part en
 production ([ADR 0023](docs/adr/0023-deploiement-automatique-tire-par-le-vps.md)).
 Il n'y a pas de « je pousse pour sauvegarder mon travail » sur cette branche.
 
-La livraison s'arrête à GHCR : GitHub n'a **aucun accès entrant** au serveur.
-C'est un agent installé sur la machine qui détecte la nouvelle version et
-l'applique — voir [`infra/deploy/`](infra/deploy).
+Une fois les images publiées, GitHub demande le déploiement au serveur par SSH,
+avec une clé **bridée** par environnement : elle ne peut lancer que
+`deploy <env> <sha>`, sans shell ni lecture des secrets
+([ADR 0032](docs/adr/0032-deploiement-pousse-par-une-cle-ssh-bridee.md)). Le
+déploiement s'exécute pendant le job, qui est rouge s'il échoue — voir
+[`infra/deploy/`](infra/deploy).

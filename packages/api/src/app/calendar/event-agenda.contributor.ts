@@ -4,9 +4,10 @@ import {
   type AgendaContributor,
   type AgendaItem,
   type AgendaPeriod,
+  type EventOccurrence,
 } from '@personal-os/contracts';
 import { AgendaRegistry } from '../agenda-port/agenda.registry';
-import { EventRepository, type EventRecord } from './event.repository';
+import { EventService } from './event.service';
 
 /**
  * Le Calendrier tel qu'il se présente à l'Agenda — et le premier des cinq
@@ -16,15 +17,17 @@ import { EventRepository, type EventRecord } from './event.repository';
  * d'ici, et n'a rien à apprendre le jour où le Sport ou les Repas planifiés
  * s'y présenteront à leur tour.
  *
- * Aucun filtre par Espace n'apparaît : le contributeur lit par le dépôt
- * ordinaire, et la garde borne ses requêtes comme partout ailleurs (ADR 0028).
+ * Il lit par le même chemin que `GET /events` : les occurrences de la
+ * période, calculées depuis la règle et les exceptions de chaque Événement.
+ * Aucun filtre par Espace n'apparaît : la garde borne les requêtes du dépôt
+ * comme partout ailleurs (ADR 0028).
  */
 @Injectable()
 export class EventAgendaContributor implements AgendaContributor, OnModuleInit {
   readonly source = SOURCE_CALENDRIER;
 
   constructor(
-    private readonly repository: EventRepository,
+    private readonly evenements: EventService,
     private readonly agenda: AgendaRegistry,
   ) {}
 
@@ -33,30 +36,29 @@ export class EventAgendaContributor implements AgendaContributor, OnModuleInit {
   }
 
   async lister(periode: AgendaPeriod): Promise<AgendaItem[]> {
-    const evenements = await this.repository.listerEntre(
-      new Date(periode.from),
-      new Date(periode.to),
-    );
+    const occurrences = await this.evenements.lister(periode);
 
-    return evenements.map(enEntree);
+    return occurrences.map(enEntree);
   }
 }
 
 /**
- * L'Événement, réduit à une référence. Ni catégorie, ni délai de rappel, ni
- * Espace : l'Agenda affiche des références, pas des objets, et un attribut
- * métier qui passerait ici finirait par en appeler d'autres (ADR 0011).
+ * L'occurrence, réduite à une référence à son Événement : chaque occurrence
+ * d'une série renvoie à la même, puisque c'est elle qu'on ouvre pour la
+ * modifier. Ni catégorie, ni délai de rappel, ni Espace, ni règle : l'Agenda
+ * affiche des références, pas des objets, et un attribut métier qui passerait
+ * ici finirait par en appeler d'autres (ADR 0011).
  *
  * Un Événement n'a pas de statut propre — il n'existe rien qui le déclare
  * réalisé ou manqué —, il est donc toujours prévu.
  */
-function enEntree(evenement: EventRecord): AgendaItem {
+function enEntree(occurrence: EventOccurrence): AgendaItem {
   return {
     source: SOURCE_CALENDRIER,
-    sourceId: evenement.id,
-    title: evenement.title,
-    startsAt: evenement.startsAt.toISOString(),
-    endsAt: evenement.endsAt?.toISOString() ?? null,
+    sourceId: occurrence.eventId,
+    title: occurrence.title,
+    startsAt: occurrence.startsAt,
+    endsAt: occurrence.endsAt,
     status: 'PLANNED',
   };
 }

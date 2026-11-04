@@ -7,6 +7,6 @@ import { classes } from '@personal-os/ui/utils';
 })
 export class HlmCardDescription {
 	constructor() {
-		classes(() => 'text-muted-foreground text-sm');
+		classes(() => 'order-last basis-full text-body-dense text-outline');
 	}
 }

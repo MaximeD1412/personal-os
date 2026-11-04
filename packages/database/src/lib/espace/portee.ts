@@ -19,6 +19,27 @@ export interface PorteeEspace {
 }
 
 /**
+ * La portée du portfolio public, qui lit sans session et donc sans Espace :
+ * elle ne laisse lire que des contenus publiés, et rien écrire
+ * (`lecture-publique.ts`). Elle ne s'obtient que par un geste explicite de la
+ * route (`@LecturePublique()`), jamais par l'absence de session.
+ */
+export interface PorteePublique {
+  readonly publique: true;
+}
+
+export const PORTEE_PUBLIQUE: PorteePublique = Object.freeze({
+  publique: true,
+});
+
+/** Ce qu'une requête peut porter : les Espaces d'un Compte, ou la lecture publique. */
+export type Portee = PorteeEspace | PorteePublique;
+
+export function estPublique(portee: Portee | null): portee is PorteePublique {
+  return portee !== null && 'publique' in portee;
+}
+
+/**
  * La portée voyage avec la requête, pas dans les signatures : c'est ce qui
  * permet aux modules de rester plats (ADR 0016) sans qu'aucun service n'ait à
  * faire circuler l'Espace de main en main.
@@ -28,7 +49,7 @@ export interface PorteeEspace {
  * lue et le module identifié. Sans ce temps d'avance, la portée posée par la
  * garde ne serait plus visible du contrôleur.
  */
-const stockage = new AsyncLocalStorage<{ portee: PorteeEspace | null }>();
+const stockage = new AsyncLocalStorage<{ portee: Portee | null }>();
 
 /** Ouvre un porte-portée vide pour la durée d'une requête. */
 export function ouvrirPorteeVide<T>(suite: () => T): T {
@@ -36,7 +57,7 @@ export function ouvrirPorteeVide<T>(suite: () => T): T {
 }
 
 /** Pose la portée de la requête courante. */
-export function poserPortee(portee: PorteeEspace): void {
+export function poserPortee(portee: Portee): void {
   const porteur = stockage.getStore();
   if (!porteur) {
     throw new Error(
@@ -47,11 +68,11 @@ export function poserPortee(portee: PorteeEspace): void {
 }
 
 /** Exécute sous une portée connue d'avance — hors HTTP, et dans les tests. */
-export function sousPortee<T>(portee: PorteeEspace, suite: () => T): T {
+export function sousPortee<T>(portee: Portee, suite: () => T): T {
   return stockage.run({ portee }, suite);
 }
 
 /** La portée de la requête courante, ou `null` s'il n'y en a aucune. */
-export function porteeCourante(): PorteeEspace | null {
+export function porteeCourante(): Portee | null {
   return stockage.getStore()?.portee ?? null;
 }

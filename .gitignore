@@ -63,3 +63,14 @@ packages/database/src/generated
 
 # boucle d'agents (agent-loop) : état, prompts rendus et journaux
 .agent-loop/
+
+# Storybook, et la sortie de compodoc qu'il régénère à chaque lancement.
+storybook-static
+packages/ui/dccm/documentation.json
+
+# OpenAPI généré par `nx run api:openapi`, jamais versionné
+packages/api/openapi.json
+
+# captures de la revue visuelle (scripts/captures.sh), publiées sur la branche
+# captures/<n>, jamais sur celle du ticket. Ancré : design/captures/ est versionné.
+/captures/

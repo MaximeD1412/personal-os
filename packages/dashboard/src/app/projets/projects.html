@@ -1,0 +1,46 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    heading="Projets"
+    subtitle="Vos projets personnels : notes, liens et dépenses."
+    [breadcrumb]="fil"
+  >
+    <a hlmBtn routerLink="/projets/nouveau" data-test="nouveau">
+      <ng-icon name="matAddOutline" aria-hidden="true" />
+      Nouveau projet
+    </a>
+  </dccm-page-header>
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    emptyHeading="Aucun projet pour l’instant"
+    [emptyIcon]="iconeVide"
+    loadingLabel="Chargement des projets…"
+    (retry)="lecture.reload()"
+  >
+    <a dccmStateEmpty hlmBtn routerLink="/projets/nouveau">Nouveau projet</a>
+
+    <section hlmCard class="p-space-sm md:p-space-sm">
+      <ul class="flex flex-col" aria-label="Projets">
+        @for (projet of projets(); track projet.id) {
+        <li>
+          <a
+            dccmListRow
+            chevron
+            data-test="projet"
+            [label]="projet.title"
+            [meta]="modifie(projet)"
+            [routerLink]="['/projets', projet.id]"
+          >
+            <span
+              class="font-mono text-body-dense tabular-nums text-on-surface"
+              data-test="total"
+              >{{ montant(projet.totalSpent) }}</span
+            >
+          </a>
+        </li>
+        }
+      </ul>
+    </section>
+  </dccm-state>
+</div>

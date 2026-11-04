@@ -16,6 +16,11 @@
    `@theme inline` qui exposent nos jetons aux utilitaires Tailwind. */
 @import '@spartan-ng/brain/hlm-tailwind-preset.css';
 
+/* Les polices (Inter, JetBrains Mono) sont servies par l'application, jamais
+   par un CDN. Elles sont chargées par le tableau `styles` de project.json, pas
+   importées ici : Tailwind réécrirait les `url()` de leurs fichiers pour
+   esbuild, que le webpack de Storybook ne sait plus relire. */
+
 /* Les jetons, partagés avec le tableau de bord — un seul fichier pour les
    deux. Le portfolio s'en écarterait en redéfinissant des jetons ici, après
    l'import, plutôt qu'en tenant une seconde copie. */

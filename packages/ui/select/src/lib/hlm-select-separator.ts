@@ -9,6 +9,6 @@ import { classes } from '@personal-os/ui/utils';
 })
 export class HlmSelectSeparator {
 	constructor() {
-		classes(() => 'bg-border -mx-1 my-1 h-px pointer-events-none');
+		classes(() => 'bg-surface-container-highest -mx-1 my-1 h-px pointer-events-none');
 	}
 }

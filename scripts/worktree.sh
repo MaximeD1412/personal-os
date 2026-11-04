@@ -35,13 +35,30 @@ step() {
   }
 }
 
+# Hôte et port du Postgres des tests, lus dans la même URL que postgres_accepte :
+# un autre projet peut occuper 5432, et .env déplace alors celui-ci
+# (POSTGRES_PORT et les URL).
+adresse_postgres() {
+  node -e '
+    require("dotenv").config({ quiet: true });
+    const url = new URL(
+      process.env.TEST_DATABASE_URL ??
+        process.env.DATABASE_URL ??
+        "postgresql://personalos:personalos@localhost:5432/postgres",
+    );
+    console.log(`${url.hostname}:${url.port || 5432}`);
+  '
+}
+
 port_ouvert() {
-  (exec 3<>/dev/tcp/localhost/5432) 2>/dev/null
+  (exec 3<>"/dev/tcp/${adresse%:*}/${adresse##*:}") 2>/dev/null
 }
 
 # Vrai si le Postgres des tests accepte les identifiants de .env : même URL que
 # packages/api/test/global-setup.ts, sur la base d'administration. Vérifier le
-# port ne suffit pas : un autre projet peut l'occuper.
+# port ne suffit pas : un autre projet peut l'occuper. Code 1 : Postgres a
+# répondu par un refus (son erreur porte un SQLSTATE). Code 2 : la connexion a
+# échoué avant toute réponse (port fermé, coupure, délai dépassé).
 postgres_accepte() {
   node -e '
     require("dotenv").config({ quiet: true });
@@ -58,14 +75,15 @@ postgres_accepte() {
       () => client.end(),
       (erreur) => {
         console.error(erreur.message);
-        process.exit(1);
+        process.exit(/^[0-9A-Z]{5}$/.test(erreur.code ?? "") ? 1 : 2);
       },
     );
   '
 }
 
+# attendre_postgres <secondes>
 attendre_postgres() {
-  for _ in $(seq 1 60); do
+  for _ in $(seq 1 "$1"); do
     postgres_accepte 2>/dev/null && return 0
     sleep 1
   done
@@ -107,19 +125,40 @@ case $cmd in
     # 4. Postgres partagé par tous les worktrees : celui du dépôt principal.
     # `db:up` est lancé depuis le dépôt principal pour garder le même projet
     # compose, donc le même conteneur et le même volume.
-    if refus=$(postgres_accepte 2>&1); then
-      echo "ok   Postgres accepte la connexion sur localhost:5432"
+    adresse=$(adresse_postgres)
+    etat=0
+    refus=$(postgres_accepte 2>&1) || etat=$?
+    if ((etat == 0)); then
+      echo "ok   Postgres accepte la connexion sur $adresse"
+    elif ((etat == 1)); then
+      fail "un Postgres répond sur $adresse mais refuse la connexion avec les identifiants de .env ($refus). Le port est sans doute pris par un autre projet (docker ps --filter publish=${adresse##*:}) : déplace celui-ci avec POSTGRES_PORT et les URL de .env"
     elif port_ouvert; then
-      fail "un Postgres répond sur localhost:5432 mais refuse les identifiants de .env ($refus). Le port est sans doute pris par un autre projet : docker ps --filter publish=5432"
+      # Le port accepte la connexion mais la coupe avant que Postgres réponde :
+      # un Postgres qui démarre, ou le renvoi de port de Docker Desktop cassé
+      # (vu après un redémarrage de WSL), que seul un redémarrage du conteneur
+      # répare. Il ne coupe rien : plus personne n'atteint la base par ce port.
+      echo "...  connexion coupée sur $adresse ($refus), nouvel essai"
+      if ! attendre_postgres 15; then
+        echo "...  toujours coupée après 15 s, redémarrage du conteneur db"
+        step "docker compose restart db" docker compose -f "$main/docker-compose.yml" restart db
+        attendre_postgres 60 || fail "Postgres coupe toujours la connexion sur $adresse après le redémarrage du conteneur db : redémarre Docker Desktop"
+      fi
+      echo "ok   Postgres accepte la connexion sur $adresse"
     else
-      echo "...  Postgres ne répond pas sur localhost:5432, lancement de pnpm db:up"
+      echo "...  Postgres ne répond pas sur $adresse, lancement de pnpm db:up"
       step "pnpm db:up (docker est-il lancé ?)" pnpm --dir "$main" db:up
-      attendre_postgres || fail "Postgres refuse toujours la connexion sur localhost:5432 après 60 s"
-      echo "ok   Postgres accepte la connexion sur localhost:5432"
+      attendre_postgres 60 || fail "Postgres refuse toujours la connexion sur $adresse après 60 s"
+      echo "ok   Postgres accepte la connexion sur $adresse"
     fi
     ;;
   drop)
     # Rien à détruire côté base : les tests suppriment leur base jetable.
+    # Le démon Nx du worktree, lancé par la première commande nx, survit à
+    # l'agent : arrêté ici, sinon il plante pendant `git worktree remove`
+    # (node_modules effacé sous lui) et réécrit .nx/workspace-data, ce qui
+    # laisse le dossier du worktree sur le disque.
+    env -u NODE_ENV pnpm exec nx daemon --stop >/dev/null 2>&1 || true
+    echo "ok   démon Nx arrêté"
     step "suppression de dist/ et .nx/cache" rm -rf "$root/dist" "$root/.nx/cache"
     echo "ok   dist/ et .nx/cache supprimés"
     echo "Pour retirer le worktree, depuis le dépôt principal :"

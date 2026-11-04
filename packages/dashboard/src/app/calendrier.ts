@@ -1,366 +1,294 @@
-import { DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
 import {
+  Component,
+  computed,
+  inject,
+  linkedSignal,
+  signal,
+} from '@angular/core';
+import { RouterLink, RouterOutlet } from '@angular/router';
+import { NgIcon } from '@ng-icons/core';
+import {
+  matAddOutline,
+  matChevronLeftOutline,
+  matChevronRightOutline,
+  matEventAvailableOutline,
+  matNotificationsOutline,
+} from '@ng-icons/material-symbols/outline';
+import {
+  aujourdhui,
   estEcheance,
-  type Event,
-  type EventCategory,
-  type EventInput,
-  type EventUpdate,
-  type Scope,
+  lundiDe,
+  type EventOccurrence,
 } from '@personal-os/contracts';
 import { HlmBadge } from '@personal-os/ui/badge';
 import { HlmButton } from '@personal-os/ui/button';
 import {
-  HlmCard,
-  HlmCardContent,
-  HlmCardDescription,
-  HlmCardHeader,
-  HlmCardTitle,
-} from '@personal-os/ui/card';
-import { HlmInput } from '@personal-os/ui/input';
-import { HlmLabel } from '@personal-os/ui/label';
-import { HlmSelectImports } from '@personal-os/ui/select';
-import { EspaceService } from './espace.service';
-import { EventService } from './event.service';
-import { PARAMETRE_D_EVENEMENT } from './modules-d-origine';
+  DccmEmptyState,
+  DccmPageHeader,
+  DccmState,
+  stateOf,
+} from '@personal-os/ui/dccm';
+import {
+  categorieDe,
+  type CategorieDEvenement,
+} from './categories-d-evenement';
+import { decaler, formaterJour, heureDe, jourDe } from './dates';
+import { libelleDuRappel } from './formulaire-d-evenement';
+import { BUREAU, Largeur, TABLETTE } from './largeur';
+import { MoisDuCalendrier } from './mois-du-calendrier';
+import { PARAMETRE_DE_MOIS, PARAMETRE_D_OCCURRENCE } from './modules-d-origine';
 
-/** Les catégories, dans l'ordre où l'écran les propose. */
-const CATEGORIES: readonly { valeur: EventCategory; libelle: string }[] = [
-  { valeur: 'APPOINTMENT', libelle: 'Rendez-vous' },
-  { valeur: 'BIRTHDAY', libelle: 'Anniversaire' },
-  { valeur: 'DEADLINE', libelle: 'Échéance' },
-  { valeur: 'OTHER', libelle: 'Autre' },
-];
-
-/**
- * Les paliers de rappel offerts par l'écran. Un rappel est un délai avant le
- * début, pas un objet : ce que l'on choisit ici est un nombre de minutes, et
- * rien d'autre n'est créé (ADR 0017).
- */
-const PALIERS_DE_RAPPEL: readonly { minutes: number; libelle: string }[] = [
-  { minutes: 30, libelle: '30 minutes' },
-  { minutes: 60, libelle: '1 heure' },
-  { minutes: 1_440, libelle: '1 jour' },
-  { minutes: 10_080, libelle: '1 semaine' },
-];
-
-interface Saisie {
+/** Une occurrence telle que la grille et la liste du jour la montrent. */
+interface VueDOccurrence {
+  cle: string;
   titre: string;
-  debut: string;
-  fin: string;
-  categorie: EventCategory;
-  espaceId: string;
-  rappel: string;
+  heure: string;
+  /** « 11:30 – 12:30 », ou la seule heure de début. */
+  horaire: string;
+  categorie: CategorieDEvenement;
+  echeance: boolean;
+  espace: string;
+  rappel: string | null;
+  lien: { chemin: string; parametres: Record<string, string> };
 }
 
-const SAISIE_VIERGE: Saisie = {
-  titre: '',
-  debut: '',
-  fin: '',
-  categorie: 'APPOINTMENT',
-  espaceId: '',
-  rappel: '',
-};
+interface Cellule {
+  jour: string;
+  numero: string;
+  libelle: string;
+  dansLeMois: boolean;
+  estAujourdhui: boolean;
+  occurrences: VueDOccurrence[];
+}
 
 /**
- * Le Calendrier vu de l'interface : la liste des Événements, et le formulaire
- * qui sert aussi bien à en créer un qu'à en modifier un.
+ * Le Calendrier : les Événements du mois affiché, en grille à partir de
+ * 768 px, en bandeau de la semaine et liste du jour en dessous.
  *
- * L'Espace est toujours explicite — le Calendrier acceptant les deux, rien ne
- * permettrait de le deviner, et le champ démarre donc vide (ADR 0014).
+ * Il n'écrit rien lui-même. Créer et modifier passent par le formulaire de
+ * leur route (`/calendrier/evenements/nouveau`, `/calendrier/evenements/:id`),
+ * ouvert dans son `router-outlet` : en panneau à côté de la grille à partir de
+ * 1280 px, en feuille en dessous.
  */
 @Component({
   selector: 'pos-calendrier',
   templateUrl: './calendrier.html',
   imports: [
-    DatePipe,
+    RouterLink,
+    RouterOutlet,
+    NgIcon,
     HlmBadge,
     HlmButton,
-    HlmCard,
-    HlmCardContent,
-    HlmCardDescription,
-    HlmCardHeader,
-    HlmCardTitle,
-    HlmInput,
-    HlmLabel,
-    ...HlmSelectImports,
+    DccmEmptyState,
+    DccmPageHeader,
+    DccmState,
   ],
+  providers: [MoisDuCalendrier],
 })
 export class Calendrier {
-  private readonly espacesApi = inject(EspaceService);
-  private readonly evenementsApi = inject(EventService);
-  private readonly route = inject(ActivatedRoute);
+  protected readonly calendrier = inject(MoisDuCalendrier);
+  private readonly largeur = inject(Largeur);
 
-  protected readonly categories = CATEGORIES;
-  protected readonly paliers = PALIERS_DE_RAPPEL;
+  protected readonly large = this.largeur.auMoins(TABLETTE);
+  protected readonly bureau = this.largeur.auMoins(BUREAU);
 
-  protected readonly espaces = signal<Scope[]>([]);
-  protected readonly evenements = signal<Event[]>([]);
-  protected readonly erreur = signal<string | null>(null);
+  private readonly aujourdhui = aujourdhui();
 
-  /** L'Événement repris dans le formulaire, ou `null` quand on en crée un. */
-  protected readonly enEdition = signal<Event | null>(null);
-  protected readonly saisie = signal<Saisie>({ ...SAISIE_VIERGE });
+  protected readonly mois = this.calendrier.mois;
 
-  protected readonly pretAEnregistrer = computed(() => {
-    const { titre, debut, espaceId } = this.saisie();
-    return titre.trim().length > 0 && debut.length > 0 && espaceId.length > 0;
-  });
+  /** Un mois se lit toujours en grille : vide, il reste un mois. */
+  protected readonly etat = computed(() =>
+    stateOf(this.calendrier.lecture, () => false),
+  );
 
-  constructor() {
-    this.espacesApi.mesEspaces().subscribe({
-      next: (espaces) => this.espaces.set(espaces),
-      error: () => this.erreur.set("Les Espaces n'ont pas pu être lus."),
-    });
+  protected readonly titre = computed(() =>
+    formaterJour(`${this.mois()}-01`, { month: 'long', year: 'numeric' }),
+  );
 
-    this.evenementsApi.lister().subscribe({
-      next: (evenements) => {
-        this.evenements.set(parDate(evenements));
-        this.reprendreCeluiDuLien();
-      },
-      error: () => this.erreur.set("Les Événements n'ont pas pu être lus."),
-    });
-  }
+  /** Le formulaire est ouvert dans l'`router-outlet`. */
+  protected readonly formulaireOuvert = signal(false);
 
   /**
-   * L'Agenda est en lecture seule et renvoie ici pour modifier (ADR 0011).
-   * Le lien porte l'identité de l'Événement : on atterrit sur l'objet, pas
-   * seulement sur l'écran.
-   *
-   * Un identifiant qui ne désigne rien de visible laisse le formulaire
-   * vierge — c'est le même silence que partout ailleurs, et il ne confirme
-   * pas l'existence d'un Événement hors de portée (ADR 0028).
+   * Le panneau ouvert à côté de la grille la resserre : les pastilles n'y
+   * gardent que leur icône et leur titre, l'heure restant dans leur infobulle.
    */
-  private reprendreCeluiDuLien(): void {
-    const vise = this.route.snapshot.queryParamMap.get(PARAMETRE_D_EVENEMENT);
-    if (!vise) {
-      return;
-    }
+  protected readonly resserree = computed(
+    () => this.bureau() && this.formulaireOuvert(),
+  );
 
-    const evenement = this.evenements().find(({ id }) => id === vise);
-    if (evenement) {
-      this.reprendre(evenement);
+  private readonly parJour = computed(() => {
+    const parJour = new Map<string, VueDOccurrence[]>();
+    for (const occurrence of this.calendrier.occurrences()) {
+      const jour = jourDe(occurrence.startsAt);
+      parJour.set(jour, [...(parJour.get(jour) ?? []), this.vueDe(occurrence)]);
     }
-  }
+    return parJour;
+  });
 
-  /*
-   * Les trois suivantes sont des propriétés-flèches et non des méthodes :
-   * `hlm-select` les reçoit comme `itemToString` et les appelle détachées de
-   * l'instance, pour afficher dans le déclencheur ce qui a été choisi.
+  /** Les semaines de la grille, du lundi qui précède le 1er au dimanche qui suit le dernier jour. */
+  protected readonly semaines = computed((): Cellule[][] => {
+    const mois = this.mois();
+    const premier = `${mois}-01`;
+    const dernier = decaler(`${moisSuivant(mois)}-01`, -1);
+    const semaines: Cellule[][] = [];
+
+    for (
+      let lundi = lundiDe(premier);
+      lundi <= dernier;
+      lundi = decaler(lundi, 7)
+    ) {
+      semaines.push(
+        Array.from({ length: 7 }, (_, indice) =>
+          this.celluleDe(decaler(lundi, indice)),
+        ),
+      );
+    }
+    return semaines;
+  });
+
+  /** L'en-tête de la grille : lun., mar., … */
+  protected readonly joursDeLaSemaine = Array.from({ length: 7 }, (_, indice) =>
+    formaterJour(decaler(lundiDe(this.aujourdhui), indice), {
+      weekday: 'short',
+    }),
+  );
+
+  /**
+   * Le jour de la liste, sous 768 px : aujourd'hui dans le mois en cours, le
+   * 1er ailleurs, ou le jour choisi tant qu'il reste dans le mois affiché.
    */
+  protected readonly jourChoisi = linkedSignal<string, string>({
+    source: this.mois,
+    computation: (mois, precedent) =>
+      precedent?.value.startsWith(mois)
+        ? precedent.value
+        : this.aujourdhui.startsWith(mois)
+          ? this.aujourdhui
+          : `${mois}-01`,
+  });
 
-  protected readonly nomDeLEspace = (id: string | null | undefined): string =>
-    this.espaces().find((espace) => espace.id === id)?.label ?? id ?? '';
+  protected readonly bandeau = computed(() => {
+    const lundi = lundiDe(this.jourChoisi());
+    return Array.from({ length: 7 }, (_, indice) => {
+      const cellule = this.celluleDe(decaler(lundi, indice));
+      return {
+        ...cellule,
+        initiale: formaterJour(cellule.jour, { weekday: 'narrow' }),
+        choisi: cellule.jour === this.jourChoisi(),
+        points: cellule.occurrences.slice(0, 3),
+      };
+    });
+  });
 
-  protected readonly nomDeLaCategorie = (
-    categorie: EventCategory | null | undefined,
-  ): string =>
-    CATEGORIES.find(({ valeur }) => valeur === categorie)?.libelle ??
-    categorie ??
-    '';
+  protected readonly numeroDeSemaine = computed(() =>
+    semaineIso(this.jourChoisi()),
+  );
 
-  protected readonly nomDuRappel = (
-    rappel: string | null | undefined,
-  ): string =>
-    rappel ? `${this.libelleDuRappel(Number(rappel))} avant` : 'Sans rappel';
+  protected readonly duJour = computed(() => this.celluleDe(this.jourChoisi()));
 
-  /** Une Échéance est un Événement portant la catégorie dédiée, rien de plus. */
-  protected estUneEcheance(evenement: Event): boolean {
-    return estEcheance(evenement);
-  }
+  protected readonly icones = {
+    precedent: matChevronLeftOutline,
+    suivant: matChevronRightOutline,
+    ajouter: matAddOutline,
+    rappel: matNotificationsOutline,
+    vide: matEventAvailableOutline,
+  };
 
-  protected libelleDuRappel(minutes: number): string {
-    return (
-      PALIERS_DE_RAPPEL.find((palier) => palier.minutes === minutes)?.libelle ??
-      `${minutes} minutes`
+  protected readonly parametresDeCreation = computed(() => ({
+    [PARAMETRE_DE_MOIS]: this.mois(),
+  }));
+
+  protected changerDeMois(sens: -1 | 1): void {
+    void this.calendrier.afficher(
+      sens === 1 ? moisSuivant(this.mois()) : moisPrecedent(this.mois()),
     );
   }
 
-  /**
-   * Les paliers offerts, plus celui que porte l'Événement repris s'il n'en est
-   * pas un : sans cela, l'ouvrir puis l'enregistrer effacerait son rappel.
-   */
-  protected readonly paliersOfferts = computed(() => {
-    const pose = this.enEdition()?.reminderLeadMinutes;
-    if (pose === null || pose === undefined) {
-      return PALIERS_DE_RAPPEL;
-    }
-    if (PALIERS_DE_RAPPEL.some(({ minutes }) => minutes === pose)) {
-      return PALIERS_DE_RAPPEL;
-    }
-    return [
-      ...PALIERS_DE_RAPPEL,
-      { minutes: pose, libelle: `${pose} minutes` },
-    ];
-  });
-
-  /** Les champs de saisie libre, qui portent leur valeur dans l'événement. */
-  protected saisir(champ: keyof Saisie, evenement: globalThis.Event): void {
-    const valeur = (evenement.target as HTMLInputElement).value;
-
-    this.saisie.update((saisie) => ({ ...saisie, [champ]: valeur }));
+  protected revenirAujourdhui(): void {
+    this.jourChoisi.set(this.aujourdhui);
+    void this.calendrier.afficher(this.aujourdhui.slice(0, 7));
   }
 
-  /**
-   * Les `hlm-select`, qui émettent directement la valeur choisie — et `null`
-   * quand ils ne portent plus de choix.
-   */
-  protected choisir(
-    champ: keyof Saisie,
-    valeur: string | null | undefined,
-  ): void {
-    this.saisie.update((saisie) => ({ ...saisie, [champ]: valeur ?? '' }));
+  /** Un jour du bandeau : hors du mois affiché, il fait changer de mois. */
+  protected choisirLeJour(jour: string): void {
+    this.jourChoisi.set(jour);
+    if (!jour.startsWith(this.mois())) {
+      void this.calendrier.afficher(jour.slice(0, 7));
+    }
   }
 
-  protected reprendre(evenement: Event): void {
-    this.erreur.set(null);
-    this.enEdition.set(evenement);
-    this.saisie.set({
-      titre: evenement.title,
-      debut: versChampLocal(evenement.startsAt),
-      fin: evenement.endsAt ? versChampLocal(evenement.endsAt) : '',
-      categorie: evenement.category,
-      espaceId: evenement.scopeId,
-      rappel: evenement.reminderLeadMinutes?.toString() ?? '',
-    });
+  protected changerDeSemaine(sens: -1 | 1): void {
+    this.choisirLeJour(decaler(this.jourChoisi(), 7 * sens));
   }
 
-  protected annuler(): void {
-    this.enEdition.set(null);
-    this.saisie.set({ ...SAISIE_VIERGE });
+  protected nombreDEvenements(n: number): string {
+    return `${n} ${n > 1 ? 'événements' : 'événement'}`;
   }
 
-  protected enregistrer(): void {
-    if (!this.pretAEnregistrer()) {
-      return;
-    }
-
-    const repris = this.enEdition();
-    if (repris) {
-      this.appliquer(repris);
-      return;
-    }
-
-    this.evenementsApi.creer(this.saisieCreee()).subscribe({
-      next: (cree) => {
-        this.evenements.update((tous) => parDate([...tous, cree]));
-        this.annuler();
-      },
-      error: () => this.erreur.set("L'Événement n'a pas pu être créé."),
-    });
+  protected fermer(): void {
+    void this.calendrier.fermer();
   }
 
-  protected supprimer(id: string): void {
-    this.evenementsApi.supprimer(id).subscribe({
-      next: () => {
-        this.evenements.update((tous) =>
-          tous.filter((evenement) => evenement.id !== id),
-        );
-        if (this.enEdition()?.id === id) {
-          this.annuler();
-        }
-      },
-      error: () => this.erreur.set("L'Événement n'a pas pu être supprimé."),
-    });
+  private celluleDe(jour: string): Cellule {
+    return {
+      jour,
+      numero: String(Number(jour.slice(8))),
+      libelle: formaterJour(jour, {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }),
+      dansLeMois: jour.startsWith(this.mois()),
+      estAujourdhui: jour === this.aujourdhui,
+      occurrences: this.parJour().get(jour) ?? [],
+    };
   }
 
-  /**
-   * Une modification ne porte que ce qui change. L'Espace n'y figure que
-   * lorsqu'on déplace vraiment l'Événement — le répéter sans raison ferait
-   * vérifier à la garde un déplacement qui n'a pas lieu (ADR 0028).
-   */
-  private appliquer(repris: Event): void {
-    const changements = this.changementsSur(repris);
-
-    if (Object.keys(changements).length === 0) {
-      this.annuler();
-      return;
-    }
-
-    this.evenementsApi.modifier(repris.id, changements).subscribe({
-      next: (modifie) => {
-        this.evenements.update((tous) =>
-          parDate(
-            tous.map((evenement) =>
-              evenement.id === modifie.id ? modifie : evenement,
-            ),
-          ),
-        );
-        this.annuler();
-      },
-      error: () => this.erreur.set("L'Événement n'a pas pu être modifié."),
-    });
-  }
-
-  private changementsSur(repris: Event): EventUpdate {
-    const voulu = this.saisieCreee();
-    const changements: EventUpdate = {};
-
-    if (voulu.title !== repris.title) {
-      changements.title = voulu.title;
-    }
-    if (!memeInstant(voulu.startsAt, repris.startsAt)) {
-      changements.startsAt = voulu.startsAt;
-    }
-    if (!memeInstant(voulu.endsAt ?? null, repris.endsAt)) {
-      changements.endsAt = voulu.endsAt ?? null;
-    }
-    if (voulu.category !== repris.category) {
-      changements.category = voulu.category;
-    }
-    if (voulu.reminderLeadMinutes !== repris.reminderLeadMinutes) {
-      changements.reminderLeadMinutes = voulu.reminderLeadMinutes;
-    }
-    if (voulu.scopeId !== repris.scopeId) {
-      changements.scopeId = voulu.scopeId;
-    }
-
-    return changements;
-  }
-
-  /** La saisie de l'écran, traduite dans les termes du contrat. */
-  private saisieCreee(): EventInput {
-    const { titre, debut, fin, categorie, espaceId, rappel } = this.saisie();
+  private vueDe(occurrence: EventOccurrence): VueDOccurrence {
+    const heure = heureDe(occurrence.startsAt);
+    const finLeMemeJour =
+      occurrence.endsAt &&
+      jourDe(occurrence.endsAt) === jourDe(occurrence.startsAt);
 
     return {
-      title: titre.trim(),
-      startsAt: versIso(debut),
-      endsAt: fin ? versIso(fin) : null,
-      category: categorie,
-      reminderLeadMinutes: rappel ? Number(rappel) : null,
-      scopeId: espaceId,
+      cle: `${occurrence.eventId}:${occurrence.originalStart}`,
+      titre: occurrence.title,
+      heure,
+      horaire: finLeMemeJour
+        ? `${heure} – ${heureDe(occurrence.endsAt as string)}`
+        : heure,
+      categorie: categorieDe(occurrence.category),
+      echeance: estEcheance(occurrence),
+      espace: this.calendrier.nomDeLEspace(occurrence.scopeId),
+      rappel:
+        occurrence.reminderLeadMinutes === null
+          ? null
+          : `Rappel ${libelleDuRappel(occurrence.reminderLeadMinutes)} avant`,
+      lien: {
+        chemin: `/calendrier/evenements/${occurrence.eventId}`,
+        parametres: {
+          [PARAMETRE_DE_MOIS]: this.mois(),
+          [PARAMETRE_D_OCCURRENCE]: occurrence.originalStart,
+        },
+      },
     };
   }
 }
 
-function parDate(evenements: Event[]): Event[] {
-  return [...evenements].sort((gauche, droite) =>
-    gauche.startsAt.localeCompare(droite.startsAt),
-  );
+function moisSuivant(mois: string): string {
+  return decaler(`${mois}-28`, 7).slice(0, 7);
 }
 
-/** Deux instants, comparés comme des instants et non comme des chaînes. */
-function memeInstant(gauche: string | null, droite: string | null): boolean {
-  if (gauche === null || droite === null) {
-    return gauche === droite;
-  }
-  return new Date(gauche).getTime() === new Date(droite).getTime();
+function moisPrecedent(mois: string): string {
+  return decaler(`${mois}-01`, -1).slice(0, 7);
 }
 
-/** L'ISO-8601 du contrat, rendu au champ qui saisit en heure locale. */
-function versChampLocal(iso: string): string {
-  const instant = new Date(iso);
-  const deuxChiffres = (valeur: number) => valeur.toString().padStart(2, '0');
-
-  return (
-    `${instant.getFullYear()}-${deuxChiffres(instant.getMonth() + 1)}` +
-    `-${deuxChiffres(instant.getDate())}` +
-    `T${deuxChiffres(instant.getHours())}:${deuxChiffres(instant.getMinutes())}`
-  );
-}
-
-/** L'heure locale du champ, rendue au contrat en ISO-8601. */
-function versIso(local: string): string {
-  return new Date(local).toISOString();
+/** Le numéro de la semaine ISO 8601 d'un jour (celle qui porte son jeudi). */
+function semaineIso(jour: string): number {
+  const jeudi = decaler(lundiDe(jour), 3);
+  const premierJanvier = Date.UTC(Number(jeudi.slice(0, 4)), 0, 1);
+  const jours =
+    (Date.parse(`${jeudi}T00:00:00Z`) - premierJanvier) / 86_400_000;
+  return Math.floor(jours / 7) + 1;
 }

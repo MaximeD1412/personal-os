@@ -128,6 +128,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
       PORT: 3000
+      # La production par défaut : l'OpenAPI n'y est pas servi (ADR 0030). Le
+      # staging a son propre compose (docker-compose.staging.yml).
+      APP_ENV: ${APP_ENV:-production}
       # Le tableau de bord appelle l'API sous son propre hôte, via son nginx :
       # en production il n'y a pas de requête inter-origine à autoriser.
       CORS_ORIGINS: ${CORS_ORIGINS:-}
@@ -141,6 +144,24 @@ services:
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:?OIDC_REDIRECT_URI manquant}
       DASHBOARD_URL: ${DASHBOARD_URL:?DASHBOARD_URL manquant}
       AUTH_ALLOWED_EMAILS: ${AUTH_ALLOWED_EMAILS:?AUTH_ALLOWED_EMAILS manquant}
+      # Le port IA. La production exige `claude` et refuse de démarrer sur le
+      # double de test ; le staging pose `factice` dans son propre fichier.
+      AI_PROVIDER: ${AI_PROVIDER:?AI_PROVIDER manquant}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_PRICE_INPUT_PER_MTOK_CENTS: ${AI_PRICE_INPUT_PER_MTOK_CENTS:-}
+      AI_PRICE_OUTPUT_PER_MTOK_CENTS: ${AI_PRICE_OUTPUT_PER_MTOK_CENTS:-}
+      AI_MONTHLY_BUDGET_CENTS: ${AI_MONTHLY_BUDGET_CENTS:-}
+      # Le stockage objet (le CV du portfolio). La production exige `s3`, le
+      # bucket OVH Object Storage, et refuse de démarrer sur `disk` : le disque
+      # du conteneur ne survit pas au déploiement suivant.
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:?STORAGE_PROVIDER manquant}
+      STORAGE_DISK_DIR: ${STORAGE_DISK_DIR:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
     ports:
       - '127.0.0.1:${API_PORT:-3001}:3000'
 
@@ -190,6 +211,9 @@ services:
       PORTFOLIO_HOST: ${PORTFOLIO_HOST:?PORTFOLIO_HOST manquant}
       DASHBOARD_HOST: ${DASHBOARD_HOST:?DASHBOARD_HOST manquant}
       AUTHENTIK_HOST: ${AUTHENTIK_HOST:?AUTHENTIK_HOST manquant}
+      # Ceux du staging (conf.d/staging.caddy), exigés pour la même raison.
+      STAGING_DASHBOARD_HOST: ${STAGING_DASHBOARD_HOST:?STAGING_DASHBOARD_HOST manquant}
+      STAGING_PORTFOLIO_HOST: ${STAGING_PORTFOLIO_HOST:?STAGING_PORTFOLIO_HOST manquant}
     # L'edge joint ce conteneur par son nom, sur le réseau partagé. Le port
     # publié ne sert donc plus qu'à déboguer depuis l'hôte — un conteneur ne
     # peut pas joindre un port publié sur 127.0.0.1, c'est le loopback de
@@ -205,6 +229,9 @@ services:
       # tableau de bord et au portfolio.
       - default
       - edge
+      # Le réseau partagé avec le staging : le Caddy interne y joint ses deux
+      # services exposés, et rien de la prod d'autre que lui n'y est.
+      - staging-edge
 
 networks:
   # Créé par le projet de l'edge, jamais par celui-ci : l'edge démarre en
@@ -214,6 +241,13 @@ networks:
   edge:
     external: true
     name: ${EDGE_NETWORK:-edge}
+
+  # Créé une fois à la main (README, « Staging »), et par deploy-staging.sh
+  # s'il manque. Externe ici aussi : arrêter ou retirer le staging ne doit
+  # jamais toucher à un réseau dont la prod dépend, et l'inverse.
+  staging-edge:
+    external: true
+    name: ${STAGING_EDGE_NETWORK:-personal-os-staging-edge}
 
 volumes:
   db-data:

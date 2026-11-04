@@ -7,7 +7,18 @@ export type RaisonDuRefus =
   /** L'Espace visé existe pour ce compte, mais le module ne l'accepte pas. */
   | 'type-refuse'
   /** Aucune portée n'est ouverte : la requête n'a traversé aucun module. */
-  | 'sans-portee';
+  | 'sans-portee'
+  /**
+   * Une écriture imbriquée atteint un modèle cloisonné par un geste que la
+   * garde ne vérifie pas. C'est un défaut de module : ce geste se fait au
+   * premier niveau, par le dépôt du modèle concerné.
+   */
+  | 'imbrication'
+  /**
+   * Sous la portée du portfolio public, l'opération lit un modèle qui ne se
+   * publie pas, suit une relation, ou écrit. C'est un défaut de module.
+   */
+  | 'lecture-publique';
 
 /** Refus opposé par la garde d'Espace, au niveau de l'accès aux données. */
 export class ErreurDEspace extends Error {

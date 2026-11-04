@@ -1,0 +1,121 @@
+@let presentation = contenu.presentation();
+<section
+  id="presentation"
+  class="flex flex-col gap-space-md py-space-xl md:py-space-2xl"
+  data-test="presentation"
+>
+  @switch (presentation.etat) { @case ('present') {
+  <h1 class="text-headline-lg-mobile text-on-surface md:text-display-hero">
+    {{ presentation.valeur.title }}
+  </h1>
+  <pos-texte-publie class="max-w-3xl" [texte]="presentation.valeur.body" />
+  } @case ('chargement') {
+  <p class="text-body-default text-outline" role="status">
+    {{ textes().chargement }}
+  </p>
+  } @case ('erreur') {
+  <dccm-empty-state
+    role="alert"
+    variant="error"
+    [heading]="textes().echec"
+    [description]="presentation.message"
+  />
+  } }
+</section>
+
+@for (section of sections(); track section.ancre) { @let lecture =
+section.lecture; @if (lecture.etat === 'present') {
+<section
+  class="flex scroll-mt-24 flex-col gap-space-md py-space-lg"
+  [id]="section.ancre"
+  [attr.data-test]="section.ancre"
+>
+  <h2 class="text-headline-md text-on-surface">{{ lecture.valeur.title }}</h2>
+  <div hlmCard class="p-gutter">
+    <pos-texte-publie [texte]="lecture.valeur.body" />
+  </div>
+</section>
+} @else if (lecture.etat === 'erreur') {
+<dccm-empty-state
+  role="alert"
+  variant="error"
+  [heading]="textes().echec"
+  [description]="lecture.message"
+/>
+} } @let projets = contenu.projets();
+<section
+  id="projets"
+  class="flex scroll-mt-24 flex-col gap-space-md py-space-lg"
+  data-test="projets"
+>
+  <h2 class="text-headline-md text-on-surface">
+    {{ textes().sections.projets }}
+  </h2>
+  @switch (projets.etat) { @case ('present') { @if (projets.valeur.length) {
+  <ul class="grid gap-gutter sm:grid-cols-2 xl:grid-cols-3">
+    @for (projet of projets.valeur; track projet.id) {
+    <li class="flex">
+      <a
+        hlmCard
+        class="flex w-full flex-col gap-space-sm p-gutter transition-colors hover:border-outline-variant"
+        data-test="projet"
+        [routerLink]="['/', langue(), 'projets', projet.id]"
+      >
+        <h3 class="text-title-sm text-on-surface">{{ projet.title }}</h3>
+        <p class="text-body-dense text-on-surface-variant">
+          {{ projet.summary }}
+        </p>
+        <span class="mt-auto text-label-regular text-primary"
+          >{{ textes().lireLeProjet }}</span
+        >
+      </a>
+    </li>
+    }
+  </ul>
+  } @else {
+  <p class="text-body-default text-outline" data-test="aucun-projet">
+    {{ textes().aucunProjet }}
+  </p>
+  } } @case ('chargement') {
+  <p class="text-body-default text-outline" role="status">
+    {{ textes().chargement }}
+  </p>
+  } @case ('erreur') {
+  <dccm-empty-state
+    role="alert"
+    variant="error"
+    [heading]="textes().echec"
+    [description]="projets.message"
+  />
+  } }
+</section>
+
+@let cv = contenu.cv(); @if (cv.etat === 'present') {
+<section id="cv" class="scroll-mt-24 py-space-lg" data-test="cv">
+  <div
+    hlmCard
+    class="flex flex-col gap-gutter p-gutter md:flex-row md:items-center md:justify-between"
+  >
+    <div class="flex flex-col gap-space-xs">
+      <h2 class="text-headline-md text-on-surface">
+        {{ textes().sections.cv }}
+      </h2>
+      <p class="text-body-default text-on-surface-variant">
+        {{ textes().cvDescription }}
+      </p>
+    </div>
+    <a hlmBtn data-test="telecharger-cv" [href]="contenu.urlDuCv()" download>
+      {{ textes().telechargerLeCv }}
+    </a>
+  </div>
+</section>
+} @else if (cv.etat === 'erreur') {
+<section class="py-space-lg" data-test="cv">
+  <dccm-empty-state
+    role="alert"
+    variant="error"
+    [heading]="textes().echec"
+    [description]="cv.message"
+  />
+</section>
+}
