@@ -129,7 +129,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
       PORT: 3000
       # La production par défaut : l'OpenAPI n'y est pas servi (ADR 0030). Le
-      # staging pose la sienne dans son propre fichier d'environnement.
+      # staging a son propre compose (docker-compose.staging.yml).
       APP_ENV: ${APP_ENV:-production}
       # Le tableau de bord appelle l'API sous son propre hôte, via son nginx :
       # en production il n'y a pas de requête inter-origine à autoriser.
@@ -211,6 +211,9 @@ services:
       PORTFOLIO_HOST: ${PORTFOLIO_HOST:?PORTFOLIO_HOST manquant}
       DASHBOARD_HOST: ${DASHBOARD_HOST:?DASHBOARD_HOST manquant}
       AUTHENTIK_HOST: ${AUTHENTIK_HOST:?AUTHENTIK_HOST manquant}
+      # Ceux du staging (conf.d/staging.caddy), exigés pour la même raison.
+      STAGING_DASHBOARD_HOST: ${STAGING_DASHBOARD_HOST:?STAGING_DASHBOARD_HOST manquant}
+      STAGING_PORTFOLIO_HOST: ${STAGING_PORTFOLIO_HOST:?STAGING_PORTFOLIO_HOST manquant}
     # L'edge joint ce conteneur par son nom, sur le réseau partagé. Le port
     # publié ne sert donc plus qu'à déboguer depuis l'hôte — un conteneur ne
     # peut pas joindre un port publié sur 127.0.0.1, c'est le loopback de
@@ -226,6 +229,9 @@ services:
       # tableau de bord et au portfolio.
       - default
       - edge
+      # Le réseau partagé avec le staging : le Caddy interne y joint ses deux
+      # services exposés, et rien de la prod d'autre que lui n'y est.
+      - staging-edge
 
 networks:
   # Créé par le projet de l'edge, jamais par celui-ci : l'edge démarre en
@@ -235,6 +241,13 @@ networks:
   edge:
     external: true
     name: ${EDGE_NETWORK:-edge}
+
+  # Créé une fois à la main (README, « Staging »), et par deploy-staging.sh
+  # s'il manque. Externe ici aussi : arrêter ou retirer le staging ne doit
+  # jamais toucher à un réseau dont la prod dépend, et l'inverse.
+  staging-edge:
+    external: true
+    name: ${STAGING_EDGE_NETWORK:-personal-os-staging-edge}
 
 volumes:
   db-data:

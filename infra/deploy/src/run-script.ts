@@ -18,7 +18,8 @@ export interface Fixture {
 }
 
 export interface FixtureOptions {
-  extraConf?: string;
+  /** Des lignes de plus, ou une fonction qui les tire du dossier du banc. */
+  extraConf?: string | ((dir: string) => string);
   restoreScript?: string | null;
   state?: string;
 }
@@ -73,7 +74,9 @@ export function makeFixture(options: FixtureOptions = {}): Fixture {
       `DEPLOY_HISTORY_FILE=${historyPath}`,
       'DEPLOY_HEARTBEAT_URL=',
       'DEPLOY_ALERT_EMAIL=',
-      options.extraConf ?? '',
+      typeof options.extraConf === 'function'
+        ? options.extraConf(dir)
+        : options.extraConf ?? '',
     ].join('\n')
   );
 

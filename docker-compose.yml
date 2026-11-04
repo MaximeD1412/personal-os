@@ -116,6 +116,8 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-personalos}:${POSTGRES_PASSWORD:-personalos}@db:5432/${POSTGRES_DB:-personalos}?schema=public
       PORT: 3000
+      # L'API refuse de démarrer sans APP_ENV (ADR 0031).
+      APP_ENV: ${APP_ENV:-development}
       OIDC_ISSUER: ${OIDC_ISSUER:-http://authentik:9000/application/o/personal-os/}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-personal-os}
       # Valeurs de repli plutôt que `:?` : la CI construit ces images avec

@@ -1,0 +1,33 @@
+# Staging de démonstration (ADR 0031) : projet Compose à part,
+# `personal-os-staging`, rempli du seul jeu de démo.
+#
+# Le Caddy interne de la prod le joint par le réseau partagé
+# `personal-os-staging-edge`, où ne se trouvent que lui et les deux services
+# exposés du staging. Leurs noms (`staging-dashboard`, `staging-portfolio`)
+# diffèrent de ceux de la prod : sur ce réseau, un `dashboard` de staging
+# serait résolu à côté de celui de la prod.
+#
+# Le staging arrêté, ces hôtes répondent 502 ; la prod, elle, ne bouge pas :
+# Caddy résout l'amont à chaque requête, pas au démarrage.
+#
+# Les deux noms sont exigés par le compose de la prod, comme les autres : un
+# nom vide donnerait une adresse de site que Caddy refuse, et c'est tout le
+# proxy interne qui ne démarrerait pas.
+
+# Le tableau de bord du staging. Il s'authentifie par l'Authentik de la prod,
+# avec son propre client OIDC.
+http://{$STAGING_DASHBOARD_HOST} {
+	encode gzip zstd
+	reverse_proxy staging-dashboard:80
+	log {
+		output stderr
+	}
+}
+
+http://{$STAGING_PORTFOLIO_HOST} {
+	encode gzip zstd
+	reverse_proxy staging-portfolio:80
+	log {
+		output stderr
+	}
+}
