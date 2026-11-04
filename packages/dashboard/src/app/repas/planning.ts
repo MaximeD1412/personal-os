@@ -54,6 +54,7 @@ import type { ErreurApi } from '../erreur-api.interceptor';
 import { HouseholdService } from '../household.service';
 import { ShoppingListService } from '../courses/shopping-list.service';
 import { MealPlanService } from './meal-plan.service';
+import { confirmerLaGarde } from './keep-confirmation';
 import { RecipeService } from './recipe.service';
 import { raisonDuRejet } from './rejet';
 import { SouhaitsDeLaSemaine } from './souhaits';
@@ -507,9 +508,13 @@ export class PlanningDeRepas {
    * garde touche la recette, pas le planning. Chacun de ses repas la dit
    * gardée.
    */
-  protected garder(recetteId: string): void {
+  protected async garder(recetteId: string): Promise<void> {
     const planning = this.planning();
-    if (!planning) return;
+    const titre = planning?.entries.find(
+      ({ recipe }) => recipe?.id === recetteId,
+    )?.recipe?.title;
+    if (!planning || titre === undefined) return;
+    if (!(await confirmerLaGarde(this.confirmation, titre))) return;
 
     this.envoyer(
       planning,

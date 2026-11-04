@@ -7,6 +7,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import type { Recipe } from '@personal-os/contracts';
+import { DccmConfirm, type DccmConfirmOptions } from '@personal-os/ui/dccm';
 import { API_BASE_URL } from '../app/api-base-url';
 import { INTERCEPTEURS } from '../app/app.config';
 import { appRoutes } from '../app/app.routes';
@@ -68,7 +69,16 @@ export const CURRY_GENERE: Recipe = {
 };
 
 /** Les écrans de recettes, avec leurs vraies routes. */
-export async function ouvrirLesRecettes(url: string) {
+export async function ouvrirLesRecettes(
+  url: string,
+  { confirme = true }: { confirme?: boolean } = {},
+) {
+  // Les demandes de confirmation, dans l'ordre.
+  const confirmations: DccmConfirmOptions[] = [];
+  const confirm = (options: DccmConfirmOptions) => {
+    confirmations.push(options);
+    return Promise.resolve(confirme ? true : null);
+  };
   TestBed.configureTestingModule({
     providers: [
       provideRouter(
@@ -77,11 +87,12 @@ export async function ouvrirLesRecettes(url: string) {
       provideHttpClient(withInterceptors(INTERCEPTEURS)),
       provideHttpClientTesting(),
       { provide: API_BASE_URL, useValue: BASE },
+      { provide: DccmConfirm, useValue: { confirm } },
     ],
   });
   const harness = await RouterTestingHarness.create(url);
   const http = TestBed.inject(HttpTestingController);
   const el = () => harness.routeNativeElement as HTMLElement;
 
-  return { harness, http, el, router: TestBed.inject(Router) };
+  return { harness, http, el, confirmations, router: TestBed.inject(Router) };
 }

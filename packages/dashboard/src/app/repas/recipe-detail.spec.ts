@@ -13,6 +13,14 @@ function garder(el: HTMLElement): HTMLButtonElement | null {
   return el.querySelector('[data-test="garder"]');
 }
 
+/** Laisse la confirmation répondre, puis l'écran se poser. */
+async function apresLaConfirmation(harness: {
+  fixture: { whenStable(): Promise<unknown> };
+}): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve));
+  await harness.fixture.whenStable();
+}
+
 function textes(el: HTMLElement, nom: string): string[] {
   return [...el.querySelectorAll(`[data-test="${nom}"]`)].map(
     // Les espaces insécables du texte restent : seule la mise en page se replie.
@@ -76,8 +84,8 @@ describe('La fiche d’une Recette', () => {
     expect(el().querySelector('[data-test="ingredients"]')).toBeNull();
   });
 
-  it('garde une recette générée qui ne l’est pas encore, puis ne le propose plus', async () => {
-    const { harness, http, el } = await ouvrirLesRecettes(
+  it('garde une recette générée qui ne l’est pas encore, après confirmation, puis ne le propose plus', async () => {
+    const { harness, http, el, confirmations } = await ouvrirLesRecettes(
       '/repas/recettes/recette-3',
     );
     http.expectOne(`${BASE}/recipes/recette-3`).flush(CURRY_GENERE);
@@ -85,6 +93,10 @@ describe('La fiche d’une Recette', () => {
 
     expect(garder(el())?.textContent).toContain('Garder la recette');
     garder(el())?.click();
+    await apresLaConfirmation(harness);
+
+    expect(confirmations).toHaveLength(1);
+    expect(confirmations[0].confirmLabel).toBe('Garder la recette');
 
     const garde = http.expectOne(`${BASE}/recipes/recette-3/keep`);
     expect(garde.request.method).toBe('POST');
@@ -95,6 +107,21 @@ describe('La fiche d’une Recette', () => {
     expect(el().querySelector('h1')?.textContent).toContain(
       'Curry de pois chiches',
     );
+  });
+
+  it('ne garde rien quand on renonce', async () => {
+    const { harness, http, el } = await ouvrirLesRecettes(
+      '/repas/recettes/recette-3',
+      { confirme: false },
+    );
+    http.expectOne(`${BASE}/recipes/recette-3`).flush(CURRY_GENERE);
+    await harness.fixture.whenStable();
+
+    garder(el())?.click();
+    await apresLaConfirmation(harness);
+
+    http.expectNone(`${BASE}/recipes/recette-3/keep`);
+    expect(garder(el())).not.toBeNull();
   });
 
   it('ne propose pas de garder une recette déjà gardée', async () => {
@@ -115,6 +142,7 @@ describe('La fiche d’une Recette', () => {
     await harness.fixture.whenStable();
 
     garder(el())?.click();
+    await apresLaConfirmation(harness);
     http.expectOne(`${BASE}/recipes/recette-3/keep`).flush(
       {
         status: 422,

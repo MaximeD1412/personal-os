@@ -6,6 +6,7 @@ import { HlmAlertImports } from '@personal-os/ui/alert';
 import { HlmButton } from '@personal-os/ui/button';
 import { HlmCardImports } from '@personal-os/ui/card';
 import {
+  DccmConfirm,
   DccmPageHeader,
   DccmState,
   stateOf,
@@ -17,6 +18,7 @@ import type { ErreurApi } from '../erreur-api.interceptor';
 import { portions, quantiteDeLigne } from './quantite';
 import { RecipeService } from './recipe.service';
 import { FIL_DES_RECETTES } from './recipes';
+import { confirmerLaGarde } from './keep-confirmation';
 
 /**
  * La fiche d'une Recette : ses ingrédients et leurs quantités pour les
@@ -41,6 +43,7 @@ import { FIL_DES_RECETTES } from './recipes';
 })
 export class FicheDeRecette {
   private readonly service = inject(RecipeService);
+  private readonly confirmation = inject(DccmConfirm);
   protected readonly id = inject(ActivatedRoute).snapshot.paramMap.get('id');
   protected readonly lecture = this.service.recette(() => this.id);
   protected readonly iconeGarder = matStarOutline;
@@ -66,9 +69,11 @@ export class FicheDeRecette {
   protected readonly enCours = signal(false);
   protected readonly refus = signal<ErreurApi | null>(null);
 
-  protected garder(): void {
+  /** Garder est une transition, sans retour : elle se confirme. */
+  protected async garder(): Promise<void> {
     const recette = this.recette();
     if (!recette) return;
+    if (!(await confirmerLaGarde(this.confirmation, recette.title))) return;
 
     this.enCours.set(true);
     this.refus.set(null);

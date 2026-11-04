@@ -826,12 +826,15 @@ describe('Garder la recette d’un repas', () => {
     expect(bouton(repasDe(el(), '2026-10-23', 'LUNCH'), 'garder')).toBeNull();
   });
 
-  it('garde la recette, puis ne le propose plus sur aucun de ses repas', async () => {
-    const { el, http, harness } = await ouvrir(undefined, {
-      planning: AVEC_LE_CURRY,
-    });
+  it('garde la recette après confirmation, puis ne le propose plus sur aucun de ses repas', async () => {
+    const ouvert = await ouvrir(undefined, { planning: AVEC_LE_CURRY });
+    const { el, http, harness, confirmations } = ouvert;
 
     bouton(repasDe(el(), '2026-10-22', 'LUNCH'), 'garder').click();
+    await apresLaConfirmation(ouvert);
+
+    expect(confirmations).toHaveLength(1);
+    expect(confirmations[0].confirmLabel).toBe('Garder la recette');
     const garde = http.expectOne(`${BASE}/recipes/recette-3/keep`);
     expect(garde.request.method).toBe('POST');
     garde.flush({ ...CURRY_GENERE, kept: true } satisfies Recipe);
@@ -840,11 +843,27 @@ describe('Garder la recette d’un repas', () => {
     expect(el().querySelector('[data-test="garder"]')).toBeNull();
   });
 
+  it('ne garde rien quand on renonce', async () => {
+    const ouvert = await ouvrir(undefined, {
+      planning: AVEC_LE_CURRY,
+      confirme: false,
+    });
+
+    bouton(repasDe(ouvert.el(), '2026-10-22', 'LUNCH'), 'garder').click();
+    await apresLaConfirmation(ouvert);
+
+    ouvert.http.expectNone(`${BASE}/recipes/recette-3/keep`);
+    expect(
+      bouton(repasDe(ouvert.el(), '2026-10-22', 'LUNCH'), 'garder'),
+    ).not.toBeNull();
+  });
+
   it('dit pourquoi l’API refuse de garder la recette', async () => {
     const ouvert = await ouvrir(undefined, { planning: AVEC_LE_CURRY });
     const { el, http, harness } = ouvert;
 
     bouton(repasDe(el(), '2026-10-22', 'LUNCH'), 'garder').click();
+    await apresLaConfirmation(ouvert);
     http.expectOne(`${BASE}/recipes/recette-3/keep`).flush(
       {
         status: 422,
