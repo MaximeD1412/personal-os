@@ -36,6 +36,22 @@
       "description": "Ce qui doit être noté ou décidé ailleurs."
     }
   ],
-  "elements": [],
+  "elements": [
+    {
+      "id": "backup-watch-install",
+      "phase": "vps",
+      "source": "#82",
+      "titre": "Poser la vérification de fraîcheur des sauvegardes et tester son alerte",
+      "pourquoi": "Sans elle, une sauvegarde qui ne se lance plus du tout (minuteur désactivé, unité absente) ne déclenche aucune alerte.",
+      "etapes": [
+        "Sur le VPS, relancer l'installation de l'agent de sauvegarde depuis la nouvelle version du dépôt : sudo infra/backup/bin/install.sh",
+        "Vérifier que personal-os-backup-watch.timer apparaît dans systemctl list-timers",
+        "Déclencher l'alerte une fois à la main contre un dépôt vide (README de infra/backup, « Tester l'alerte ») et vérifier la réception du courriel et le passage du témoin en échec",
+        "Lancer systemctl start personal-os-backup-watch.service contre le vrai dépôt : l'unité doit réussir"
+      ],
+      "commande": "sudo infra/backup/bin/install.sh && systemctl list-timers personal-os-backup-watch.timer",
+      "ajouteLe": "2026-11-04"
+    }
+  ],
   "format": "élément = { id (stable), phase, source (#n), titre, pourquoi, etapes: [], commande (facultative), ajouteLe (YYYY-MM-DD) }"
 }

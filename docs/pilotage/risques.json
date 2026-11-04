@@ -288,8 +288,8 @@
       "categorie": "ops",
       "gravite": "critique",
       "titre": "Perte de données",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Sauvegardes Restic chiffrées chez un autre fournisseur qu'OVH",
@@ -303,8 +303,8 @@
         },
         {
           "texte": "Alerte quand une sauvegarde attendue manque",
-          "ref": "",
-          "fait": false
+          "ref": "infra/backup/README.md",
+          "fait": true
         }
       ],
       "tickets": [
