@@ -2,6 +2,7 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   writeFileSync,
 } from 'node:fs';
@@ -113,6 +114,65 @@ describe("backup.sh — l'état transmis à l'API", () => {
       finishedAt: expect.any(String),
       error: expect.stringContaining('restic check'),
     });
+  });
+
+  it("vide le transit après un échec, sans perdre le code d'échec", () => {
+    const fixture = fixtureAvecEtat();
+    const transit = join(fixture.dir, 'tmp');
+    mkdirSync(transit);
+
+    const result = run('backup.sh', [], fixture, {
+      ...avecDoubles(fixture, { restic: '[ "$1" = check ] && exit 3; exit 0' }),
+      TMPDIR: transit,
+    });
+
+    expect(result.status).toBe(3);
+    expect(readdirSync(transit)).toEqual([]);
+  });
+
+  it('transmet aussi le refus d’un contrôle préalable, comme une clé lisible par autrui', () => {
+    const fixture = fixtureAvecEtat();
+    chmodSync(fixture.passwordPath, 0o644);
+
+    const result = run('backup.sh', [], fixture, avecDoubles(fixture));
+
+    expect(result.status).not.toBe(0);
+    expect(transmis(fixture)?.corps).toEqual({
+      outcome: 'FAILED',
+      finishedAt: expect.any(String),
+      error: `clé ${fixture.passwordPath} en mode 644 — attendu 600`,
+    });
+  });
+
+  it('transmet le refus d’une copie du bucket mal configurée', () => {
+    const fixture = fixtureAvecEtat();
+    writeFileSync(
+      fixture.confPath,
+      `${readFileSync(fixture.confPath, 'utf8')}S3_MIRROR_BUCKET=personal-os\n`,
+    );
+
+    const result = run('backup.sh', [], fixture, avecDoubles(fixture));
+
+    expect(result.status).not.toBe(0);
+    expect(transmis(fixture)?.corps).toMatchObject({
+      outcome: 'FAILED',
+      error: expect.stringContaining('S3_MIRROR_ENDPOINT absent'),
+    });
+  });
+
+  it('ne transmet rien en simulation, même quand un contrôle préalable échoue', () => {
+    const fixture = fixtureAvecEtat();
+    chmodSync(fixture.passwordPath, 0o644);
+
+    const result = run(
+      'backup.sh',
+      ['--dry-run'],
+      fixture,
+      avecDoubles(fixture),
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(transmis(fixture)).toBeNull();
   });
 
   it('transmet le message d’un arrêt volontaire, tel que le journal le donne', () => {

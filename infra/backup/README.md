@@ -184,7 +184,10 @@ réussie, et la signale en À faire au-delà de 26 heures (DASH-3).
   (`openssl rand -hex 32`) et passe à curl par son entrée, jamais par sa ligne
   de commande.
 - **Un échec transmet sa cause** : le message du `die`, ou la commande qui a
-  interrompu le script. Une réussite efface la cause du dernier échec.
+  interrompu le script. Une réussite efface la cause du dernier échec. Les
+  contrôles préalables (clé, liste des bases, paramètres du bucket) sont
+  couverts dès que `backup.conf` et `restic.env` sont lus ; une configuration
+  illisible ne peut rien transmettre, et `--dry-run` ne transmet jamais rien.
 - **Une API injoignable n'échoue pas la sauvegarde** : le journal le note, et
   le courriel d'échec comme le témoin d'inactivité restent les alertes.
 
