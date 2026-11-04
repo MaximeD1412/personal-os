@@ -1,14 +1,17 @@
-import { httpResource, type HttpResourceRef } from '@angular/common/http';
+import {
+  HttpClient,
+  httpResource,
+  type HttpResourceRef,
+} from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import type { Recipe } from '@personal-os/contracts';
+import type { Recipe, RecipeInput, RecipeUpdate } from '@personal-os/contracts';
+import type { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url';
 
-/**
- * Le transport des Recettes. Il ne fait que lire : la saisie d'une recette
- * vient avec son formulaire (CUISINE-6).
- */
+/** Le transport des Recettes. */
 @Injectable({ providedIn: 'root' })
 export class RecipeService {
+  private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
 
   /**
@@ -35,5 +38,16 @@ export class RecipeService {
       const actuelle = id();
       return actuelle ? `${this.baseUrl}/recipes/${actuelle}` : undefined;
     });
+  }
+
+  creer(saisie: RecipeInput): Observable<Recipe> {
+    return this.http.post<Recipe>(`${this.baseUrl}/recipes`, saisie);
+  }
+
+  modifier(id: string, changements: RecipeUpdate): Observable<Recipe> {
+    return this.http.patch<Recipe>(
+      `${this.baseUrl}/recipes/${id}`,
+      changements,
+    );
   }
 }

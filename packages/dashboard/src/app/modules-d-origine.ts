@@ -1,7 +1,12 @@
-import { SOURCE_CALENDRIER, type AgendaItem } from '@personal-os/contracts';
+import {
+  SOURCE_CALENDRIER,
+  SOURCE_SPORT,
+  type AgendaItem,
+} from '@personal-os/contracts';
 import {
   matCalendarMonthOutline,
   matEventOutline,
+  matFitnessCenterOutline,
 } from '@ng-icons/material-symbols/outline';
 import { moisDe } from './mois';
 
@@ -64,6 +69,16 @@ const MODULES: Readonly<Record<string, ModuleDOrigine>> = {
         [PARAMETRE_DE_MOIS]: moisDe(entree.startsAt),
         [PARAMETRE_DE_DEBUT]: entree.startsAt,
       },
+    }),
+  },
+  // Une Séance a son propre écran : son identifiant suffit à l'ouvrir.
+  [SOURCE_SPORT]: {
+    libelle: 'Sport',
+    icone: matFitnessCenterOutline,
+    ton: 'secondary',
+    lien: (entree) => ({
+      chemin: `/sport/seances/${entree.sourceId}`,
+      parametres: {},
     }),
   },
 };

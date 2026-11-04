@@ -22,4 +22,5 @@ export * from './lib/publication';
 export * from './lib/recipe';
 export * from './lib/scope';
 export * from './lib/shopping-list';
+export * from './lib/training';
 export * from './lib/valeurs';

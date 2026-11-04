@@ -93,6 +93,7 @@ et lève `food.list_already_closed`.
 | Agenda                                   | `agenda`, port `AgendaContributor`                               |
 | Période (d'une lecture datée)            | `zPeriod` (`from`, `to`)                                         |
 | Séance, Objectif                         | `TrainingSession`, `TrainingGoal`                                |
+| Prévu, Réalisé, statut (d'une Séance)    | `planned*`, `actual*`, `PLANNED`, `DONE`, `MISSED`               |
 | Ingrédient, Alias, Unité canonique       | `Ingredient`, `IngredientAlias`, `canonicalUnit`                 |
 | Résolveur d'ingrédients                  | `resoudre`, `IngredientResolution`                               |
 | Unité de recette                         | `RecipeUnit`, `UNITES_DE_RECETTE`                                |
