@@ -12,60 +12,15 @@ import {
   aujourdhui,
   lundiDe,
   periodeDeLaSemaine,
-  type AgendaItem,
 } from '@personal-os/contracts';
-import { HlmBadge, type BadgeTone } from '@personal-os/ui/badge';
+import { HlmBadge } from '@personal-os/ui/badge';
 import { HlmButton } from '@personal-os/ui/button';
 import { DccmPageHeader, DccmState, stateOf } from '@personal-os/ui/dccm';
 import { AgendaService } from './agenda.service';
-import {
-  decaler,
-  formaterInstant,
-  formaterJour,
-  heureDe,
-  jourDe,
-} from './dates';
+import { decaler, formaterJour } from './dates';
+import { TEINTES, vueDEntree, type VueDEntree } from './entree-d-agenda';
 import { Largeur, TABLETTE } from './largeur';
-import {
-  ICONE_INCONNUE,
-  MODULES_D_ORIGINE,
-  moduleDOrigine,
-  type TonDePilier,
-} from './modules-d-origine';
-
-const STATUTS: Readonly<
-  Record<AgendaItem['status'], { libelle: string; ton: BadgeTone }>
-> = {
-  PLANNED: { libelle: 'Prévu', ton: 'neutral' },
-  DONE: { libelle: 'Réalisé', ton: 'success' },
-  MISSED: { libelle: 'Manqué', ton: 'error' },
-};
-
-/** La couleur du pilier : le filet de la carte et l'icône de sa source. */
-const TEINTES: Readonly<Record<TonDePilier, { filet: string; encre: string }>> =
-  {
-    primary: { filet: 'border-s-primary', encre: 'text-primary' },
-    secondary: { filet: 'border-s-secondary', encre: 'text-secondary' },
-    tertiary: { filet: 'border-s-tertiary', encre: 'text-tertiary' },
-    outline: { filet: 'border-s-outline', encre: 'text-outline' },
-  };
-
-/** Une entrée telle que l'écran la montre. */
-interface VueDEntree {
-  cle: string;
-  /** Le jour où l'entrée se montre : celui où elle commence, ou le lundi. */
-  jour: string;
-  /** L'heure de début, ou « depuis le … » pour une entrée déjà en cours. */
-  heure: string;
-  titre: string;
-  /** La période, quand l'entrée a une fin : « 18:30 – 19:45 », « jusqu'au … ». */
-  periode: string | null;
-  statut: { libelle: string; ton: BadgeTone };
-  source: string;
-  icone: string;
-  teinte: { filet: string; encre: string };
-  lien: { chemin: string; parametres: Record<string, string> } | null;
-}
+import { MODULES_D_ORIGINE } from './modules-d-origine';
 
 interface Journee {
   jour: string;
@@ -121,7 +76,7 @@ export class Agenda {
   protected readonly journees = computed((): Journee[] => {
     const lundi = this.semaine();
     const entrees = (this.lecture.hasValue() ? this.lecture.value() : []).map(
-      (entree) => vueDe(entree, lundi),
+      (entree) => vueDEntree(entree, lundi),
     );
 
     return Array.from({ length: 7 }, (_, indice) => {
@@ -166,49 +121,6 @@ export class Agenda {
     const n = journee.entrees.length;
     return `${n} ${n > 1 ? 'entrées' : 'entrée'}`;
   }
-}
-
-function vueDe(entree: AgendaItem, lundi: string): VueDEntree {
-  const module = moduleDOrigine(entree);
-  const debut = jourDe(entree.startsAt);
-  const enCours = debut < lundi;
-
-  return {
-    cle: `${entree.source}:${entree.sourceId}:${entree.startsAt}`,
-    jour: enCours ? lundi : debut,
-    heure: enCours
-      ? `depuis le ${formaterJour(debut, {
-          weekday: 'short',
-          day: 'numeric',
-          month: 'short',
-        })}`
-      : heureDe(entree.startsAt),
-    titre: entree.title,
-    periode: periodeDe(entree),
-    statut: STATUTS[entree.status],
-    source: module?.libelle ?? entree.source,
-    icone: module?.icone ?? ICONE_INCONNUE,
-    teinte: TEINTES[module?.ton ?? 'outline'],
-    lien: module?.lien(entree) ?? null,
-  };
-}
-
-function periodeDe({ startsAt, endsAt }: AgendaItem): string | null {
-  if (!endsAt) {
-    return null;
-  }
-
-  if (jourDe(startsAt) === jourDe(endsAt)) {
-    return `${heureDe(startsAt)} – ${heureDe(endsAt)}`;
-  }
-
-  return `jusqu'au ${formaterInstant(endsAt, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })}`;
 }
 
 /**
