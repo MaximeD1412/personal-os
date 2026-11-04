@@ -139,6 +139,46 @@ describe('Le Planning de repas', () => {
     expect(jour(el(), '2026-10-19').getAttribute('aria-current')).toBeNull();
   });
 
+  it('n’avertit de rien quand le lien désigne bien un lundi', async () => {
+    const { el } = await ouvrir();
+
+    expect(el().querySelector('[data-test="semaine-ecartee"]')).toBeNull();
+  });
+
+  it('signale une semaine du lien qui n’est pas un lundi, et ouvre la semaine en cours', async () => {
+    const { el } = await ouvrir('/repas/planning?semaine=2026-10-21');
+
+    expect(el().textContent).toContain('Semaine du 19 au 25 octobre 2026');
+    const avertissement = el().querySelector('[data-test="semaine-ecartee"]');
+    expect(avertissement?.textContent).toContain('semaine=2026-10-21');
+    expect(avertissement?.textContent).toContain('semaine en cours');
+  });
+
+  it('signale la semaine que la barre de commande a écartée, au planning et non au Souhait', async () => {
+    // La barre passe par leur nom les paramètres que le résolveur a refusés.
+    const { el } = await ouvrir('/repas/planning?ignored=semaine');
+
+    expect(el().textContent).toContain('Semaine du 19 au 25 octobre 2026');
+    const avertissement = el().querySelector('[data-test="semaine-ecartee"]');
+    expect(avertissement?.textContent).toContain('semaine');
+    expect(avertissement?.textContent).toContain('semaine en cours');
+    expect(el().querySelector('[data-test="ignores"]')).toBeNull();
+  });
+
+  it('ne signale plus rien une fois la semaine changée', async () => {
+    const ouvert = await ouvrir('/repas/planning?semaine=2026-10-21');
+
+    const suivante = arrivee(ouvert.router);
+    bouton(ouvert.el(), 'semaine-suivante').click();
+    await suivante;
+    TestBed.tick();
+    lectureDe(ouvert, '2026-10-26').flush({ ...PLANNING, week: '2026-10-26' });
+    souhaitsDe(ouvert, '2026-10-26').flush([]);
+    await ouvert.harness.fixture.whenStable();
+
+    expect(ouvert.el().querySelector('[data-test="semaine-ecartee"]')).toBeNull();
+  });
+
   it('ignore une semaine du lien qui n’est pas un lundi', async () => {
     const { el } = await ouvrir('/repas/planning?semaine=2026-10-21');
 

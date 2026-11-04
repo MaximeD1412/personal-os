@@ -1,6 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import {
+  ActivatedRoute,
+  Router,
+  RouterLink,
+  type ParamMap,
+} from '@angular/router';
 import { NgIcon } from '@ng-icons/core';
 import {
   matAddOutline,
@@ -51,6 +56,7 @@ import { showToast } from '@personal-os/ui/sonner';
 import { map, type Observable } from 'rxjs';
 import { decaler, formaterJour } from '../dates';
 import type { ErreurApi } from '../erreur-api.interceptor';
+import { PARAMETRE_DES_ECARTES } from '../formulaire';
 import { HouseholdService } from '../household.service';
 import { EcartDuPlanning } from '../courses/ecart-du-planning';
 import { ShoppingListService } from '../courses/shopping-list.service';
@@ -68,6 +74,24 @@ export const FIL_DU_PLANNING: readonly DccmCrumb[] = [
   { label: 'Cuisine' },
   { label: 'Planning de repas', link: '/repas/planning' },
 ];
+
+/**
+ * Ce que le lien demandait comme semaine sans que l'écran puisse le prendre :
+ * une valeur qui n'est pas un lundi (`semaine=2026-10-21`), ou la semaine que
+ * la barre de commande a écartée, par son seul nom (`?ignored=semaine`). Le
+ * planning la signale, puis montre la semaine en cours (ADR 0030).
+ */
+export function semaineEcartee(parametres: ParamMap): string[] {
+  const brute = parametres.get(PARAMETRE_DE_SEMAINE);
+  return [
+    ...(brute !== null && !zWeek.safeParse(brute).success
+      ? [`${PARAMETRE_DE_SEMAINE}=${brute}`]
+      : []),
+    ...parametres
+      .getAll(PARAMETRE_DES_ECARTES)
+      .filter((nom) => nom === PARAMETRE_DE_SEMAINE),
+  ];
+}
 
 /** La semaine du lien, si c'est bien un lundi ; la semaine en cours sinon. */
 export function semaineDemandee(brute: string | null): string {
@@ -260,6 +284,11 @@ export class PlanningDeRepas {
         semaineDemandee(parametres.get(PARAMETRE_DE_SEMAINE)),
       ),
     ),
+    { requireSync: true },
+  );
+
+  protected readonly semaineDuLienEcartee = toSignal(
+    inject(ActivatedRoute).queryParamMap.pipe(map(semaineEcartee)),
     { requireSync: true },
   );
 

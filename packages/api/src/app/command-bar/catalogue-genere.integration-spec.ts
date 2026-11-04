@@ -329,6 +329,42 @@ describe('Le catalogue généré de la barre de commande (CMD-4)', () => {
     },
   );
 
+  /**
+   * Une semaine que le schéma du champ refuse est écartée par son nom, que
+   * le planning signale ; une date qui n'est pas un lundi passe le catalogue,
+   * et c'est le planning qui la refuse et la signale (`semaineEcartee`).
+   */
+  it.each([
+    { semaine: 'invalide', requete: {}, ignored: ['semaine'] },
+    {
+      semaine: '2026-11-17',
+      requete: { semaine: '2026-11-17' },
+      ignored: [],
+    },
+  ])(
+    'MealPlanController_lire : la semaine « $semaine » mène au planning, qui la signale',
+    async ({ semaine, requete, ignored }) => {
+      fournisseur.programmer(BUT_RESOLUTION, {
+        actionId: 'MealPlanController_lire',
+        params: [{ name: 'semaine', value: JSON.stringify(semaine) }],
+        plusProche: null,
+      });
+
+      const reponse = await resoudre('ouvre le planning de la semaine 47')
+        .expect(200)
+        .expect(conformeA(zCommandResolution));
+
+      const resolution = reponse.body as CommandResolution;
+      expect(resolution).toMatchObject({ kind: 'action', ignored });
+      const url = new URL(
+        resolution.kind === 'action' ? resolution.url : '',
+        DASHBOARD_URL,
+      );
+      expect(url.pathname).toBe('/repas/planning');
+      expect(Object.fromEntries(url.searchParams)).toEqual(requete);
+    },
+  );
+
   it("propose au modèle chaque action avec ses exemples, sans l'Espace ni la liste visée", async () => {
     fournisseur.programmer(BUT_RESOLUTION, {
       actionId: null,
