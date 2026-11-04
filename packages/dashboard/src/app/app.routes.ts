@@ -3,7 +3,6 @@ import { Agenda } from './agenda';
 import { Calendrier } from './calendrier';
 import { FormulaireDEvenement } from './formulaire-d-evenement';
 import { FormulaireDOccurrence } from './formulaire-d-occurrence';
-import { FicheDIngredient } from './repas/ingredient-detail';
 import { FormulaireDIngredient } from './repas/ingredient-form';
 import { Ingredients } from './repas/ingredients';
 import { Recettes } from './repas/recipes';
@@ -41,7 +40,13 @@ export const appRoutes: Route[] = [
   // avant l'identifiant.
   { path: 'repas/ingredients', component: Ingredients },
   { path: 'repas/ingredients/nouveau', component: FormulaireDIngredient },
-  { path: 'repas/ingredients/:id', component: FicheDIngredient },
+  // La fiche, avec ses Produits (CUISINE-12), chargée à la demande pour le
+  // budget du bundle initial.
+  {
+    path: 'repas/ingredients/:id',
+    loadComponent: async () =>
+      (await import('./repas/ingredient-detail')).FicheDIngredient,
+  },
   { path: 'repas/ingredients/:id/modifier', component: FormulaireDIngredient },
   { path: 'repas/recettes', component: Recettes },
   // La saisie d'une Recette, préremplie par sa requête (ADR 0030), chargée à
