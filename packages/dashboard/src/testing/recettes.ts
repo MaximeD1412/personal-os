@@ -68,7 +68,10 @@ export const CURRY_GENERE: Recipe = {
   kept: false,
 };
 
-/** Les écrans de recettes, avec leurs vraies routes. */
+/**
+ * Les écrans de recettes, avec leurs vraies routes, et ceux du catalogue
+ * d'Ingrédients : la saisie d'une recette y crée un Ingrédient, puis revient.
+ */
 export async function ouvrirLesRecettes(
   url: string,
   { confirme = true }: { confirme?: boolean } = {},
@@ -82,7 +85,11 @@ export async function ouvrirLesRecettes(
   TestBed.configureTestingModule({
     providers: [
       provideRouter(
-        appRoutes.filter(({ path }) => path?.startsWith('repas/recettes')),
+        appRoutes.filter(
+          ({ path }) =>
+            path?.startsWith('repas/recettes') ||
+            path?.startsWith('repas/ingredients'),
+        ),
       ),
       provideHttpClient(withInterceptors(INTERCEPTEURS)),
       provideHttpClientTesting(),

@@ -307,6 +307,18 @@ describe('Agenda', () => {
       );
     });
 
+    it('renvoie une Séance vers son propre écran', async () => {
+      const fixture = await monter([
+        { ...SEANCE, source: 'training', sourceId: 'seance-1' },
+      ]);
+      const lien = tous(fixture, 'entree')[0].querySelector(
+        'a',
+      ) as HTMLAnchorElement;
+
+      expect(lien.textContent).toContain('Ouvrir dans Sport');
+      expect(lien.getAttribute('href')).toBe('/sport/seances/seance-1');
+    });
+
     it("s'affiche sans lien quand son module n'a pas d'écran", async () => {
       const [, seance] = tous(await monter(), 'entree');
 

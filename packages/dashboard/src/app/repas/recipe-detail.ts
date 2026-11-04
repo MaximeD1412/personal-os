@@ -1,7 +1,10 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { NgIcon } from '@ng-icons/core';
-import { matStarOutline } from '@ng-icons/material-symbols/outline';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import {
+  matEditOutline,
+  matStarOutline,
+} from '@ng-icons/material-symbols/outline';
 import { HlmAlertImports } from '@personal-os/ui/alert';
 import { HlmButton } from '@personal-os/ui/button';
 import { HlmCardImports } from '@personal-os/ui/card';
@@ -23,7 +26,7 @@ import { confirmerLaGarde } from './keep-confirmation';
 /**
  * La fiche d'une Recette : ses ingrédients et leurs quantités pour les
  * portions de référence, dans l'unité où on les a saisis, puis ses étapes.
- * La modification et la suppression viennent avec le formulaire (CUISINE-6).
+ * « Modifier » ouvre sa saisie.
  *
  * Une recette générée qu'on n'a pas gardée se lit ici depuis le repas qui la
  * cuisine : « Garder la recette » la fait entrer dans « Mes recettes », et la
@@ -31,6 +34,7 @@ import { confirmerLaGarde } from './keep-confirmation';
  */
 @Component({
   imports: [
+    RouterLink,
     NgIcon,
     HlmAlertImports,
     HlmButton,
@@ -39,6 +43,7 @@ import { confirmerLaGarde } from './keep-confirmation';
     DccmPageHeader,
     DccmState,
   ],
+  providers: [provideIcons({ matEditOutline })],
   templateUrl: './recipe-detail.html',
 })
 export class FicheDeRecette {

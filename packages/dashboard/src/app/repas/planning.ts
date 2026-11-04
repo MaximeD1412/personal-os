@@ -52,6 +52,7 @@ import { map, type Observable } from 'rxjs';
 import { decaler, formaterJour } from '../dates';
 import type { ErreurApi } from '../erreur-api.interceptor';
 import { HouseholdService } from '../household.service';
+import { EcartDuPlanning } from '../courses/ecart-du-planning';
 import { ShoppingListService } from '../courses/shopping-list.service';
 import { MealPlanService } from './meal-plan.service';
 import { confirmerLaGarde } from './keep-confirmation';
@@ -199,6 +200,10 @@ interface Jour {
  * créneau écarté à remplir ; un créneau écarté dit pourquoi, à sa place.
  * Chaque tour mène à sa Trace IA.
  *
+ * Le planning signale ce que ses listes déjà produites ne couvrent plus (un
+ * repas ajouté après elles), ouvert pendant qu'on le modifie ; arrêté, il en
+ * produit la liste de complément.
+ *
  * Chaque repas d'après une recette mène à sa fiche. Un repas approuvé d'une
  * recette générée qu'on n'a pas gardée propose « Garder la recette » : elle
  * rejoint « Mes recettes », et la génération la proposera en priorité.
@@ -214,6 +219,7 @@ interface Jour {
     DccmPageHeader,
     DccmState,
     SouhaitsDeLaSemaine,
+    EcartDuPlanning,
   ],
   templateUrl: './planning.html',
 })
@@ -270,6 +276,33 @@ export class PlanningDeRepas {
   );
   protected readonly ouvert = computed(
     () => this.planning()?.status === 'OPEN',
+  );
+  /**
+   * Le planning dont l'écart se lit, ouvert ou arrêté : il se relit quand ses
+   * repas ou son statut changent, pas à chaque relecture du planning.
+   */
+  protected readonly planningDeLEcart = computed(
+    () => {
+      const planning = this.planning();
+      return planning
+        ? {
+            id: planning.id,
+            status: planning.status,
+            repas: JSON.stringify(
+              planning.entries.map(({ id, recipe, servings, decision }) => [
+                id,
+                recipe?.id,
+                servings,
+                decision,
+              ]),
+            ),
+          }
+        : null;
+    },
+    {
+      equal: (a, b) =>
+        a?.id === b?.id && a?.status === b?.status && a?.repas === b?.repas,
+    },
   );
 
   /** Ce qui s'envoie, le temps de la requête : les autres gestes attendent. */

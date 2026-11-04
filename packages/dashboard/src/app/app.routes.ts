@@ -6,7 +6,6 @@ import { FormulaireDOccurrence } from './formulaire-d-occurrence';
 import { FicheDIngredient } from './repas/ingredient-detail';
 import { FormulaireDIngredient } from './repas/ingredient-form';
 import { Ingredients } from './repas/ingredients';
-import { FicheDeRecette } from './repas/recipe-detail';
 import { Recettes } from './repas/recipes';
 import { Stock } from './repas/stock';
 import { FormulaireDeStock } from './repas/stock-form';
@@ -41,6 +40,18 @@ export const appRoutes: Route[] = [
   { path: 'repas/ingredients/:id', component: FicheDIngredient },
   { path: 'repas/ingredients/:id/modifier', component: FormulaireDIngredient },
   { path: 'repas/recettes', component: Recettes },
+  // La saisie d'une Recette, préremplie par sa requête (ADR 0030), chargée à
+  // la demande ; « nouvelle » passe avant l'identifiant.
+  {
+    path: 'repas/recettes/nouvelle',
+    loadComponent: async () =>
+      (await import('./repas/recipe-form')).FormulaireDeRecette,
+  },
+  {
+    path: 'repas/recettes/:id/modifier',
+    loadComponent: async () =>
+      (await import('./repas/recipe-form')).FormulaireDeRecette,
+  },
   // Le Planning de repas d'une semaine (`?semaine=`, son lundi) avec ses
   // Souhaits, et l'ajout d'un repas, prérempli par sa requête (ADR 0030).
   // Chargés à la demande, pour que le bundle initial tienne son budget.
@@ -72,7 +83,13 @@ export const appRoutes: Route[] = [
     loadComponent: async () =>
       (await import('./repas/cooked-meal-form')).FormulaireDeRepasCuisine,
   },
-  { path: 'repas/recettes/:id', component: FicheDeRecette },
+  // La fiche d'une Recette, chargée à la demande, pour que le bundle initial
+  // tienne son budget.
+  {
+    path: 'repas/recettes/:id',
+    loadComponent: async () =>
+      (await import('./repas/recipe-detail')).FicheDeRecette,
+  },
   // Le Stock domestique, éditable en place ; l'ajout d'un Ingrédient est un
   // formulaire, prérempli par sa requête (ADR 0030).
   { path: 'repas/stock', component: Stock },
@@ -145,5 +162,22 @@ export const appRoutes: Route[] = [
     path: 'portfolio/pages',
     loadComponent: async () =>
       (await import('./portfolio/pages')).PagesDuPortfolio,
+  },
+  // Les Séances, chargées à la demande pour que le bundle initial tienne son
+  // budget.
+  {
+    path: 'sport',
+    loadComponent: async () => (await import('./sport/sport')).Sport,
+  },
+  // Préremplie par sa requête (ADR 0030) ; déclarée avant `:id`, qu'elle
+  // n'est pas.
+  {
+    path: 'sport/seances/nouvelle',
+    loadComponent: async () =>
+      (await import('./sport/nouvelle-seance')).NouvelleSeance,
+  },
+  {
+    path: 'sport/seances/:id',
+    loadComponent: async () => (await import('./sport/seance')).Seance,
   },
 ];

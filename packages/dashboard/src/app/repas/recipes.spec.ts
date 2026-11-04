@@ -30,14 +30,16 @@ describe('Les recettes', () => {
     );
   });
 
-  it('ne propose pas encore de créer une recette : le formulaire viendra avec CUISINE-6', async () => {
+  it('propose de créer une recette', async () => {
     const { harness, http, el } = await ouvrirLesRecettes('/repas/recettes');
 
     http.expectOne(`${BASE}/recipes`).flush([]);
     await harness.fixture.whenStable();
 
     expect(el().textContent).toContain("Le Foyer n'a encore aucune recette");
-    expect(el().querySelector('a[href*="nouvelle"]')).toBeNull();
+    expect(
+      el().querySelector('[data-test="nouvelle"]')?.getAttribute('href'),
+    ).toBe('/repas/recettes/nouvelle');
   });
 
   it('reprend la recherche de l’URL, et la suit à la frappe', async () => {

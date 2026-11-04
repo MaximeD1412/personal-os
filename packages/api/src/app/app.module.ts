@@ -15,6 +15,7 @@ import { HealthModule } from './health/health.module';
 import { HouseholdModule } from './household/household.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { ProjectsModule } from './projects/projects.module';
+import { TrainingModule } from './training/training.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { ProjectsModule } from './projects/projects.module';
     FoodModule,
     ProjectsModule,
     PortfolioModule,
+    TrainingModule,
   ],
   providers: [
     // Tout body, query ou param typé par un DTO zod de `contracts` est validé

@@ -6,7 +6,10 @@ import {
 import { Injectable, inject } from '@angular/core';
 import type {
   Ingredient,
+  IngredientAlias,
+  IngredientAliasInput,
   IngredientInput,
+  IngredientResolution,
   IngredientUpdate,
 } from '@personal-os/contracts';
 import type { Observable } from 'rxjs';
@@ -54,6 +57,22 @@ export class IngredientService {
     return this.http.patch<Ingredient>(
       `${this.baseUrl}/ingredients/${id}`,
       changements,
+    );
+  }
+
+  /** Le sort de chaque libellé, dans l'ordre de la demande, en un appel. */
+  resoudre(labels: readonly string[]): Observable<IngredientResolution[]> {
+    return this.http.post<IngredientResolution[]>(
+      `${this.baseUrl}/ingredients/resolve`,
+      { labels },
+    );
+  }
+
+  /** Rattache un libellé à un Ingrédient : il sera reconnu ensuite. */
+  rattacher(saisie: IngredientAliasInput): Observable<IngredientAlias> {
+    return this.http.post<IngredientAlias>(
+      `${this.baseUrl}/ingredient-aliases`,
+      saisie,
     );
   }
 }

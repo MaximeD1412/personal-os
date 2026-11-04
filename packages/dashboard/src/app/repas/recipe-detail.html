@@ -1,6 +1,16 @@
 <div class="flex flex-col gap-margin">
   <dccm-page-header [heading]="titre()" [breadcrumb]="fil()">
-    @if (recette(); as recette) { @if (!recette.kept) {
+    @if (lecture.hasValue()) {
+    <a
+      hlmBtn
+      variant="secondary"
+      data-test="modifier"
+      [routerLink]="['/repas/recettes', id, 'modifier']"
+    >
+      <ng-icon name="matEditOutline" aria-hidden="true" />
+      Modifier
+    </a>
+    } @if (recette(); as recette) { @if (!recette.kept) {
     <button
       hlmBtn
       variant="secondary"
