@@ -8,3 +8,4 @@ export type { HealthProbeModel as HealthProbe } from './generated/prisma/models'
 export type { ScopeModel as Scope } from './generated/prisma/models';
 export type { EventModel as Event } from './generated/prisma/models';
 export type { EventExceptionModel as EventException } from './generated/prisma/models';
+export type { TrainingSessionModel as TrainingSession } from './generated/prisma/models';

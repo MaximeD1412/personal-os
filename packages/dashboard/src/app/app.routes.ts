@@ -158,4 +158,21 @@ export const appRoutes: Route[] = [
     loadComponent: async () =>
       (await import('./portfolio/pages')).PagesDuPortfolio,
   },
+  // Les Séances, chargées à la demande pour que le bundle initial tienne son
+  // budget.
+  {
+    path: 'sport',
+    loadComponent: async () => (await import('./sport/sport')).Sport,
+  },
+  // Préremplie par sa requête (ADR 0030) ; déclarée avant `:id`, qu'elle
+  // n'est pas.
+  {
+    path: 'sport/seances/nouvelle',
+    loadComponent: async () =>
+      (await import('./sport/nouvelle-seance')).NouvelleSeance,
+  },
+  {
+    path: 'sport/seances/:id',
+    loadComponent: async () => (await import('./sport/seance')).Seance,
+  },
 ];
