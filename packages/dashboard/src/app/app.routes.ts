@@ -6,11 +6,16 @@ import { FormulaireDOccurrence } from './formulaire-d-occurrence';
 import { FicheDIngredient } from './repas/ingredient-detail';
 import { FormulaireDIngredient } from './repas/ingredient-form';
 import { Ingredients } from './repas/ingredients';
-import { FicheDeRecette } from './repas/recipe-detail';
 import { Recettes } from './repas/recipes';
 
 export const appRoutes: Route[] = [
-  { path: '', pathMatch: 'full', redirectTo: 'agenda' },
+  // L'Accueil : ce qui m'attend, les À faire et le résumé de chaque module.
+  // Chargé à la demande, comme le planning, pour le budget du bundle initial.
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: async () => (await import('./accueil')).Accueil,
+  },
   { path: 'agenda', component: Agenda },
   {
     path: 'calendrier',
@@ -82,7 +87,13 @@ export const appRoutes: Route[] = [
     loadComponent: async () =>
       (await import('./repas/cooked-meal-form')).FormulaireDeRepasCuisine,
   },
-  { path: 'repas/recettes/:id', component: FicheDeRecette },
+  // La fiche d'une Recette, chargée à la demande, pour que le bundle initial
+  // tienne son budget.
+  {
+    path: 'repas/recettes/:id',
+    loadComponent: async () =>
+      (await import('./repas/recipe-detail')).FicheDeRecette,
+  },
   // Le Stock domestique, éditable en place ; l'ajout d'un Ingrédient est un
   // formulaire, prérempli par sa requête (ADR 0030). Chargés à la demande,
   // pour que le bundle initial tienne son budget.

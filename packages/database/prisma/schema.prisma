@@ -329,6 +329,10 @@ model Recipe {
   /// Les étapes, dans leur ordre.
   steps           String[]
   source          RecipeSource    @default(MANUAL)
+  /// Gardée, elle figure dans « Mes recettes » et la génération la propose en
+  /// priorité. Une recette saisie l'est toujours ; une recette générée ne
+  /// l'est que si on la garde (CUISINE-19).
+  kept            Boolean         @default(true)
   lines           RecipeLine[]
   /// Les Repas planifiés qui la cuisinent.
   mealPlanEntries MealPlanEntry[]

@@ -88,6 +88,10 @@ describe('appRoutes', () => {
 
     expect(sansLoadChildren(appRoutes)).toBe(true);
   });
+
+  it("fait de l'Accueil l'écran de `/`, et non plus une redirection", () => {
+    expect(aVenir(appRoutes, '/')).toBe(false);
+  });
 });
 
 describe('NAVIGATION', () => {

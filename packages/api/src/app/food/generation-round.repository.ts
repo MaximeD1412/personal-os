@@ -194,6 +194,7 @@ export class GenerationRoundRepository {
                   servings: nouvelle.servings,
                   steps: nouvelle.steps,
                   source: 'GENERATED',
+                  kept: false,
                   scope: { connect: { id: ID_ESPACE_FOYER } },
                   lines: {
                     create: nouvelle.lignes.map(

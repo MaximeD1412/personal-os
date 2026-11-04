@@ -6,7 +6,11 @@ import {
   type Ingredient,
   type Recipe,
 } from '@personal-os/contracts';
-import { PrismaService, sousPortee } from '@personal-os/database';
+import {
+  ID_ESPACE_FOYER,
+  PrismaService,
+  sousPortee,
+} from '@personal-os/database';
 import request from 'supertest';
 import * as z from 'zod';
 import {
@@ -241,6 +245,48 @@ describe('Recettes', () => {
       ]);
     });
 
+    it("ne rend que les recettes gardées : une recette générée qu'on n'a pas gardée n'y est pas", async () => {
+      const saisie = await creer(jeu.a, { title: 'Curry du tri gardé' });
+      const generee = await genererUneRecette('Curry du tri généré');
+
+      const reponse = await request(app.getHttpServer())
+        .get('/api/recipes')
+        .query({ q: 'curry du tri' })
+        .set('Cookie', jeu.a.session)
+        .expect(200)
+        .expect(conformeA(DES_RECETTES));
+
+      expect(saisie.kept).toBe(true);
+      expect(reponse.body as Recipe[]).toEqual([saisie]);
+      expect(generee.kept).toBe(false);
+    });
+
+    it('rend aussi les recettes non gardées avec `all=true`', async () => {
+      const saisie = await creer(jeu.a, { title: 'Tajine du tri gardé' });
+      const generee = await genererUneRecette('Tajine du tri généré');
+
+      const reponse = await request(app.getHttpServer())
+        .get('/api/recipes')
+        .query({ q: 'tajine du tri', all: 'true' })
+        .set('Cookie', jeu.a.session)
+        .expect(200)
+        .expect(conformeA(DES_RECETTES));
+
+      expect((reponse.body as Recipe[]).map(({ id }) => id)).toEqual([
+        saisie.id,
+        generee.id,
+      ]);
+    });
+
+    it('refuse un `all` qui ne vaut ni true ni false', async () => {
+      await request(app.getHttpServer())
+        .get('/api/recipes')
+        .query({ all: 'oui' })
+        .set('Cookie', jeu.a.session)
+        .expect(400)
+        .expect(champsEnErreur(['all']));
+    });
+
     it('refuse une recherche hors borne', async () => {
       await request(app.getHttpServer())
         .get('/api/recipes')
@@ -279,6 +325,56 @@ describe('Recettes', () => {
     it('refuse une requête sans session', async () => {
       await request(app.getHttpServer())
         .get(`/api/recipes/${INCONNU}`)
+        .expect(401);
+    });
+  });
+
+  describe('POST /recipes/:id/keep', () => {
+    it('garde une recette générée : elle entre dans les recettes du Foyer', async () => {
+      const generee = await genererUneRecette('Gratin gardé (garder)');
+
+      const reponse = await request(app.getHttpServer())
+        .post(`/api/recipes/${generee.id}/keep`)
+        .set('Cookie', jeu.b.session)
+        .expect(200)
+        .expect(conformeA(UNE_RECETTE));
+
+      expect(reponse.body).toMatchObject({
+        id: generee.id,
+        source: 'GENERATED',
+        kept: true,
+      });
+      const liste = await request(app.getHttpServer())
+        .get('/api/recipes')
+        .query({ q: 'gratin gardé (garder)' })
+        .set('Cookie', jeu.a.session)
+        .expect(200);
+      expect((liste.body as Recipe[]).map(({ id }) => id)).toEqual([
+        generee.id,
+      ]);
+    });
+
+    it('refuse de garder une recette déjà gardée', async () => {
+      const saisie = await creer(jeu.a, { title: 'Dahl déjà gardé' });
+
+      await request(app.getHttpServer())
+        .post(`/api/recipes/${saisie.id}/keep`)
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('food.recipe_already_kept'));
+    });
+
+    it('répond 404 pour une recette inconnue', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/recipes/${INCONNU}/keep`)
+        .set('Cookie', jeu.a.session)
+        .expect(404)
+        .expect(codeDErreur('food.recipe_not_found'));
+    });
+
+    it('refuse une requête sans session', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/recipes/${INCONNU}/keep`)
         .expect(401);
     });
   });
@@ -496,6 +592,48 @@ describe('Recettes', () => {
       .set('Cookie', compte.session)
       .send(saisie(changement))
       .expect(201);
+
+    return reponse.body as Recipe;
+  }
+
+  /**
+   * Une recette telle qu'un Tour de génération la pose (CUISINE-16) : la
+   * génération elle-même a son fichier, on n'en garde ici que le résultat.
+   */
+  async function genererUneRecette(title: string): Promise<Recipe> {
+    const { id } = await sousPortee(
+      {
+        espaces: [{ id: jeu.espaceFoyer, kind: 'HOUSEHOLD' }],
+        typesAcceptes: ['HOUSEHOLD'],
+      },
+      async () =>
+        await prisma.recipe.create({
+          data: {
+            title,
+            servings: 2,
+            steps: ['Gratiner.'],
+            source: 'GENERATED',
+            kept: false,
+            scope: { connect: { id: ID_ESPACE_FOYER } },
+            lines: {
+              create: [
+                {
+                  ingredientId: lentilles.id,
+                  quantity: 200,
+                  unit: 'G',
+                  position: 0,
+                },
+              ],
+            },
+          },
+          select: { id: true },
+        }),
+    );
+
+    const reponse = await request(app.getHttpServer())
+      .get(`/api/recipes/${id}`)
+      .set('Cookie', jeu.a.session)
+      .expect(200);
 
     return reponse.body as Recipe;
   }

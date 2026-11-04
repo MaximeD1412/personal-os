@@ -80,8 +80,8 @@ describe('Le catalogue de démo', () => {
 });
 
 describe('Les recettes de démo', () => {
-  it('sont six, chacune conforme à la saisie du contrat', () => {
-    expect(RECETTES_DE_DEMO).toHaveLength(6);
+  it('sont sept, chacune conforme à la saisie du contrat', () => {
+    expect(RECETTES_DE_DEMO).toHaveLength(7);
     for (const { lines, ...recette } of RECETTES_DE_DEMO) {
       const saisie = {
         ...recette,
@@ -191,13 +191,14 @@ describe('semerLaCuisine', () => {
 
     await semerLaCuisine(service);
 
-    expect(prisma.recipe.create).toHaveBeenCalledTimes(6);
+    expect(prisma.recipe.create).toHaveBeenCalledTimes(7);
     expect(prisma.recipe.create).toHaveBeenCalledWith({
       data: {
         title: 'Crêpes',
         servings: 4,
         steps: expect.any(Array),
         source: 'MANUAL',
+        kept: true,
         scope: { connect: { id: ID_ESPACE_FOYER } },
         lines: {
           create: [
@@ -245,12 +246,26 @@ describe('semerLaCuisine', () => {
     }
   });
 
+  it('sème une recette générée que le Foyer n’a pas encore gardée', async () => {
+    const { prisma, service } = unFauxPrisma();
+
+    await semerLaCuisine(service);
+
+    expect(prisma.recipe.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        title: 'Omelette aux courgettes et au parmesan',
+        source: 'GENERATED',
+        kept: false,
+      }),
+    });
+  });
+
   it('remplace les lignes d’une recette déjà semée, dans une transaction', async () => {
     const { prisma, service } = unFauxPrisma({ Crêpes: 'recette-crepes' });
 
     await semerLaCuisine(service);
 
-    expect(prisma.recipe.create).toHaveBeenCalledTimes(5);
+    expect(prisma.recipe.create).toHaveBeenCalledTimes(6);
     expect(prisma.recipeLine.deleteMany).toHaveBeenCalledWith({
       where: { recipeId: 'recette-crepes' },
     });
