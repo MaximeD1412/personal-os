@@ -285,6 +285,40 @@ describe("La génération du catalogue d'actions (ADR 0018)", () => {
     });
   });
 
+  it("nomme un paramètre comme l'écran le lit, et le valide par le champ de l'API qu'il remplit", () => {
+    const catalogue = genererCatalogue(
+      openapi({
+        '/api/meal-plans': {
+          get: {
+            operationId: 'MealPlanController_lire',
+            parameters: [
+              {
+                name: 'week',
+                in: 'query',
+                required: true,
+                schema: { type: 'string', format: 'date' },
+              },
+            ],
+            responses: {},
+            'x-command': {
+              intent: 'Ouvrir le Planning de repas',
+              examples: ['montre le planning de la semaine prochaine'],
+              screen: '/repas/planning',
+              params: { semaine: { field: 'week', usage: 'optional' } },
+            },
+          },
+        },
+      }),
+    );
+
+    expect(catalogue.actions[0].params).toEqual({
+      semaine: {
+        required: false,
+        schema: { type: 'string', format: 'date' },
+      },
+    });
+  });
+
   it('range les actions par identifiant, pour un fichier stable', () => {
     const annotee = (operationId: string) => ({
       operationId,
@@ -329,6 +363,29 @@ describe("La génération du catalogue d'actions (ADR 0018)", () => {
 
       expect(generer).toThrow(CatalogueIncoherent);
       expect(generer).toThrow(/EventController_creer.*« titre »/);
+    });
+
+    it('quand un paramètre renommé désigne un champ absent du schéma d’entrée', () => {
+      expect(() =>
+        genererCatalogue(
+          openapi(
+            {
+              '/api/events': {
+                post: {
+                  operationId: 'EventController_creer',
+                  requestBody: CORPS,
+                  responses: {},
+                  'x-command': {
+                    ...CREER_UN_EVENEMENT,
+                    params: { titre: { field: 'intitule', usage: 'required' } },
+                  },
+                },
+              },
+            },
+            SCHEMAS,
+          ),
+        ),
+      ).toThrow(/EventController_creer : « intitule » absent/);
     });
 
     it("quand l'opération n'a aucun champ d'entrée", () => {

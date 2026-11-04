@@ -112,6 +112,13 @@ export const appRoutes: Route[] = [
     path: 'courses',
     loadComponent: async () => (await import('./courses/courses')).Courses,
   },
+  // L'ajout d'un Article à la liste ouverte, prérempli par sa requête : la
+  // barre de commande y mène (ADR 0018).
+  {
+    path: 'courses/articles/nouveau',
+    loadComponent: async () =>
+      (await import('./courses/nouvel-article')).NouvelArticle,
+  },
   {
     path: 'courses/:id',
     loadComponent: async () => (await import('./courses/courses')).Courses,

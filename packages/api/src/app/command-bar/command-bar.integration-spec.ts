@@ -44,10 +44,10 @@ const UNE_PAGE = zUnresolvedCommandPage
   .strict();
 
 /**
- * Le catalogue de la campagne : celui du build est vide tant qu'aucun
- * endpoint n'est annoté (ADR 0018). Il pointe vers le formulaire de création
- * d'un Événement, dont la route d'écriture existe bel et bien : c'est ce qui
- * prouve que la résolution ne l'appelle pas.
+ * Le catalogue de la campagne, réduit à une action pour que chaque cas reste
+ * lisible ; celui du build a son propre test (`catalogue-genere`). Il pointe
+ * vers le formulaire de création d'un Événement, dont la route d'écriture
+ * existe bel et bien : c'est ce qui prouve que la résolution ne l'appelle pas.
  */
 const CATALOGUE: CommandCatalog = {
   actions: [
