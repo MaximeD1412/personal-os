@@ -161,7 +161,8 @@ export class DccmCommandBarTrigger {
               class="flex cursor-pointer items-center gap-space-sm rounded px-space-sm py-1 text-label-regular text-outline outline-none transition-colors hover:bg-surface-container-high hover:text-on-surface focus-visible:ring-2 focus-visible:ring-primary"
               (click)="dialogue.close()"
             >
-              Fermer <kbd hlmKbd aria-hidden="true">Échap</kbd>
+              Fermer
+              <kbd hlmKbd aria-hidden="true" class="max-md:hidden">Échap</kbd>
             </button>
           </div>
 
@@ -210,7 +211,7 @@ export class DccmCommandBarTrigger {
                 >
                   <ng-icon name="matHelpOutline" class="icon-sm" aria-hidden="true" />
                 </span>
-                <p class="min-w-0 flex-1 text-body-default text-on-surface">
+                <p class="min-w-0 grow basis-48 text-body-default text-on-surface">
                   Je ne sais pas encore faire ça.
                 </p>
                 @if (echec.nearestUrl; as url) {
