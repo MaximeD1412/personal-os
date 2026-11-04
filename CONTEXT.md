@@ -33,7 +33,7 @@ Une unité d'entraînement sportif, qui porte **à la fois** ce qui était prév
 _Éviter_ : « entraînement » pour désigner une occurrence précise, « résultat », « performance ».
 
 **Objectif** (`TrainingGoal`) :
-Ce vers quoi les **Séances** convergent : une course, une date, une intention d'allure ou de distance. Il n'existe **pas** d'entité « plan d'entraînement » — un plan, c'est l'ensemble des **Séances** qui mènent à un **Objectif**, et rien d'autre.
+Ce vers quoi les **Séances** convergent : une course, une date, une intention d'allure ou de distance. Il n'existe **pas** d'entité « plan d'entraînement » — un plan, c'est l'ensemble des **Séances** qui mènent à un **Objectif**, et rien d'autre. Des **Séances** se créent en série vers lui (des jours de la semaine, sur une période), mais chacune est ensuite indépendante : la série n'est pas une **Récurrence**, rien ne la retient une fois créée. Son avancement se compte sur les **Séances** liées : faites, manquées, à venir.
 _Éviter_ : « plan », « programme », « cycle », « bloc ».
 
 **Repas planifié** (`MealPlanEntry`) :

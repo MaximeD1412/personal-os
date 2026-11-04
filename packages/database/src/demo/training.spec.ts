@@ -1,6 +1,6 @@
 import { aParis, decalerLeJour } from './dates';
 import type { Demo } from './seeder';
-import { seancesDeDemo, training } from './training';
+import { objectifsDeDemo, seancesDeDemo, training } from './training';
 
 /** Le mercredi 4 novembre 2026, jour du semis. */
 const AUJOURDHUI = '2026-11-04';
@@ -30,7 +30,7 @@ describe('Le semeur de démo du Sport', () => {
 
   it('ne sème que dans les Espaces personnels, comme le module', () => {
     expect(training.espaces).toEqual(['PERSONAL']);
-    expect(training.modeles).toEqual(['TrainingSession']);
+    expect(training.modeles).toEqual(['TrainingGoal', 'TrainingSession']);
     expect(new Set(seances.map(({ scopeId }) => scopeId))).toEqual(
       new Set(['espace-a', 'espace-b']),
     );
@@ -77,5 +77,42 @@ describe('Le semeur de démo du Sport', () => {
 
   it('est déterministe : le même jour donne les mêmes Séances', () => {
     expect(seancesDeDemo(DEMO)).toEqual(seances);
+    expect(objectifsDeDemo(DEMO)).toEqual(objectifsDeDemo(DEMO));
+  });
+
+  describe('ses Objectifs', () => {
+    const objectifs = objectifsDeDemo(DEMO);
+
+    it('tombent tous après le jour du semis, sur des jours relatifs à lui', () => {
+      for (const { date } of objectifs) {
+        expect(date.toISOString().slice(11)).toBe('00:00:00.000Z');
+        expect(date.getTime()).toBeGreaterThan(MAINTENANT.getTime());
+      }
+    });
+
+    it('ne lient une Séance qu’à un Objectif du même Espace', () => {
+      for (const { objectif, scopeId } of seances) {
+        if (objectif) {
+          expect(objectifs.find(({ cle }) => cle === objectif)?.scopeId).toBe(
+            scopeId,
+          );
+        }
+      }
+    });
+
+    it('montrent un avancement varié : faites, manquées, à venir', () => {
+      const duSemi = seances.filter(({ objectif }) => objectif === 'semi');
+
+      expect(new Set(duSemi.map(({ status }) => status))).toEqual(
+        new Set(['DONE', 'MISSED', 'PLANNED']),
+      );
+    });
+
+    it('en comptent un encore sans Séance, et une Séance sans Objectif', () => {
+      const cites = new Set(seances.map(({ objectif }) => objectif));
+
+      expect(objectifs.some(({ cle }) => !cites.has(cle))).toBe(true);
+      expect(cites.has(undefined)).toBe(true);
+    });
   });
 });

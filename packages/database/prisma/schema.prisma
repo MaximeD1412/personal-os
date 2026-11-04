@@ -65,6 +65,7 @@ model Scope {
   shoppingLists       ShoppingList[]
   shoppingListItems   ShoppingListItem[]
   trainingSessions    TrainingSession[]
+  trainingGoals       TrainingGoal[]
 
   @@index([householdId])
 }
@@ -678,13 +679,36 @@ model TrainingSession {
   actualDistanceM  Int?
   actualDurationS  Int?
   actualNotes      String?
-  /// L'Objectif que la Séance prépare. L'Objectif arrive avec SPORT-2, qui
-  /// posera la clé étrangère : la colonne n'est encore qu'un identifiant.
+  /// L'Objectif que la Séance prépare, dans le même Espace : la clé compare
+  /// aussi scopeId (ADR 0028). Supprimer l'Objectif retire d'abord ce lien,
+  /// jamais la Séance (SPORT-2) ; la base refuse de supprimer un Objectif
+  /// encore cité.
   goalId           String?
+  goal             TrainingGoal?         @relation(fields: [goalId, scopeId], references: [id, scopeId], onDelete: NoAction, onUpdate: Cascade)
   createdAt        DateTime              @default(now())
 
   @@index([scopeId])
   @@index([startsAt])
+  @@index([goalId])
+}
+
+/// Un Objectif sportif : une course, une date, une intention (ADR 0022). Il
+/// n'y a ni plan ni semaine : la préparation est l'ensemble des Séances qui
+/// y mènent. Le sport est personnel : l'Espace est l'Espace personnel du
+/// Compte.
+model TrainingGoal {
+  id        String            @id @default(uuid())
+  scopeId   String
+  scope     Scope             @relation(fields: [scopeId], references: [id], onDelete: Cascade)
+  title     String
+  /// Le jour de la course, un jour civil.
+  date      DateTime          @db.Date
+  intent    String?
+  sessions  TrainingSession[]
+  createdAt DateTime          @default(now())
+
+  @@unique([id, scopeId])
+  @@index([scopeId])
 }
 
 /// Session applicative. Seule l'empreinte du jeton est stockée.
