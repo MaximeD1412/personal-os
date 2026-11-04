@@ -80,18 +80,18 @@
       "categorie": "sec",
       "gravite": "elevee",
       "titre": "Clé SSH de déploiement détenue par GitHub",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Utilisateur dédié sans shell, commande forcée (command=) dans authorized_keys",
-          "ref": "",
-          "fait": false
+          "ref": "ADR 0032",
+          "fait": true
         },
         {
           "texte": "Environnement GitHub protégé, rotation de la clé documentée",
-          "ref": "",
-          "fait": false
+          "ref": "ADR 0032",
+          "fait": true
         }
       ],
       "tickets": ["INFRA-8", "INFRA-9"]
@@ -274,8 +274,8 @@
       "categorie": "ops",
       "gravite": "elevee",
       "titre": "Migration cassante en production",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Migrations expand/contract",
@@ -446,8 +446,8 @@
         },
         {
           "texte": "Staging déployé à chaque merge sur develop",
-          "ref": "",
-          "fait": false
+          "ref": "ADR 0032",
+          "fait": true
         },
         {
           "texte": "Revue visuelle humaine des écrans (label revue-visuelle)",

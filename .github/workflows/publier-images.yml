@@ -1,0 +1,64 @@
+name: Publication des images
+
+# Construit les images d'un commit et les pousse sur GHCR, taguées par son SHA.
+# Appelé par la CI sur `develop` (pour le staging) et par la livraison sur
+# `main` (avant la promotion du canal). Un seul endroit, pour que le staging
+# déploie exactement ce que la production déploiera.
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: 'Les images à publier, en tableau JSON (ex. ["api","dashboard"])'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publier:
+    name: Pousse ${{ matrix.image }} sur GHCR
+    runs-on: ubuntu-latest
+    strategy:
+      # Une image en échec ne doit pas empêcher les autres d'être construites :
+      # on veut savoir si le problème est isolé ou général. Rien n'est déployé
+      # tant qu'elles n'y sont pas toutes, donc rien ne se déploie à moitié.
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(inputs.images) }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Se connecter à GHCR
+        run: |
+          printf '%s' '${{ secrets.GITHUB_TOKEN }}' |
+            docker login ghcr.io --username '${{ github.actor }}' --password-stdin
+
+      - name: Construire et pousser
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          # Le proxy de tête est publié ici parce que son code vit ici, mais il
+          # n'est pas déployé par l'agent : il se tire à la main (ADR 0025).
+          case "$IMAGE" in
+            edge) dockerfile=infra/edge/Dockerfile ;;
+            *) dockerfile="packages/${IMAGE}/Dockerfile" ;;
+          esac
+
+          # GHCR n'accepte que des minuscules ; le nom du dépôt GitHub, lui,
+          # garde sa casse d'origine.
+          registry="ghcr.io/${GITHUB_REPOSITORY,,}"
+          ref="${registry}/${IMAGE}:${GITHUB_SHA}"
+
+          # `revision` n'est pas décoratif : c'est ce que deploy.sh lit sur le
+          # canal quand on le lance à la main, sans commit.
+          docker build \
+            --file "$dockerfile" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --tag "$ref" \
+            .
+          docker push "$ref"

@@ -262,7 +262,7 @@
       "phase": "chk",
       "source": "#92",
       "titre": "Déployer le staging sur un commit publié, puis vérifier le jeu de démo, les plafonds et l'isolement de la prod",
-      "pourquoi": "Les critères de #92 qui ne se prouvent que sur la machine : le staging montre exactement le jeu de démo, Docker applique ses plafonds, et la prod n'a pas bougé. Les images d'un commit de develop ne sont publiées qu'avec INFRA-8 : d'ici là, prendre un commit de main.",
+      "pourquoi": "Les critères de #92 qui ne se prouvent que sur la machine : le staging montre exactement le jeu de démo, Docker applique ses plafonds, et la prod n'a pas bougé. Depuis #93, chaque push sur develop publie ses images et déploie le staging : le premier job « Déploie le staging » vert vaut le premier déploiement, et deploy-staging.sh reste lançable à la main.",
       "etapes": [
         "sudo /opt/personal-os/deploy/bin/deploy-staging.sh <commit> --dry-run, relire le plan, puis sans --dry-run.",
         "docker ps : les conteneurs personal-os-* de la prod ont gardé leur durée de fonctionnement.",
@@ -272,6 +272,65 @@
         "Démarrage refusé : poser dans le .env du staging une DATABASE_URL d'hôte db, relancer deploy-staging.sh, constater l'arrêt à la vérification de l'environnement, puis rétablir."
       ],
       "commande": "docker stats --no-stream $(docker ps -q --filter label=com.docker.compose.project=personal-os-staging)",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "cd-cles-deploiement",
+      "phase": "vps",
+      "source": "#93",
+      "titre": "Générer les deux clés de déploiement, poser leurs .pub sur le VPS et relancer install.sh",
+      "pourquoi": "GitHub déclenche chaque déploiement par SSH, avec une clé par environnement forcée sur deploy-trigger (ADR 0032). Sans les .pub, authorized_keys reste vide et aucun job ne peut déployer. Relancer install.sh retire aussi l'ancien minuteur.",
+      "etapes": [
+        "Sur un poste de confiance : ssh-keygen -t ed25519 -N '' -C personal-os-deploy-prod -f prod, puis de même pour staging.",
+        "sudo install -m 644 prod.pub staging.pub /etc/personal-os/deploy-keys/",
+        "sudo /opt/personal-os/src/infra/deploy/bin/install.sh (après un git pull du clone /opt/personal-os/src).",
+        "sudo cat /home/deploy/.ssh/authorized_keys : deux lignes, chacune command=\"…/deploy-trigger <env>\",…,restrict.",
+        "sudo -l -U deploy : seulement deploy-trigger prod et deploy-trigger staging.",
+        "systemctl list-timers --all : plus de personal-os-deploy.timer.",
+        "Garder les clés privées pour l'étape des environnements GitHub, puis les supprimer du poste."
+      ],
+      "commande": "sudo /opt/personal-os/src/infra/deploy/bin/install.sh",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "cd-environnements-github",
+      "phase": "env",
+      "source": "#93",
+      "titre": "Créer les environnements GitHub staging et production, avec leur clé et l'empreinte épinglée du VPS",
+      "pourquoi": "Le job staging de la CI et le job production de la livraison lisent leur clé dans leur environnement. La clé de prod ne doit être lisible que depuis main.",
+      "etapes": [
+        "Settings → Environments → staging : règle de déploiement sur la branche develop, secret STAGING_SSH_KEY (clé privée staging).",
+        "Settings → Environments → production : règle de déploiement sur la seule branche main, secret PROD_SSH_KEY (clé privée prod).",
+        "Dans les deux : variable DEPLOY_HOST (nom ou IP du VPS) et DEPLOY_KNOWN_HOSTS (sortie de ssh-keyscan -t ed25519 <DEPLOY_HOST>).",
+        "Comparer l'empreinte de DEPLOY_KNOWN_HOSTS à sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub sur le VPS.",
+        "Supprimer les clés privées du poste."
+      ],
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "cd-port-ssh-runners",
+      "phase": "chk",
+      "source": "#93",
+      "titre": "Vérifier que les runners GitHub joignent le port SSH du VPS, et que les deux jobs de déploiement passent",
+      "pourquoi": "Le contrôle repose sur la clé et la commande forcée, pas sur le pare-feu (ADR 0032) : le port 22 doit rester ouvert à Internet. Un job de déploiement rouge sur « Connection timed out » vient du réseau, pas du déploiement.",
+      "etapes": [
+        "sudo ufw status : 22/tcp autorisé depuis partout.",
+        "Après le premier merge sur develop : le job « Déploie le staging » de la CI est vert, et son journal montre deploy-staging.sh.",
+        "Depuis un poste avec la clé staging : ssh -i staging deploy@<DEPLOY_HOST> ls est refusé (sortie 2).",
+        "Après la première livraison : le job « Déploie la production » est vert, et /var/log/personal-os/deploy.log porte le commit."
+      ],
+      "commande": "tail -n 50 /var/log/personal-os/deploy-trigger-staging.log",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "cd-temoin-periode",
+      "phase": "doc",
+      "source": "#93",
+      "titre": "Ajuster ou retirer le témoin d'inactivité du déploiement",
+      "pourquoi": "Sans minuteur, deploy.sh ne pingue plus DEPLOY_HEARTBEAT_URL qu'à chaque livraison : un témoin réglé sur quelques minutes passerait en alerte. Le job GitHub signale déjà un déploiement qui n'a pas pu démarrer.",
+      "etapes": [
+        "Si DEPLOY_HEARTBEAT_URL est renseigné : régler la période du témoin sur le rythme des livraisons, ou le vider dans /etc/personal-os/deploy.conf."
+      ],
       "ajouteLe": "2026-11-04"
     }
   ],
