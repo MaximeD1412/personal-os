@@ -14,12 +14,14 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   matAddOutline,
   matDeleteOutline,
+  matInventory2Outline,
   matShoppingCartOutline,
 } from '@ng-icons/material-symbols/outline';
 import {
   designation,
   type Ingredient,
   type ShoppingList,
+  type ShoppingListClosure,
   type ShoppingListItem,
   type ShoppingListItemInput,
   zShoppingListItemInput,
@@ -54,6 +56,17 @@ export const FIL_DES_COURSES: readonly DccmCrumb[] = [
   { label: 'Cuisine' },
   { label: 'Courses', link: '/courses' },
 ];
+
+/** Un article coché d'un Ingrédient : celui que la clôture met au stock. */
+type ArticleDuStock = ShoppingListItem & {
+  ingredient: NonNullable<ShoppingListItem['ingredient']>;
+};
+
+/** Une erreur de la clôture sur un article, et le champ qu'elle vise s'il y en a un. */
+interface ErreurDAchat {
+  message: string;
+  champ: 'quantite' | 'peremption' | null;
+}
 
 /** Le catalogue ne se cherche qu'à partir de deux lettres. */
 const LETTRES_POUR_CHERCHER = 2;
@@ -90,6 +103,11 @@ export function nomDeListe(liste: ShoppingList): string {
  *
  * Si le planning a changé depuis, un bandeau dit ce qui manque aux listes
  * déjà produites pour lui, et propose une liste de complément.
+ * « Clôturer » ouvre le récapitulatif de l'achat, en bas de la liste (ou dès
+ * l'arrivée, par `?cloture=1`) : les articles cochés, chacun avec sa
+ * quantité achetée, en Unité canonique, et sa péremption s'il périt. La
+ * clôture se confirme, puis tout l'achat entre au Stock domestique d'un coup
+ * (ADR 0013). Rien ne part sans la confirmation.
  */
 @Component({
   imports: [
@@ -106,7 +124,9 @@ export function nomDeListe(liste: ShoppingList): string {
     DccmState,
     EcartDuPlanning,
   ],
-  providers: [provideIcons({ matAddOutline, matDeleteOutline })],
+  providers: [
+    provideIcons({ matAddOutline, matDeleteOutline, matInventory2Outline }),
+  ],
   templateUrl: './courses.html',
 })
 export class Courses {
@@ -203,6 +223,164 @@ export class Courses {
   /** Le refus d'un geste sur la liste (cocher, retirer), en bandeau. */
   protected readonly refus = signal<ErreurApi | null>(null);
 
+  protected readonly unites = UNITES_CANONIQUES;
+  /** Le récapitulatif de la clôture, ouvert d'un geste ou par le lien. */
+  protected readonly recapitulatif = signal(
+    inject(ActivatedRoute).snapshot.queryParamMap.get('cloture') === '1',
+  );
+  private readonly coches = computed(() =>
+    (this.liste()?.items ?? []).filter(({ checked }) => checked),
+  );
+  /** Les articles cochés d'un Ingrédient : eux seuls entrent au stock. */
+  protected readonly achats = computed(() =>
+    this.coches().filter(
+      (article): article is ArticleDuStock => article.ingredient !== null,
+    ),
+  );
+  /** Les simples libellés cochés : achetés, mais sans stock. */
+  protected readonly horsStock = computed(() =>
+    this.coches().filter(({ ingredient }) => ingredient === null),
+  );
+  protected readonly nonCoches = computed(
+    () => (this.liste()?.items.length ?? 0) - this.coches().length,
+  );
+  /** Ce que le magasin a précisé, par article ; le reste vient de la liste. */
+  private readonly precisions = signal<
+    Record<string, { quantite?: number | null; peremption?: string | null }>
+  >({});
+  protected readonly cloture = signal(false);
+  protected readonly refusDeCloture = signal<ErreurApi | null>(null);
+  /** Les articles envoyés, dans l'ordre : un refus de schéma les cite par rang. */
+  private readonly envoyes = signal<readonly string[]>([]);
+  /**
+   * Les erreurs de la clôture, par article, et le champ qu'elles visent : une
+   * règle cite l'article par son identifiant, un refus de schéma par son rang.
+   */
+  protected readonly erreursDeCloture = computed(() => {
+    const parArticle: Record<string, ErreurDAchat> = {};
+    const envoyes = this.envoyes();
+    for (const { path, code, message } of this.refusDeCloture()?.fields ?? []) {
+      const [, rang, nom] = /^items\.(\d+)\.(\w+)$/.exec(path) ?? [];
+      const id = rang === undefined ? path : envoyes[Number(rang)];
+      const champ =
+        code === 'expiry_required' || nom === 'expiresOn'
+          ? 'peremption'
+          : code === 'purchased_quantity_required' ||
+              nom === 'purchasedQuantity'
+            ? 'quantite'
+            : null;
+      if (id) parArticle[id] ??= { message, champ };
+    }
+    return parArticle;
+  });
+
+  /** La quantité achetée affichée : la saisie, sinon celle de la liste. */
+  protected quantiteAchetee(article: ArticleDuStock): number | null {
+    const saisie = this.precisions()[article.id]?.quantite;
+    if (saisie !== undefined) return saisie;
+    return article.unit === article.ingredient.canonicalUnit
+      ? article.quantity
+      : null;
+  }
+
+  protected peremption(article: ArticleDuStock): string {
+    return this.precisions()[article.id]?.peremption ?? '';
+  }
+
+  protected saisirLaQuantiteAchetee(article: ArticleDuStock, evenement: Event) {
+    const champ = evenement.target as HTMLInputElement;
+    this.preciser(article.id, {
+      quantite:
+        champ.value === '' || Number.isNaN(champ.valueAsNumber)
+          ? null
+          : champ.valueAsNumber,
+    });
+  }
+
+  protected saisirLaPeremption(article: ArticleDuStock, evenement: Event) {
+    const { value } = evenement.target as HTMLInputElement;
+    this.preciser(article.id, { peremption: value || null });
+  }
+
+  private preciser(
+    articleId: string,
+    precision: { quantite?: number | null; peremption?: string | null },
+  ): void {
+    this.precisions.update((toutes) => ({
+      ...toutes,
+      [articleId]: { ...toutes[articleId], ...precision },
+    }));
+  }
+
+  protected ouvrirLeRecapitulatif(): void {
+    this.refusDeCloture.set(null);
+    this.recapitulatif.set(true);
+  }
+
+  protected fermerLeRecapitulatif(): void {
+    this.recapitulatif.set(false);
+    this.refusDeCloture.set(null);
+  }
+
+  protected async cloturer(): Promise<void> {
+    const liste = this.liste();
+    if (!liste || this.cloture()) return;
+    // Les refus de cochage comptent dès ici : un cochage refusé pendant la
+    // confirmation laisse au serveur un état que le dialogue n'a pas annoncé.
+    const refusAvant = this.cochagesRefuses;
+    const saisie: ShoppingListClosure = {
+      items: this.achats().map((article) => {
+        const quantite = this.quantiteAchetee(article);
+        const peremption = this.peremption(article);
+        return {
+          itemId: article.id,
+          ...(quantite === null ? {} : { purchasedQuantity: quantite }),
+          ...(peremption ? { expiresOn: peremption } : {}),
+        };
+      }),
+    };
+    const achetes = saisie.items.length;
+    const confirme = await this.confirmation.confirm({
+      title: 'Clôturer la liste de courses ?',
+      description:
+        achetes === 0
+          ? 'Aucun article coché : le stock domestique ne change pas. La liste ne se modifie plus.'
+          : `${achetes === 1 ? "L'article coché entre" : `Les ${achetes} articles cochés entrent`} au stock domestique de leur quantité achetée ; les autres ne sont pas achetés. La liste ne se modifie plus.`,
+      confirmLabel: 'Confirmer la clôture',
+    });
+    if (!confirme) return;
+
+    // Le récapitulatif montre l'état voulu des cases : la clôture attend que
+    // le serveur l'ait, et les cases restent figées jusqu'à sa réponse.
+    this.cloture.set(true);
+    this.refusDeCloture.set(null);
+    await this.cochagesAboutis();
+    if (this.cochagesRefuses !== refusAvant) {
+      this.cloture.set(false);
+      return;
+    }
+    this.envoyes.set(saisie.items.map(({ itemId }) => itemId));
+    this.service.cloturer(liste.id, saisie).subscribe({
+      next: (close) => {
+        this.cloture.set(false);
+        this.recapitulatif.set(false);
+        this.precisions.set({});
+        this.changerLaListe(liste.id, () => close);
+        showToast({
+          tone: 'success',
+          message:
+            achetes === 0
+              ? 'La liste est close.'
+              : 'La liste est close : son achat est au stock domestique.',
+        });
+      },
+      error: (erreur: ErreurApi) => {
+        this.cloture.set(false);
+        this.refusDeCloture.set(erreur);
+      },
+    });
+  }
+
   // L'ajout manuel, prérempli par le lien (ADR 0030) : `label`, ou
   // `ingredientId`, et `quantity`. Il n'enregistre rien de lui-même.
   private readonly champ =
@@ -294,6 +472,23 @@ export class Courses {
    */
   private readonly voulus = new Map<string, boolean>();
   private readonly enRoute = new Set<string>();
+  /** La clôture qui attend les cochages en route. */
+  private attenteDesCochages: (() => void) | null = null;
+  /** Les cochages refusés depuis l'ouverture de l'écran. */
+  private cochagesRefuses = 0;
+
+  /** Résolue quand plus aucun cochage n'est en route. */
+  private cochagesAboutis(): Promise<void> {
+    if (this.enRoute.size === 0) return Promise.resolve();
+    return new Promise((resolve) => (this.attenteDesCochages = resolve));
+  }
+
+  private siPlusRienEnRoute(): void {
+    if (this.enRoute.size > 0 || !this.attenteDesCochages) return;
+    const resoudre = this.attenteDesCochages;
+    this.attenteDesCochages = null;
+    resoudre();
+  }
 
   protected uniteDe(ingredient: Ingredient): string {
     return `En ${UNITES_CANONIQUES[ingredient.canonicalUnit]}`;
@@ -366,7 +561,7 @@ export class Courses {
   /** Coche ou décoche à l'instant ; l'envoi suit, et le refus revient en bandeau. */
   protected cocher(article: ShoppingListItem, coche: boolean): void {
     const liste = this.liste();
-    if (!liste) return;
+    if (!liste || this.cloture()) return;
     this.refus.set(null);
     this.remplacer(liste.id, { ...article, checked: coche });
     this.voulus.set(article.id, coche);
@@ -418,12 +613,15 @@ export class Courses {
         }
         this.voulus.delete(articleId);
         this.remplacer(listeId, article);
+        this.siPlusRienEnRoute();
       },
       error: (erreur: ErreurApi) => {
         this.enRoute.delete(articleId);
         this.voulus.delete(articleId);
+        this.cochagesRefuses++;
         this.refus.set(erreur);
         this.lecture().reload();
+        this.siPlusRienEnRoute();
       },
     });
   }
@@ -439,14 +637,25 @@ export class Courses {
     listeId: string,
     changer: (articles: ShoppingListItem[]) => ShoppingListItem[],
   ): void {
-    const changerLaListe = (liste: ShoppingList) =>
-      liste.id === listeId ? { ...liste, items: changer(liste.items) } : liste;
+    this.changerLaListe(listeId, (liste) => ({
+      ...liste,
+      items: changer(liste.items),
+    }));
+  }
+
+  /** Change la liste là où l'écran la lit, si elle y est encore. */
+  private changerLaListe(
+    listeId: string,
+    changer: (liste: ShoppingList) => ShoppingList,
+  ): void {
+    const changerSiCElle = (liste: ShoppingList) =>
+      liste.id === listeId ? changer(liste) : liste;
     if (this.ouvertes.hasValue()) {
-      this.ouvertes.set(this.ouvertes.value().map(changerLaListe));
+      this.ouvertes.set(this.ouvertes.value().map(changerSiCElle));
     }
     if (this.demandee.hasValue()) {
       const liste = this.demandee.value();
-      if (liste) this.demandee.set(changerLaListe(liste));
+      if (liste) this.demandee.set(changerSiCElle(liste));
     }
   }
 }

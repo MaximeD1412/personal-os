@@ -9,6 +9,7 @@ import {
   type Ingredient,
   type MealPlan,
   type MealPlanEntry,
+  type PantryItem,
   type Recipe,
   type ShoppingGap,
   type ShoppingList,
@@ -28,6 +29,7 @@ import {
 import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
 import { AppModule } from '../app.module';
+import { ShoppingListRepository } from './shopping-list.repository';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
 const DASHBOARD_URL = 'http://app.exemple.test/';
@@ -442,6 +444,191 @@ describe('Listes de courses', () => {
       expect(await ecartDe(planning)).toEqual({ missing: [] });
     });
 
+    // Une liste close a monté le stock de son achat : c'est le stock qui le
+    // compte désormais, et la liste ne couvre plus rien.
+    async function cloturerLaPremiere(premiere: ShoppingList, achat: boolean) {
+      if (achat) await cocher(premiere, premiere.items[0]);
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${premiere.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [] })
+        .expect(200);
+    }
+
+    async function complementDe(planning: MealPlan) {
+      return (
+        await request(app.getHttpServer())
+          .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+          .query({ complement: true })
+          .set('Cookie', jeu.a.session)
+          .expect(201)
+      ).body as ShoppingList;
+    }
+
+    function quantites(liste: ShoppingList) {
+      return Object.fromEntries(
+        liste.items.map(({ ingredient, quantity }) => [
+          ingredient?.id,
+          quantity,
+        ]),
+      );
+    }
+
+    it("ne compte qu'une fois l'achat d'une liste close : au stock, plus sur la liste", async () => {
+      const { planning, premiere, pates, parmesan, basilic } =
+        await unPlanningEcarte();
+      await cloturerLaPremiere(premiere, true);
+      expect(await stockDe([pates.id])).toEqual({
+        [pates.id]: { quantity: 200, expiresOn: null },
+      });
+
+      // 400 g de pâtes demandés, 200 g au stock : il en manque toujours 200.
+      expect(quantites(await complementDe(planning))).toEqual({
+        [basilic.id]: 10,
+        [parmesan.id]: 50,
+        [pates.id]: 200,
+      });
+    });
+
+    it("compte encore comme manquant l'article d'une liste close qui n'a pas été acheté", async () => {
+      const { planning, premiere, pates } = await unPlanningEcarte();
+      await cloturerLaPremiere(premiere, false);
+
+      expect(quantites(await complementDe(planning))).toMatchObject({
+        [pates.id]: 400,
+      });
+    });
+
+    it("recalcule le complément d'une liste close entre sa lecture et celle du stock", async () => {
+      const { planning, premiere, pates } = await unPlanningEcarte();
+      await cocher(premiere, premiere.items[0]);
+      const original = ShoppingListRepository.prototype.stockDe;
+      const depot = app.get(ShoppingListRepository);
+      const lecture = jest
+        .spyOn(depot, 'stockDe')
+        .mockImplementationOnce(async (ids) => {
+          await cloturerLaPremiere(premiere, false);
+          return original.call(depot, ids);
+        });
+
+      try {
+        expect(quantites(await complementDe(planning))).toMatchObject({
+          [pates.id]: 200,
+        });
+      } finally {
+        lecture.mockRestore();
+      }
+    });
+
+    /**
+     * Un planning d'un seul Ingrédient : un repas de 200 g de riz, sa liste
+     * produite, puis, si `second`, un autre repas de 200 g ajouté après.
+     */
+    async function unPlanningDeRiz(second: boolean) {
+      const n = semaines;
+      const riz = await ingredient(`Riz ${n} (écart)`, 'GRAM');
+      const plat = await recette(`Riz nature ${n} (écart)`, 2, [
+        { ingredientId: riz.id, quantity: 200, unit: 'G' },
+      ]);
+      const planning = await unPlanning();
+      const repas = await ajouter(planning, 0, { recipeId: plat.id });
+      await arreter(planning);
+      const premiere = await produire(planning);
+      if (second) {
+        await rouvrir(planning);
+        await ajouter(planning, 1, { recipeId: plat.id });
+        await arreter(planning);
+      }
+      return { planning, premiere, riz, repas };
+    }
+
+    async function cuisiner(repas: MealPlanEntry, ingredientId: string) {
+      await request(app.getHttpServer())
+        .post('/api/cooked-meals')
+        .set('Cookie', jeu.a.session)
+        .send({
+          mealPlanEntryId: repas.id,
+          lines: [{ ingredientId, quantity: 200, unit: 'G' }],
+        })
+        .expect(201);
+    }
+
+    /** Fait passer `geste` entre la lecture des listes et celle du stock. */
+    async function pendantLaLectureDuStock<T>(
+      geste: () => Promise<void>,
+      lecture: () => Promise<T>,
+    ): Promise<T> {
+      const original = ShoppingListRepository.prototype.stockDe;
+      const depot = app.get(ShoppingListRepository);
+      const espion = jest
+        .spyOn(depot, 'stockDe')
+        .mockImplementationOnce(async (ids) => {
+          await geste();
+          return original.call(depot, ids);
+        });
+      try {
+        return await lecture();
+      } finally {
+        espion.mockRestore();
+      }
+    }
+
+    it("recalcule le complément d'un seul Ingrédient quand une clôture tombe entre la lecture des listes et celle du stock", async () => {
+      const { planning, premiere, riz } = await unPlanningDeRiz(true);
+      await cocher(premiere, premiere.items[0]);
+
+      const complement = await pendantLaLectureDuStock(
+        () => cloturerLaPremiere(premiere, false),
+        () => complementDe(planning),
+      );
+      expect(quantites(complement)).toEqual({ [riz.id]: 200 });
+    });
+
+    it("recalcule l'écart quand une clôture tombe entre la lecture des listes et celle du stock", async () => {
+      const { planning, premiere, riz } = await unPlanningDeRiz(true);
+      await cocher(premiere, premiere.items[0]);
+
+      const lu = await pendantLaLectureDuStock(
+        () => cloturerLaPremiere(premiere, false),
+        () => ecartDe(planning),
+      );
+      expect(lu.missing).toEqual([
+        {
+          ingredient: { id: riz.id, displayName: riz.displayName },
+          quantity: 200,
+          unit: 'GRAM',
+        },
+      ]);
+    });
+
+    it('ne remet pas en courses un repas déjà cuisiné', async () => {
+      const { planning, premiere, riz, repas } = await unPlanningDeRiz(false);
+      await cloturerLaPremiere(premiere, true);
+      await cuisiner(repas, riz.id);
+      expect(await stockDe([riz.id])).toEqual({
+        [riz.id]: { quantity: 0, expiresOn: null },
+      });
+
+      expect(await ecartDe(planning)).toEqual({ missing: [] });
+      await request(app.getHttpServer())
+        .post(`/api/meal-plans/${planning.id}/shopping-lists`)
+        .query({ complement: true })
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('food.no_shopping_gap'));
+    });
+
+    it("recalcule l'écart quand un repas est cuisiné entre la lecture du planning et celle du stock", async () => {
+      const { planning, premiere, riz, repas } = await unPlanningDeRiz(false);
+      await cloturerLaPremiere(premiere, true);
+
+      const lu = await pendantLaLectureDuStock(
+        () => cuisiner(repas, riz.id),
+        () => ecartDe(planning),
+      );
+      expect(lu).toEqual({ missing: [] });
+    });
+
     it('refuse en 422 un complément quand rien ne manque, et ne crée aucune liste', async () => {
       const planning = await unPlanning();
       await ajouter(planning, 0, { title: 'Soupe' });
@@ -804,6 +991,322 @@ describe('Listes de courses', () => {
     });
   });
 
+  describe('POST /shopping-lists/:id/close', () => {
+    it('monte au stock les quantités achetées des articles cochés, puis clôt la liste, conforme au contrat', async () => {
+      const liste = await uneListe();
+      const [oignons, tomates] = liste.items;
+      const riz = await ingredient(`Riz ${semaines} (courses)`, 'GRAM');
+      const ajoutDeRiz = await ajout(liste, {
+        ingredientId: riz.id,
+        quantity: 1000,
+      });
+      const sacs = await ajout(liste, { label: 'Sacs', quantity: 2 });
+      await stocker(idDe(tomates), 100);
+      for (const article of [tomates, ajoutDeRiz, sacs]) {
+        await cocher(liste, article);
+      }
+
+      const reponse = await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.b.session)
+        .send({ items: [{ itemId: tomates.id, purchasedQuantity: 500 }] })
+        .expect(200)
+        .expect(conformeA(UNE_LISTE));
+
+      expect(reponse.body).toMatchObject({
+        id: liste.id,
+        status: 'CLOSED',
+        closedAt: expect.any(String),
+      });
+      expect(await lire(liste.id)).toMatchObject({ status: 'CLOSED' });
+      // Les tomates montent de ce qu'on a acheté, pas des 400 g de la liste ;
+      // le riz de sa quantité de liste ; les oignons non cochés n'entrent pas.
+      expect(await stockDe([idDe(oignons), idDe(tomates), riz.id])).toEqual({
+        [idDe(tomates)]: { quantity: 600, expiresOn: null },
+        [riz.id]: { quantity: 1000, expiresOn: null },
+      });
+    });
+
+    it('pose la péremption donnée à un périssable, et garde la plus proche au rachat', async () => {
+      const liste = await uneListe();
+      const yaourts = await ingredient(
+        `Yaourts ${semaines} (courses)`,
+        'PIECE',
+        true,
+      );
+      const article = await ajout(liste, {
+        ingredientId: yaourts.id,
+        quantity: 4,
+      });
+      await cocher(liste, article);
+      await request(app.getHttpServer())
+        .put(`/api/pantry-items/${yaourts.id}`)
+        .set('Cookie', jeu.a.session)
+        .send({ quantity: 2, expiresOn: '2031-03-20' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [{ itemId: article.id, expiresOn: '2031-03-12' }] })
+        .expect(200);
+
+      expect(await stockDe([yaourts.id])).toEqual({
+        [yaourts.id]: { quantity: 6, expiresOn: '2031-03-12' },
+      });
+    });
+
+    it('additionne deux articles du même Ingrédient sur sa seule ligne de stock', async () => {
+      const liste = await uneListe();
+      const [, tomates] = liste.items;
+      const encore = await ajout(liste, {
+        ingredientId: idDe(tomates),
+        quantity: 250,
+      });
+      await cocher(liste, tomates);
+      await cocher(liste, encore);
+
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [] })
+        .expect(200);
+
+      expect(await stockDe([idDe(tomates)])).toEqual({
+        [idDe(tomates)]: { quantity: 650, expiresOn: null },
+      });
+    });
+
+    it('refuse en 422 un périssable coché sans péremption, nomme les articles en cause, et ne touche à rien', async () => {
+      const liste = await uneListe();
+      const [, tomates] = liste.items;
+      const yaourts = await ingredient(
+        `Yaourts ${semaines} bis (courses)`,
+        'PIECE',
+        true,
+      );
+      const article = await ajout(liste, {
+        ingredientId: yaourts.id,
+        quantity: 4,
+      });
+      // Un périssable non coché n'est pas acheté : il ne demande rien.
+      await ajout(liste, { ingredientId: yaourts.id, quantity: 1 });
+      await cocher(liste, tomates);
+      await cocher(liste, article);
+
+      const reponse = await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [{ itemId: article.id, purchasedQuantity: 6 }] })
+        .expect(422)
+        .expect(codeDErreur('food.expiry_required'));
+
+      expect(reponse.body.fields).toEqual([
+        {
+          path: article.id,
+          code: 'expiry_required',
+          message: expect.stringContaining(yaourts.displayName),
+        },
+      ]);
+      expect(await lire(liste.id)).toMatchObject({
+        status: 'OPEN',
+        closedAt: null,
+      });
+      expect(await stockDe([idDe(tomates), yaourts.id])).toEqual({});
+    });
+
+    it("refuse en 422 un article coché sans quantité de liste, si l'on n'en donne pas d'achetée", async () => {
+      const liste = await uneListe();
+      const sel = await ingredient(`Sel ${semaines} (courses)`, 'GRAM');
+      const article = await ajout(liste, { ingredientId: sel.id });
+      await cocher(liste, article);
+
+      const reponse = await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [] })
+        .expect(422)
+        .expect(codeDErreur('food.purchased_quantity_required'));
+      expect(reponse.body.fields).toEqual([
+        expect.objectContaining({ path: article.id }),
+      ]);
+
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [{ itemId: article.id, purchasedQuantity: 500 }] })
+        .expect(200);
+      expect(await stockDe([sel.id])).toEqual({
+        [sel.id]: { quantity: 500, expiresOn: null },
+      });
+    });
+
+    it('refuse en 422 une liste déjà close, sans monter le stock une seconde fois', async () => {
+      const liste = await uneListe();
+      const [, tomates] = liste.items;
+      await cocher(liste, tomates);
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [] })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.b.session)
+        .send({ items: [] })
+        .expect(422)
+        .expect(codeDErreur('food.list_closed'));
+      expect(await stockDe([idDe(tomates)])).toEqual({
+        [idDe(tomates)]: { quantity: 400, expiresOn: null },
+      });
+    });
+
+    it('ne monte le stock qu’une fois pour deux clôtures simultanées', async () => {
+      const liste = await uneListe();
+      const [, tomates] = liste.items;
+      await cocher(liste, tomates);
+
+      const statuts = await Promise.all(
+        [jeu.a.session, jeu.b.session].map(
+          async (session) =>
+            (
+              await request(app.getHttpServer())
+                .post(`/api/shopping-lists/${liste.id}/close`)
+                .set('Cookie', session)
+                .send({ items: [] })
+            ).status,
+        ),
+      );
+
+      expect(statuts.sort()).toEqual([200, 422]);
+      expect(await stockDe([idDe(tomates)])).toEqual({
+        [idDe(tomates)]: { quantity: 400, expiresOn: null },
+      });
+    });
+
+    // Une autre session ajoute et coche un article entre la lecture de la liste
+    // et sa clôture : la clôture recommence sur la liste relue.
+    async function cloturerApresUnAjout(
+      liste: ShoppingList,
+      saisie: Record<string, unknown>,
+    ) {
+      const original = ShoppingListRepository.prototype.lignesDeStock;
+      const depot = app.get(ShoppingListRepository);
+      const lecture = jest
+        .spyOn(depot, 'lignesDeStock')
+        .mockImplementationOnce(async (ids) => {
+          await cocher(liste, await ajout(liste, saisie));
+          return original.call(depot, ids);
+        });
+      try {
+        return await request(app.getHttpServer())
+          .post(`/api/shopping-lists/${liste.id}/close`)
+          .set('Cookie', jeu.a.session)
+          .send({ items: [] });
+      } finally {
+        lecture.mockRestore();
+      }
+    }
+
+    it('monte au stock un article ajouté et coché pendant la clôture', async () => {
+      const liste = await uneListe();
+      const [, tomates] = liste.items;
+      await cocher(liste, tomates);
+      const riz = await ingredient(`Riz ${semaines} tard (courses)`, 'GRAM');
+
+      const reponse = await cloturerApresUnAjout(liste, {
+        ingredientId: riz.id,
+        quantity: 300,
+      });
+
+      expect(reponse.status).toBe(200);
+      expect(reponse.body.items).toHaveLength(liste.items.length + 1);
+      expect(await stockDe([idDe(tomates), riz.id])).toEqual({
+        [idDe(tomates)]: { quantity: 400, expiresOn: null },
+        [riz.id]: { quantity: 300, expiresOn: null },
+      });
+    });
+
+    it('refuse en 422 un périssable ajouté et coché pendant la clôture, sans sa péremption', async () => {
+      const liste = await uneListe();
+      const [, tomates] = liste.items;
+      await cocher(liste, tomates);
+      const creme = await ingredient(
+        `Crème ${semaines} tard (courses)`,
+        'MILLILITER',
+        true,
+      );
+
+      const reponse = await cloturerApresUnAjout(liste, {
+        ingredientId: creme.id,
+        quantity: 200,
+      });
+
+      expect(reponse.status).toBe(422);
+      expect(reponse.body.code).toBe('food.expiry_required');
+      expect(await lire(liste.id)).toMatchObject({ status: 'OPEN' });
+      expect(await stockDe([idDe(tomates), creme.id])).toEqual({});
+    });
+
+    it('rend une liste close aux autres gestes : on ne coche plus', async () => {
+      const liste = await uneListe();
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [] })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(
+          `/api/shopping-lists/${liste.id}/items/${liste.items[0].id}/check`,
+        )
+        .set('Cookie', jeu.a.session)
+        .expect(422)
+        .expect(codeDErreur('food.list_already_closed'));
+    });
+
+    it('refuse en 400 une quantité achetée nulle, sur `items.0.purchasedQuantity`', async () => {
+      const liste = await uneListe();
+
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [{ itemId: liste.items[0].id, purchasedQuantity: 0 }] })
+        .expect(400)
+        .expect(champsEnErreur(['items.0.purchasedQuantity']));
+    });
+
+    it("refuse en 404 un article qui n'est pas de la liste", async () => {
+      const liste = await uneListe();
+
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${liste.id}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [{ itemId: INCONNU }] })
+        .expect(404)
+        .expect(codeDErreur('food.item_not_found'));
+      expect(await lire(liste.id)).toMatchObject({ status: 'OPEN' });
+    });
+
+    it('refuse en 404 une liste inconnue', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${INCONNU}/close`)
+        .set('Cookie', jeu.a.session)
+        .send({ items: [] })
+        .expect(404)
+        .expect(codeDErreur('food.list_not_found'));
+    });
+
+    it('refuse en 401 une clôture sans session', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/shopping-lists/${INCONNU}/close`)
+        .send({ items: [] })
+        .expect(401)
+        .expect(codeDErreur('auth.required'));
+    });
+  });
+
   /** Une semaine de 2031 que ce fichier n'a pas encore prise. */
   async function unPlanning(): Promise<MealPlan> {
     const lundi = new Date(Date.UTC(2031, 0, 6 + 7 * semaines++));
@@ -953,6 +1456,38 @@ describe('Listes de courses', () => {
     );
   }
 
+  function idDe(article: ShoppingListItem): string {
+    return article.ingredient?.id ?? '';
+  }
+
+  async function cocher(
+    liste: ShoppingList,
+    article: ShoppingListItem,
+  ): Promise<void> {
+    await request(app.getHttpServer())
+      .post(`/api/shopping-lists/${liste.id}/items/${article.id}/check`)
+      .set('Cookie', jeu.a.session)
+      .expect(200);
+  }
+
+  /** Les lignes de stock de ces Ingrédients, par Ingrédient. */
+  async function stockDe(
+    ids: string[],
+  ): Promise<Record<string, { quantity: number; expiresOn: string | null }>> {
+    const reponse = await request(app.getHttpServer())
+      .get('/api/pantry-items')
+      .set('Cookie', jeu.a.session)
+      .expect(200);
+    return Object.fromEntries(
+      (reponse.body as PantryItem[])
+        .filter(({ ingredient }) => ids.includes(ingredient.id))
+        .map(({ ingredient, quantity, expiresOn }) => [
+          ingredient.id,
+          { quantity, expiresOn },
+        ]),
+    );
+  }
+
   async function stocker(
     ingredientId: string,
     quantity: number,
@@ -980,11 +1515,12 @@ describe('Listes de courses', () => {
   async function ingredient(
     displayName: string,
     canonicalUnit: string,
+    perishable = false,
   ): Promise<Ingredient> {
     const reponse = await request(app.getHttpServer())
       .post('/api/ingredients')
       .set('Cookie', jeu.a.session)
-      .send({ displayName, canonicalUnit })
+      .send({ displayName, canonicalUnit, perishable })
       .expect(201);
     return reponse.body as Ingredient;
   }

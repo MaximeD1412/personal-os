@@ -1,6 +1,6 @@
 import * as z from 'zod';
 import { zCanonicalUnit } from './ingredient';
-import { zInstant, zWeek } from './valeurs';
+import { zDay, zInstant, zWeek } from './valeurs';
 
 /** Une Liste de courses est ouverte au magasin, puis close (CUISINE-10). */
 export const STATUTS_DE_LISTE = ['OPEN', 'CLOSED'] as const;
@@ -23,11 +23,18 @@ export type ShoppingListItemOrigin = z.infer<typeof zShoppingListItemOrigin>;
  * Ingrédient ou un simple libellé (« liquide vaisselle »), avec ou sans
  * quantité. `unit` est l'Unité canonique de l'Ingrédient au moment de l'ajout :
  * vide sans Ingrédient ou sans quantité, une quantité de libellé se compte.
+ * L'Ingrédient porte son Unité canonique et son caractère périssable
+ * d'aujourd'hui : ce que la clôture demande (CUISINE-10).
  */
 export const zShoppingListItem = /* @__PURE__ */ z.object({
   id: /* @__PURE__ */ z.string(),
   ingredient: /* @__PURE__ */ z
-    .object({ id: z.string(), displayName: z.string() })
+    .object({
+      id: z.string(),
+      displayName: z.string(),
+      canonicalUnit: zCanonicalUnit,
+      perishable: z.boolean(),
+    })
     .nullable(),
   label: /* @__PURE__ */ z.string().nullable(),
   quantity: /* @__PURE__ */ z.number().nullable(),
@@ -146,6 +153,40 @@ export const zShoppingListItemInput = /* @__PURE__ */ z
   );
 
 export type ShoppingListItemInput = z.infer<typeof zShoppingListItemInput>;
+
+/**
+ * La clôture d'une liste (`POST /shopping-lists/:id/close`) : ce que le
+ * magasin a changé aux articles cochés. Un article coché absent d'ici est
+ * acheté dans la quantité de la liste. `purchasedQuantity` est en Unité
+ * canonique ; `expiresOn` est exigé, par une règle métier, pour un Ingrédient
+ * périssable. Un article non coché n'est pas acheté, quoi qu'on en dise ici.
+ */
+export const zShoppingListClosure = /* @__PURE__ */ z.object({
+  items: /* @__PURE__ */ z
+    .array(
+      z.object({
+        itemId: z.string().trim().min(1),
+        purchasedQuantity: zQuantity.optional(),
+        expiresOn: zDay.optional(),
+      }),
+    )
+    .max(1000, { error: 'Une clôture cite au plus mille articles.' })
+    .superRefine((articles, contexte) => {
+      const vus = new Set<string>();
+      articles.forEach(({ itemId }, rang) => {
+        if (vus.has(itemId)) {
+          contexte.addIssue({
+            code: 'custom',
+            path: [rang, 'itemId'],
+            message: 'Cet article est déjà cité dans la clôture.',
+          });
+        }
+        vus.add(itemId);
+      });
+    }),
+});
+
+export type ShoppingListClosure = z.infer<typeof zShoppingListClosure>;
 
 /** Ce qu'on achète d'un article : un Ingrédient du catalogue, ou un simple libellé. */
 export function designation(article: {
