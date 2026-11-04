@@ -57,12 +57,19 @@ export const OMELETTE: Recipe = {
   lines: [DAHL.lines[1]],
 };
 
-/** Les écrans de recettes, avec leurs vraies routes. */
+/**
+ * Les écrans de recettes, avec leurs vraies routes, et ceux du catalogue
+ * d'Ingrédients : la saisie d'une recette y crée un Ingrédient, puis revient.
+ */
 export async function ouvrirLesRecettes(url: string) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter(
-        appRoutes.filter(({ path }) => path?.startsWith('repas/recettes')),
+        appRoutes.filter(
+          ({ path }) =>
+            path?.startsWith('repas/recettes') ||
+            path?.startsWith('repas/ingredients'),
+        ),
       ),
       provideHttpClient(withInterceptors(INTERCEPTEURS)),
       provideHttpClientTesting(),

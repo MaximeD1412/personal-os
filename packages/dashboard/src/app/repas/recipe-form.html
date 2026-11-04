@@ -1,0 +1,316 @@
+<dccm-state
+  [status]="etatDeLaLecture()"
+  [error]="actuelle.error()"
+  skeleton="detail"
+  (retry)="actuelle.reload()"
+>
+  <dccm-form-page
+    [heading]="entete"
+    subtitle="Chaque ingrédient se saisit en trois champs : la quantité, l'unité et le libellé. Un libellé que le catalogue ne connaît pas se rattache avant l'enregistrement."
+    [breadcrumb]="fil()"
+    [submitLabel]="action"
+    [ignored]="prefill.ignores"
+    [error]="refus()"
+    [pending]="envoi()"
+    [submitDisabled]="inconnus() > 0"
+    (submitted)="enregistrer()"
+    (cancelled)="fermer()"
+  >
+    <div class="grid gap-gutter md:grid-cols-[minmax(0,1fr)_auto]">
+      <div hlmField>
+        <label hlmFieldLabel for="recette-titre">Titre</label>
+        <input
+          hlmInput
+          id="recette-titre"
+          data-test="titre"
+          autocomplete="off"
+          maxlength="160"
+          [value]="titre()"
+          [forceInvalid]="!!erreurs()['title']"
+          (input)="saisirLeTitre($event)"
+        />
+        @if (erreurs()['title']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        }
+      </div>
+
+      <div hlmField>
+        <span hlmFieldLabel id="recette-portions">Portions de référence</span>
+        <div>
+          <dccm-stepper
+            size="md"
+            data-test="portions"
+            aria-label="Portions de référence"
+            [min]="1"
+            [max]="100"
+            [(value)]="portions"
+          />
+        </div>
+        @if (erreurs()['servings']; as message) {
+        <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+        }
+      </div>
+    </div>
+
+    <fieldset class="flex flex-col gap-space-sm" data-test="lignes">
+      <legend
+        class="mb-space-sm text-label-regular font-semibold text-on-surface"
+      >
+        Ingrédients
+      </legend>
+
+      <div
+        class="hidden gap-space-sm text-label-micro uppercase text-on-surface-variant md:grid md:grid-cols-[7rem_13rem_minmax(0,1fr)_2.5rem]"
+        aria-hidden="true"
+      >
+        <span>Quantité</span>
+        <span>Unité</span>
+        <span>Libellé</span>
+      </div>
+
+      <ul class="flex flex-col gap-space-md">
+        @for (ligne of lignes(); track ligne.cle; let rang = $index) {
+        <li class="flex flex-col gap-space-sm" data-test="ligne">
+          <div
+            class="grid grid-cols-[6rem_minmax(0,1fr)_2.5rem] items-start gap-space-sm md:grid-cols-[7rem_13rem_minmax(0,1fr)_2.5rem]"
+          >
+            <input
+              hlmInput
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="any"
+              class="tabular-nums"
+              data-test="quantite"
+              placeholder="Qté"
+              [attr.aria-label]="'Quantité, ingrédient ' + (rang + 1)"
+              [value]="ligne.quantite ?? ''"
+              [forceInvalid]="!!erreurDeLigne(ligne.cle, 'quantity')"
+              (input)="saisirLaQuantite(ligne.cle, $event)"
+            />
+            <hlm-select
+              [attr.data-test]="'unite-' + rang"
+              [value]="ligne.unite"
+              [itemToString]="libelleDeLUnite"
+              (valueChange)="choisirLUnite(ligne.cle, $event)"
+            >
+              <hlm-select-trigger
+                [buttonId]="'recette-unite-' + ligne.cle"
+                [attr.aria-label]="'Unité, ingrédient ' + (rang + 1)"
+              >
+                <hlm-select-value placeholder="Unité" />
+              </hlm-select-trigger>
+              <hlm-select-content *hlmSelectPortal>
+                @for (unite of unites; track unite) {
+                <hlm-select-item [value]="unite"
+                  >{{ libelleDeLUnite(unite) }}</hlm-select-item
+                >
+                }
+              </hlm-select-content>
+            </hlm-select>
+            <input
+              hlmInput
+              class="order-last col-span-3 md:order-none md:col-span-1"
+              data-test="libelle"
+              autocomplete="off"
+              placeholder="Libellé : lentilles corail, oignon…"
+              [attr.aria-label]="'Libellé, ingrédient ' + (rang + 1)"
+              [value]="ligne.libelle"
+              [forceInvalid]="!!erreurDeLigne(ligne.cle, 'ingredientId')"
+              (input)="saisirLeLibelle(ligne.cle, $event)"
+            />
+            <button
+              hlmBtn
+              type="button"
+              variant="ghost"
+              size="icon"
+              data-test="retirer-ligne"
+              [attr.aria-label]="'Retirer l\'ingrédient ' + (rang + 1)"
+              [disabled]="lignes().length === 1"
+              (click)="retirerLaLigne(ligne.cle)"
+            >
+              <ng-icon name="matDeleteOutline" aria-hidden="true" />
+            </button>
+          </div>
+
+          @if (ingredientReconnu(ligne); as nom) {
+          <div>
+            <span hlmBadge tone="success" data-test="reconnu">
+              <ng-icon name="matCheckCircleOutline" aria-hidden="true" />
+              {{ nom }}
+            </span>
+          </div>
+          } @if (suggestionsDe(ligne); as suggestions) {
+          <div hlmAlert tone="warning" data-test="inconnu">
+            <hlm-alert-icon />
+            <div hlmAlertContent>
+              <p hlmAlertTitle>
+                «&nbsp;{{ ligne.libelle.trim() }}&nbsp;» n'est pas au catalogue
+              </p>
+              <p hlmAlertDescription>
+                @if (suggestions.length) { Rattachez-le à un Ingrédient
+                existant, et il sera reconnu la prochaine fois. Ou créez
+                l'Ingrédient. } @else { Aucun Ingrédient proche : créez-le. }
+              </p>
+              @if (ligne.refus; as message) {
+              <hlm-field-error forceShow data-test="refus-rattachement"
+                >{{ message }}</hlm-field-error
+              >
+              }
+            </div>
+            <div hlmAlertAction>
+              @for (suggestion of suggestions; track suggestion) {
+              <button
+                hlmBtn
+                type="button"
+                variant="secondary"
+                size="sm"
+                data-test="suggestion"
+                [attr.data-ingredient]="suggestion"
+                [disabled]="rattachementEnCours() !== null"
+                [loading]="rattachementEnCours() === ligne.cle"
+                (click)="rattacher(ligne, suggestion)"
+              >
+                {{ nomDe(suggestion) ?? '…' }}
+              </button>
+              }
+              <button
+                hlmBtn
+                hlmAlertPrimaryAction
+                type="button"
+                size="sm"
+                data-test="creer-ingredient"
+                [disabled]="rattachementEnCours() !== null"
+                (click)="creerLIngredient(ligne)"
+              >
+                <ng-icon name="matAddOutline" aria-hidden="true" />
+                Créer l'ingrédient
+              </button>
+            </div>
+          </div>
+          } @if (erreurDeLaLigne(ligne.cle); as message) {
+          <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+          }
+        </li>
+        }
+      </ul>
+
+      @if (erreurs()['lines']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+      <div>
+        <button
+          hlmBtn
+          type="button"
+          variant="ghost"
+          size="sm"
+          data-test="ajouter-ligne"
+          (click)="ajouterUneLigne()"
+        >
+          <ng-icon name="matAddOutline" aria-hidden="true" />
+          Ajouter un ingrédient
+        </button>
+      </div>
+    </fieldset>
+
+    <fieldset class="flex flex-col gap-space-sm" data-test="etapes">
+      <legend
+        class="mb-space-sm text-label-regular font-semibold text-on-surface"
+      >
+        Étapes
+      </legend>
+      <ol class="flex flex-col gap-space-md">
+        @for (etape of etapes(); track etape.cle; let rang = $index, premiere =
+        $first, derniere = $last) {
+        <li class="flex items-start gap-space-sm">
+          <span
+            class="mt-2 grid size-6 shrink-0 place-items-center rounded-full bg-primary text-label-micro font-semibold text-on-primary tabular-nums"
+            aria-hidden="true"
+            >{{ rang + 1 }}</span
+          >
+          <div class="flex min-w-0 flex-1 flex-col gap-space-xs">
+            <textarea
+              hlmInput
+              rows="2"
+              class="h-auto min-h-16 py-2"
+              data-test="etape"
+              maxlength="2000"
+              [attr.aria-label]="'Étape ' + (rang + 1)"
+              [value]="etape.texte"
+              [forceInvalid]="!!erreurDEtape(etape.cle)"
+              (input)="saisirLEtape(etape.cle, $event)"
+            ></textarea>
+            @if (erreurDEtape(etape.cle); as message) {
+            <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+            }
+          </div>
+          <div class="flex shrink-0 flex-col md:flex-row">
+            <button
+              hlmBtn
+              type="button"
+              variant="ghost"
+              size="icon"
+              data-test="monter"
+              [attr.aria-label]="'Monter l\'étape ' + (rang + 1)"
+              [disabled]="premiere"
+              (click)="deplacerLEtape(rang, -1)"
+            >
+              <ng-icon name="matArrowUpwardOutline" aria-hidden="true" />
+            </button>
+            <button
+              hlmBtn
+              type="button"
+              variant="ghost"
+              size="icon"
+              data-test="descendre"
+              [attr.aria-label]="'Descendre l\'étape ' + (rang + 1)"
+              [disabled]="derniere"
+              (click)="deplacerLEtape(rang, 1)"
+            >
+              <ng-icon name="matArrowDownwardOutline" aria-hidden="true" />
+            </button>
+            <button
+              hlmBtn
+              type="button"
+              variant="ghost"
+              size="icon"
+              data-test="retirer-etape"
+              [attr.aria-label]="'Retirer l\'étape ' + (rang + 1)"
+              (click)="retirerLEtape(etape.cle)"
+            >
+              <ng-icon name="matDeleteOutline" aria-hidden="true" />
+            </button>
+          </div>
+        </li>
+        }
+      </ol>
+      @if (erreurs()['steps']; as message) {
+      <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+      }
+      <div>
+        <button
+          hlmBtn
+          type="button"
+          variant="ghost"
+          size="sm"
+          data-test="ajouter-etape"
+          (click)="ajouterUneEtape()"
+        >
+          <ng-icon name="matAddOutline" aria-hidden="true" />
+          Ajouter une étape
+        </button>
+      </div>
+    </fieldset>
+
+    @if (inconnus() > 0) {
+    <p
+      dccmFormPageStatus
+      class="text-body-dense text-on-surface-variant"
+      data-test="a-rattacher"
+      aria-live="polite"
+    >
+      Rattachez chaque libellé inconnu pour enregistrer.
+    </p>
+    }
+  </dccm-form-page>
+</dccm-state>

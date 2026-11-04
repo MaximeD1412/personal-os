@@ -4,10 +4,12 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  matAddOutline,
   matMenuBookOutline,
   matSearchOutline,
 } from '@ng-icons/material-symbols/outline';
 import type { Recipe } from '@personal-os/contracts';
+import { HlmButton } from '@personal-os/ui/button';
 import { HlmCard } from '@personal-os/ui/card';
 import {
   DccmListRow,
@@ -29,20 +31,20 @@ export const FIL_DES_RECETTES: readonly DccmCrumb[] = [
 /**
  * Les Recettes du Foyer : toutes, ou celles dont le titre contient chaque mot
  * de la recherche. La recherche vit dans l'URL (`?q=`) : un lien la rouvre
- * telle quelle. La saisie d'une recette vient avec son formulaire
- * (CUISINE-6) : d'ici à là, la liste ne propose pas d'en créer.
+ * telle quelle. « Nouvelle recette » ouvre la saisie.
  */
 @Component({
   imports: [
     RouterLink,
     NgIcon,
+    HlmButton,
     HlmCard,
     HlmInputImports,
     DccmListRow,
     DccmPageHeader,
     DccmState,
   ],
-  providers: [provideIcons({ matSearchOutline })],
+  providers: [provideIcons({ matAddOutline, matSearchOutline })],
   templateUrl: './recipes.html',
 })
 export class Recettes {

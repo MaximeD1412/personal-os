@@ -115,6 +115,25 @@ describe('Le formulaire d’un Ingrédient', () => {
       http.expectOne(`${BASE}/ingredients/ingredient-9`);
     });
 
+    it('ne suit un retour que vers la saisie d’une recette', async () => {
+      const { harness, http, el, router } = await ouvrirLeCatalogue(
+        `${POIREAU}&retour=${encodeURIComponent('https://exemple.test/')}`,
+      );
+      await harness.fixture.whenStable();
+
+      (el().querySelector('form') as HTMLFormElement).requestSubmit();
+      TestBed.tick();
+      const ouverte = arrivee(router);
+      http
+        .expectOne(`${BASE}/ingredients`)
+        .flush({ ...OIGNON, id: 'ingredient-9', displayName: 'Poireau' });
+      await ouverte;
+
+      expect(router.url).toBe('/repas/ingredients/ingredient-9');
+      TestBed.tick();
+      http.expectOne(`${BASE}/ingredients/ingredient-9`);
+    });
+
     it('affiche le refus de l’API : en bandeau un doublon, sous le champ une erreur de forme', async () => {
       const { harness, http, el } = await ouvrirLeCatalogue(POIREAU);
       await harness.fixture.whenStable();

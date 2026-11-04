@@ -30,6 +30,12 @@ import type { ErreurApi } from '../erreur-api.interceptor';
 import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { IngredientService } from './ingredient.service';
 import { FIL_DES_INGREDIENTS } from './ingredients';
+import { PARAMETRE_D_INGREDIENT } from './recipe-form';
+
+/** Un retour n'est suivi que vers la saisie d'une recette : jamais hors de l'application. */
+function retourAdmis(retour: string | null): string | null {
+  return retour?.startsWith('/repas/recettes/') ? retour : null;
+}
 
 /**
  * La saisie d'un Ingrédient : `/repas/ingredients/nouveau` pour une création,
@@ -59,6 +65,11 @@ export class FormulaireDIngredient {
 
   /** L'Ingrédient modifié ; vide pour une création. */
   protected readonly id = this.route.paramMap.get('id');
+  /**
+   * L'écran qui a demandé la création (`?retour=`), où revenir avec
+   * l'Ingrédient créé : seule la saisie d'une recette le demande.
+   */
+  private readonly retour = retourAdmis(this.route.queryParamMap.get('retour'));
   protected readonly actuel = this.ingredients.ingredient(() => this.id);
   /** L'Ingrédient lu ; rien quand la lecture a échoué (lire `value()` lèverait). */
   private readonly ingredient = computed(() =>
@@ -186,7 +197,16 @@ export class FormulaireDIngredient {
             ? `«\u00a0${ingredient.displayName}\u00a0» est enregistré.`
             : `«\u00a0${ingredient.displayName}\u00a0» est ajouté au catalogue.`,
         });
-        void this.router.navigate(['/repas/ingredients', ingredient.id]);
+        if (this.retour && !this.id) {
+          const retour = this.router.parseUrl(this.retour);
+          retour.queryParams = {
+            ...retour.queryParams,
+            [PARAMETRE_D_INGREDIENT]: ingredient.id,
+          };
+          void this.router.navigateByUrl(retour);
+        } else {
+          void this.router.navigate(['/repas/ingredients', ingredient.id]);
+        }
       },
       error: (erreur: ErreurApi) => {
         this.envoi.set(false);
@@ -196,6 +216,10 @@ export class FormulaireDIngredient {
   }
 
   protected fermer(): void {
+    if (this.retour && !this.id) {
+      void this.router.navigateByUrl(this.retour);
+      return;
+    }
     void this.router.navigate(
       this.id ? ['/repas/ingredients', this.id] : ['/repas/ingredients'],
     );

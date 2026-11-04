@@ -11,6 +11,7 @@ import { Ingredients } from './repas/ingredients';
 import { FormulaireDeRepas } from './repas/meal-plan-entry-form';
 import { PlanningDeRepas } from './repas/planning';
 import { FicheDeRecette } from './repas/recipe-detail';
+import { FormulaireDeRecette } from './repas/recipe-form';
 import { Recettes } from './repas/recipes';
 
 export const appRoutes: Route[] = [
@@ -43,6 +44,8 @@ export const appRoutes: Route[] = [
   { path: 'repas/ingredients/:id', component: FicheDIngredient },
   { path: 'repas/ingredients/:id/modifier', component: FormulaireDIngredient },
   { path: 'repas/recettes', component: Recettes },
+  { path: 'repas/recettes/nouvelle', component: FormulaireDeRecette },
+  { path: 'repas/recettes/:id/modifier', component: FormulaireDeRecette },
   // Le Planning de repas d'une semaine (`?semaine=`, son lundi), et l'ajout
   // d'un repas, prérempli par sa requête (ADR 0030).
   { path: 'repas/planning', component: PlanningDeRepas },
