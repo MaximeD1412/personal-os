@@ -8,6 +8,7 @@ import {
   matNotesOutline,
 } from '@ng-icons/material-symbols/outline';
 import {
+  zTrainingSessionUpdate,
   type ApiError,
   type TrainingSession,
   type TrainingSessionCompletion,
@@ -32,7 +33,7 @@ import {
 import { showToast } from '@personal-os/ui/sonner';
 import { HlmTableImports } from '@personal-os/ui/table';
 import { map } from 'rxjs';
-import { erreursDeChamp } from '../formulaire';
+import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { ChampsDeMesures } from './champs-de-mesures';
 import {
   lireLesMesures,
@@ -59,11 +60,17 @@ const DATE_LONGUE = new Intl.DateTimeFormat('fr-FR', {
  * le prévu et le réalisé, la modification de l'un et de l'autre, et les deux
  * transitions d'une Séance prévue (ADR 0022).
  *
- * - « Marquer réalisée » déclare le réalisé : le prévu reste à côté ;
- * - « Marquer manquée » se confirme (une transition, docs/design-system.md),
- *   et garde le prévu ;
+ * - « Marquer réalisée » déclare le réalisé, le prévu reste à côté ;
+ *   « Marquer manquée » garde le prévu. Toutes deux sont des transitions, et
+ *   se confirment donc (docs/design-system.md) ;
  * - la modification ne touche jamais au statut (ADR 0030) : le réalisé ne s'y
- *   modifie que sur une Séance réalisée.
+ *   modifie que sur une Séance réalisée ;
+ * - elle est adressable et préremplie par son lien
+ *   (`/sport/seances/:id?plannedDistanceM=12000`, ADR 0030) : les paramètres
+ *   portent les noms des champs de `zTrainingSessionUpdate` et s'appliquent
+ *   sur la Séance lue, une fois, sans rien enregistrer. Un paramètre refusé
+ *   par le contrat, ou qui vise un champ que l'écran ne modifie pas sur cette
+ *   Séance, est signalé, jamais appliqué.
  */
 @Component({
   selector: 'pos-seance',
@@ -88,6 +95,7 @@ export class Seance {
   private readonly api = inject(TrainingSessionService);
   private readonly router = inject(Router);
   private readonly confirmation = inject(DccmConfirm);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly icones = {
     manquee: matEventBusyOutline,
@@ -96,7 +104,7 @@ export class Seance {
   };
 
   private readonly id = toSignal(
-    inject(ActivatedRoute).paramMap.pipe(map((p) => p.get('id') ?? '')),
+    this.route.paramMap.pipe(map((p) => p.get('id') ?? '')),
     { initialValue: '' },
   );
   protected readonly lecture = this.api.lectureDe(this.id);
@@ -127,6 +135,16 @@ export class Seance {
   protected readonly realiseDeclare = signal<SaisieDeMesures>({
     ...SAISIE_VIERGE,
   });
+
+  /** Ce que le lien apporte à la modification, lu une fois. */
+  private readonly lien = prefillDepuisRequete(
+    zTrainingSessionUpdate,
+    this.route.snapshot.queryParamMap,
+  );
+  /** Le lien ne s'applique qu'à la première lecture, pas après une écriture. */
+  private lienApplique = false;
+  /** Les paramètres du lien écartés, montrés sur la modification. */
+  protected readonly ignoresDuLien = signal<string[]>([]);
 
   protected readonly envoi = signal<'modifier' | 'completer' | null>(null);
   protected readonly refusDeModification = signal<ApiError | null>(null);
@@ -193,7 +211,7 @@ export class Seance {
     });
   }
 
-  protected completer(): void {
+  protected async completer(): Promise<void> {
     const seance = this.vue()?.seance;
     if (!seance) {
       return;
@@ -211,6 +229,16 @@ export class Seance {
     if (mesures.distanceM !== null) realise.actualDistanceM = mesures.distanceM;
     if (mesures.dureeS !== null) realise.actualDurationS = mesures.dureeS;
     if (mesures.texte !== null) realise.actualNotes = mesures.texte;
+
+    const confirme = await this.confirmation.confirm({
+      title: 'Marquer la séance réalisée ?',
+      description:
+        'Le réalisé déclaré reste à côté du prévu. Elle ne pourra plus être marquée manquée.',
+      confirmLabel: 'Marquer réalisée',
+    });
+    if (!confirme) {
+      return;
+    }
 
     this.envoi.set('completer');
     this.api.completer(seance.id, realise).subscribe({
@@ -256,7 +284,8 @@ export class Seance {
     this.lecture.reload();
   }
 
-  private reprendre(seance: TrainingSession): void {
+  private reprendre(lue: TrainingSession): void {
+    const seance = this.lienApplique ? lue : this.appliquerLeLien(lue);
     this.prevu.set(
       saisieDesMesures({
         distanceM: seance.plannedDistanceM,
@@ -274,6 +303,35 @@ export class Seance {
     this.realiseDeclare.set({ ...SAISIE_VIERGE });
     this.illisiblesDeModification.set({});
     this.illisiblesDeDeclaration.set({});
+  }
+
+  /**
+   * La Séance lue, avec ce que le lien y change : seulement les champs que la
+   * modification porte pour ce statut. Le reste du lien est signalé.
+   */
+  private appliquerLeLien(seance: TrainingSession): TrainingSession {
+    this.lienApplique = true;
+    const modifiables = new Set<string>([
+      'plannedDistanceM',
+      'plannedDurationS',
+      'plannedIntent',
+      ...(seance.status === 'DONE'
+        ? ['actualDistanceM', 'actualDurationS', 'actualNotes']
+        : []),
+    ]);
+    const appliques: Partial<TrainingSession> = {};
+    const ignores = [...this.lien.ignores];
+    for (const [champ, valeur] of Object.entries(this.lien.valeurs)) {
+      if (modifiables.has(champ)) {
+        Object.assign(appliques, { [champ]: valeur });
+      } else {
+        ignores.push(
+          `${champ}=${this.route.snapshot.queryParamMap.get(champ)}`,
+        );
+      }
+    }
+    this.ignoresDuLien.set(ignores);
+    return { ...seance, ...appliques };
   }
 
   private lienDeLaSemaine(): string {

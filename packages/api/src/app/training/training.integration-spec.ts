@@ -20,6 +20,7 @@ import {
 import { champsEnErreur, codeDErreur } from '../../../test/code-d-erreur';
 import { conformeA } from '../../../test/conforme';
 import { AppModule } from '../app.module';
+import { TrainingSessionRepository } from './training-session.repository';
 
 const REDIRECT_URI = 'http://app.exemple.test/api/auth/callback';
 const DASHBOARD_URL = 'http://app.exemple.test/';
@@ -283,6 +284,27 @@ describe('Sport', () => {
         .expect(codeDErreur(code));
     });
 
+    it('refuse en 422 de retirer le dernier réalisé d’une Séance réalisée, et n’y touche pas', async () => {
+      const sortie = await creer(jeu.a, {
+        startsAt: '2029-04-13T17:00:00.000Z',
+        sport: 'BIKE',
+        status: 'DONE',
+        actualDistanceM: 30_000,
+      });
+
+      await request(app.getHttpServer())
+        .patch(`/api/training-sessions/${sortie.id}`)
+        .set('Cookie', jeu.a.session)
+        .send({ actualDistanceM: null })
+        .expect(422)
+        .expect(codeDErreur('training.actual_required'));
+
+      expect(await lire(jeu.a, sortie.id)).toMatchObject({
+        status: 'DONE',
+        actualDistanceM: 30_000,
+      });
+    });
+
     it("rend 404 sur la Séance de l'autre Compte, et n'y touche pas", async () => {
       const sienne = await creer(jeu.b, FOOTING);
 
@@ -418,6 +440,21 @@ describe('Sport', () => {
         .expect(codeDErreur('training.already_done'));
     });
 
+    it('refuse en 422 une Séance déjà manquée, et la laisse telle quelle', async () => {
+      const seance = await creer(jeu.a, FOOTING);
+      await manquer(jeu.a, seance.id).expect(200);
+
+      await manquer(jeu.a, seance.id)
+        .expect(422)
+        .expect(codeDErreur('training.already_missed'));
+
+      expect(await lire(jeu.a, seance.id)).toMatchObject({
+        status: 'MISSED',
+        plannedDistanceM: 10_000,
+        actualDistanceM: null,
+      });
+    });
+
     it("rend 404 sur la Séance de l'autre Compte", async () => {
       const sienne = await creer(jeu.b, FOOTING);
 
@@ -436,6 +473,54 @@ describe('Sport', () => {
       await request(app.getHttpServer())
         .post(`/api/training-sessions/${seance.id}/miss`)
         .expect(401);
+    });
+  });
+
+  describe('Deux transitions concurrentes', () => {
+    const realisee = (seance: TrainingSession) =>
+      request(app.getHttpServer())
+        .post(`/api/training-sessions/${seance.id}/complete`)
+        .set('Cookie', jeu.a.session)
+        .send({ actualDistanceM: 10_400 });
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('refusent celle qui a lu la Séance encore prévue, une fois l’autre écrite', async () => {
+      const seance = await creer(jeu.a, FOOTING);
+      await realisee(seance).expect(200);
+      // « Manquée » a lu la Séance avant que « réalisée » ne s'écrive.
+      const depot = app.get(TrainingSessionRepository);
+      const lireEnBase = depot.lire.bind(depot);
+      jest.spyOn(depot, 'lire').mockImplementationOnce(async (id) => {
+        const lue = await lireEnBase(id);
+        return lue && { ...lue, status: 'PLANNED', actualDistanceM: null };
+      });
+
+      await manquer(jeu.a, seance.id)
+        .expect(422)
+        .expect(codeDErreur('training.already_done'));
+
+      expect(await lire(jeu.a, seance.id)).toMatchObject({
+        status: 'DONE',
+        actualDistanceM: 10_400,
+      });
+    });
+
+    it('n’en laissent passer qu’une, sans mêler manquée et réalisé', async () => {
+      const seance = await creer(jeu.a, FOOTING);
+
+      const reponses = await Promise.all([
+        realisee(seance),
+        manquer(jeu.a, seance.id),
+      ]);
+
+      expect(reponses.map(({ status }) => status).sort()).toEqual([200, 422]);
+      const apres = await lire(jeu.a, seance.id);
+      expect(
+        apres.status === 'DONE'
+          ? apres.actualDistanceM === 10_400
+          : apres.status === 'MISSED' && apres.actualDistanceM === null,
+      ).toBe(true);
     });
   });
 
@@ -462,9 +547,9 @@ describe('Sport', () => {
         status: 'MISSED',
       });
 
-      expect((await agenda(jeu.b)).map(({ sourceId }) => sourceId)).not.toContain(
-        seance.id,
-      );
+      expect(
+        (await agenda(jeu.b)).map(({ sourceId }) => sourceId),
+      ).not.toContain(seance.id);
     });
   });
 
@@ -491,6 +576,12 @@ describe('Sport', () => {
       .expect(200);
 
     return reponse.body;
+  }
+
+  function manquer(compte: CompteDeTest, id: string) {
+    return request(app.getHttpServer())
+      .post(`/api/training-sessions/${id}/miss`)
+      .set('Cookie', compte.session);
   }
 
   async function lister(compte: CompteDeTest): Promise<TrainingSession[]> {

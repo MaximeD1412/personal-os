@@ -10,7 +10,9 @@ import { ErreurMetier } from '../erreurs/erreur-metier';
 /** Ce dont les règles ont besoin d'une Séance : son statut, son prévu, son réalisé. */
 export type EtatDeSeance = Pick<
   TrainingSession,
-  'status' | (typeof CHAMPS_DU_PREVU)[number] | (typeof CHAMPS_DU_REALISE)[number]
+  | 'status'
+  | (typeof CHAMPS_DU_PREVU)[number]
+  | (typeof CHAMPS_DU_REALISE)[number]
 >;
 
 /** Ce qu'une transition écrit : le statut et, pour « réalisée », le réalisé. */

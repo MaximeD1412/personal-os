@@ -52,13 +52,21 @@ export class TrainingSessionRepository {
     return this.prisma.trainingSession.create({ data: saisie });
   }
 
-  modifier(
+  /**
+   * Écrit les changements si la Séance a toujours le statut lu : une
+   * transition concurrente l'emporte, et rien ne s'écrit sur un statut qui
+   * n'est plus le bon (ADR 0022). Rend la Séance écrite, ou rien.
+   */
+  async modifier(
     id: string,
+    depuis: TrainingSessionStatus,
     changements: Partial<TrainingSessionWrite>,
-  ): Promise<TrainingSessionRecord> {
-    return this.prisma.trainingSession.update({
-      where: { id },
+  ): Promise<TrainingSessionRecord | null> {
+    const { count } = await this.prisma.trainingSession.updateMany({
+      where: { id, status: depuis },
       data: changements,
     });
+
+    return count > 0 ? this.lire(id) : null;
   }
 }

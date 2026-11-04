@@ -51,9 +51,9 @@ describe('Seance', () => {
         method === 'GET' && url === `${BASE}/training-sessions/${id}`,
     );
 
-  async function ouvrir(seance: TrainingSession) {
+  async function ouvrir(seance: TrainingSession, requete = '') {
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl(`/sport/seances/${seance.id}`);
+    await harness.navigateByUrl(`/sport/seances/${seance.id}${requete}`);
     lecture(seance.id).flush(seance);
     await stabiliser(harness);
     return { harness, racine: harness.routeNativeElement as HTMLElement };
@@ -126,6 +126,9 @@ describe('Seance', () => {
       saisir(racine, 'actual-duree', '1:04:00');
       await envoyer(harness, 'declaration');
 
+      expect(confirmation.confirm).toHaveBeenCalledWith(
+        expect.objectContaining({ confirmLabel: 'Marquer réalisée' }),
+      );
       const requete = ecriture('POST', `${PREVUE.id}/complete`);
       expect(requete.request.body).toEqual({
         actualDistanceM: 11_200,
@@ -136,6 +139,27 @@ describe('Seance', () => {
 
       expect(champ(racine, 'statut')?.textContent?.trim()).toBe('Réalisée');
       expect(champ(racine, 'declaration')).toBeNull();
+    });
+
+    it('ne déclare rien quand la confirmation est refusée, et garde la saisie', async () => {
+      confirmation.confirm.mockResolvedValue(null);
+      const { harness, racine } = await ouvrir(PREVUE);
+      saisir(racine, 'actual-distance', '11,2');
+      await envoyer(harness, 'declaration');
+
+      expect(confirmation.confirm).toHaveBeenCalled();
+      httpMock.expectNone(`${BASE}/training-sessions/${PREVUE.id}/complete`);
+      expect(champ(racine, 'actual-distance')?.value).toBe('11,2');
+      expect(champ(racine, 'statut')?.textContent?.trim()).toBe('Prévue');
+    });
+
+    it('ne demande rien quand le réalisé ne se lit pas', async () => {
+      const { harness, racine } = await ouvrir(PREVUE);
+      saisir(racine, 'actual-distance', 'loin');
+      await envoyer(harness, 'declaration');
+
+      expect(confirmation.confirm).not.toHaveBeenCalled();
+      httpMock.expectNone(`${BASE}/training-sessions/${PREVUE.id}/complete`);
     });
 
     it('se marque manquée après confirmation, sans rien saisir', async () => {
@@ -228,6 +252,76 @@ describe('Seance', () => {
       expect(champ(racine, 'marquer-manquee')).toBeNull();
       expect(champ(racine, 'declaration')).toBeNull();
       expect(champ(racine, 'planned-distance')?.value).toBe('1,5');
+    });
+  });
+
+  describe('Le lien prérempli (ADR 0030)', () => {
+    const modification = (racine: HTMLElement, nom: string) =>
+      racine.querySelector(
+        `[data-test="modification"] [data-test="${nom}"]`,
+      ) as HTMLInputElement | null;
+    const ignores = (racine: HTMLElement) =>
+      racine.querySelector('[data-test="modification"] [data-test="ignores"]')
+        ?.textContent ?? null;
+
+    it('préremplit la modification sur la Séance lue, sans rien enregistrer', async () => {
+      const { racine } = await ouvrir(
+        PREVUE,
+        '?plannedDistanceM=12000&plannedIntent=Seuil',
+      );
+
+      expect(modification(racine, 'planned-distance')?.value).toBe('12');
+      expect(modification(racine, 'planned-texte')?.value).toBe('Seuil');
+      // Le reste vient de la Séance.
+      expect(modification(racine, 'planned-duree')?.value).toBe('1:00:00');
+      expect(ignores(racine)).toBeNull();
+      httpMock.expectNone(({ method }) => method !== 'GET');
+    });
+
+    it('n’envoie le prérempli qu’au clic, comme une saisie', async () => {
+      const { harness } = await ouvrir(PREVUE, '?plannedDistanceM=12000');
+      await envoyer(harness, 'modification');
+
+      const requete = ecriture('PATCH', PREVUE.id);
+      expect(requete.request.body).toEqual({ plannedDistanceM: 12_000 });
+      requete.flush({ ...PREVUE, plannedDistanceM: 11_000 });
+      await relire(harness, { ...PREVUE, plannedDistanceM: 11_000 });
+
+      // Une relecture rend la Séance telle qu'elle est : le lien ne revient pas.
+      const racine = harness.routeNativeElement as HTMLElement;
+      expect(modification(racine, 'planned-distance')?.value).toBe('11');
+    });
+
+    it('préremplit le réalisé d’une Séance réalisée', async () => {
+      const { racine } = await ouvrir(
+        REALISEE,
+        '?actualNotes=Vent%20de%20face',
+      );
+
+      expect(modification(racine, 'actual-texte')?.value).toBe('Vent de face');
+    });
+
+    it('signale une valeur refusée par le contrat, sans l’appliquer', async () => {
+      const { racine } = await ouvrir(PREVUE, '?plannedDistanceM=loin');
+
+      expect(ignores(racine)).toContain('plannedDistanceM=loin');
+      expect(modification(racine, 'planned-distance')?.value).toBe('10');
+    });
+
+    it('signale un champ que l’écran ne modifie pas sur cette Séance', async () => {
+      const { racine } = await ouvrir(
+        PREVUE,
+        '?actualDistanceM=5000&sport=BIKE',
+      );
+
+      expect(ignores(racine)).toContain('actualDistanceM=5000');
+      expect(ignores(racine)).toContain('sport=BIKE');
+      // La déclaration du réalisé reste vierge : elle se saisit.
+      expect(
+        racine.querySelector(
+          '[data-test="declaration"] [data-test="actual-distance"]',
+        ) as HTMLInputElement,
+      ).toHaveProperty('value', '');
     });
   });
 });

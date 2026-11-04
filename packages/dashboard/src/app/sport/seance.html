@@ -137,6 +137,7 @@
           submitLabel="Enregistrer"
           cancelLabel="Retour à la semaine"
           data-test="modification"
+          [ignored]="ignoresDuLien()"
           [error]="refusDeModification()"
           [pending]="envoi() === 'modifier'"
           (submitted)="enregistrer()"

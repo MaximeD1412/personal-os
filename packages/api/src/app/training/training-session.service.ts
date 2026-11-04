@@ -62,12 +62,12 @@ export class TrainingSessionService {
     id: string,
     saisie: TrainingSessionUpdate,
   ): Promise<TrainingSession> {
-    const seance = await this.trouver(id);
-    const { startsAt, ...champs } = modifier(seance, saisie);
-
-    return this.ecrire(id, {
-      ...champs,
-      ...(startsAt === undefined ? {} : { startsAt: new Date(startsAt) }),
+    return this.juger(id, (seance) => {
+      const { startsAt, ...champs } = modifier(seance, saisie);
+      return {
+        ...champs,
+        ...(startsAt === undefined ? {} : { startsAt: new Date(startsAt) }),
+      };
     });
   }
 
@@ -75,11 +75,11 @@ export class TrainingSessionService {
     id: string,
     realise: TrainingSessionCompletion,
   ): Promise<TrainingSession> {
-    return this.ecrire(id, completer(await this.trouver(id), realise));
+    return this.juger(id, (seance) => completer(seance, realise));
   }
 
   async manquer(id: string): Promise<TrainingSession> {
-    return this.ecrire(id, manquer(await this.trouver(id)));
+    return this.juger(id, manquer);
   }
 
   private async trouver(id: string): Promise<TrainingSessionRecord> {
@@ -90,11 +90,26 @@ export class TrainingSessionService {
     return seance;
   }
 
-  private async ecrire(
+  /**
+   * Lit la Séance, la juge, et n'écrit que sur le statut jugé. Si une autre
+   * écriture l'a changé entre-temps, on reprend sur la Séance neuve : la règle
+   * refuse alors ce qui n'est plus permis (une Séance réalisée ne se manque
+   * plus), au lieu de mêler les deux écritures.
+   */
+  private async juger(
     id: string,
-    changements: Partial<TrainingSessionWrite> | Transition,
+    regle: (
+      seance: TrainingSessionRecord,
+    ) => Partial<TrainingSessionWrite> | Transition,
   ): Promise<TrainingSession> {
-    return exposer(await this.repository.modifier(id, changements));
+    const seance = await this.trouver(id);
+    const ecrite = await this.repository.modifier(
+      id,
+      seance.status,
+      regle(seance),
+    );
+
+    return ecrite ? exposer(ecrite) : this.juger(id, regle);
   }
 }
 
