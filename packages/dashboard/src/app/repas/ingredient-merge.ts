@@ -1,13 +1,17 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { matSearchOutline } from '@ng-icons/material-symbols/outline';
 import {
-  LIBELLES_DES_UNITES,
+  matArrowDownwardOutline,
+  matSearchOutline,
+} from '@ng-icons/material-symbols/outline';
+import {
   zIngredientMergeInput,
+  type CanonicalUnit,
   type Ingredient,
 } from '@personal-os/contracts';
 import { HlmBadge } from '@personal-os/ui/badge';
+import { HlmCard } from '@personal-os/ui/card';
 import {
   DccmConfirm,
   DccmFormPage,
@@ -24,6 +28,13 @@ import { erreursDeChamp, prefillDepuisRequete } from '../formulaire';
 import { IngredientService } from './ingredient.service';
 import { FIL_DES_INGREDIENTS } from './ingredients';
 
+/** L'unité dans une phrase : « compté en grammes ». */
+const EN_TOUTES_LETTRES: Readonly<Record<CanonicalUnit, string>> = {
+  GRAM: 'grammes',
+  MILLILITER: 'millilitres',
+  PIECE: 'pièces',
+};
+
 /**
  * La fusion d'un doublon : `/repas/ingredients/:id/fusionner`. L'Ingrédient de
  * l'URL est le doublon ; on cherche au catalogue celui qui le remplace, compté
@@ -38,13 +49,14 @@ import { FIL_DES_INGREDIENTS } from './ingredients';
   imports: [
     NgIcon,
     HlmBadge,
+    HlmCard,
     DccmFormPage,
     DccmListRow,
     DccmState,
     HlmFieldImports,
     HlmInputImports,
   ],
-  providers: [provideIcons({ matSearchOutline })],
+  providers: [provideIcons({ matArrowDownwardOutline, matSearchOutline })],
   templateUrl: './ingredient-merge.html',
 })
 export class FusionDIngredient {
@@ -108,7 +120,7 @@ export class FusionDIngredient {
 
   protected readonly unite = computed(() => {
     const doublon = this.doublon();
-    return doublon ? LIBELLES_DES_UNITES[doublon.canonicalUnit] : '';
+    return doublon ? EN_TOUTES_LETTRES[doublon.canonicalUnit] : '';
   });
 
   protected readonly envoi = signal(false);

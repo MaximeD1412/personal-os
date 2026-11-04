@@ -10,21 +10,71 @@
   (submitted)="fusionner()"
   (cancelled)="fermer()"
 >
-  <div hlmField data-test="doublon">
-    <span hlmFieldLabel>Doublon à absorber</span>
-    <p class="flex flex-wrap items-center gap-space-sm">
-      <span class="text-body-default font-semibold text-on-surface">
-        {{ doublon()?.displayName ?? '…' }}
-      </span>
-      <span hlmBadge tone="error">Sera supprimé</span>
+  <section
+    hlmCard
+    variant="nested"
+    class="flex flex-col gap-space-sm md:max-w-md"
+    aria-label="Fusion"
+  >
+    <div
+      class="flex items-start justify-between gap-space-sm"
+      data-test="doublon"
+    >
+      <div class="flex min-w-0 flex-col gap-1">
+        <span
+          class="text-label-micro font-semibold uppercase tracking-wide text-outline"
+          >Doublon à absorber</span
+        >
+        <span class="text-body-default font-semibold text-on-surface">
+          {{ doublon()?.displayName ?? '…' }}
+        </span>
+        @if (doublon()) {
+        <span class="text-label-regular text-outline"
+          >Compté en {{ unite() }}</span
+        >
+        }
+      </div>
+      <span hlmBadge tone="error" class="shrink-0">Sera supprimé</span>
+    </div>
+
+    <ng-icon
+      name="matArrowDownwardOutline"
+      class="self-center text-outline"
+      aria-hidden="true"
+    />
+
+    <div
+      class="flex items-start justify-between gap-space-sm"
+      data-test="conserve"
+    >
+      <div class="flex min-w-0 flex-col gap-1">
+        <span
+          class="text-label-micro font-semibold uppercase tracking-wide text-outline"
+          >Ingrédient conservé</span
+        >
+        @if (conserve(); as ingredient) {
+        <span class="text-body-default font-semibold text-on-surface">
+          {{ ingredient.displayName }}
+        </span>
+        } @else {
+        <span class="text-body-default text-outline">À choisir ci-dessous</span>
+        }
+      </div>
+      @if (conserve()) {
+      <span hlmBadge tone="success" class="shrink-0">Conservé</span>
+      }
+    </div>
+
+    @if (doublon(); as doublon) { @if (conserve(); as conserve) {
+    <p class="text-label-regular text-outline" data-test="alias">
+      «&nbsp;{{ doublon.displayName }}&nbsp;» deviendra un Alias de «&nbsp;{{
+      conserve.displayName }}&nbsp;» : le résolveur le reconnaîtra toujours.
     </p>
-    @if (doublon()) {
-    <p hlmFieldDescription>Compté en {{ unite() }}.</p>
-    }
-  </div>
+    } }
+  </section>
 
   <div hlmField>
-    <label hlmFieldLabel for="fusion-recherche">Ingrédient conservé</label>
+    <label hlmFieldLabel for="fusion-recherche">Choisir l'Ingrédient conservé</label>
     <div hlmInputGroup class="md:max-w-md">
       <ng-icon name="matSearchOutline" aria-hidden="true" />
       <input
@@ -39,14 +89,7 @@
         (input)="chercher($event)"
       />
     </div>
-    @if (conserve(); as ingredient) {
-    <p class="flex flex-wrap items-center gap-space-sm" data-test="conserve">
-      <span class="text-body-default font-semibold text-on-surface">
-        {{ ingredient.displayName }}
-      </span>
-      <span hlmBadge tone="success">Conservé</span>
-    </p>
-    } @else if (doublon()) {
+    @if (doublon()) {
     <p hlmFieldDescription>
       Seuls les Ingrédients comptés en {{ unite() }} peuvent l'absorber.
     </p>
@@ -83,11 +126,4 @@
     <hlm-field-error forceShow>{{ message }}</hlm-field-error>
     }
   </div>
-
-  @if (doublon(); as doublon) { @if (conserve(); as conserve) {
-  <p class="text-body-default text-on-surface-variant" data-test="alias">
-    «&nbsp;{{ doublon.displayName }}&nbsp;» deviendra un Alias de «&nbsp;{{
-    conserve.displayName }}&nbsp;» : le résolveur le reconnaîtra toujours.
-  </p>
-  } }
 </dccm-form-page>

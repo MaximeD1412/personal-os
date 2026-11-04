@@ -76,6 +76,8 @@ describe('La fusion d’un Ingrédient en doublon', () => {
 
     expect(texte(el(), 'doublon')).toContain('Beurre');
     expect(texte(el(), 'doublon')).toContain('Sera supprimé');
+    expect(texte(el(), 'doublon')).toContain('Compté en grammes');
+    expect(texte(el(), 'conserve')).toContain('À choisir ci-dessous');
     expect(trouves(el())).toEqual(['Beurre doux']);
     expect(fusionner(el()).disabled).toBe(true);
   });
@@ -107,7 +109,8 @@ describe('La fusion d’un Ingrédient en doublon', () => {
 
     expect(confirmations).toEqual([
       expect.objectContaining({
-        title: 'Fusionner «\u00a0Beurre\u00a0» avec «\u00a0Beurre doux\u00a0» ?',
+        title:
+          'Fusionner «\u00a0Beurre\u00a0» avec «\u00a0Beurre doux\u00a0» ?',
         confirmLabel: 'Fusionner les ingrédients',
         destructive: true,
       }),
