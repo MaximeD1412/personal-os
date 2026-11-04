@@ -48,6 +48,13 @@ export const appRoutes: Route[] = [
       (await import('./repas/ingredient-detail')).FicheDIngredient,
   },
   { path: 'repas/ingredients/:id/modifier', component: FormulaireDIngredient },
+  // La fusion d'un doublon, préremplie par sa requête (`?intoId=…`), chargée à
+  // la demande.
+  {
+    path: 'repas/ingredients/:id/fusionner',
+    loadComponent: async () =>
+      (await import('./repas/ingredient-merge')).FusionDIngredient,
+  },
   { path: 'repas/recettes', component: Recettes },
   // La saisie d'une Recette, préremplie par sa requête (ADR 0030), chargée à
   // la demande ; « nouvelle » passe avant l'identifiant.

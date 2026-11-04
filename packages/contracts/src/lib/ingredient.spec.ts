@@ -4,6 +4,7 @@ import {
   normaliserLibelle,
   zIngredientInput,
   zIngredientListQuery,
+  zIngredientMergeInput,
   zIngredientUpdate,
 } from './ingredient';
 
@@ -165,5 +166,19 @@ describe('zIngredientUpdate', () => {
 describe('zIngredientListQuery', () => {
   it('accepte une lecture sans recherche', () => {
     expect(zIngredientListQuery.parse({})).toEqual({});
+  });
+});
+
+describe('zIngredientMergeInput', () => {
+  it("désigne l'Ingrédient conservé, sans ses espaces de bord", () => {
+    expect(zIngredientMergeInput.parse({ intoId: ' ing-1 ' })).toEqual({
+      intoId: 'ing-1',
+    });
+  });
+
+  it("refuse une fusion qui ne nomme pas l'Ingrédient conservé", () => {
+    expect(cheminsRefuses(zIngredientMergeInput.safeParse({}))).toEqual([
+      'intoId',
+    ]);
   });
 });

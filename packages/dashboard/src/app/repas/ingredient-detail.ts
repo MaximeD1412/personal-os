@@ -1,7 +1,10 @@
 import { Component, computed, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { matEditOutline } from '@ng-icons/material-symbols/outline';
+import {
+  matCallMergeOutline,
+  matEditOutline,
+} from '@ng-icons/material-symbols/outline';
 import {
   ALLERGENES,
   LIBELLES_DES_ALLERGENES,
@@ -25,8 +28,8 @@ import { FIL_DES_INGREDIENTS } from './ingredients';
 /**
  * La fiche d'un Ingrédient : son unité canonique, son poids moyen à la pièce,
  * ses Allergènes et sa conservation, puis ses Produits (CUISINE-12). « Modifier »
- * mène au formulaire ; il n'y a pas de suppression, un doublon se fusionne
- * (CUISINE-4).
+ * mène au formulaire, « Fusionner avec… » à la fusion de ce doublon dans un
+ * autre Ingrédient (CUISINE-4) : il n'y a pas de suppression.
  */
 @Component({
   imports: [
@@ -39,7 +42,7 @@ import { FIL_DES_INGREDIENTS } from './ingredients';
     DccmState,
     ProduitsDeLIngredient,
   ],
-  providers: [provideIcons({ matEditOutline })],
+  providers: [provideIcons({ matCallMergeOutline, matEditOutline })],
   templateUrl: './ingredient-detail.html',
 })
 export class FicheDIngredient {

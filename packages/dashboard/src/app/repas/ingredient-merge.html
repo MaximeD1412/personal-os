@@ -1,0 +1,129 @@
+<dccm-form-page
+  heading="Fusionner un doublon"
+  subtitle="Le doublon disparaît : l'Ingrédient conservé reprend ses recettes, son stock, ses courses, ses Produits et ses Préférences."
+  [breadcrumb]="fil()"
+  submitLabel="Fusionner"
+  [ignored]="prefill.ignores"
+  [error]="refus() ?? lecture.error()"
+  [pending]="envoi()"
+  [submitDisabled]="!intoId() || !doublon()"
+  (submitted)="fusionner()"
+  (cancelled)="fermer()"
+>
+  <section
+    hlmCard
+    variant="nested"
+    class="flex flex-col gap-space-sm md:max-w-md"
+    aria-label="Fusion"
+  >
+    <div
+      class="flex items-start justify-between gap-space-sm"
+      data-test="doublon"
+    >
+      <div class="flex min-w-0 flex-col gap-1">
+        <span
+          class="text-label-micro font-semibold uppercase tracking-wide text-outline"
+          >Doublon à absorber</span
+        >
+        <span class="text-body-default font-semibold text-on-surface">
+          {{ doublon()?.displayName ?? '…' }}
+        </span>
+        @if (doublon()) {
+        <span class="text-label-regular text-outline"
+          >Compté en {{ unite() }}</span
+        >
+        }
+      </div>
+      <span hlmBadge tone="error" class="shrink-0">Sera supprimé</span>
+    </div>
+
+    <ng-icon
+      name="matArrowDownwardOutline"
+      class="self-center text-outline"
+      aria-hidden="true"
+    />
+
+    <div
+      class="flex items-start justify-between gap-space-sm"
+      data-test="conserve"
+    >
+      <div class="flex min-w-0 flex-col gap-1">
+        <span
+          class="text-label-micro font-semibold uppercase tracking-wide text-outline"
+          >Ingrédient conservé</span
+        >
+        @if (conserve(); as ingredient) {
+        <span class="text-body-default font-semibold text-on-surface">
+          {{ ingredient.displayName }}
+        </span>
+        } @else {
+        <span class="text-body-default text-outline">À choisir ci-dessous</span>
+        }
+      </div>
+      @if (conserve()) {
+      <span hlmBadge tone="success" class="shrink-0">Conservé</span>
+      }
+    </div>
+
+    @if (doublon(); as doublon) { @if (conserve(); as conserve) {
+    <p class="text-label-regular text-outline" data-test="alias">
+      «&nbsp;{{ doublon.displayName }}&nbsp;» deviendra un Alias de «&nbsp;{{
+      conserve.displayName }}&nbsp;» : le résolveur le reconnaîtra toujours.
+    </p>
+    } }
+  </section>
+
+  <div hlmField>
+    <label hlmFieldLabel for="fusion-recherche">Choisir l'Ingrédient conservé</label>
+    <div hlmInputGroup class="md:max-w-md">
+      <ng-icon name="matSearchOutline" aria-hidden="true" />
+      <input
+        hlmInput
+        id="fusion-recherche"
+        type="search"
+        data-test="recherche"
+        autocomplete="off"
+        placeholder="Rechercher un ingrédient"
+        [value]="recherche()"
+        [forceInvalid]="!!erreurs()['intoId']"
+        (input)="chercher($event)"
+      />
+    </div>
+    @if (doublon()) {
+    <p hlmFieldDescription>
+      Seuls les Ingrédients comptés en {{ unite() }} peuvent l'absorber.
+    </p>
+    }
+    <dccm-state
+      data-test="trouves"
+      [status]="etatDuCatalogue()"
+      [error]="catalogue.error()"
+      [rows]="3"
+      emptyHeading="Aucun autre Ingrédient de cette unité ne correspond"
+      loadingLabel="Recherche dans le catalogue…"
+      (retry)="catalogue.reload()"
+    >
+      <ul
+        class="flex max-h-72 flex-col overflow-y-auto md:max-w-md"
+        aria-label="Ingrédients trouvés"
+      >
+        @for (ingredient of trouves(); track ingredient.id) {
+        <li>
+          <button
+            dccmListRow
+            type="button"
+            data-test="ingredient"
+            [label]="ingredient.displayName"
+            [selected]="ingredient.id === intoId()"
+            [attr.aria-pressed]="ingredient.id === intoId()"
+            (click)="choisir(ingredient)"
+          ></button>
+        </li>
+        }
+      </ul>
+    </dccm-state>
+    @if (erreurs()['intoId']; as message) {
+    <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+    }
+  </div>
+</dccm-form-page>

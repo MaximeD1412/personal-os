@@ -98,6 +98,7 @@ et lève `food.list_already_closed`.
 | Avancement (d'un Objectif)               | `progress` (`TrainingGoalProgress`), `avancementDe`              |
 | Ingrédient, Alias, Unité canonique       | `Ingredient`, `IngredientAlias`, `canonicalUnit`                 |
 | Résolveur d'ingrédients                  | `resoudre`, `IngredientResolution`                               |
+| Fusion (d'un doublon), conservé          | `fusionner`, `POST /ingredients/:id/merge`, `intoId`             |
 | Unité de recette                         | `RecipeUnit`, `UNITES_DE_RECETTE`                                |
 | Recette                                  | `Recipe`                                                         |
 | Ligne (d'une Recette), Origine           | `RecipeLine`, `RecipeSource` (`MANUAL`, `GENERATED`)             |
