@@ -80,18 +80,18 @@
       "categorie": "sec",
       "gravite": "elevee",
       "titre": "Clé SSH de déploiement détenue par GitHub",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Utilisateur dédié sans shell, commande forcée (command=) dans authorized_keys",
-          "ref": "",
-          "fait": false
+          "ref": "ADR 0032",
+          "fait": true
         },
         {
           "texte": "Environnement GitHub protégé, rotation de la clé documentée",
-          "ref": "",
-          "fait": false
+          "ref": "ADR 0032",
+          "fait": true
         }
       ],
       "tickets": ["INFRA-8", "INFRA-9"]
@@ -101,18 +101,18 @@
       "categorie": "sec",
       "gravite": "elevee",
       "titre": "Staging exposé, ou contenant des données réelles",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Staging derrière le proxy de tête et Authentik",
-          "ref": "",
-          "fait": false
+          "ref": "infra/deploy/caddy/conf.d/staging.caddy",
+          "fait": true
         },
         {
           "texte": "Données de démo uniquement ; démarrage refusé si l'URL de base est celle de la prod",
-          "ref": "",
-          "fait": false
+          "ref": "packages/api/src/environnement.ts",
+          "fait": true
         }
       ],
       "tickets": ["INFRA-6", "INFRA-7", "INFRA-9"]
@@ -243,8 +243,8 @@
       "categorie": "ops",
       "gravite": "critique",
       "titre": "Perte de données",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Sauvegardes Restic chiffrées chez un autre fournisseur qu'OVH",
@@ -263,8 +263,8 @@
         },
         {
           "texte": "Alerte quand une sauvegarde attendue manque",
-          "ref": "",
-          "fait": false
+          "ref": "infra/backup/README.md",
+          "fait": true
         }
       ],
       "tickets": ["DASH-3", "INFRA-13", "PORTFOLIO-4"]
@@ -274,8 +274,8 @@
       "categorie": "ops",
       "gravite": "elevee",
       "titre": "Migration cassante en production",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Migrations expand/contract",
@@ -300,13 +300,13 @@
       "categorie": "ops",
       "gravite": "moyenne",
       "titre": "Le staging affame la production sur le même VPS",
-      "statut": "solution choisie",
-      "statutDepuis": "2026-10-17",
+      "statut": "implémenté",
+      "statutDepuis": "2026-11-04",
       "solutions": [
         {
           "texte": "Plafonds CPU et mémoire du projet Compose de staging, arrêtable à tout moment",
-          "ref": "",
-          "fait": false
+          "ref": "infra/deploy/docker-compose.staging.yml",
+          "fait": true
         }
       ],
       "tickets": ["INFRA-7"]
@@ -446,8 +446,8 @@
         },
         {
           "texte": "Staging déployé à chaque merge sur develop",
-          "ref": "",
-          "fait": false
+          "ref": "ADR 0032",
+          "fait": true
         },
         {
           "texte": "Revue visuelle humaine des écrans (label revue-visuelle)",
@@ -530,6 +530,11 @@
         {
           "texte": "Écrans regroupés par ticket",
           "ref": "#60",
+          "fait": true
+        },
+        {
+          "texte": "Captures authentifiées sans Authentik, en une commande (Session de démo le temps de la capture)",
+          "ref": "scripts/captures.sh, #86",
           "fait": true
         }
       ],

@@ -173,6 +173,180 @@
       ],
       "commande": "restic ls latest | grep objets/cv/",
       "ajouteLe": "2026-10-21"
+    },
+    {
+      "id": "staging-dns",
+      "phase": "acc",
+      "source": "#92",
+      "titre": "Vérifier que staging.<domaine> et staging-portfolio.<domaine> pointent sur le VPS",
+      "pourquoi": "Les deux hôtes du staging de démonstration. Un enregistrement joker *.<domaine> les couvre déjà, comme le certificat joker du proxy de tête ; sans joker, il faut deux enregistrements A.",
+      "etapes": [
+        "Résoudre les deux noms : ils doivent donner l'IP du VPS.",
+        "Sans joker DNS, créer un enregistrement A pour chacun."
+      ],
+      "commande": "dig +short staging.<domaine> staging-portfolio.<domaine>",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "staging-client-oidc",
+      "phase": "acc",
+      "source": "#92",
+      "titre": "Créer dans Authentik le client OIDC du staging, lié aux deux comptes du foyer",
+      "pourquoi": "Le staging passe par l'Authentik de la prod, avec un client à lui (ADR 0031) : son propre secret et sa propre URI de redirection. Sans liaison, Authentik refuse les deux comptes avant que le staging n'ait son mot à dire.",
+      "etapes": [
+        "Fournisseur OAuth2/OpenID, Confidential, URI de redirection https://staging.<domaine>/api/auth/callback en Strict, scopes openid, email, profile (même marche que celle de la prod, infra/deploy/README.md §5).",
+        "Application de slug personal-os-staging, rattachée au fournisseur.",
+        "Lier les deux comptes du foyer à l'application.",
+        "Reporter OIDC_ISSUER, OIDC_CLIENT_ID et OIDC_CLIENT_SECRET dans /opt/personal-os-staging/.env."
+      ],
+      "commande": "curl -s https://<AUTHENTIK_HOST>/application/o/personal-os-staging/.well-known/openid-configuration | jq .issuer",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "staging-forward-auth",
+      "phase": "acc",
+      "source": "#92",
+      "titre": "Créer dans Authentik le forward auth des deux hôtes du staging",
+      "pourquoi": "Le Caddy interne passe staging.<domaine> et staging-portfolio.<domaine> par l'outpost intégré d'Authentik avant de les servir (caddy/conf.d/staging.caddy) : sans fournisseur pour ces hôtes, Authentik refuse tout, y compris aux deux comptes. C'est ce qui garde le code de develop, et le portfolio de démo, hors de vue sans session (SEC-4).",
+      "etapes": [
+        "Fournisseur Proxy, mode « Forward auth (single application) », hôte externe https://staging.<domaine>, dans une application personal-os-staging-forward-auth liée aux deux comptes du foyer.",
+        "Même chose pour https://staging-portfolio.<domaine>, application personal-os-staging-portfolio-forward-auth.",
+        "Ajouter les deux applications à l'outpost intégré (authentik Embedded Outpost)."
+      ],
+      "commande": "curl -s -o /dev/null -w '%{http_code}' https://staging-portfolio.<domaine>/api/public/projects  # 302 sans session",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "staging-hotes-stack-env",
+      "phase": "env",
+      "source": "#92",
+      "titre": "Poser STAGING_DASHBOARD_HOST et STAGING_PORTFOLIO_HOST dans /opt/personal-os/.env AVANT la livraison qui embarque #92",
+      "pourquoi": "Le Caddy interne de la prod charge conf.d/staging.caddy, et le compose de la prod exige ces deux hôtes (« STAGING_DASHBOARD_HOST manquant ») : un nom vide ferait refuser l'adresse de site par Caddy, et tout le proxy interne tomberait avec le portfolio.",
+      "etapes": [
+        "Dans /opt/personal-os/.env : STAGING_DASHBOARD_HOST=staging.<domaine>, STAGING_PORTFOLIO_HOST=staging-portfolio.<domaine>.",
+        "Garder STAGING_EDGE_NETWORK=personal-os-staging-edge, ou le même nom que dans deploy.conf."
+      ],
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "staging-env",
+      "phase": "env",
+      "source": "#92",
+      "titre": "Renseigner /opt/personal-os-staging/.env (mode 600) à partir de staging.env.example",
+      "pourquoi": "L'environnement du staging, qui ne partage rien avec celui de la prod. deploy-staging.sh refuse un fichier sans APP_ENV=staging, et l'API de staging refuse de démarrer sans PROD_DATABASE_HOST ou sur une base qu'il désigne.",
+      "etapes": [
+        "install.sh pose le modèle en /opt/personal-os-staging/.env.",
+        "POSTGRES_PASSWORD à lui (openssl rand -hex 32), reporté dans DATABASE_URL (hôte staging-db).",
+        "PROD_DATABASE_HOST : les adresses de la base de la prod (db, personal-os-db, 127.0.0.1:5433, localhost:5433).",
+        "OIDC_* du client de staging, DASHBOARD_URL=https://staging.<domaine>/, AUTH_ALLOWED_EMAILS et DEMO_ACCOUNT_EMAILS (les deux comptes du foyer, dans l'ordre A, B)."
+      ],
+      "commande": "sudo stat -c '%a' /opt/personal-os-staging/.env",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "staging-reseau-et-agent",
+      "phase": "vps",
+      "source": "#92",
+      "titre": "Réinstaller l'agent (install.sh) AVANT la livraison qui embarque #92 : il crée le réseau personal-os-staging-edge et pose /opt/personal-os-staging",
+      "pourquoi": "Le compose de la prod déclare personal-os-staging-edge en réseau externe pour son Caddy interne : sans lui, la pile de la prod ne démarre pas, même staging arrêté. install.sh pose aussi deploy-staging.sh, la pile du staging et son propre clone du dépôt.",
+      "etapes": [
+        "sudo /opt/personal-os/src/infra/deploy/bin/install.sh (depuis un clone à la révision qui embarque #92).",
+        "Ajouter à /etc/personal-os/deploy.conf les variables STAGING_* de deploy.conf.example si le fichier existait déjà.",
+        "Vérifier que le réseau existe."
+      ],
+      "commande": "docker network inspect personal-os-staging-edge --format '{{.Name}}'",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "staging-premier-deploiement",
+      "phase": "chk",
+      "source": "#92",
+      "titre": "Déployer le staging sur un commit publié, puis vérifier le jeu de démo, les plafonds et l'isolement de la prod",
+      "pourquoi": "Les critères de #92 qui ne se prouvent que sur la machine : le staging montre exactement le jeu de démo, Docker applique ses plafonds, et la prod n'a pas bougé. Depuis #93, chaque push sur develop publie ses images et déploie le staging : le premier job « Déploie le staging » vert vaut le premier déploiement, et deploy-staging.sh reste lançable à la main.",
+      "etapes": [
+        "sudo /opt/personal-os/deploy/bin/deploy-staging.sh <commit> --dry-run, relire le plan, puis sans --dry-run.",
+        "docker ps : les conteneurs personal-os-* de la prod ont gardé leur durée de fonctionnement.",
+        "Se connecter à https://staging.<domaine>/ avec un des deux comptes : les trois Espaces montrent le jeu de démo.",
+        "Sans session (navigation privée), https://staging.<domaine>/ et https://staging-portfolio.<domaine>/ renvoient vers Authentik.",
+        "docker stats --no-stream : 0,30 / 320 Mio (db), 0,40 / 448 Mio (api), 0,15 / 128 Mio (chaque front).",
+        "Démarrage refusé : poser dans le .env du staging une DATABASE_URL d'hôte db, relancer deploy-staging.sh, constater l'arrêt à la vérification de l'environnement, puis rétablir."
+      ],
+      "commande": "docker stats --no-stream $(docker ps -q --filter label=com.docker.compose.project=personal-os-staging)",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "cd-cles-deploiement",
+      "phase": "vps",
+      "source": "#93",
+      "titre": "Générer les deux clés de déploiement, poser leurs .pub sur le VPS et relancer install.sh",
+      "pourquoi": "GitHub déclenche chaque déploiement par SSH, avec une clé par environnement forcée sur deploy-trigger (ADR 0032). Sans les .pub, authorized_keys reste vide et aucun job ne peut déployer. Relancer install.sh retire aussi l'ancien minuteur.",
+      "etapes": [
+        "Sur un poste de confiance : ssh-keygen -t ed25519 -N '' -C personal-os-deploy-prod -f prod, puis de même pour staging.",
+        "sudo install -m 644 prod.pub staging.pub /etc/personal-os/deploy-keys/",
+        "sudo /opt/personal-os/src/infra/deploy/bin/install.sh (après un git pull du clone /opt/personal-os/src).",
+        "sudo cat /home/deploy/.ssh/authorized_keys : deux lignes, chacune command=\"…/deploy-trigger <env>\",…,restrict.",
+        "sudo -l -U deploy : seulement deploy-trigger prod et deploy-trigger staging.",
+        "systemctl list-timers --all : plus de personal-os-deploy.timer.",
+        "Garder les clés privées pour l'étape des environnements GitHub, puis les supprimer du poste."
+      ],
+      "commande": "sudo /opt/personal-os/src/infra/deploy/bin/install.sh",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "cd-environnements-github",
+      "phase": "env",
+      "source": "#93",
+      "titre": "Créer les environnements GitHub staging et production, avec leur clé et l'empreinte épinglée du VPS",
+      "pourquoi": "Le job staging de la CI et le job production de la livraison lisent leur clé dans leur environnement. La clé de prod ne doit être lisible que depuis main.",
+      "etapes": [
+        "Settings → Environments → staging : règle de déploiement sur la branche develop, secret STAGING_SSH_KEY (clé privée staging).",
+        "Settings → Environments → production : règle de déploiement sur la seule branche main, secret PROD_SSH_KEY (clé privée prod).",
+        "Dans les deux : variable DEPLOY_HOST (nom ou IP du VPS) et DEPLOY_KNOWN_HOSTS (sortie de ssh-keyscan -t ed25519 <DEPLOY_HOST>).",
+        "Comparer l'empreinte de DEPLOY_KNOWN_HOSTS à sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub sur le VPS.",
+        "Supprimer les clés privées du poste."
+      ],
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "cd-port-ssh-runners",
+      "phase": "chk",
+      "source": "#93",
+      "titre": "Vérifier que les runners GitHub joignent le port SSH du VPS, et que les deux jobs de déploiement passent",
+      "pourquoi": "Le contrôle repose sur la clé et la commande forcée, pas sur le pare-feu (ADR 0032) : le port 22 doit rester ouvert à Internet. Un job de déploiement rouge sur « Connection timed out » vient du réseau, pas du déploiement.",
+      "etapes": [
+        "sudo ufw status : 22/tcp autorisé depuis partout.",
+        "Après le premier merge sur develop : le job « Déploie le staging » de la CI est vert, et son journal montre deploy-staging.sh.",
+        "Depuis un poste avec la clé staging : ssh -i staging deploy@<DEPLOY_HOST> ls est refusé (sortie 2).",
+        "Après la première livraison : le job « Déploie la production » est vert, et /var/log/personal-os/deploy.log porte le commit."
+      ],
+      "commande": "tail -n 50 /var/log/personal-os/deploy-trigger-staging.log",
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "cd-temoin-periode",
+      "phase": "doc",
+      "source": "#93",
+      "titre": "Ajuster ou retirer le témoin d'inactivité du déploiement",
+      "pourquoi": "Sans minuteur, deploy.sh ne pingue plus DEPLOY_HEARTBEAT_URL qu'à chaque livraison : un témoin réglé sur quelques minutes passerait en alerte. Le job GitHub signale déjà un déploiement qui n'a pas pu démarrer.",
+      "etapes": [
+        "Si DEPLOY_HEARTBEAT_URL est renseigné : régler la période du témoin sur le rythme des livraisons, ou le vider dans /etc/personal-os/deploy.conf."
+      ],
+      "ajouteLe": "2026-11-04"
+    },
+    {
+      "id": "backup-watch-install",
+      "phase": "vps",
+      "source": "#82",
+      "titre": "Poser la vérification de fraîcheur des sauvegardes et tester son alerte",
+      "pourquoi": "Sans elle, une sauvegarde qui ne se lance plus du tout (minuteur désactivé, unité absente) ne déclenche aucune alerte.",
+      "etapes": [
+        "Sur le VPS, relancer l'installation de l'agent de sauvegarde depuis la nouvelle version du dépôt : sudo infra/backup/bin/install.sh",
+        "Vérifier que personal-os-backup-watch.timer apparaît dans systemctl list-timers",
+        "Déclencher l'alerte une fois à la main contre un dépôt vide (README de infra/backup, « Tester l'alerte ») et vérifier la réception du courriel et le passage du témoin en échec",
+        "Lancer systemctl start personal-os-backup-watch.service contre le vrai dépôt : l'unité doit réussir"
+      ],
+      "commande": "sudo infra/backup/bin/install.sh && systemctl list-timers personal-os-backup-watch.timer",
+      "ajouteLe": "2026-11-04"
     }
   ],
   "format": "élément = { id (stable), phase, source (#n), titre, pourquoi, etapes: [], commande (facultative), ajouteLe (YYYY-MM-DD) }"

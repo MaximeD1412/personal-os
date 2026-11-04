@@ -37,6 +37,9 @@ describe('La fiche d’une Recette', () => {
       '1 Rincer les lentilles.',
       '2 Mijoter 20 minutes.',
     ]);
+    expect(
+      el().querySelector('[data-test="modifier"]')?.getAttribute('href'),
+    ).toBe('/repas/recettes/recette-1/modifier');
   });
 
   it('dit qu’une recette ne décrit aucune étape', async () => {
@@ -68,5 +71,6 @@ describe('La fiche d’une Recette', () => {
 
     expect(el().textContent).toContain('Aucune Recette de cet identifiant.');
     expect(el().querySelector('[data-test="ingredients"]')).toBeNull();
+    expect(el().querySelector('[data-test="modifier"]')).toBeNull();
   });
 });
