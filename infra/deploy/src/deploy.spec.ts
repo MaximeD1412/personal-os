@@ -60,6 +60,30 @@ describe('deploy.sh --dry-run', () => {
   });
 });
 
+describe('deploy.sh <commit>', () => {
+  it('déploie le commit donné en argument, comme --revision', () => {
+    const resultat = run('deploy.sh', ['--dry-run', REVISION], makeFixture());
+
+    expect(resultat.status).toBe(0);
+    expect(resultat.stdout).toContain(`-> ${REVISION}`);
+    expect(resultat.stdout).toMatch(/plan: pile et routage repris de .* en a1b2c3d4/);
+  });
+
+  it('refuse deux commits', () => {
+    const resultat = run('deploy.sh', ['--dry-run', REVISION, PRECEDENTE], makeFixture());
+
+    expect(resultat.status).not.toBe(0);
+    expect(resultat.stderr).toContain('un seul commit attendu');
+  });
+
+  it('refuse une révision mouvante passée en argument', () => {
+    const resultat = run('deploy.sh', ['--dry-run', 'main'], makeFixture());
+
+    expect(resultat.status).not.toBe(0);
+    expect(resultat.stderr).toContain('mouvante');
+  });
+});
+
 describe('deploy.sh --rollback --dry-run', () => {
   it('revient sur la révision précédente enregistrée', () => {
     const fixture = makeFixture({

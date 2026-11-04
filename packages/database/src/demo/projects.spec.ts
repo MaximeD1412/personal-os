@@ -1,7 +1,7 @@
 import { zProjectExpenseInput, zProjectInput } from '@personal-os/contracts';
-import { porteeCourante } from '../lib/espace/portee';
+import { estPublique, porteeCourante } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
-import { PROJETS_DE_DEMO, semerLesProjets } from './projects';
+import { depensesAuJour, PROJETS_DE_DEMO, semerLesProjets } from './projects';
 
 const ESPACE_A = 'espace-personnel-a';
 const ESPACE_B = 'espace-personnel-b';
@@ -33,7 +33,9 @@ function prismaFactice(existants: Record<string, string> = {}) {
     },
     project: {
       findFirst: jest.fn(({ where }: { where: { title: string } }) => {
-        const scopeId = porteeCourante()?.espaces[0]?.id ?? '';
+        const portee = porteeCourante();
+        const scopeId =
+          portee && !estPublique(portee) ? (portee.espaces[0]?.id ?? '') : '';
         const id = existants[`${scopeId}/${where.title}`];
         return Promise.resolve(id ? { id, scopeId } : null);
       }),
@@ -59,10 +61,32 @@ describe('Les Projets de démo', () => {
     for (const { expenses, ...projet } of PROJETS_DE_DEMO) {
       expect(zProjectInput.safeParse(projet).success).toBe(true);
       expect(expenses.length).toBeGreaterThan(0);
-      for (const depense of expenses) {
+      for (const depense of depensesAuJour(expenses, '2026-11-04')) {
         expect(zProjectExpenseInput.safeParse(depense).success).toBe(true);
       }
     }
+  });
+
+  it('datent leurs dépenses depuis le jour du semis, toutes passées', () => {
+    for (const { expenses } of PROJETS_DE_DEMO) {
+      for (const jour of ['2026-11-04', '2030-06-05']) {
+        const depenses = depensesAuJour(expenses, jour);
+        expect(depenses.map(({ spentOn }) => spentOn)).toEqual(
+          expenses.map(({ ilYaJours }) => {
+            const date = new Date(`${jour}T00:00:00Z`);
+            date.setUTCDate(date.getUTCDate() - ilYaJours);
+            return date.toISOString().slice(0, 10);
+          }),
+        );
+        for (const { spentOn } of depenses) {
+          expect(spentOn <= jour).toBe(true);
+        }
+      }
+    }
+    const [premiere] = PROJETS_DE_DEMO[0].expenses;
+    expect(depensesAuJour([premiere], '2030-06-05')[0].spentOn).toBe(
+      '2030-04-16',
+    );
   });
 });
 

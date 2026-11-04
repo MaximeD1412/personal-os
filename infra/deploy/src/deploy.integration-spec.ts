@@ -77,6 +77,7 @@ describe('déploiement tiré, de bout en bout', () => {
   let revisionSaine: string;
   let revisionMalade: string;
   let revisionRefusee: string;
+  let revisionSuivante: string;
 
   function requeteProduction(sql: string): string {
     return sh('docker', [
@@ -169,6 +170,7 @@ describe('déploiement tiré, de bout en bout', () => {
     revisionSaine = commettreStack(depot, compose('version saine'), 'pile initiale');
     revisionMalade = commettreStack(depot, compose('version sans sonde'), 'pile sans sonde');
     revisionRefusee = commettreStack(depot, compose('version refusee'), 'pile refusée');
+    revisionSuivante = commettreStack(depot, compose('version suivante'), 'pile suivante');
     clonerDepot(depot);
 
     registre = demarrerRegistre(REGISTRE_CONTENEUR, REGISTRE_PORT);
@@ -202,6 +204,16 @@ describe('déploiement tiré, de bout en bout', () => {
         sante: true,
       },
       join(racine, 'image-refusee')
+    );
+    publierImage(
+      registre,
+      revisionSuivante,
+      {
+        migration:
+          'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "create table if not exists migration_v3 (id serial primary key)"',
+        sante: true,
+      },
+      join(racine, 'image-suivante')
     );
 
     const depotRestic = join(racine, 'restic');
@@ -334,7 +346,7 @@ describe('déploiement tiré, de bout en bout', () => {
     if (!racine) return;
     nettoyerPile();
     silence(() => sh('docker', ['rm', '--force', REGISTRE_CONTENEUR]));
-    for (const revision of [revisionSaine, revisionMalade, revisionRefusee].filter(Boolean)) {
+    for (const revision of [revisionSaine, revisionMalade, revisionRefusee, revisionSuivante].filter(Boolean)) {
       silence(() => sh('docker', ['rmi', '--force', `${registre.prefixe}/api:${revision}`]));
     }
     rmSync(racine, { recursive: true, force: true });
@@ -429,6 +441,28 @@ describe('déploiement tiré, de bout en bout', () => {
     expect(ajout).toContain(`echec-inattendu\t${revisionRefusee}`);
     expect(etat('FAILED_REVISION')).toBe(revisionRefusee);
 
+    expect(imageEnPlace()).toBe(`${registre.prefixe}/api:${revisionSaine}`);
+    expect(sante()).toBe(200);
+  });
+
+  // C'est ce que fait un job de livraison relancé après une coupure SSH, alors
+  // que le déploiement était allé au bout sur la machine : deploy-trigger
+  // redemande, forcé, le commit déjà en place.
+  it('garde la version précédente quand le commit en place est redéployé', () => {
+    expect(deployer(['--force', revisionSuivante]).status).toBe(0);
+    expect(etat('DEPLOYED_REVISION')).toBe(revisionSuivante);
+    expect(etat('PREVIOUS_REVISION')).toBe(revisionSaine);
+
+    const relance = deployer(['--force', revisionSuivante]);
+
+    expect(relance.status).toBe(0);
+    expect(etat('DEPLOYED_REVISION')).toBe(revisionSuivante);
+    expect(etat('PREVIOUS_REVISION')).toBe(revisionSaine);
+
+    const retour = deployer(['--rollback']);
+
+    expect(retour.status).toBe(0);
+    expect(etat('DEPLOYED_REVISION')).toBe(revisionSaine);
     expect(imageEnPlace()).toBe(`${registre.prefixe}/api:${revisionSaine}`);
     expect(sante()).toBe(200);
   });

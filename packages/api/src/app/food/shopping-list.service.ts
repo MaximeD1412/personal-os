@@ -3,15 +3,19 @@ import {
   designation,
   portions,
   type ApiFieldError,
+  type ShoppingGap,
   type ShoppingList,
   type ShoppingListClosure,
   type ShoppingListItem,
   type ShoppingListItemInput,
+  type ShoppingListProductionQuery,
   type ShoppingListQuery,
 } from '@personal-os/contracts';
+import type Decimal from 'decimal.js';
 import { ErreurMetier, Introuvable } from '../erreurs/erreur-metier';
 import type { EchecDeConversion } from './conversion/convertir';
 import { consolider, type EchecDeConsolidation } from './courses/consolider';
+import { ecart } from './courses/ecart';
 import { acheter, type EchecDAchat } from './stock/acheter';
 import {
   codePrisma,
@@ -21,6 +25,9 @@ import {
   type ShoppingListItemRecord,
   type ShoppingListRecord,
 } from './shopping-list.repository';
+
+/** Combien de fois un complément recalcule son écart quand un autre est passé avant lui. */
+const ESSAIS_DE_COMPLEMENT = 5;
 
 /**
  * Une écriture concurrente de la liste ou du stock fait recommencer la
@@ -33,9 +40,9 @@ const ESSAIS_DE_CLOTURE = 5;
  * Les Listes de courses du Foyer, figées à leur production (ADR 0012) : rien
  * ne les recalcule. Les saisies arrivent validées par leur schéma (ADR 0030) ;
  * il reste ici ce qu'un schéma ne juge pas seul. Un planning qui n'est pas
- * arrêté, un Ingrédient qui ne se convertit pas, un Ingrédient inconnu, une
- * liste close, un article du planning qu'on voudrait retirer, un achat
- * périssable sans péremption.
+ * arrêté, un complément sans rien qui manque, un Ingrédient qui ne se
+ * convertit pas, un Ingrédient inconnu, une liste close, un article du
+ * planning qu'on voudrait retirer, un achat périssable sans péremption.
  */
 @Injectable()
 export class ShoppingListService {
@@ -52,10 +59,113 @@ export class ShoppingListService {
   /**
    * Produit une liste depuis un planning arrêté : ses besoins, consolidés par
    * Ingrédient en Unité canonique, moins le Stock domestique. Produire de
-   * nouveau depuis le même planning crée une autre liste.
+   * nouveau depuis le même planning crée une autre liste. Une liste de
+   * complément ne porte que l'écart avec les listes déjà produites pour lui.
    */
-  async produire(planId: string): Promise<ShoppingList> {
-    const planning = await this.planningArrete(planId);
+  async produire(
+    planId: string,
+    { complement = false }: ShoppingListProductionQuery = {},
+  ): Promise<ShoppingList> {
+    for (let essai = 1; ; essai++) {
+      const planning = await this.planningArrete(planId);
+      const { besoins, listesLues } = complement
+        ? await this.manquants(planning)
+        : { besoins: await this.besoinActuel(planning), listesLues: undefined };
+      if (complement && besoins.length === 0) {
+        throw new ErreurMetier(
+          'food.no_shopping_gap',
+          "Rien ne manque aux listes déjà produites pour ce planning : il n'y a pas de liste de complément à produire.",
+        );
+      }
+
+      const articles = besoins.map(({ ingredient, quantite }) => ({
+        ingredientId: ingredient.id,
+        label: null,
+        quantity: quantite.toFixed(3),
+        unit: ingredient.canonicalUnit,
+      }));
+
+      try {
+        return exposer(
+          await this.repository.produire(planId, articles, listesLues),
+        );
+      } catch (erreur) {
+        if (codePrisma(erreur) !== 'P2025') {
+          throw erreur;
+        }
+        // Le planning a été rouvert depuis qu'on l'a lu.
+        await this.planningArrete(planId);
+        // Sinon, un autre complément est passé avant : l'écart se recalcule.
+        if (!complement || essai === ESSAIS_DE_COMPLEMENT) throw erreur;
+      }
+    }
+  }
+
+  /**
+   * L'écart entre un planning et ses listes figées (ADR 0012) : ce que sa
+   * consolidation actuelle exige au-delà de ce qu'elles couvrent. Un planning
+   * ouvert a aussi un écart : on le voit pendant qu'on le modifie.
+   */
+  async lireLEcart(planId: string): Promise<ShoppingGap> {
+    const { besoins } = await this.manquants(await this.planning(planId));
+    return {
+      missing: besoins.map(({ ingredient, quantite }) => ({
+        ingredient: { id: ingredient.id, displayName: ingredient.displayName },
+        quantity: quantite.toNumber(),
+        unit: ingredient.canonicalUnit,
+      })),
+    };
+  }
+
+  /**
+   * Les besoins du planning qu'aucune liste déjà produite pour lui ne couvre,
+   * et ces listes. Sans liste, il n'y a pas d'écart : le planning attend sa
+   * première liste.
+   */
+  private async manquants(
+    planning: PlanningAConsoliderRecord,
+  ): Promise<{ besoins: Besoin[]; listesLues: string[] }> {
+    const listes = await this.repository.listesDuPlanning(planning.id);
+    const listesLues = listes.map(({ id }) => id);
+    if (listes.length === 0) return { besoins: [], listesLues };
+
+    const besoins = await this.besoinActuel(planning);
+    const { manquants } = ecart(
+      besoins.map(({ ingredient, quantite }) => ({
+        ingredientId: ingredient.id,
+        quantite,
+        unite: ingredient.canonicalUnit,
+      })),
+      listes.map(({ items }) => ({
+        articles: items.map(({ ingredientId, quantity, unit, origin }) => ({
+          ingredientId,
+          quantite: quantity?.toString() ?? null,
+          unite: unit,
+          origin,
+        })),
+      })),
+    );
+    const ingredientDe = new Map(
+      besoins.map(({ ingredient }) => [ingredient.id, ingredient]),
+    );
+    return {
+      besoins: manquants.map(({ ingredientId, quantite }) => ({
+        ingredient: ingredientDe.get(
+          ingredientId,
+        ) as IngredientAConsoliderRecord,
+        quantite,
+      })),
+      listesLues,
+    };
+  }
+
+  /**
+   * La consolidation actuelle du planning, dans l'ordre alphabétique où une
+   * liste se lit au magasin. Une conversion impossible la refuse entière.
+   */
+  private async besoinActuel(
+    planning: PlanningAConsoliderRecord,
+  ): Promise<Besoin[]> {
     const ingredients = ingredientsDe(planning);
     const stock = await this.repository.stockDe([...ingredients.keys()]);
 
@@ -94,32 +204,14 @@ export class ShoppingListService {
       throw conversionImpossible(consolidation.echecs, ingredients);
     }
 
-    // Au magasin, une liste se lit dans l'ordre alphabétique.
-    const articles = consolidation.articles
+    return consolidation.articles
       .map(({ ingredientId, quantite }) => ({
         ingredient: ingredients.get(
           ingredientId,
         ) as IngredientAConsoliderRecord,
         quantite,
       }))
-      .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name, 'fr'))
-      .map(({ ingredient, quantite }) => ({
-        ingredientId: ingredient.id,
-        label: null,
-        quantity: quantite.toFixed(3),
-        unit: ingredient.canonicalUnit,
-      }));
-
-    try {
-      return exposer(await this.repository.produire(planId, articles));
-    } catch (erreur) {
-      if (codePrisma(erreur) !== 'P2025') {
-        throw erreur;
-      }
-      // Le planning a été rouvert depuis qu'on l'a lu.
-      await this.planningArrete(planId);
-      throw erreur;
-    }
+      .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name, 'fr'));
   }
 
   /**
@@ -317,7 +409,7 @@ export class ShoppingListService {
     return article;
   }
 
-  private async planningArrete(id: string): Promise<PlanningAConsoliderRecord> {
+  private async planning(id: string): Promise<PlanningAConsoliderRecord> {
     const planning = await this.repository.planningAConsolider(id);
     if (!planning) {
       throw new Introuvable(
@@ -325,6 +417,11 @@ export class ShoppingListService {
         'Aucun Planning de repas de cet identifiant.',
       );
     }
+    return planning;
+  }
+
+  private async planningArrete(id: string): Promise<PlanningAConsoliderRecord> {
+    const planning = await this.planning(id);
     if (planning.status !== 'STOPPED') {
       throw new ErreurMetier(
         'food.plan_not_stopped',
@@ -360,6 +457,12 @@ export class ShoppingListService {
       throw erreur;
     }
   }
+}
+
+/** Un besoin à acheter, en Unité canonique de son Ingrédient. */
+interface Besoin {
+  ingredient: IngredientAConsoliderRecord;
+  quantite: Decimal;
 }
 
 /** Chaque Ingrédient que les recettes du planning citent, une fois. */

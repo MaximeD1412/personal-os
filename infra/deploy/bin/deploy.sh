@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Applique sur cette machine la version publiée sur le canal.
+# Applique sur cette machine la version publiée sur le canal, ou un commit.
 #
-#   deploy.sh [--revision SHA] [--force] [--rollback] [--dry-run]
+#   deploy.sh [<commit> | --revision SHA] [--force] [--rollback] [--dry-run]
 #
-#   --revision   déploie ce commit précis plutôt que celui du canal
+#   <commit>     déploie ce commit précis plutôt que celui du canal ; c'est ce
+#                que lance deploy-trigger, à la demande de la livraison
+#   --revision   la même chose, sous forme d'option
 #   --force      redéploie même si la révision est déjà en place, ou si elle a
 #                déjà échoué
 #   --rollback   revient à la révision précédente, sans rien migrer
@@ -31,10 +33,14 @@ while [ $# -gt 0 ]; do
     --rollback) ROLLBACK=1 ;;
     --dry-run) DRY_RUN=1 ;;
     -h | --help)
-      sed -n '2,11p' "${BASH_SOURCE[0]}"
+      sed -n '2,13p' "${BASH_SOURCE[0]}"
       exit 0
       ;;
-    *) die "argument inconnu : $1" ;;
+    -*) die "argument inconnu : $1" ;;
+    *)
+      [ -z "$REVISION" ] || die "un seul commit attendu : $REVISION, puis $1"
+      REVISION="$1"
+      ;;
   esac
   shift
 done
@@ -140,6 +146,16 @@ fi
 
 assert_tools
 
+# La version vers laquelle --rollback reviendra après ce déploiement. Redéployer
+# le commit déjà en place (un job de livraison relancé après une coupure SSH,
+# alors que le déploiement avait abouti) ne doit pas la remplacer par lui-même :
+# le retour arrière ne mènerait plus nulle part.
+if [ "$REVISION" = "$DEPLOYED" ]; then
+  PRECEDENTE="$PREVIOUS"
+else
+  PRECEDENTE="${DEPLOYED:-}"
+fi
+
 remove_rehearsal_containers() {
   local ids
   ids=$(docker ps --all --quiet --filter 'name=personal-os-restore-' 2>/dev/null || true)
@@ -240,7 +256,7 @@ compose_at "$REVISION" up --detach --remove-orphans
 # --- 3. Vérification de santé, et retour arrière si elle échoue ------------
 
 if health_ok; then
-  write_state "$REVISION" "${DEPLOYED:-}" ""
+  write_state "$REVISION" "$PRECEDENTE" ""
   history_append succes "$REVISION" "santé vérifiée"
   trap - EXIT
   heartbeat success

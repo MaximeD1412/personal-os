@@ -5,8 +5,11 @@ import {
 } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
+  GenerationRound,
+  GenerationRoundInput,
   MealPlan,
   MealPlanEntry,
+  MealPlanEntryDecisionInput,
   MealPlanEntryInput,
 } from '@personal-os/contracts';
 import type { Observable } from 'rxjs';
@@ -58,6 +61,32 @@ export class MealPlanService {
     return this.http.post<MealPlan>(
       `${this.baseUrl}/meal-plans/${planId}/reopen`,
       {},
+    );
+  }
+
+  /**
+   * Un Tour de génération : l'IA propose, le contrôle écarte. Seul le premier
+   * tour lit ses créneaux ; les suivants régénèrent les refusés et les écartés.
+   */
+  lancerUnTour(
+    planId: string,
+    saisie: GenerationRoundInput,
+  ): Observable<GenerationRound> {
+    return this.http.post<GenerationRound>(
+      `${this.baseUrl}/meal-plans/${planId}/generation-rounds`,
+      saisie,
+    );
+  }
+
+  /** On statue sur un repas proposé : approuvé, ou refusé. */
+  decider(
+    planId: string,
+    repasId: string,
+    decision: MealPlanEntryDecisionInput['decision'],
+  ): Observable<MealPlanEntry> {
+    return this.http.post<MealPlanEntry>(
+      `${this.baseUrl}/meal-plans/${planId}/entries/${repasId}/decision`,
+      { decision },
     );
   }
 }

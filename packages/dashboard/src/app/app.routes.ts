@@ -41,6 +41,18 @@ export const appRoutes: Route[] = [
   { path: 'repas/ingredients/:id', component: FicheDIngredient },
   { path: 'repas/ingredients/:id/modifier', component: FormulaireDIngredient },
   { path: 'repas/recettes', component: Recettes },
+  // La saisie d'une Recette, préremplie par sa requête (ADR 0030), chargée à
+  // la demande ; « nouvelle » passe avant l'identifiant.
+  {
+    path: 'repas/recettes/nouvelle',
+    loadComponent: async () =>
+      (await import('./repas/recipe-form')).FormulaireDeRecette,
+  },
+  {
+    path: 'repas/recettes/:id/modifier',
+    loadComponent: async () =>
+      (await import('./repas/recipe-form')).FormulaireDeRecette,
+  },
   // Le Planning de repas d'une semaine (`?semaine=`, son lundi) avec ses
   // Souhaits, et l'ajout d'un repas, prérempli par sa requête (ADR 0030).
   // Chargés à la demande, pour que le bundle initial tienne son budget.
@@ -53,6 +65,17 @@ export const appRoutes: Route[] = [
     path: 'repas/planning/nouveau',
     loadComponent: async () =>
       (await import('./repas/meal-plan-entry-form')).FormulaireDeRepas,
+  },
+  {
+    path: 'repas/planning/generer',
+    loadComponent: async () =>
+      (await import('./repas/generation-form')).FormulaireDeGeneration,
+  },
+  // La Trace IA d'un Tour de génération, ouverte depuis le planning.
+  {
+    path: 'repas/generation/traces/:traceId',
+    loadComponent: async () =>
+      (await import('./repas/trace-de-generation')).TraceDeGeneration,
   },
   // La déclaration d'un Repas cuisiné (`?mealPlanEntryId=`), ouverte depuis
   // un repas approuvé du planning, et chargée à la demande comme lui.
@@ -134,5 +157,22 @@ export const appRoutes: Route[] = [
     path: 'portfolio/pages',
     loadComponent: async () =>
       (await import('./portfolio/pages')).PagesDuPortfolio,
+  },
+  // Les Séances, chargées à la demande pour que le bundle initial tienne son
+  // budget.
+  {
+    path: 'sport',
+    loadComponent: async () => (await import('./sport/sport')).Sport,
+  },
+  // Préremplie par sa requête (ADR 0030) ; déclarée avant `:id`, qu'elle
+  // n'est pas.
+  {
+    path: 'sport/seances/nouvelle',
+    loadComponent: async () =>
+      (await import('./sport/nouvelle-seance')).NouvelleSeance,
+  },
+  {
+    path: 'sport/seances/:id',
+    loadComponent: async () => (await import('./sport/seance')).Seance,
   },
 ];

@@ -5,6 +5,7 @@ import {
 } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
+  ShoppingGap,
   ShoppingList,
   ShoppingListClosure,
   ShoppingListItem,
@@ -46,6 +47,34 @@ export class ShoppingListService {
       `${this.baseUrl}/meal-plans/${planId}/shopping-lists`,
       {},
     );
+  }
+
+  /**
+   * Une liste de complément : les seuls Ingrédients qui manquent aux listes
+   * déjà produites pour ce planning arrêté.
+   */
+  produireLeComplement(planId: string): Observable<ShoppingList> {
+    return this.http.post<ShoppingList>(
+      `${this.baseUrl}/meal-plans/${planId}/shopping-lists`,
+      {},
+      { params: { complement: true } },
+    );
+  }
+
+  /**
+   * L'écart entre un planning et ses listes figées ; rien n'est lu sans
+   * planning. Chaque nouvelle valeur du planning relit l'écart : un repas a pu
+   * changer.
+   */
+  ecart(
+    planning: () => { id: string } | null,
+  ): HttpResourceRef<ShoppingGap | undefined> {
+    return httpResource<ShoppingGap>(() => {
+      const actuel = planning();
+      return actuel
+        ? `${this.baseUrl}/meal-plans/${actuel.id}/shopping-gap`
+        : undefined;
+    });
   }
 
   ajouter(

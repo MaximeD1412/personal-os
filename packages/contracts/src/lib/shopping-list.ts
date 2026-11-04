@@ -75,6 +75,47 @@ export const zShoppingListQuery = /* @__PURE__ */ z.object({
 
 export type ShoppingListQuery = z.infer<typeof zShoppingListQuery>;
 
+/**
+ * La production d'une liste depuis un planning arrêté
+ * (`POST /meal-plans/:id/shopping-lists`). Avec `complement=true`, la liste
+ * ne porte que l'écart : ce que le planning exige au-delà des listes déjà
+ * produites pour lui.
+ */
+export const zShoppingListProductionQuery = /* @__PURE__ */ z.object({
+  complement: /* @__PURE__ */ z
+    .stringbool({ error: '`complement` vaut `true` ou `false`.' })
+    .optional(),
+});
+
+export type ShoppingListProductionQuery = z.infer<
+  typeof zShoppingListProductionQuery
+>;
+
+/** Un Ingrédient qui manque aux listes d'un planning, en Unité canonique. */
+export const zShoppingGapItem = /* @__PURE__ */ z.object({
+  ingredient: /* @__PURE__ */ z.object({
+    id: z.string(),
+    displayName: z.string(),
+  }),
+  quantity: /* @__PURE__ */ z.number(),
+  unit: zCanonicalUnit,
+});
+
+export type ShoppingGapItem = z.infer<typeof zShoppingGapItem>;
+
+/**
+ * L'écart entre un Planning de repas et ses listes figées
+ * (`GET /meal-plans/:id/shopping-gap`) : ce que la consolidation actuelle
+ * exige au-delà de ce que les listes déjà produites couvrent, dans l'ordre
+ * alphabétique. Un excédent n'est jamais signalé, et un planning dont aucune
+ * liste n'a été produite n'a pas d'écart.
+ */
+export const zShoppingGap = /* @__PURE__ */ z.object({
+  missing: /* @__PURE__ */ z.array(zShoppingGapItem),
+});
+
+export type ShoppingGap = z.infer<typeof zShoppingGap>;
+
 /** Au millième près, comme la base la garde, et strictement positive. */
 const zQuantity = /* @__PURE__ */ z
   .number({ error: 'La quantité est un nombre.' })

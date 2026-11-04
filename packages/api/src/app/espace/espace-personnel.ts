@@ -1,4 +1,4 @@
-import { porteeCourante } from '@personal-os/database';
+import { estPublique, porteeCourante } from '@personal-os/database';
 
 /**
  * L'Espace personnel du Compte connecté. Un module qui ne vit que là (les
@@ -9,9 +9,12 @@ import { porteeCourante } from '@personal-os/database';
  * sans elle, c'est une faute de câblage, pas une saisie à refuser.
  */
 export function espacePersonnelCourant(): string {
-  const espace = porteeCourante()?.espaces.find(
-    ({ kind }) => kind === 'PERSONAL',
-  );
+  const portee = porteeCourante();
+  // La lecture publique n'a pas d'auteur, donc pas d'Espace personnel.
+  const espace =
+    portee && !estPublique(portee)
+      ? portee.espaces.find(({ kind }) => kind === 'PERSONAL')
+      : undefined;
   if (!espace) {
     throw new Error(
       "La requête n'a pas d'auteur : aucun Espace personnel dans la portée.",

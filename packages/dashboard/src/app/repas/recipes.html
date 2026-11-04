@@ -3,7 +3,12 @@
     heading="Recettes"
     subtitle="Les recettes du Foyer, partagées par les deux Comptes."
     [breadcrumb]="fil"
-  />
+  >
+    <a hlmBtn routerLink="/repas/recettes/nouvelle" data-test="nouvelle">
+      <ng-icon name="matAddOutline" aria-hidden="true" />
+      Nouvelle recette
+    </a>
+  </dccm-page-header>
 
   <div hlmInputGroup class="md:max-w-md">
     <ng-icon name="matSearchOutline" aria-hidden="true" />

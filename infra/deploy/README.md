@@ -1,57 +1,131 @@
-# Déploiement tiré par le VPS
+# Déploiement poussé par GitHub
 
 Un commit atteignant la branche principale part en production
-([ADR 0023](../../docs/adr/0023-deploiement-automatique-tire-par-le-vps.md)).
-La branche principale est une branche de **livraison** : fusionner signifie
-livrer.
+([ADR 0023](../../docs/adr/0023-deploiement-automatique-tire-par-le-vps.md)
+pour la séquence, [ADR 0032](../../docs/adr/0032-deploiement-pousse-par-une-cle-ssh-bridee.md)
+pour son déclenchement). La branche principale est une branche de **livraison** :
+fusionner signifie livrer. Un commit atteignant `develop` part sur le staging
+de démonstration.
 
 | Fichier | Rôle |
 | --- | --- |
 | `bin/deploy.sh` | La séquence complète : répétition, migration, redémarrage, santé, retour arrière |
-| `bin/notify-failure.sh` | Courriel + témoin d'inactivité, appelé par `OnFailure=` |
-| `bin/install.sh` | Pose l'agent, la pile, les unités systemd. Idempotent |
+| `bin/deploy-staging.sh` | Le staging de démonstration : images d'un commit, migration, jeu de démo, santé |
+| `bin/deploy-trigger` | La commande forcée des clés de GitHub : n'accepte que `deploy <env> <sha>` |
+| `bin/install-access.sh` | Pose l'utilisateur `deploy`, ses clés forcées et sa règle sudo. Lancé par `install.sh` |
+| `bin/notify-failure.sh` | Courriel d'échec, appelé par `deploy-trigger` |
+| `bin/install.sh` | Pose l'agent, la pile, l'accès de GitHub ; retire l'ancien minuteur. Idempotent |
 | `docker-compose.prod.yml` | La pile de production. Ne construit rien : elle tire des images |
 | `caddy/` | Carte de routage de Personal OS — portfolio, tableau de bord, Authentik |
 | `deploy.conf.example` | Configuration de l'agent. **Sans secret** |
 | `ghcr.env.example` | Modèle de jeton de lecture du registre. Jamais dans Git |
 | `stack.env.example` | Modèle d'environnement de la pile. Jamais dans Git |
+| `docker-compose.staging.yml` | La pile du staging : un projet à part, plafonné à 1 CPU et 1 Go |
+| `staging.env.example` | Modèle d'environnement du staging. Jamais dans Git |
 
 ## Le sens de circulation
 
-GitHub Actions construit, teste et pousse sur GHCR, puis **s'arrête**. Il n'a
-aucun accès entrant au VPS : ni clé SSH, ni secret de production, rien qui
-permette d'atteindre la machine qui héberge fiches de paie, finances et
-documents immobiliers.
-
-Le seul identifiant qui circule va dans l'autre sens — un jeton `read:packages`
-posé sur la machine, et encore : seulement si les images sont privées.
+GitHub Actions construit, teste et pousse les images sur GHCR, puis **se
+connecte au VPS** pour demander le déploiement du commit. Le déploiement
+s'exécute pendant le job : son journal s'affiche dans GitHub, et le job est
+rouge si le déploiement échoue ou finit par un retour arrière.
 
 ```
-   fusion sur main
-         │
-         ▼
-   GitHub Actions ──▶ GHCR : api, dashboard, portfolio en <commit>
-         ╵                              │  (+ edge, tiré à la main)
-         ╵ (rien ne repart vers le VPS) │  canal `main` déplacé,
-         ╵                              │  une fois toutes poussées
-                                        ▼
-                          VPS ── timer, toutes les 2 min
-                                        │
-                                        ▼
-                          répétition ▸ migration ▸ santé ▸ (retour arrière)
+   fusion sur develop                        fusion sur main
+         │                                         │
+         ▼                                         ▼
+   CI : vérification                         Livraison : campagne complète
+         │                                         │
+         ▼                                         ▼
+   GHCR : api, dashboard, portfolio          GHCR : api, dashboard, portfolio,
+          en <commit>                               edge en <commit>, puis canal
+         │                                          `main` déplacé
+         ▼                                         ▼
+   ssh deploy@VPS                            ssh deploy@VPS
+     deploy staging <commit>                   deploy prod <commit>
+     (clé du staging)                          (clé de la production)
+         │                                         │
+         ▼                                         ▼
+   deploy-staging.sh <commit>                deploy.sh --force <commit>
+   migration ▸ jeu de démo ▸ santé           répétition ▸ migration ▸ santé
+                                             ▸ (retour arrière)
 ```
+
+Il n'y a plus de minuteur : `install.sh` retire celui de l'ancien déploiement
+tiré, pour qu'il n'y ait qu'une seule façon de déclencher un déploiement
+automatique. L'agent reste lançable à la main sur la machine.
+
+## Ce que la clé de GitHub permet, et ce qu'elle ne permet pas
+
+GitHub détient deux clés privées, une par environnement. Côté VPS, chacune est
+posée dans `/home/deploy/.ssh/authorized_keys` avec une **commande forcée** :
+
+```
+command="/opt/personal-os/deploy/bin/deploy-trigger staging",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding,restrict ssh-ed25519 AAAA… personal-os-deploy-staging
+```
+
+Quoi que le client demande, sshd lance `deploy-trigger staging`, qui lit la
+demande dans `SSH_ORIGINAL_COMMAND`.
+
+**Ce qu'elle permet** : redéployer, sur son environnement, un commit dont les
+images sont publiées. Rien d'autre.
+
+- La demande doit valoir exactement `deploy <env> <sha>`, où `<env>` est celui
+  de la clé et `<sha>` un commit de 40 caractères hexadécimaux minuscules.
+  `ls`, une session sans commande, un argument de plus, une seconde ligne, la
+  clé du staging qui demande la prod : tout est refusé, sortie 2, sans rien
+  lancer.
+- Un seul déploiement à la fois par environnement : le second attend la fin du
+  premier.
+- Un job annulé ou une connexion coupée n'interrompent pas le déploiement : il
+  va au bout, et son journal reste sur la machine.
+
+**Ce qu'elle ne permet pas** :
+
+- ni shell, ni pseudo-terminal, ni redirection de port, d'agent ou de X11 ;
+- ni lecture des secrets de la machine (`/etc/personal-os/`, `.env`, la clé
+  Restic) : l'utilisateur `deploy` n'a de droit sur rien ;
+- ni Docker : `deploy` n'est pas dans le groupe `docker`, qui vaudrait root ;
+- ni ajout ou retrait de clé : son `.ssh` appartient à root.
+
+Pour lancer le déploiement en root, `deploy-trigger` se relance par `sudo`, et
+la règle posée par `install-access.sh` ne lui ouvre que lui :
+
+```
+Defaults!/opt/personal-os/deploy/bin/deploy-trigger env_keep += "SSH_ORIGINAL_COMMAND"
+deploy ALL=(root) NOPASSWD: /opt/personal-os/deploy/bin/deploy-trigger prod, /opt/personal-os/deploy/bin/deploy-trigger staging
+```
+
+La copie root revérifie la demande avant d'aller plus loin. `sudo -l -U deploy`
+le montre sur la machine.
+
+> **Pourquoi `/bin/sh` et pas `/usr/sbin/nologin`.** sshd lance la commande
+> forcée **par le shell de l'utilisateur** : avec `nologin`, elle ne s'exécute
+> jamais (« This account is currently not available. »). Aucun shell n'est
+> atteignable pour autant : pas de mot de passe (`*`), et chaque clé
+> d'`authorized_keys` est forcée.
+
+> **Le VPS n'est pas dédié.** Si un utilisateur `deploy` existe déjà, posé par
+> un autre projet, `install-access.sh` refuse d'y toucher : le sien porte un
+> marqueur dans son champ GECOS.
+
+Un compte GitHub compromis peut redéployer un commit publié, y compris un
+ancien (ADR 0032). Il pouvait déjà publier sur `main` ; la clé n'ajoute pas de
+pouvoir nouveau.
 
 ## La séquence
 
-1. **Détection.** L'agent lit le libellé `org.opencontainers.image.revision` de
-   `api:main` — quelques kilo-octets de manifeste, pas une image. C'est un
-   **commit** qu'il en tire, jamais un tag mouvant : un tag désignerait autre
-   chose demain, et le retour arrière n'aurait plus de cible.
+1. **Le commit**, donné par GitHub. Lancé à la main sans commit, l'agent lit le
+   libellé `org.opencontainers.image.revision` de `api:main` — quelques
+   kilo-octets de manifeste, pas une image. C'est toujours un **commit** qu'il
+   déploie, jamais un tag mouvant : un tag désignerait autre chose demain, et
+   le retour arrière n'aurait plus de cible.
 2. **Répétition.** La dernière sauvegarde est restaurée dans un conteneur
    jetable, et la migration y est rejouée
    ([ADR 0021](../../docs/adr/0021-pas-de-staging-la-restauration-sert-de-banc-d-essai.md)).
    Si elle échoue, tout s'arrête : la production n'a pas bougé, les images ne
    sont même pas récupérées. Ce geste teste la migration **et** la sauvegarde.
+   La clé Restic ne quitte jamais la machine.
 3. **Reprise de la pile.** Le compose et le routage sont repris du dépôt à la
    révision déployée. Sans ça, une livraison qui ajoute un service publierait
    ses images sans la configuration qui les branche.
@@ -59,18 +133,18 @@ posé sur la machine, et encore : seulement si les images sont privées.
 5. **Santé.** Si l'API ne répond pas, les **images précédentes** reviennent. La
    base n'est jamais touchée
    ([ADR 0024](../../docs/adr/0024-migrations-toujours-compatibles-avec-la-version-precedente.md)) :
-   rien de ce qui a été saisi depuis le déploiement n'est perdu.
+   rien de ce qui a été saisi depuis le déploiement n'est perdu. Le
+   déploiement sort tout de même en échec : le job est rouge.
 
-Une révision qui a échoué est mémorisée et n'est pas rejouée. Sans cette
-mémoire, le timer remettrait la production à l'épreuve toutes les deux minutes
-avec la même version cassée, et noierait le signalement sous ses propres
-alertes.
+Une révision qui a échoué est mémorisée, et `deploy.sh` lancé à la main ne la
+rejoue pas sans `--force`. GitHub, lui, passe toujours `--force` : relancer un
+job, c'est demander à réessayer.
 
 ## Ce qui ne se met pas à jour tout seul
 
-L'agent et ses unités systemd. Un script qui se réécrit pendant qu'il s'exécute
-est une source de pannes difficiles à lire ; la dérive est donc **signalée dans
-le journal**, et se corrige par un `install.sh` à la main.
+L'agent et son accès. Un script qui se réécrit pendant qu'il s'exécute est une
+source de pannes difficiles à lire ; la dérive est donc **signalée dans le
+journal**, et se corrige par un `install.sh` à la main.
 
 La règle est simple : changer la pile ou le routage part tout seul, changer
 l'agent demande une intervention.
@@ -92,6 +166,7 @@ Tout le reste est sur loopback, joignable par le proxy ou par tunnel SSH.
 | PostgreSQL | `127.0.0.1:5433` |
 | Caddy interne | `127.0.0.1:8080` — débogage seulement |
 | Authentik | `127.0.0.1:9000` |
+| API du staging | `127.0.0.1:3101` — sonde de santé de `deploy-staging.sh` |
 
 Le proxy de tête est `caddy-edge`, neutre et commun à tous les projets de la
 machine ([ADR 0025](../../docs/adr/0025-un-proxy-de-tete-neutre-devant-les-projets.md),
@@ -136,12 +211,13 @@ Authentik l'accompagne, sur son propre hôte.
 
 ## Ce qui ne peut pas être automatisé
 
-Cinq gestes demandent une intervention humaine.
+Plusieurs gestes demandent une intervention humaine.
 
 ### 1. DNS
 
 Un enregistrement `A` vers l'IP du VPS pour chacun des trois hôtes — portfolio,
-tableau de bord, Authentik. Baisser le TTL avant toute bascule ultérieure,
+tableau de bord, Authentik — et pour les deux du staging (`staging`,
+`staging-portfolio`), à moins qu'un enregistrement joker ne les couvre déjà. Baisser le TTL avant toute bascule ultérieure,
 sinon un retour arrière prend la durée du cache.
 
 Le certificat, lui, est déjà là : le proxy de tête détient un joker
@@ -185,6 +261,9 @@ sudo -e /etc/personal-os/ghcr.env    # seulement si les images sont privées
 sudo /opt/personal-os/deploy/bin/deploy.sh --dry-run   # relire le plan
 ```
 
+Tant que les clés de GitHub ne sont pas posées (§ suivant), rien ne se déploie
+tout seul : les jobs de déploiement échouent sur un refus d'authentification.
+
 > **La sauvegarde doit être installée avant.** L'agent refuse de démarrer sans
 > `restore.sh` : la répétition n'est pas une option qu'on désactive quand elle
 > gêne, et sans elle une migration fautive serait découverte sur les données
@@ -197,6 +276,76 @@ sudo /opt/personal-os/deploy/bin/deploy.sh --dry-run   # relire le plan
 > Le mot de passe d'Authentik (`AUTHENTIK_POSTGRES_PASSWORD`) ne suit **pas**
 > cette règle : le service `db-init` le réapplique par `ALTER ROLE` à chaque
 > déploiement. Le changer dans `.env` suffit à le changer en base.
+
+### 4 bis. Les clés de GitHub et ses environnements
+
+Une paire de clés **par environnement**, générée sur un poste de confiance,
+jamais sur le VPS ni dans un dépôt :
+
+```bash
+ssh-keygen -t ed25519 -N '' -C personal-os-deploy-prod    -f prod
+ssh-keygen -t ed25519 -N '' -C personal-os-deploy-staging -f staging
+```
+
+**Sur le VPS**, les deux clés publiques, puis `install.sh` qui réécrit
+`authorized_keys` à partir d'elles :
+
+```bash
+sudo install -m 644 prod.pub staging.pub /etc/personal-os/deploy-keys/
+sudo /opt/personal-os/src/infra/deploy/bin/install.sh
+sudo cat /home/deploy/.ssh/authorized_keys   # deux lignes, chacune forcée
+```
+
+`install-access.sh` refuse un fichier qui contient autre chose qu'une clé
+publique nue (une clé privée, des options, deux clés), et la même clé pour les
+deux environnements.
+
+**Dans GitHub** (*Settings → Environments*) :
+
+| Environnement | Règle de déploiement | Secret | Variables |
+| --- | --- | --- | --- |
+| `staging` | branche `develop` | `STAGING_SSH_KEY` : la clé privée `staging` | `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS` |
+| `production` | branche `main` seulement | `PROD_SSH_KEY` : la clé privée `prod` | `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS` |
+
+- `DEPLOY_HOST` : le nom ou l'IP du VPS, tel que le runner s'y connecte.
+- `DEPLOY_KNOWN_HOSTS` : l'empreinte **épinglée** de l'hôte, une ligne
+  `known_hosts`. Le job refuse une machine qui ne la présente pas, il ne
+  l'ajoute jamais (`StrictHostKeyChecking=yes`). La relever, et la comparer à
+  celle que la machine affiche elle-même :
+
+  ```bash
+  ssh-keyscan -t ed25519 <DEPLOY_HOST>                       # depuis un poste
+  sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub      # sur le VPS
+  ssh-keygen -lf <(ssh-keyscan -t ed25519 <DEPLOY_HOST>)     # même empreinte ?
+  ```
+
+Le port SSH doit être joignable depuis les runners GitHub : leurs plages
+d'adresses sont trop larges pour un filtrage par pare-feu, le contrôle repose
+sur la clé et la commande forcée (ADR 0032).
+
+Une fois les deux clés posées, supprimer les clés privées du poste : elles ne
+vivent plus que dans GitHub.
+
+### 4 ter. Rotation d'une clé
+
+Changer la clé d'un environnement, par exemple après un doute sur un secret
+GitHub :
+
+1. générer une nouvelle paire (`ssh-keygen` ci-dessus) ;
+2. remplacer `/etc/personal-os/deploy-keys/<env>.pub` et relancer
+   `install.sh` : `authorized_keys` est réécrit en entier, l'ancienne clé ne
+   passe **plus** dès cet instant ;
+3. remplacer le secret (`STAGING_SSH_KEY` ou `PROD_SSH_KEY`) dans
+   l'environnement GitHub, puis relancer le dernier job de déploiement pour
+   vérifier ;
+4. supprimer la clé privée du poste.
+
+Entre 2 et 3, un déploiement de cet environnement échoue sur un refus
+d'authentification : la production reste sur sa version, rien ne casse. Retirer
+un `.pub` et relancer `install.sh` coupe l'accès de cet environnement.
+
+Changer la clé d'hôte du VPS (réinstallation) oblige à mettre à jour
+`DEPLOY_KNOWN_HOSTS` dans les deux environnements.
 
 ### 5. Authentik : le client OIDC et les deux comptes
 
@@ -291,30 +440,143 @@ sans `STORAGE_PROVIDER=s3`.
 ## Exploitation courante
 
 ```bash
-systemctl list-timers personal-os-deploy.timer   # prochaine surveillance
-journalctl -u personal-os-deploy.service -n 100  # dernier déploiement
+tail -n 100 /var/log/personal-os/deploy-trigger-prod.log     # dernier déploiement poussé de la prod
+tail -n 100 /var/log/personal-os/deploy-trigger-staging.log  # … du staging
 cat /var/log/personal-os/deploy.log              # ce qui a été déployé, et quand
 cat /var/lib/personal-os/deploy-state            # ce qui tourne, et vers quoi reculer
 
-/opt/personal-os/deploy/bin/deploy.sh --force     # réessayer une révision refusée
-/opt/personal-os/deploy/bin/deploy.sh --rollback  # reculer à la main
+sudo /opt/personal-os/deploy/bin/deploy.sh                 # appliquer le canal `main` à la main
+sudo /opt/personal-os/deploy/bin/deploy.sh <commit>        # un commit précis
+sudo /opt/personal-os/deploy/bin/deploy.sh --force         # réessayer une révision refusée
+sudo /opt/personal-os/deploy/bin/deploy.sh --rollback      # reculer à la main
 ```
 
-Le journal systemd dit *comment* s'est passé le dernier déploiement ;
-`deploy.log` dit *ce qui a été déployé et quand*, et survit à la rotation du
-journal.
+Le job GitHub et `deploy-trigger-<env>.log` disent *comment* s'est passé le
+dernier déploiement poussé (le journal est réécrit à chaque déploiement) ;
+`deploy.log` dit *ce qui a été déployé et quand*, et garde tout l'historique.
+
+Le plus simple pour réessayer reste de **relancer le job** dans GitHub. Si le
+commit était en fait déjà en place (un job rouge pour une coupure SSH, alors
+que le déploiement avait abouti), il est redéployé sans que la version vers
+laquelle `--rollback` recule soit remplacée.
 
 ## Signalement
 
-Deux canaux, parce qu'ils tombent en panne différemment — et parce que le
-résultat d'un déploiement **n'apparaît pas dans l'interface GitHub**.
+- **Le job GitHub** est rouge si le déploiement échoue, s'il finit par un
+  retour arrière, ou si le VPS est injoignable. C'est le signal principal, et
+  il couvre ce que l'ancien minuteur ne disait pas : un déploiement qui n'a
+  jamais démarré.
+- **Le courriel** (`DEPLOY_ALERT_EMAIL`) : `deploy-trigger` appelle
+  `notify-failure.sh` sur tout déploiement en échec, prod ou staging, avec les
+  50 dernières lignes du journal. Il sert à qui ne regarde pas GitHub, et
+  dépend d'un relais SMTP.
+- **Le témoin d'inactivité** (`DEPLOY_HEARTBEAT_URL`), facultatif, reste pingé
+  par `deploy.sh` au début, au succès et en échec de chaque déploiement de la
+  prod. Il n'y a plus de passage périodique : sa période doit être celle des
+  livraisons, ou il faut le retirer.
 
-- **`OnFailure=` systemd** envoie un courriel avec les 50 dernières lignes du
-  journal. Il dit *pourquoi*, mais dépend d'un relais SMTP.
-- **Témoin d'inactivité** (`DEPLOY_HEARTBEAT_URL`) : il dit seulement *que*
-  quelque chose ne va pas, mais c'est le seul à détecter le mode de panne
-  dangereux — l'agent qui **ne tourne plus du tout**. Un `OnFailure` ne se
-  déclenche que si l'unité s'exécute.
+## Le staging de démonstration
+
+Un second projet Compose sur le même VPS, qui sert les **mêmes images** que la
+prod avec des **données de démo seulement**
+([ADR 0031](../../docs/adr/0031-un-staging-de-demonstration-sur-le-meme-vps.md)). On y
+montre le produit, on y essaie un commit de `develop` ; on n'y saisit rien qui
+compte : chaque déploiement le remet au jeu de démo.
+
+Chaque push sur `develop` le déploie, par le job `staging` de la CI et la clé
+du staging. À la main :
+
+```bash
+sudo /opt/personal-os/deploy/bin/deploy-staging.sh <commit> --dry-run  # relire le plan
+sudo /opt/personal-os/deploy/bin/deploy-staging.sh <commit>
+```
+
+1. **La pile** est reprise du commit, depuis le clone du staging
+   (`/opt/personal-os-staging/src`) : celui de la prod ne bouge pas.
+2. **Les images** du commit sont tirées : elles doivent avoir été publiées.
+3. **La base du staging** démarre, et les services applicatifs du staging
+   s'arrêtent, pour que les commandes qui suivent tiennent sous le plafond
+   total. Puis trois commandes passent dans l'image
+   `api`, avec l'environnement du staging : la vérification de l'environnement
+   (`node verifier-environnement.js`, les garde-fous du démarrage de l'API), la
+   migration, puis le semis (`node demo-seed.js`, c'est-à-dire
+   `pnpm demo:seed`), qui vide les données métier et sème les trois Espaces.
+4. **Le redémarrage**, puis la santé sur `127.0.0.1:3101`. Si elle échoue, le
+   script s'arrête : pas de retour arrière, il n'y a rien à préserver.
+
+Pas de répétition sur une restauration non plus : le staging n'a ni sauvegarde
+ni donnée réelle. Le journal vit dans `/var/log/personal-os/deploy-staging.log`.
+
+### Ce qui est partagé, et ce qui ne l'est pas
+
+| Partagé | À lui seul |
+| --- | --- |
+| Le proxy de tête et son certificat joker | Le projet `personal-os-staging` et ses conteneurs |
+| Le Caddy interne de la prod (`caddy/conf.d/staging.caddy`) | Son PostgreSQL et son volume (`staging-db-data`) |
+| Le réseau `personal-os-staging-edge`, entre ce Caddy et ses deux fronts | Son réseau par défaut : ni la base ni l'API de la prod n'y sont |
+| L'Authentik de la prod : un forward auth devant chaque hôte, et un client OIDC **dédié** | Son environnement (`/opt/personal-os-staging/.env`) et ses secrets |
+
+Le Caddy de la prod rejoint `personal-os-staging-edge`, et les deux fronts du
+staging y portent des noms à eux (`staging-dashboard`, `staging-portfolio`) :
+sous les noms de la prod, Docker les résoudrait **à côté** de ceux de la prod,
+et une partie du trafic de la prod partirait vers le staging.
+
+### Les garde-fous
+
+- **Rien du staging ne répond sans session Authentik**, pas même son
+  portfolio : le Caddy interne passe chacun de ses deux hôtes par le forward
+  auth de l'outpost intégré d'Authentik avant de les servir. Le portfolio de
+  la prod reste public.
+- **L'API de staging refuse de démarrer** sur la base de la prod : sa
+  `DATABASE_URL` ne doit désigner aucun hôte de `PROD_DATABASE_HOST`, et doit
+  nommer un seul hôte, en clair, sans `host`, `hostaddr` ni `port` en
+  paramètre. L'image fait cette vérification avant sa migration de démarrage. Elle
+  refuse aussi tout `APP_ENV` autre que `development`, `staging` ou
+  `production`.
+- **La vérification passe avant la migration et le semis**, qui ne démarrent
+  pas l'API et contourneraient sinon ce refus. C'est le semis qui vide la base.
+- **`deploy-staging.sh` refuse** un projet, une pile, un environnement ou un
+  clone qui seraient ceux de la prod, et un environnement qui ne pose pas
+  `APP_ENV=staging`.
+- **Compose ne voit que l'environnement du staging** : le script ne lui
+  transmet aucune variable du shell appelant, qui passerait sinon devant celles
+  de `--env-file`.
+
+### Plafonds et arrêt
+
+1 CPU et 1 Go **au total** : base 0,30 CPU / 320 Mo, API 0,40 / 448 Mo, chaque
+front 0,15 / 128 Mo. Pendant un déploiement, seule la base tourne à côté du
+conteneur jetable de chaque commande. Le VPS est celui de la prod, et le staging ne doit jamais
+l'affamer.
+
+```bash
+docker stats --no-stream $(docker ps -q --filter label=com.docker.compose.project=personal-os-staging)
+sudo docker compose --project-name personal-os-staging stop   # l'arrêter
+```
+
+Arrêté, le staging répond 502 sous ses deux hôtes : le Caddy interne résout
+ses amonts à chaque requête, et la prod n'en est pas affectée. Un
+`deploy-staging.sh` le relance.
+
+### L'installer
+
+`install.sh` pose `/opt/personal-os-staging` (pile, modèle d'environnement,
+clone) et crée le réseau `personal-os-staging-edge`, que la pile de la prod
+exige **même quand le staging est arrêté**. Il reste à renseigner :
+
+- `/opt/personal-os-staging/.env`, à partir de `staging.env.example` : un mot de
+  passe de base à lui, et les adresses de la base de la prod dans
+  `PROD_DATABASE_HOST` ;
+- dans `/opt/personal-os/.env` : `STAGING_DASHBOARD_HOST` et
+  `STAGING_PORTFOLIO_HOST` ;
+- dans Authentik, un client OIDC à part (même marche que le §5 ci-dessus),
+  d'URI de redirection `https://staging.<domaine>/api/auth/callback`, lié aux
+  deux comptes du foyer ;
+- dans Authentik encore, un fournisseur **Proxy** en mode « Forward auth
+  (single application) » par hôte du staging (`https://staging.<domaine>`,
+  `https://staging-portfolio.<domaine>`), chacun dans une application liée aux
+  deux comptes et ajoutée à l'outpost intégré. Sans eux, les deux hôtes
+  répondent par une erreur d'Authentik : fermés, jamais ouverts.
 
 ## Tests
 
@@ -323,11 +585,29 @@ pnpm exec nx run deploy:test              # plan, garde-fous, refus — sans inf
 pnpm exec nx run deploy:test-integration  # chaîne complète — exige docker, restic et git
 ```
 
+La campagne du staging (`deploy-staging.integration-spec.ts`) déploie le
+**vrai** `docker-compose.staging.yml` à côté d'un projet qui tient le rôle de la
+prod. Elle vérifie que les conteneurs de celui-ci n'ont pas bougé (mêmes
+identifiants, même démarrage), que la base ne contient que le jeu de démo après
+chaque déploiement, que Docker applique les plafonds du fichier, que seuls les
+deux fronts rejoignent le réseau partagé, et qu'un environnement qui désigne la
+base de la prod arrête tout avant la migration.
+
 Cette campagne porte `"parallelism": false`, comme celle de la sauvegarde. Les
 deux nettoient les conteneurs jetables par le préfixe `personal-os-restore-`,
 que `restore.sh` leur donne à toutes les deux : lancées côte à côte, l'une
 détruit la restauration que l'autre est en train d'interroger. La panne est
 intermittente, et son message ne parle jamais de conteneurs.
+
+La campagne de l'accès (`deploy-trigger.integration-spec.ts`) lance le **vrai**
+`install.sh` dans un conteneur systemd jetable, avec un vrai sshd et un vrai
+sudo, sur une machine où l'ancien minuteur est armé. Elle vérifie que le
+minuteur a disparu, que `deploy` n'a ni mot de passe ni groupe `docker`, que
+`sudo` ne lui ouvre que `deploy-trigger`, puis, par SSH : les refus (`ls`,
+session sans commande, autre environnement, commit invalide, clé inconnue,
+redirection de port), les déploiements acceptés en root, le code de sortie et
+le courriel d'un échec, la file d'attente par environnement, un déploiement qui
+survit à une connexion coupée, et la rotation d'une clé.
 
 La campagne d'intégration monte un **vrai** registre local, y pousse des images
 étiquetées, crée un dépôt Git avec de vrais commits, sauvegarde une base réelle,

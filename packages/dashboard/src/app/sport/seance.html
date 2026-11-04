@@ -1,0 +1,175 @@
+<div class="flex flex-col gap-margin">
+  <dccm-page-header
+    [heading]="titre()"
+    [subtitle]="sousTitre()"
+    [breadcrumb]="fil()"
+  >
+    @if (vue()?.seance?.status === 'PLANNED') {
+    <button
+      hlmBtn
+      variant="secondary"
+      type="button"
+      data-test="marquer-manquee"
+      (click)="manquer()"
+    >
+      <ng-icon [svg]="icones.manquee" aria-hidden="true" />
+      Marquer manquée
+    </button>
+    }
+  </dccm-page-header>
+
+  <dccm-state
+    [status]="etat()"
+    [error]="lecture.error()"
+    skeleton="detail"
+    (retry)="lecture.reload()"
+  >
+    @if (vue(); as vue) {
+    <div class="flex flex-col gap-gutter">
+      @if (refusDeTransition(); as refus) {
+      <div hlmAlert tone="error" data-test="refus">
+        <hlm-alert-icon />
+        <div hlmAlertContent>
+          <p hlmAlertTitle>{{ refus.message }}</p>
+        </div>
+      </div>
+      }
+
+      <section hlmCard data-test="ecart">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle tone="secondary">
+            <ng-icon [svg]="icones.sport" aria-hidden="true" />
+            Prévu et réalisé
+          </h2>
+          <div class="flex flex-wrap items-center gap-space-sm">
+            <span hlmBadge variant="tag" accent>{{ vue.sport }}</span>
+            @if (vue.nonPlanifiee) {
+            <span hlmBadge tone="warning">Non planifiée</span>
+            }
+            <span hlmBadge [tone]="vue.statut.tone" dot data-test="statut"
+              >{{ vue.statut.libelle }}</span
+            >
+          </div>
+        </div>
+        <div hlmCardContent>
+          @if (vue.comparaisons.length > 0) {
+          <div hlmTableContainer>
+            <table hlmTable>
+              <thead hlmTableHeader>
+                <tr hlmTableRow>
+                  <th hlmTableHead scope="col">Mesure</th>
+                  <th hlmTableHead scope="col">Prévu</th>
+                  <th hlmTableHead scope="col">Réalisé</th>
+                  <th hlmTableHead scope="col">Écart</th>
+                </tr>
+              </thead>
+              <tbody hlmTableBody>
+                @for (mesure of vue.comparaisons; track mesure.libelle) {
+                <tr hlmTableRow data-test="mesure">
+                  <td hlmTableCell class="font-semibold text-on-surface">
+                    {{ mesure.libelle }}
+                  </td>
+                  <td hlmTableCell class="tabular-nums">
+                    {{ mesure.prevu ?? '—' }}
+                  </td>
+                  <td hlmTableCell class="tabular-nums">
+                    {{ mesure.realise ?? '—' }}
+                  </td>
+                  <td
+                    hlmTableCell
+                    class="tabular-nums"
+                    [class.text-secondary]="mesure.ecart"
+                    [class.text-outline]="!mesure.ecart"
+                  >
+                    {{ mesure.ecart ?? '—' }}
+                  </td>
+                </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          } @if (vue.seance.plannedIntent) {
+          <p class="mt-space-sm text-body-dense text-on-surface-variant">
+            Intention : {{ vue.seance.plannedIntent }}
+          </p>
+          } @if (vue.seance.actualNotes) {
+          <p
+            class="mt-space-sm flex items-center gap-space-sm text-body-dense text-on-surface-variant"
+          >
+            <ng-icon
+              [svg]="icones.notes"
+              class="icon-xs text-outline"
+              aria-hidden="true"
+            />
+            {{ vue.seance.actualNotes }}
+          </p>
+          }
+        </div>
+      </section>
+
+      <div class="grid gap-gutter xl:grid-cols-2">
+        @if (vue.seance.status === 'PLANNED') {
+        <dccm-form-page
+          presentation="panel"
+          heading="Marquer réalisée"
+          subtitle="Ce qui a été fait. Le prévu reste à côté."
+          submitLabel="Marquer réalisée"
+          cancelLabel="Retour à la semaine"
+          data-test="declaration"
+          [error]="refusDeDeclaration()"
+          [pending]="envoi() === 'completer'"
+          (submitted)="completer()"
+          (cancelled)="fermer()"
+        >
+          <pos-champs-de-mesures
+            stacked
+            volet="actual"
+            [(saisie)]="realiseDeclare"
+            [erreurs]="erreursDeDeclaration()"
+          />
+        </dccm-form-page>
+        }
+
+        <dccm-form-page
+          presentation="panel"
+          heading="Modifier la séance"
+          [subtitle]="vue.seance.status === 'DONE' ? 'Le prévu et le réalisé.' : 'Le prévu.'"
+          submitLabel="Enregistrer"
+          cancelLabel="Retour à la semaine"
+          data-test="modification"
+          [ignored]="ignoresDuLien()"
+          [error]="refusDeModification()"
+          [pending]="envoi() === 'modifier'"
+          (submitted)="enregistrer()"
+          (cancelled)="fermer()"
+        >
+          <fieldset class="flex flex-col gap-space-sm">
+            <legend class="mb-space-sm text-label-micro uppercase text-outline">
+              Prévu
+            </legend>
+            <pos-champs-de-mesures
+              stacked
+              volet="planned"
+              [(saisie)]="prevu"
+              [erreurs]="erreursDeModification()"
+            />
+          </fieldset>
+          @if (vue.seance.status === 'DONE') {
+          <fieldset class="flex flex-col gap-space-sm">
+            <legend class="mb-space-sm text-label-micro uppercase text-outline">
+              Réalisé
+            </legend>
+            <pos-champs-de-mesures
+              stacked
+              volet="actual"
+              [(saisie)]="realiseModifie"
+              [erreurs]="erreursDeModification()"
+            />
+          </fieldset>
+          }
+        </dccm-form-page>
+      </div>
+    </div>
+    }
+  </dccm-state>
+</div>

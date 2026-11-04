@@ -7,6 +7,7 @@ import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { CommandBarModule } from './command-bar/command-bar.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { ErreursFilter } from './erreurs/erreurs.filter';
 import { EspaceModule } from './espace/espace.module';
 import { FoodModule } from './food/food.module';
@@ -14,6 +15,7 @@ import { HealthModule } from './health/health.module';
 import { HouseholdModule } from './household/household.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { ProjectsModule } from './projects/projects.module';
+import { TrainingModule } from './training/training.module';
 
 @Module({
   imports: [
@@ -23,12 +25,14 @@ import { ProjectsModule } from './projects/projects.module';
     HealthModule,
     CalendarModule,
     AgendaModule,
+    DashboardModule,
     HouseholdModule,
     AiModule,
     CommandBarModule,
     FoodModule,
     ProjectsModule,
     PortfolioModule,
+    TrainingModule,
   ],
   providers: [
     // Tout body, query ou param typé par un DTO zod de `contracts` est validé

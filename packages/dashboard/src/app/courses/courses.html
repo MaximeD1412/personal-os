@@ -26,7 +26,9 @@
     >
     }
   </nav>
-  } @if (refus(); as erreur) {
+  }
+  <pos-ecart-du-planning [planning]="planningDeLaListe()" />
+  @if (refus(); as erreur) {
   <div hlmAlert tone="error" data-test="refus">
     <hlm-alert-icon />
     <div hlmAlertContent>

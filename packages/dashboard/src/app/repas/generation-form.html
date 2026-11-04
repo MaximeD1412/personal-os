@@ -1,0 +1,124 @@
+<dccm-state
+  [status]="etat()"
+  [error]="erreurDeLecture()"
+  skeleton="detail"
+  (retry)="foyer.reload(); planning.reload()"
+>
+  <dccm-form-page
+    heading="Générer la semaine"
+    [subtitle]="
+      titre +
+      '. L’IA propose un repas pour chaque créneau coché, selon les Préférences alimentaires de sa tablée ; chaque repas proposé attend ensuite votre décision.'
+    "
+    [breadcrumb]="fil"
+    submitLabel="Générer les repas"
+    [ignored]="prefill.ignores"
+    [error]="refus()"
+    [pending]="envoi()"
+    [submitDisabled]="rien()"
+    (submitted)="generer()"
+    (cancelled)="fermer()"
+  >
+    @if (empechement(); as message) {
+    <div hlmAlert tone="info" data-test="deja-genere">
+      <hlm-alert-icon />
+      <div hlmAlertContent>
+        <p hlmAlertTitle>{{ message }}</p>
+      </div>
+    </div>
+    } @else {
+    <div class="grid items-start gap-gutter md:grid-cols-2 xl:grid-cols-3">
+      @for (jour of jours(); track jour.jour) {
+      <fieldset
+        class="flex min-w-0 flex-col gap-space-sm rounded-md bg-surface-container p-space-sm"
+        [attr.data-jour]="jour.jour"
+      >
+        <legend
+          class="float-left w-full text-label-micro font-semibold uppercase text-outline"
+        >
+          {{ jour.nom }}
+        </legend>
+
+        @for (creneau of jour.creneaux; track creneau.cle) {
+        <div
+          class="flex min-w-0 flex-col gap-space-sm rounded bg-surface-container-highest p-space-sm"
+          [attr.data-creneau]="creneau.cle"
+        >
+          @if (creneau.occupe.length) {
+          <p class="text-body-dense text-on-surface-variant">
+            <span class="font-semibold text-on-surface"
+              >{{ creneau.libelle }}</span
+            >
+            · déjà au planning : {{ creneau.occupe.join(', ') }}
+          </p>
+          } @else {
+          <div hlmField orientation="horizontal" data-test="a-generer">
+            <hlm-checkbox
+              [inputId]="'creneau-' + creneau.cle"
+              [checked]="creneau.choix.coche"
+              (checkedChange)="cocher(creneau, $event)"
+            />
+            <label
+              hlmFieldLabel
+              class="font-semibold"
+              [for]="'creneau-' + creneau.cle"
+              >{{ creneau.libelle }}</label
+            >
+          </div>
+
+          @if (creneau.choix.coche) {
+          <div
+            class="flex flex-wrap items-center gap-x-gutter gap-y-space-sm ps-space-md"
+            role="group"
+            [attr.aria-label]="'Tablée : ' + creneau.libelle.toLowerCase() + ' du ' + jour.nom"
+          >
+            @for (membre of membres(); track membre.id) {
+            <div
+              hlmField
+              orientation="horizontal"
+              [attr.data-participant]="membre.id"
+            >
+              <hlm-checkbox
+                [inputId]="'participant-' + creneau.cle + '-' + membre.id"
+                [checked]="creneau.participants.includes(membre.id)"
+                (checkedChange)="cocherLeParticipant(creneau, membre.id, $event)"
+              />
+              <label
+                hlmFieldLabel
+                [for]="'participant-' + creneau.cle + '-' + membre.id"
+                >{{ membre.displayName }}</label
+              >
+            </div>
+            }
+            <div class="flex items-center gap-space-sm">
+              <dccm-stepper
+                [aria-label]="'Invités : ' + creneau.libelle.toLowerCase() + ' du ' + jour.nom"
+                [min]="0"
+                [max]="50"
+                [value]="creneau.choix.invites"
+                (valueChange)="changerLesInvites(creneau, $event)"
+              />
+              <span class="text-body-dense text-on-surface-variant"
+                >invités</span
+              >
+            </div>
+          </div>
+          } } @if (erreursDesCreneaux()[creneau.cle]; as message) {
+          <hlm-field-error forceShow>{{ message }}</hlm-field-error>
+          }
+        </div>
+        }
+      </fieldset>
+      }
+    </div>
+    }
+
+    <span
+      dccmFormPageStatus
+      class="me-auto text-body-dense tabular-nums text-on-surface-variant"
+      data-test="compte"
+      aria-live="polite"
+      >{{ compte() }}</span
+    >
+  </dccm-form-page>
+</dccm-state>

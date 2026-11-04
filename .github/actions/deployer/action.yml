@@ -1,0 +1,57 @@
+name: Déployer sur le VPS
+description: >-
+  Demande au VPS de déployer le commit courant, par la clé SSH bridée de
+  l'environnement (ADR 0032). La clé ne peut lancer que « deploy <env> <sha> » :
+  le déploiement s'exécute pendant le job, son journal s'y affiche, et le job
+  prend son code de sortie.
+
+inputs:
+  environnement:
+    description: '« staging » ou « prod » : celui de la clé, que le VPS revérifie'
+    required: true
+  cle:
+    description: 'La clé privée de l''environnement GitHub (secret)'
+    required: true
+  hote:
+    description: 'Le VPS (variable DEPLOY_HOST)'
+    required: true
+  known-hosts:
+    description: 'Les empreintes épinglées du VPS (variable DEPLOY_KNOWN_HOSTS)'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Déployer ${{ inputs.environnement }}
+      shell: bash
+      env:
+        ENVIRONNEMENT: ${{ inputs.environnement }}
+        CLE: ${{ inputs.cle }}
+        HOTE: ${{ inputs.hote }}
+        KNOWN_HOSTS: ${{ inputs.known-hosts }}
+      run: |
+        set -euo pipefail
+        manque() { echo "::error::$1 manque à l'environnement GitHub — voir infra/deploy/README.md"; exit 1; }
+        [ -n "$CLE" ] || manque "la clé SSH (secret)"
+        [ -n "$HOTE" ] || manque "DEPLOY_HOST"
+        [ -n "$KNOWN_HOSTS" ] || manque "DEPLOY_KNOWN_HOSTS"
+
+        dossier=$(mktemp -d)
+        trap 'rm -rf "$dossier"' EXIT
+        umask 077
+        printf '%s\n' "$CLE" >"$dossier/cle"
+        printf '%s\n' "$KNOWN_HOSTS" >"$dossier/known_hosts"
+
+        # L'hôte n'est reconnu que par l'empreinte épinglée : une machine qui
+        # ne la présente pas est refusée, jamais ajoutée.
+        ssh \
+          -i "$dossier/cle" \
+          -o IdentitiesOnly=yes \
+          -o BatchMode=yes \
+          -o StrictHostKeyChecking=yes \
+          -o UserKnownHostsFile="$dossier/known_hosts" \
+          -o GlobalKnownHostsFile=/dev/null \
+          -o ServerAliveInterval=30 \
+          -o ServerAliveCountMax=10 \
+          -T "deploy@${HOTE}" \
+          "deploy ${ENVIRONNEMENT} ${GITHUB_SHA}"

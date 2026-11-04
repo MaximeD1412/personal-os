@@ -11,6 +11,8 @@ import {
 import { ID_ESPACE_FOYER, ID_FOYER } from '../lib/espace/foyer';
 import { sousPortee } from '../lib/espace/portee';
 import type { PrismaService } from '../lib/prisma.service';
+import { compter } from './delegate';
+import type { Semeur } from './seeder';
 
 /** Un Ingrédient du jeu de démo, tel qu'on le saisirait. */
 export interface IngredientDeDemo {
@@ -346,8 +348,8 @@ const PORTEE_DU_FOYER = {
  * son nom normalisé, chaque recette par son titre, et les remet dans l'état
  * du jeu : deux semis de suite donnent la même Cuisine.
  *
- * Le point d'entrée commun des semeurs (`semer`, `SEMEURS`) est INFRA-6 : ce
- * semeur s'y branche tel quel.
+ * `semer` le branche, avec les autres semeurs de la Cuisine, par `food` (en
+ * fin de fichier).
  */
 export async function semerLaCuisine(prisma: PrismaService): Promise<void> {
   const ids = new Map<string, string>();
@@ -435,6 +437,29 @@ function idDe(
   return id;
 }
 
+/** Les identifiants des deux Comptes de démo, le premier puis le second. */
+export type ComptesDeLaCuisine = readonly [string, string];
+
+/**
+ * Les Comptes à qui donner Préférences et repas : ceux que nomme le semis
+ * (`DEMO_ACCOUNT_EMAILS`), sinon les deux plus anciens du Foyer. Le semis les
+ * nomme toujours : un Compte qui n'est plus de la démo reste en base, et ne
+ * doit rien recevoir.
+ */
+async function lesComptes(
+  prisma: PrismaService,
+  comptes: ComptesDeLaCuisine | undefined,
+): Promise<{ id: string }[]> {
+  if (comptes) {
+    return comptes.map((id) => ({ id }));
+  }
+  return prisma.user.findMany({
+    where: { householdId: ID_FOYER },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: { id: true },
+  });
+}
+
 /** Le libellé de l'Ingrédient que le second Compte n'apprécie guère. */
 export const CORIANDRE_DE_DEMO = 'Coriandre fraîche';
 
@@ -455,12 +480,9 @@ const ESPACE_FOYER = {
  */
 export async function semerLesPreferences(
   prisma: PrismaService,
+  comptes?: ComptesDeLaCuisine,
 ): Promise<void> {
-  const [premier, second = premier] = await prisma.user.findMany({
-    where: { householdId: ID_FOYER },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    select: { id: true },
-  });
+  const [premier, second = premier] = await lesComptes(prisma, comptes);
   if (!premier) {
     return;
   }
@@ -617,12 +639,9 @@ export const REPAS_DE_DEMO: readonly RepasDeDemo[] = [
 export async function semerLePlanning(
   prisma: PrismaService,
   maintenant = new Date(),
+  comptes?: ComptesDeLaCuisine,
 ): Promise<void> {
-  const [premier, second = premier] = await prisma.user.findMany({
-    where: { householdId: ID_FOYER },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    select: { id: true },
-  });
+  const [premier, second = premier] = await lesComptes(prisma, comptes);
   if (!premier) {
     return;
   }
@@ -808,3 +827,48 @@ export async function semerLaListe(
     });
   });
 }
+
+/**
+ * Le semeur du module `food`, sur l'Espace foyer : la Cuisine, les
+ * Préférences, le Stock, le Planning de la semaine et sa Liste de courses,
+ * dans cet ordre, chacun lisant ce que le précédent a posé. Le semis les a
+ * vidés juste avant : chacun repart d'une base sans données de la Cuisine.
+ *
+ * Les Tours de génération, Souhaits et Repas cuisinés ne sont pas semés, mais
+ * le semeur les possède : le semis les vide comme le reste.
+ */
+export const food: Semeur = {
+  module: 'food',
+  // Dans l'ordre du remplissage : le vidage le parcourt à l'envers, une ligne
+  // avant ce qu'elle cite.
+  modeles: [
+    // Le catalogue est global, hors Espace : le semis le vide quand même, un
+    // Ingrédient ou un Alias saisi sur le staging ne lui survit pas.
+    'Ingredient',
+    'IngredientAlias',
+    'Recipe',
+    'RecipeLine',
+    'FoodPreference',
+    'PantryItem',
+    'MealPlan',
+    'GenerationRound',
+    'MealWish',
+    'MealPlanEntry',
+    'CookedMeal',
+    'CookedMealLine',
+    'ShoppingList',
+    'ShoppingListItem',
+  ],
+  espaces: ['HOUSEHOLD'],
+  async semer(prisma, demo) {
+    // Midi à Paris : le jour du semis, quel que soit le fuseau de la machine.
+    const maintenant = demo.le(0, '12:00');
+    await semerLaCuisine(prisma);
+    const comptes = [demo.a.userId, demo.b.userId] as const;
+    await semerLesPreferences(prisma, comptes);
+    await semerLeStock(prisma, demo.aujourdhui);
+    await semerLePlanning(prisma, maintenant, comptes);
+    await semerLaListe(prisma, maintenant);
+    return compter(prisma, this.modeles);
+  },
+};

@@ -1,4 +1,9 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpResponse,
+  provideHttpClient,
+  withInterceptors,
+  type HttpInterceptorFn,
+} from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
@@ -6,9 +11,16 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { NavigationEnd, provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
-import type { MealPlan, MealPlanEntry, MealWish } from '@personal-os/contracts';
+import type {
+  GenerationRoundSummary,
+  MealPlan,
+  MealPlanEntry,
+  MealWish,
+  RejectedSlot,
+  ShoppingGap,
+} from '@personal-os/contracts';
 import { DccmConfirm, type DccmConfirmOptions } from '@personal-os/ui/dccm';
-import { filter, firstValueFrom } from 'rxjs';
+import { filter, firstValueFrom, of } from 'rxjs';
 import { API_BASE_URL } from '../app/api-base-url';
 import { INTERCEPTEURS } from '../app/app.config';
 import { appRoutes } from '../app/app.routes';
@@ -72,6 +84,40 @@ export const PLANNING: MealPlan = {
   createdAt: '2026-10-18T08:00:00.000Z',
 };
 
+/** Un planning dont chaque repas est statué : il peut s'arrêter. */
+export const PLANNING_STATUE: MealPlan = {
+  ...PLANNING,
+  entries: [DAHL_DU_LUNDI],
+};
+
+/** Le dîner du jeudi, vidé par le contrôle : Maxime est allergique aux fruits à coque. */
+export const NOIX_DU_JEUDI: RejectedSlot = {
+  slot: {
+    day: '2026-10-22',
+    moment: 'DINNER',
+    participantIds: ['compte-a', 'compte-b'],
+    guestCount: 0,
+  },
+  reason: 'ALLERGEN',
+  ingredient: { label: 'noix de cajou', ingredientId: 'ingredient-cajou' },
+  allergen: 'TREE_NUTS',
+  participantIds: ['compte-a'],
+};
+
+export const PREMIER_TOUR: GenerationRoundSummary = {
+  id: 'tour-1',
+  number: 1,
+  traceId: 'trace-1',
+  rejected: [NOIX_DU_JEUDI],
+  createdAt: '2026-10-18T09:00:00.000Z',
+};
+
+/** Le planning après un premier tour : un repas proposé, un créneau écarté. */
+export const PLANNING_GENERE: MealPlan = {
+  ...PLANNING,
+  rounds: [PREMIER_TOUR],
+};
+
 /** Une envie de Léa, puis une Recette souhaitée par Maxime. */
 export const ENVIE_DE_POISSON: MealWish = {
   id: 'souhait-1',
@@ -93,10 +139,33 @@ export const DAHL_SOUHAITE: MealWish = {
 
 export const SOUHAITS: MealWish[] = [ENVIE_DE_POISSON, DAHL_SOUHAITE];
 
+/**
+ * L'écart du planning avec ses listes, que le bandeau lit à chaque changement
+ * du planning : il répond seul, ce que le test y met, et note chaque lecture.
+ * Sans quoi chaque test d'un planning devrait y répondre.
+ */
+export interface EcartSimule {
+  reponse: ShoppingGap;
+  /** L'URL de chaque lecture, dans l'ordre. */
+  lectures: string[];
+}
+
+function repondreALEcart(ecart: EcartSimule): HttpInterceptorFn {
+  return (requete, suivant) => {
+    if (!requete.url.endsWith('/shopping-gap')) return suivant(requete);
+    ecart.lectures.push(requete.url);
+    return of(new HttpResponse({ status: 200, body: ecart.reponse }));
+  };
+}
+
 export async function ouvrirLePlanning(
   url: string,
-  { confirme = true }: { confirme?: boolean } = {},
+  {
+    confirme = true,
+    ecart: reponse = { missing: [] },
+  }: { confirme?: boolean; ecart?: ShoppingGap } = {},
 ) {
+  const ecart: EcartSimule = { reponse, lectures: [] };
   // Les demandes de confirmation, dans l'ordre.
   const confirmations: DccmConfirmOptions[] = [];
   const confirm = (options: DccmConfirmOptions) => {
@@ -106,13 +175,17 @@ export async function ouvrirLePlanning(
   TestBed.configureTestingModule({
     providers: [
       provideRouter(
-        // La liste de courses produite s'ouvre par sa route.
+        // La liste de courses produite s'ouvre par sa route, la trace d'un tour aussi.
         appRoutes.filter(
           ({ path }) =>
-            path?.startsWith('repas/planning') || path?.startsWith('courses'),
+            path?.startsWith('repas/planning') ||
+            path?.startsWith('repas/generation') ||
+            path?.startsWith('courses'),
         ),
       ),
-      provideHttpClient(withInterceptors(INTERCEPTEURS)),
+      provideHttpClient(
+        withInterceptors([...INTERCEPTEURS, repondreALEcart(ecart)]),
+      ),
       provideHttpClientTesting(),
       { provide: API_BASE_URL, useValue: BASE },
       { provide: DccmConfirm, useValue: { confirm } },
@@ -122,5 +195,12 @@ export async function ouvrirLePlanning(
   const http = TestBed.inject(HttpTestingController);
   const el = () => harness.routeNativeElement as HTMLElement;
 
-  return { harness, http, el, confirmations, router: TestBed.inject(Router) };
+  return {
+    harness,
+    http,
+    el,
+    confirmations,
+    ecart,
+    router: TestBed.inject(Router),
+  };
 }

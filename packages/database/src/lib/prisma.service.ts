@@ -151,6 +151,10 @@ export class PrismaService {
     return this.#client.pageContent;
   }
 
+  get trainingSession() {
+    return this.#client.trainingSession;
+  }
+
   get session() {
     return this.#client.session;
   }

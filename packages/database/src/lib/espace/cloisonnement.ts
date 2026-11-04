@@ -6,7 +6,8 @@ import {
   relationsVersEspace,
   type SchemaDEspace,
 } from './modeles';
-import type { PorteeEspace } from './portee';
+import { bornerALaLecturePublique } from './lecture-publique';
+import { estPublique, type Portee, type PorteeEspace } from './portee';
 
 /** Une opération Prisma, telle que l'extension la présente. */
 export interface OperationPrisma {
@@ -47,9 +48,20 @@ const RATTACHEMENTS = new Set(['connect', 'disconnect', 'set']);
  */
 export function cloisonner(
   operation: OperationPrisma,
-  portee: PorteeEspace | null,
+  portee: Portee | null,
   schema: SchemaDEspace,
 ): Record<string, unknown> {
+  // La lecture publique passe avant tout : elle borne aussi les modèles hors
+  // Espace, qu'aucun Compte ne protège quand la requête n'en a pas.
+  if (estPublique(portee)) {
+    return bornerALaLecturePublique(
+      operation.model,
+      operation.operation,
+      operation.args,
+      schema,
+    );
+  }
+
   if (!porteUnEspace(operation.model, schema)) {
     return refuserLesCheminsImbriques(operation, schema);
   }

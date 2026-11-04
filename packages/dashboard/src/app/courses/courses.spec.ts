@@ -1,6 +1,6 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import type { ShoppingList } from '@personal-os/contracts';
+import type { ShoppingGap, ShoppingList } from '@personal-os/contracts';
 import { BEURRE } from '../../testing/catalogue';
 import {
   BASE,
@@ -16,13 +16,39 @@ type Ouvert = Awaited<ReturnType<typeof ouvrirLesCourses>>;
 
 const OUVERTES = `${BASE}/shopping-lists?status=OPEN`;
 
-/** `/courses`, devant ces listes ouvertes. */
+const SANS_ECART: ShoppingGap = { missing: [] };
+
+/** L'écart du planning de la liste, lu par le bandeau. */
+async function ecartDe(ouvert: Ouvert, planId: string) {
+  // Le bandeau ne lit qu'une fois la liste arrivée et rendue.
+  await new Promise((resolve) => setTimeout(resolve));
+  TestBed.tick();
+  return ouvert.http.expectOne(`${BASE}/meal-plans/${planId}/shopping-gap`);
+}
+
+/**
+ * Attend l'écran stable, en répondant « rien ne manque » à l'écart du
+ * planning : sa lecture en cours retiendrait `whenStable`.
+ */
+async function stable(ouvert: Ouvert) {
+  await new Promise((resolve) => setTimeout(resolve));
+  TestBed.tick();
+  ouvert.http
+    .match(({ url }) => url.endsWith('/shopping-gap'))
+    .forEach((lecture) => lecture.flush(SANS_ECART));
+  await ouvert.harness.fixture.whenStable();
+}
+
+/** `/courses`, devant ces listes ouvertes, sans écart avec leur planning. */
 async function ouvrir(
   listes: ShoppingList[] = [LISTE],
   options?: Parameters<typeof ouvrirLesCourses>[1],
 ): Promise<Ouvert> {
   const ouvert = await ouvrirLesCourses('/courses', options);
   ouvert.http.expectOne(OUVERTES).flush(listes);
+  TestBed.tick();
+  const planning = listes[0]?.mealPlan;
+  if (planning) (await ecartDe(ouvert, planning.id)).flush(SANS_ECART);
   await ouvert.harness.fixture.whenStable();
   return ouvert;
 }
@@ -129,7 +155,7 @@ describe('La Liste de courses', () => {
     ouvert.http
       .expectOne(`${BASE}/shopping-lists/${LISTE_PRECEDENTE.id}`)
       .flush({ ...LISTE_PRECEDENTE, items: [EPONGES] });
-    await ouvert.harness.fixture.whenStable();
+    await stable(ouvert);
 
     expect(
       texte(ouvert.el().querySelector('dccm-page-header') as HTMLElement),
@@ -315,7 +341,7 @@ describe('La Liste de courses', () => {
       ouvert.http.expectOne(OUVERTES).flush([LISTE]);
       TestBed.tick();
       ouvert.http.expectOne(`${BASE}/ingredients?q=Sacs%20poubelle`).flush([]);
-      await ouvert.harness.fixture.whenStable();
+      await stable(ouvert);
 
       expect(champ(ouvert.el(), 'article').value).toBe('Sacs poubelle');
       expect(champ(ouvert.el(), 'quantite').value).toBe('2');
@@ -329,7 +355,7 @@ describe('La Liste de courses', () => {
       );
       ouvert.http.expectOne(OUVERTES).flush([LISTE]);
       ouvert.http.expectOne(`${BASE}/ingredients/${BEURRE.id}`).flush(BEURRE);
-      await ouvert.harness.fixture.whenStable();
+      await stable(ouvert);
 
       expect(champ(ouvert.el(), 'article').value).toBe('Beurre doux');
       expect(
@@ -355,7 +381,7 @@ describe('La Liste de courses', () => {
       ouvert.http.expectOne(`${BASE}/ingredients?q=%C3%89ponges`).flush([]);
       // La réponse tardive, si la lecture n'a pas été abandonnée.
       if (!lecture.cancelled) lecture.flush(BEURRE);
-      await ouvert.harness.fixture.whenStable();
+      await stable(ouvert);
 
       expect(champ(ouvert.el(), 'article').value).toBe('Éponges');
       expect(ouvert.el().querySelector('[data-test="choisi"]')).toBeNull();
@@ -381,7 +407,7 @@ describe('La Liste de courses', () => {
         },
         { status: 503, statusText: 'Service Unavailable' },
       );
-      await ouvert.harness.fixture.whenStable();
+      await stable(ouvert);
 
       expect(ouvert.el().querySelector('[data-test="ignores"]')).toBeNull();
       const echec = ouvert
@@ -413,7 +439,7 @@ describe('La Liste de courses', () => {
         },
         { status: 404, statusText: 'Not Found' },
       );
-      await ouvert.harness.fixture.whenStable();
+      await stable(ouvert);
 
       const ignores = texte(ouvert.el().querySelector('[data-test="ignores"]'));
       expect(ignores).toContain('quantity=-3');
@@ -540,7 +566,7 @@ describe('La Liste de courses', () => {
     it("ne retire rien si l'on renonce", async () => {
       const ouvert = await ouvrirLesCourses('/courses', { confirme: false });
       ouvert.http.expectOne(OUVERTES).flush([LISTE]);
-      await ouvert.harness.fixture.whenStable();
+      await stable(ouvert);
 
       (
         article(ouvert.el(), EPONGES.id).querySelector(
@@ -843,7 +869,7 @@ describe('La Liste de courses', () => {
       const ouvert = await ouvrirLesCourses(`/courses/${LISTE.id}?cloture=1`);
       ouvert.http.expectOne(OUVERTES).flush([LISTE]);
       ouvert.http.expectOne(`${BASE}/shopping-lists/${LISTE.id}`).flush(LISTE);
-      await ouvert.harness.fixture.whenStable();
+      await stable(ouvert);
 
       expect(ligneDuRecap(ouvert.el(), LAIT.id)).not.toBeNull();
     });
@@ -856,10 +882,133 @@ describe('La Liste de courses', () => {
         status: 'CLOSED',
         closedAt: '2026-11-03T10:00:00.000Z',
       });
-      await ouvert.harness.fixture.whenStable();
+      await stable(ouvert);
 
       expect(recap(ouvert.el())).toBeNull();
       expect(ouvert.el().querySelector('[data-test="cloturer"]')).toBeNull();
+    });
+  });
+
+  describe("l'écart avec le planning", () => {
+    const ECART: ShoppingGap = {
+      missing: [
+        {
+          ingredient: { id: 'ingredient-basilic', displayName: 'Basilic' },
+          quantity: 10,
+          unit: 'GRAM',
+        },
+        {
+          ingredient: { id: 'ingredient-parmesan', displayName: 'Parmesan' },
+          quantity: 50,
+          unit: 'GRAM',
+        },
+        {
+          ingredient: { id: 'ingredient-pates', displayName: 'Pâtes' },
+          quantity: 200,
+          unit: 'GRAM',
+        },
+      ],
+    };
+
+    /** `/courses/liste-1`, devant l'écart de son planning. */
+    async function ouvrirDevant(
+      ecart: ShoppingGap,
+      options?: Parameters<typeof ouvrirLesCourses>[1],
+    ): Promise<Ouvert> {
+      const ouvert = await ouvrirLesCourses(`/courses/${LISTE.id}`, options);
+      ouvert.http.expectOne(OUVERTES).flush([LISTE]);
+      ouvert.http.expectOne(`${BASE}/shopping-lists/${LISTE.id}`).flush(LISTE);
+      TestBed.tick();
+      (await ecartDe(ouvert, 'planning-1')).flush(ecart);
+      await ouvert.harness.fixture.whenStable();
+      return ouvert;
+    }
+
+    function bandeau(el: HTMLElement): HTMLElement | null {
+      return el.querySelector('[data-test="ecart"]');
+    }
+
+    it('ne montre aucun bandeau quand rien ne manque', async () => {
+      const { el } = await ouvrirDevant(SANS_ECART);
+
+      expect(bandeau(el())).toBeNull();
+    });
+
+    it('dit combien d’ingrédients manquent, et lesquels, sans toucher à la liste', async () => {
+      const { el } = await ouvrirDevant(ECART);
+
+      expect(texte(bandeau(el())?.querySelector('[hlmAlertTitle]'))).toBe(
+        'Le planning a changé : 3 ingrédients manquent.',
+      );
+      expect(texte(bandeau(el()))).toContain('Basilic, Parmesan et Pâtes');
+      expect(articles(el(), 'planning').map(titre)).toEqual([
+        'Farine de blé',
+        'Lait demi-écrémé',
+      ]);
+    });
+
+    it('produit la liste de complément après confirmation, puis l’ouvre', async () => {
+      const ouvert = await ouvrirDevant(ECART);
+      const { el, http, confirmations, harness, router } = ouvert;
+
+      (
+        el().querySelector(
+          '[data-test="produire-complement"]',
+        ) as HTMLButtonElement
+      ).click();
+      await apresLaConfirmation();
+
+      expect(confirmations[0].confirmLabel).toBe('Produire le complément');
+      const production = http.expectOne(
+        ({ url, params }) =>
+          url === `${BASE}/meal-plans/planning-1/shopping-lists` &&
+          params.get('complement') === 'true',
+      );
+      expect(production.request.method).toBe('POST');
+      const complement = { ...LISTE, id: 'liste-2', items: [] };
+      production.flush(complement satisfies ShoppingList);
+      // La navigation vers le complément.
+      await new Promise((resolve) => setTimeout(resolve));
+      TestBed.tick();
+      http.expectOne(`${BASE}/shopping-lists/liste-2`).flush(complement);
+      // Le complément couvre l'écart : le bandeau le relit.
+      (await ecartDe(ouvert, 'planning-1')).flush(SANS_ECART);
+      await harness.fixture.whenStable();
+
+      expect(router.url).toBe('/courses/liste-2');
+      expect(bandeau(el())).toBeNull();
+    });
+
+    it("montre le refus de l'API en bandeau", async () => {
+      const ouvert = await ouvrirDevant(ECART);
+      const { el, http, harness } = ouvert;
+
+      (
+        el().querySelector(
+          '[data-test="produire-complement"]',
+        ) as HTMLButtonElement
+      ).click();
+      await apresLaConfirmation();
+      http
+        .expectOne(({ url }) =>
+          url.endsWith('/meal-plans/planning-1/shopping-lists'),
+        )
+        .flush(
+          {
+            status: 422,
+            code: 'food.plan_not_stopped',
+            message:
+              "Ce planning n'est pas arrêté : arrêtez-le pour en produire la liste de courses.",
+          },
+          { status: 422, statusText: 'Unprocessable Entity' },
+        );
+      TestBed.tick();
+      (await ecartDe(ouvert, 'planning-1')).flush(ECART);
+      await harness.fixture.whenStable();
+
+      expect(
+        texte(el().querySelector('[data-test="refus-complement"]')),
+      ).toContain("Ce planning n'est pas arrêté");
     });
   });
 
@@ -871,7 +1020,7 @@ describe('La Liste de courses', () => {
       status: 'CLOSED',
       closedAt: '2026-11-03T10:00:00.000Z',
     });
-    await ouvert.harness.fixture.whenStable();
+    await stable(ouvert);
 
     expect(articles(ouvert.el(), 'planning')).toHaveLength(2);
     expect(ouvert.el().querySelector('[role="checkbox"]')).toBeNull();
@@ -912,7 +1061,7 @@ describe('La Liste de courses', () => {
     relire.click();
     TestBed.tick();
     ouvert.http.expectOne(OUVERTES).flush([LISTE]);
-    await ouvert.harness.fixture.whenStable();
+    await stable(ouvert);
     expect(articles(ouvert.el(), 'planning')).toHaveLength(2);
   });
 });
