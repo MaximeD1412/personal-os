@@ -337,7 +337,9 @@ sudo /opt/personal-os/deploy/bin/deploy-staging.sh <commit>
 1. **La pile** est reprise du commit, depuis le clone du staging
    (`/opt/personal-os-staging/src`) : celui de la prod ne bouge pas.
 2. **Les images** du commit sont tirées : elles doivent avoir été publiées.
-3. **La base du staging** démarre, puis trois commandes passent dans l'image
+3. **La base du staging** démarre, et les services applicatifs du staging
+   s'arrêtent, pour que les commandes qui suivent tiennent sous le plafond
+   total. Puis trois commandes passent dans l'image
    `api`, avec l'environnement du staging : la vérification de l'environnement
    (`node verifier-environnement.js`, les garde-fous du démarrage de l'API), la
    migration, puis le semis (`node demo-seed.js`, c'est-à-dire
@@ -355,7 +357,7 @@ ni donnée réelle. Le journal vit dans `/var/log/personal-os/deploy-staging.log
 | Le proxy de tête et son certificat joker | Le projet `personal-os-staging` et ses conteneurs |
 | Le Caddy interne de la prod (`caddy/conf.d/staging.caddy`) | Son PostgreSQL et son volume (`staging-db-data`) |
 | Le réseau `personal-os-staging-edge`, entre ce Caddy et ses deux fronts | Son réseau par défaut : ni la base ni l'API de la prod n'y sont |
-| L'Authentik de la prod, par un client OIDC **dédié** | Son environnement (`/opt/personal-os-staging/.env`) et ses secrets |
+| L'Authentik de la prod : un forward auth devant chaque hôte, et un client OIDC **dédié** | Son environnement (`/opt/personal-os-staging/.env`) et ses secrets |
 
 Le Caddy de la prod rejoint `personal-os-staging-edge`, et les deux fronts du
 staging y portent des noms à eux (`staging-dashboard`, `staging-portfolio`) :
@@ -364,8 +366,14 @@ et une partie du trafic de la prod partirait vers le staging.
 
 ### Les garde-fous
 
+- **Rien du staging ne répond sans session Authentik**, pas même son
+  portfolio : le Caddy interne passe chacun de ses deux hôtes par le forward
+  auth de l'outpost intégré d'Authentik avant de les servir. Le portfolio de
+  la prod reste public.
 - **L'API de staging refuse de démarrer** sur la base de la prod : sa
-  `DATABASE_URL` ne doit désigner aucun hôte de `PROD_DATABASE_HOST`. Elle
+  `DATABASE_URL` ne doit désigner aucun hôte de `PROD_DATABASE_HOST`, et doit
+  nommer un seul hôte, en clair, sans `host`, `hostaddr` ni `port` en
+  paramètre. L'image fait cette vérification avant sa migration de démarrage. Elle
   refuse aussi tout `APP_ENV` autre que `development`, `staging` ou
   `production`.
 - **La vérification passe avant la migration et le semis**, qui ne démarrent
@@ -380,7 +388,8 @@ et une partie du trafic de la prod partirait vers le staging.
 ### Plafonds et arrêt
 
 1 CPU et 1 Go **au total** : base 0,30 CPU / 320 Mo, API 0,40 / 448 Mo, chaque
-front 0,15 / 128 Mo. Le VPS est celui de la prod, et le staging ne doit jamais
+front 0,15 / 128 Mo. Pendant un déploiement, seule la base tourne à côté du
+conteneur jetable de chaque commande. Le VPS est celui de la prod, et le staging ne doit jamais
 l'affamer.
 
 ```bash
@@ -405,7 +414,12 @@ exige **même quand le staging est arrêté**. Il reste à renseigner :
   `STAGING_PORTFOLIO_HOST` ;
 - dans Authentik, un client OIDC à part (même marche que le §5 ci-dessus),
   d'URI de redirection `https://staging.<domaine>/api/auth/callback`, lié aux
-  deux comptes du foyer.
+  deux comptes du foyer ;
+- dans Authentik encore, un fournisseur **Proxy** en mode « Forward auth
+  (single application) » par hôte du staging (`https://staging.<domaine>`,
+  `https://staging-portfolio.<domaine>`), chacun dans une application liée aux
+  deux comptes et ajoutée à l'outpost intégré. Sans eux, les deux hôtes
+  répondent par une erreur d'Authentik : fermés, jamais ouverts.
 
 ## Tests
 

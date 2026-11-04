@@ -203,6 +203,20 @@
       "ajouteLe": "2026-11-04"
     },
     {
+      "id": "staging-forward-auth",
+      "phase": "acc",
+      "source": "#92",
+      "titre": "Créer dans Authentik le forward auth des deux hôtes du staging",
+      "pourquoi": "Le Caddy interne passe staging.<domaine> et staging-portfolio.<domaine> par l'outpost intégré d'Authentik avant de les servir (caddy/conf.d/staging.caddy) : sans fournisseur pour ces hôtes, Authentik refuse tout, y compris aux deux comptes. C'est ce qui garde le code de develop, et le portfolio de démo, hors de vue sans session (SEC-4).",
+      "etapes": [
+        "Fournisseur Proxy, mode « Forward auth (single application) », hôte externe https://staging.<domaine>, dans une application personal-os-staging-forward-auth liée aux deux comptes du foyer.",
+        "Même chose pour https://staging-portfolio.<domaine>, application personal-os-staging-portfolio-forward-auth.",
+        "Ajouter les deux applications à l'outpost intégré (authentik Embedded Outpost)."
+      ],
+      "commande": "curl -s -o /dev/null -w '%{http_code}' https://staging-portfolio.<domaine>/api/public/projects  # 302 sans session",
+      "ajouteLe": "2026-11-04"
+    },
+    {
       "id": "staging-hotes-stack-env",
       "phase": "env",
       "source": "#92",
@@ -253,6 +267,7 @@
         "sudo /opt/personal-os/deploy/bin/deploy-staging.sh <commit> --dry-run, relire le plan, puis sans --dry-run.",
         "docker ps : les conteneurs personal-os-* de la prod ont gardé leur durée de fonctionnement.",
         "Se connecter à https://staging.<domaine>/ avec un des deux comptes : les trois Espaces montrent le jeu de démo.",
+        "Sans session (navigation privée), https://staging.<domaine>/ et https://staging-portfolio.<domaine>/ renvoient vers Authentik.",
         "docker stats --no-stream : 0,30 / 320 Mio (db), 0,40 / 448 Mio (api), 0,15 / 128 Mio (chaque front).",
         "Démarrage refusé : poser dans le .env du staging une DATABASE_URL d'hôte db, relancer deploy-staging.sh, constater l'arrêt à la vérification de l'environnement, puis rétablir."
       ],

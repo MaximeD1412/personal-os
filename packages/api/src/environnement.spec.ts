@@ -95,6 +95,44 @@ describe('verifierLEnvironnement', () => {
       );
     });
 
+    // Le pilote (pg) et le moteur de migration lisent l'hôte et le port
+    // ailleurs que dans l'autorité de l'URL : en paramètre de requête, encodé,
+    // ou dans PGHOST quand l'URL n'en donne pas. Ce que le garde-fou ne sait
+    // pas lire comme eux, il le refuse.
+    it.each([
+      ['un hôte en paramètre de requête', 'postgresql://u:p@staging-db:5432/personalos?host=personal-os-db'],
+      ['un hôte en paramètre de requête, en majuscules', 'postgresql://u:p@staging-db:5432/personalos?HOST=db'],
+      ['une adresse en paramètre de requête', 'postgresql://u:p@staging-db:5432/personalos?hostaddr=10.0.0.2'],
+      ['un port en paramètre de requête', 'postgresql://u:p@staging-db:5432/personalos?port=5433'],
+      ['un hôte encodé', 'postgresql://u:p@%70ersonal-os-db:5432/personalos'],
+      ['plusieurs hôtes', 'postgresql://u:p@staging-db:5432,db:5432/personalos'],
+      ['une URL sans hôte, qui laisse PGHOST décider', 'postgresql://u:p@/personalos'],
+      ['un autre protocole que PostgreSQL', 'socket://u:p@/var/run/postgresql?db=personalos'],
+    ])('refuse de démarrer sur %s', (_cas, url) => {
+      expect(() =>
+        verifierLEnvironnement({ ...STAGING, DATABASE_URL: url }),
+      ).toThrow(/DATABASE_URL/);
+    });
+
+    it('reconnaît un hôte de la prod écrit avec un point final', () => {
+      expect(() =>
+        verifierLEnvironnement({
+          ...STAGING,
+          DATABASE_URL: 'postgresql://u:p@personal-os-db.:5432/personalos',
+        }),
+      ).toThrow(/base de production/);
+    });
+
+    it('laisse démarrer avec les paramètres ordinaires de la requête', () => {
+      expect(() =>
+        verifierLEnvironnement({
+          ...STAGING,
+          DATABASE_URL:
+            'postgres://u:p@staging-db/personalos?schema=public&sslmode=disable',
+        }),
+      ).not.toThrow();
+    });
+
     it('refuse de démarrer sans PROD_DATABASE_HOST : rien ne dirait où est la prod', () => {
       expect(() =>
         verifierLEnvironnement({ ...STAGING, PROD_DATABASE_HOST: ' , ' }),

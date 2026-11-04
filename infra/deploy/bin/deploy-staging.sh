@@ -85,6 +85,7 @@ if [ "$DRY_RUN" = 1 ]; then
   plan "réseau ${STAGING_EDGE_NETWORK} créé s'il manque"
   plan "docker compose pull (${IMAGES}) en ${REVISION}"
   plan "base du staging démarrée"
+  plan "arrêt des services applicatifs du staging (api, tableau de bord, portfolio) — plafond total tenu pendant les commandes jetables"
   plan "vérification de l'environnement ${STAGING_CHECK_COMMAND} sur le service ${MIGRATE_SERVICE}"
   plan "migration ${MIGRATE_COMMAND} sur le service ${MIGRATE_SERVICE}"
   plan "semis ${STAGING_SEED_COMMAND} — la base est remise au jeu de démo"
@@ -166,6 +167,13 @@ compose_staging pull --quiet
 
 log "démarrage de la base du staging"
 compose_staging up --detach --wait db
+
+# Chaque `run` ajoute un conteneur `api` à ceux qui tournent : laissés en
+# marche, les services applicatifs porteraient le staging à 1,40 CPU et
+# 1 472 Mio, au-dessus de son plafond total. Ils s'arrêtent donc d'abord ; le
+# staging est de toute façon remis à zéro.
+log "arrêt des services applicatifs du staging"
+compose_staging stop api staging-dashboard staging-portfolio
 
 # La migration et le semis passent par `run`, sans le démarrage de l'API et
 # donc sans son garde-fou : la même vérification les précède, dans la même

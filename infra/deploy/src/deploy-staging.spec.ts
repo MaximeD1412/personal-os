@@ -35,7 +35,7 @@ function etape(plan: string, aiguille: string): number {
 }
 
 describe('deploy-staging.sh --dry-run', () => {
-  it('annonce, dans l’ordre : images, base, vérification, migration, semis, redémarrage, santé', () => {
+  it('annonce, dans l’ordre : images, base, arrêt des services, vérification, migration, semis, redémarrage, santé', () => {
     const resultat = run('deploy-staging.sh', [REVISION, '--dry-run'], fixtureStaging());
     const plan = resultat.stdout;
 
@@ -45,6 +45,7 @@ describe('deploy-staging.sh --dry-run', () => {
       'réseau',
       'docker compose pull',
       'base',
+      'arrêt des services applicatifs',
       "vérification de l'environnement",
       'migration',
       'semis',

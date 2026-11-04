@@ -14,19 +14,40 @@
 # nom vide donnerait une adresse de site que Caddy refuse, et c'est tout le
 # proxy interne qui ne démarrerait pas.
 
-# Le tableau de bord du staging. Il s'authentifie par l'Authentik de la prod,
-# avec son propre client OIDC.
+# Les deux hôtes passent par Authentik **avant** le staging (SEC-4) : le code
+# de `develop`, qui n'a pas été relu, ne répond à personne sans session.
+# L'authentification propre au tableau de bord ne suffit pas : son nginx,
+# comme celui du portfolio, relaie /api/public/ sans cookie.
+#
+# C'est le forward auth de l'outpost intégré d'Authentik, un fournisseur proxy
+# « Forward auth (single application) » par hôte (docs/pilotage/mep.json,
+# `staging-forward-auth`). Ses chemins /outpost.goauthentik.io/ restent
+# ouverts : c'est par eux qu'on se connecte. `route` garde l'ordre écrit.
+(staging_authentik) {
+	route {
+		reverse_proxy /outpost.goauthentik.io/* authentik:9000
+		forward_auth authentik:9000 {
+			uri /outpost.goauthentik.io/auth/caddy
+			trusted_proxies private_ranges
+		}
+		reverse_proxy {args[0]}
+	}
+}
+
+# Le tableau de bord du staging. Derrière le forward auth, il s'authentifie
+# encore par l'Authentik de la prod, avec son propre client OIDC.
 http://{$STAGING_DASHBOARD_HOST} {
 	encode gzip zstd
-	reverse_proxy staging-dashboard:80
+	import staging_authentik staging-dashboard:80
 	log {
 		output stderr
 	}
 }
 
+# Le portfolio du staging : public en prod, pas ici.
 http://{$STAGING_PORTFOLIO_HOST} {
 	encode gzip zstd
-	reverse_proxy staging-portfolio:80
+	import staging_authentik staging-portfolio:80
 	log {
 		output stderr
 	}

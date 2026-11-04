@@ -85,6 +85,8 @@ describe('deploy-staging.sh, de bout en bout', () => {
   let envStaging: string;
   let pileProd: string;
   let historique: string;
+  let espion: string;
+  let journalDesRun: string;
   const revisions: string[] = [];
 
   /**
@@ -95,7 +97,41 @@ describe('deploy-staging.sh, de bout en bout', () => {
   function deployer(revision: string) {
     return run('deploy-staging.sh', [revision], fixture, {
       DATABASE_URL: 'postgresql://personalos:prod@db:5432/personalos',
+      PATH: `${espion}:${process.env['PATH']}`,
     });
+  }
+
+  /**
+   * Un `docker` qui, avant chaque `compose run`, note les services du staging
+   * qui tournent déjà : le conteneur jetable du `run` s'ajoute à eux, et leur
+   * somme doit rester sous le plafond total.
+   */
+  function installerEspion(): void {
+    const reel = sh('sh', ['-c', 'command -v docker']).trim();
+    mkdirSync(espion, { recursive: true });
+    const script = join(espion, 'docker');
+    writeFileSync(
+      script,
+      [
+        '#!/bin/sh',
+        'case " $* " in',
+        `  *" compose "*" run "*) "${reel}" ps --filter label=com.docker.compose.project=${PROJET_STAGING} \\`,
+        `      --format '{{.Label "com.docker.compose.service"}}' | sort | tr '\\n' ' ' >>"${journalDesRun}"`,
+        `    echo >>"${journalDesRun}" ;;`,
+        'esac',
+        `exec "${reel}" "$@"`,
+        '',
+      ].join('\n'),
+      { mode: 0o755 }
+    );
+  }
+
+  /** Les services du staging qui tournaient pendant chaque `compose run`. */
+  function servicesPendantLesRun(): string[][] {
+    return readFileSync(journalDesRun, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((ligne) => ligne.trim().split(' ').filter(Boolean));
   }
 
   /** Le journal du script accompagne le statut, pour qu'un échec se lise. */
@@ -269,6 +305,9 @@ describe('deploy-staging.sh, de bout en bout', () => {
     envStaging = join(racine, 'staging.env');
     ecrireEnvStaging(URL_STAGING);
     historique = join(racine, 'deploy-staging.log');
+    espion = join(racine, 'espion');
+    journalDesRun = join(racine, 'services-pendant-les-run');
+    installerEspion();
 
     confPath = join(racine, 'deploy.conf');
     const ghcr = join(racine, 'ghcr.env');
@@ -351,6 +390,17 @@ describe('deploy-staging.sh, de bout en bout', () => {
     ]).trim().split(' ').sort();
 
     expect(membres).toEqual([`${PROJET_STAGING}-staging-dashboard-1`, `${PROJET_STAGING}-staging-portfolio-1`]);
+  });
+
+  it('reste sous le plafond total pendant un redéploiement : seule la base tourne à côté des commandes jetables', () => {
+    writeFileSync(journalDesRun, '');
+
+    reussi(deployer(revisions[0]));
+
+    // Vérification, migration, semis : chacune dans un conteneur `api` de
+    // plus, à côté de la seule base (0,30 + 0,40 CPU, 320 + 448 Mio).
+    expect(servicesPendantLesRun()).toEqual([['db'], ['db'], ['db']]);
+    expect(sante()).toBe(200);
   });
 
   it('repart du jeu de démo au déploiement suivant, quoi qu’on ait saisi entre-temps', () => {

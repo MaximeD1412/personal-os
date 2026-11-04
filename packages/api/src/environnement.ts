@@ -60,7 +60,18 @@ function refuserLaBaseDeProduction(env: Environnement): void {
   }
 }
 
-/** L'hôte et le port seulement : le reste de l'URL porte le mot de passe. */
+/** Les paramètres de requête par lesquels pg ou libpq remplacent l'hôte ou le port de l'URL. */
+const PARAMETRES_DE_DESTINATION = ['host', 'hostaddr', 'port'];
+
+/**
+ * L'hôte et le port seulement : le reste de l'URL porte le mot de passe.
+ *
+ * Ce sont ceux de l'autorité de l'URL, et c'est là que le pilote (pg) et le
+ * moteur de migration les prennent, **sauf** si un paramètre de requête les
+ * remplace, si l'hôte est encodé, s'il y en a plusieurs, ou s'il n'y en a pas
+ * (PGHOST décide alors). Ces formes, le garde-fou les refuse plutôt que de
+ * deviner comment chacun les lirait.
+ */
 function adresseDeLaBase(url: string | undefined): {
   hote: string;
   port: string;
@@ -73,8 +84,24 @@ function adresseDeLaBase(url: string | undefined): {
       'DATABASE_URL est absente ou illisible : le staging ne peut pas vérifier qu’elle ne désigne pas la production.',
     );
   }
-  return {
-    hote: lue.hostname.toLowerCase(),
-    port: lue.port || PORT_POSTGRES,
-  };
+  if (lue.protocol !== 'postgresql:' && lue.protocol !== 'postgres:') {
+    throw new Error(
+      `DATABASE_URL n'est pas une URL PostgreSQL (${lue.protocol}) : le staging ne peut pas vérifier qu’elle ne désigne pas la production.`,
+    );
+  }
+  const remplacant = [...lue.searchParams.keys()].find((cle) =>
+    PARAMETRES_DE_DESTINATION.includes(cle.toLowerCase()),
+  );
+  if (remplacant !== undefined) {
+    throw new Error(
+      `DATABASE_URL donne sa destination en paramètre (« ${remplacant} ») : le staging n'accepte que l'hôte et le port de l'URL elle-même.`,
+    );
+  }
+  const hote = lue.hostname.toLowerCase().replace(/\.$/, '');
+  if (hote === '' || hote.includes('%') || hote.includes(',')) {
+    throw new Error(
+      'DATABASE_URL doit nommer un seul hôte, en clair : sans hôte, encodé ou multiple, le staging ne peut pas vérifier qu’elle ne désigne pas la production.',
+    );
+  }
+  return { hote, port: lue.port || PORT_POSTGRES };
 }
