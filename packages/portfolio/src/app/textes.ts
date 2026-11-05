@@ -7,14 +7,20 @@ import type { Langue } from './langue';
  */
 export interface Textes {
   readonly marque: string;
+  /** La description d'une page qui n'en a pas de propre. */
+  readonly description: string;
   readonly navigation: string;
   readonly selecteur: string;
   readonly sections: {
+    readonly presentation: string;
     readonly experience: string;
     readonly skills: string;
     readonly projets: string;
     readonly cv: string;
   };
+  readonly voirLesProjets: string;
+  readonly nombreDeProjets: (nombre: number) => string;
+  readonly projet: string;
   readonly aucunProjet: string;
   readonly lireLeProjet: string;
   readonly cvDescription: string;
@@ -31,14 +37,20 @@ export interface Textes {
 export const TEXTES: Readonly<Record<Langue, Textes>> = {
   fr: {
     marque: 'Portfolio',
+    description: 'Présentation, expériences, compétences et projets.',
     navigation: 'Sections du portfolio',
     selecteur: 'Langue du site',
     sections: {
+      presentation: 'Présentation',
       experience: 'Expériences',
       skills: 'Compétences',
       projets: 'Projets',
       cv: 'CV',
     },
+    voirLesProjets: 'Voir les projets',
+    nombreDeProjets: (nombre) =>
+      nombre > 1 ? `${nombre} projets publiés` : `${nombre} projet publié`,
+    projet: 'Projet',
     aucunProjet: 'Aucun projet publié pour l’instant.',
     lireLeProjet: 'Lire le projet',
     cvDescription: 'Le CV complet, au format PDF.',
@@ -54,14 +66,22 @@ export const TEXTES: Readonly<Record<Langue, Textes>> = {
   },
   en: {
     marque: 'Portfolio',
+    description: 'About, experience, skills and projects.',
     navigation: 'Portfolio sections',
     selecteur: 'Site language',
     sections: {
+      presentation: 'About',
       experience: 'Experience',
       skills: 'Skills',
       projets: 'Projects',
       cv: 'Resume',
     },
+    voirLesProjets: 'See the projects',
+    nombreDeProjets: (nombre) =>
+      nombre > 1
+        ? `${nombre} published projects`
+        : `${nombre} published project`,
+    projet: 'Project',
     aucunProjet: 'No published project yet.',
     lireLeProjet: 'Read the project',
     cvDescription: 'The full resume, as a PDF.',

@@ -1,25 +1,36 @@
 <a
-  class="block w-fit pb-space-md pt-space-xl text-label-regular text-on-surface-variant hover:text-on-surface"
+  class="flex w-fit items-center gap-space-xs rounded pb-space-md pt-space-xl text-label-regular text-on-surface-variant transition-colors hover:text-on-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:pt-space-2xl"
   data-test="retour"
   [routerLink]="['/', langue()]"
   fragment="projets"
-  >← {{ textes().retour }}</a
 >
+  <ng-icon class="icon-xs" name="matArrowBackOutline" aria-hidden="true" />
+  {{ textes().retour }}
+</a>
 
 @let lecture = projet(); @switch (lecture.etat) { @case ('present') {
-<article class="flex flex-col gap-space-md pb-space-xl" data-test="projet">
-  <header class="flex flex-col gap-space-sm">
-    <h1 class="text-headline-lg-mobile text-on-surface md:text-headline-lg">
+<article
+  class="flex flex-col gap-space-lg pb-space-xl md:gap-space-xl"
+  data-test="projet"
+>
+  <header class="flex flex-col items-start gap-space-sm md:max-w-[880px]">
+    <pos-intitule icone="matDeployedCodeOutline" teinte="primary"
+      >{{ textes().projet }}</pos-intitule
+    >
+    <h1 class="text-headline-lg text-on-surface md:text-display-hero">
       {{ lecture.valeur.title }}
     </h1>
-    <p class="text-body-default text-on-surface-variant">
+    <p class="text-headline-md font-normal text-on-surface-variant">
       {{ lecture.valeur.summary }}
     </p>
-    <p class="text-label-regular text-outline" data-test="publie-le">
+    <span hlmBadge tone="neutral" class="mt-space-xs" data-test="publie-le">
+      <ng-icon name="matCalendarTodayOutline" aria-hidden="true" />
       {{ publieLe() }}
-    </p>
+    </span>
   </header>
-  <pos-texte-publie class="max-w-3xl" [texte]="lecture.valeur.body" />
+  <div hlmCard class="p-gutter md:max-w-[880px] md:p-space-lg">
+    <pos-texte-publie [texte]="lecture.valeur.body" />
+  </div>
 </article>
 } @case ('absent') {
 <dccm-empty-state

@@ -7,6 +7,7 @@ import {
   RELIURE_FR,
   resume,
   servirLAccueil,
+  servirLAutreLangue,
 } from '../testing/portfolio';
 
 /**
@@ -89,6 +90,7 @@ describe('La langue du portfolio', () => {
     );
     http.expectOne(`${BASE}/public/FR/projects/projet-1`).flush(RELIURE_FR);
     servirLAccueil(http, 'FR', {});
+    await servirLAutreLangue(http, 'EN', 'projet-1', false);
     await harness.fixture.whenStable();
 
     await clic(el(), 'en');
