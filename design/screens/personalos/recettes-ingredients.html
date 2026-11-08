@@ -60,7 +60,7 @@
       <div class="recettes__split">
         <div class="recettes__list" data-name="Recettes et ingrédients / Liste">
           <ui-card>
-            <ui-search placeholder="Rechercher une recette, un ingrédient, un tag…" shortcut="⌘F"></ui-search>
+            <ui-search placeholder="Rechercher une recette…" shortcut="⌘F"></ui-search>
             <ui-segmented label="Filtres" scroll>
               <ui-segment pressed count="42">Toutes</ui-segment>
               <ui-segment icon="sparkles" count="12">IA</ui-segment>
@@ -185,10 +185,10 @@
         <ui-card title="Fusion de doublons" subtitle="Nettoyage du catalogue" icon="merge" tone="tertiary" data-name="Recettes et ingrédients / Fusion">
           <ui-badge slot="aside" tone="warning">1 détection</ui-badge>
           <div class="merge">
-            <div class="detail__head t-micro"><span class="c-muted">Doublon à absorber</span><ui-badge tone="error">Sera supprimé</ui-badge></div>
+            <div class="detail__head"><span class="t-micro c-muted">Doublon à absorber</span><ui-badge tone="error">Sera supprimé</ui-badge></div>
             <div class="merge__line"><span class="t-title-sm">Noix de cajou grillées</span><span class="t-label c-muted">Lié à 2 recettes</span></div>
             <span class="merge__arrow"><ui-icon name="arrow-down" size="sm"></ui-icon></span>
-            <div class="detail__head t-micro"><span class="c-muted">Ingrédient canonique cible</span><ui-badge tone="success">Conservé</ui-badge></div>
+            <div class="detail__head"><span class="t-micro c-muted">Ingrédient canonique cible</span><ui-badge tone="success">Conservé</ui-badge></div>
             <div class="merge__line"><span class="t-title-sm c-primary">Noix de cajou</span><span class="t-label c-secondary">Unité : g · 5 recettes</span></div>
             <p class="t-label c-variant">« Noix de cajou grillées » deviendra un alias de « Noix de cajou ». Les 2 recettes dépendantes seront remappées sans perte de grammage.</p>
           </div>
