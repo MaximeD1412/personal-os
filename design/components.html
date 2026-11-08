@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Composants — Personal OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <script defer src="components.js"></script>
+</head>
+<body>
+  <main class="gallery" data-name="Galerie">
+    <header>
+      <h1 class="t-headline-lg">Composants</h1>
+      <p class="t-body c-muted">La bibliothèque des maquettes en code : chaque composant dans chacun de ses états. Survol et focus en direct.</p>
+    </header>
+
+    <section class="gallery__section">
+      <h2 class="t-headline-md">Button</h2>
+      <div class="gallery__row">
+        <div class="gallery__item"><code>variant="primary"</code><ui-button icon="plus">Nouvelle séance</ui-button></div>
+        <div class="gallery__item"><code>variant="secondary"</code><ui-button variant="secondary" icon="bolt">Sortie non planifiée</ui-button></div>
+        <div class="gallery__item"><code>variant="ghost" size="sm"</code><ui-button variant="ghost" size="sm">Aujourd'hui</ui-button></div>
+        <div class="gallery__item"><code>variant="success" size="sm"</code><ui-button variant="success" size="sm" icon="check-circle">Marquer réalisée</ui-button></div>
+        <div class="gallery__item"><code>variant="warning" size="sm"</code><ui-button variant="warning" size="sm" icon="star">Garder cette recette</ui-button></div>
+        <div class="gallery__item"><code>variant="destructive"</code><ui-button variant="destructive">Supprimer</ui-button></div>
+        <div class="gallery__item"><code>size="lg"</code><ui-button size="lg" icon="plus">Nouveau</ui-button></div>
+        <div class="gallery__item"><code>state="disabled"</code><ui-button state="disabled">Analyser</ui-button></div>
+        <div class="gallery__item"><code>ui-icon-button</code><ui-icon-button icon="pencil" label="Modifier"></ui-icon-button></div>
+      </div>
+    </section>
+
+    <section class="gallery__section">
+      <h2 class="t-headline-md">Badge, Tag</h2>
+      <div class="gallery__row">
+        <div class="gallery__item"><code>tone="success" dot</code><ui-badge tone="success" dot>Réalisée</ui-badge></div>
+        <div class="gallery__item"><code>tone="warning" icon</code><ui-badge tone="warning" icon="bolt">Non planifiée</ui-badge></div>
+        <div class="gallery__item"><code>tone="error" icon</code><ui-badge tone="error" icon="x-circle">Manquée</ui-badge></div>
+        <div class="gallery__item"><code>tone="info" dot</code><ui-badge tone="info" dot>Prévue aujourd'hui</ui-badge></div>
+        <div class="gallery__item"><code>tone="neutral"</code><ui-badge tone="neutral">Archive</ui-badge></div>
+        <div class="gallery__item"><code>ui-tag</code><ui-tag>tomates pelées</ui-tag></div>
+        <div class="gallery__item"><code>ui-tag variant="category" tone="primary"</code><ui-tag variant="category" tone="primary">Endurance fondamentale</ui-tag></div>
+      </div>
+    </section>
+
+    <section class="gallery__section">
+      <h2 class="t-headline-md">Segmented, Tabs, Search, Input, Stepper</h2>
+      <div class="gallery__row">
+        <div class="gallery__item"><code>ui-segmented</code><ui-segmented label="Espace"><ui-segment pressed>Mon espace</ui-segment><ui-segment>Foyer</ui-segment></ui-segmented></div>
+        <div class="gallery__item"><code>ui-segment count icon</code><ui-segmented label="Vue"><ui-segment pressed icon="calendar" count="4">Séances par semaine</ui-segment><ui-segment icon="flag" count="1 actif">Objectifs</ui-segment></ui-segmented></div>
+        <div class="gallery__item gallery__frame"><code>ui-tabs</code><ui-tabs label="Sections"><ui-tab selected count="42">Recettes</ui-tab><ui-tab hint="/nouvelle">Saisie</ui-tab></ui-tabs></div>
+        <div class="gallery__item gallery__frame"><code>ui-search shortcut</code><ui-search placeholder="Que veux-tu faire ?" shortcut="⌘K" icon="terminal"></ui-search></div>
+        <div class="gallery__item gallery__frame"><code>ui-input</code><ui-input label="Quantité" value="300"></ui-input></div>
+        <div class="gallery__item gallery__frame"><code>ui-input state="error"</code><ui-input label="Libellé" value="tomate" state="error" icon="alert"></ui-input></div>
+        <div class="gallery__item"><code>ui-stepper</code><ui-stepper value="4" label="Portions"></ui-stepper></div>
+        <div class="gallery__item"><code>ui-choice</code><ui-choice hint="[Conserve]">Tomate en conserve</ui-choice></div>
+      </div>
+    </section>
+
+    <section class="gallery__section">
+      <h2 class="t-headline-md">Card, ModuleTile, Kpi, Callout</h2>
+      <div class="gallery__row">
+        <div class="gallery__item gallery__frame"><code>ui-card title icon aside footer</code>
+          <ui-card title="À faire" subtitle="Calculé par vos modules" icon="list" tone="tertiary"><ui-badge slot="aside" tone="warning">4 alertes</ui-badge><p class="t-body-dense c-variant">Contenu de la carte.</p><span slot="footer" class="c-muted">Pied de carte</span></ui-card></div>
+        <div class="gallery__item gallery__frame"><code>ui-module-tile</code><ui-module-tile icon="dumbbell" label="Sport" tone="secondary" badge="3/4" value="3 séances sur 4" value-tone="secondary" detail="Haut du corps ce soir" meta="Cycle PPL force" link="Voir sport"></ui-module-tile></div>
+        <div class="gallery__item gallery__frame"><code>ui-kpi progress tone</code><ui-kpi label="Volume distance" icon="route" value="38,4" unit="km" progress="100" tone="primary">vs. 35,0 km prévus</ui-kpi></div>
+        <div class="gallery__item gallery__frame"><code>ui-callout tone="warning"</code><ui-callout tone="warning" icon="help" title="Libellé non résolu"><p class="t-body-dense c-variant">Choisis la référence exacte.</p></ui-callout></div>
+        <div class="gallery__item gallery__frame"><code>ui-callout tone="success"</code><ui-callout tone="success" icon="shield-check" title="Préférences respectées"><p class="t-body-dense c-variant">Aucun allergène interdit.</p></ui-callout></div>
+      </div>
+    </section>
+
+    <section class="gallery__section">
+      <h2 class="t-headline-md">Agenda : WeekStrip, AgendaItem, TaskCard</h2>
+      <div class="gallery__row">
+        <div class="gallery__item gallery__frame--wide"><code>ui-week-strip / ui-day today marks</code>
+          <ui-week-strip><ui-day label="Auj." date="30" marks="primary secondary" today></ui-day><ui-day label="Sam" date="31" marks="tertiary"></ui-day><ui-day label="Dim" date="01"></ui-day><ui-day label="Lun" date="02" marks="primary"></ui-day><ui-day label="Mar" date="03"></ui-day><ui-day label="Mer" date="04"></ui-day><ui-day label="Jeu" date="05"></ui-day></ui-week-strip></div>
+        <div class="gallery__item gallery__frame--wide"><code>ui-agenda-item tone</code>
+          <ui-agenda-item icon="calendar" time="09:30" title="Dentiste" kind="Événement" meta="Cabinet · Contrôle annuel"></ui-agenda-item>
+          <ui-agenda-item icon="cake" time="19:00" title="Anniversaire" kind="Événement" tone="tertiary" meta="Restaurant" trailing="J-1"></ui-agenda-item></div>
+        <div class="gallery__item gallery__frame"><code>ui-task-card tone="error"</code><ui-task-card tone="error" pillar="Stock & Frigo" status="J-2" status-tone="error" title="Crème fraîche : périme dans 2 jours" foot="Consommation recommandée" action="Consulter le Stock">1 pot entamé au réfrigérateur.</ui-task-card></div>
+      </div>
+    </section>
+
+    <section class="gallery__section">
+      <h2 class="t-headline-md">Sport : SessionCard, Metric, EmptyState</h2>
+      <div class="gallery__row">
+        <div class="gallery__item gallery__frame--wide"><code>ui-session-card state="done"</code>
+          <ui-session-card weekday="Mar" day="27" title="Footing aérobie" cols="2"><span slot="badges"><ui-badge tone="success" dot>Réalisée</ui-badge></span><ui-metric label="Distance" value="11,2 km" delta="+1,2 km" sub="Prévu : 10,0 km"></ui-metric><ui-metric label="Durée" value="1 h 04"></ui-metric><span slot="notes">Notes terrain.</span></ui-session-card></div>
+        <div class="gallery__item gallery__frame--wide"><code>ui-session-card state="missed"</code>
+          <ui-session-card weekday="Ven" day="30" title="Routine décompression" state="missed"><span slot="badges"><ui-badge tone="error" icon="x-circle">Manquée</ui-badge></span><ui-button slot="aside" variant="secondary" size="sm">Reprogrammer</ui-button></ui-session-card></div>
+        <div class="gallery__item gallery__frame--wide"><code>ui-session-card state="planned"</code>
+          <ui-session-card weekday="Dim" day="01" title="Sortie longue 15 km" state="planned" cols="2"><span slot="badges"><ui-badge tone="info" dot>Prévue aujourd'hui</ui-badge></span><ui-button slot="aside" variant="success" size="sm" icon="check-circle">Marquer réalisée</ui-button><ui-metric label="Distance cible" value="15,0 km" tone="primary"></ui-metric><ui-metric label="Durée estimée" value="1 h 25"></ui-metric></ui-session-card></div>
+        <div class="gallery__item gallery__frame"><code>ui-empty-state</code><ui-empty-state icon="dumbbell" title="Aucune séance cette semaine">Le planning de la semaine est vide.<ui-button slot="actions" icon="plus">Nouvelle séance</ui-button></ui-empty-state></div>
+        <div class="gallery__item gallery__frame"><code>ui-empty-state tone="error"</code><ui-empty-state icon="refresh" title="Échec de la synchronisation" tone="error">Le nœud local n'a pas répondu.<ui-button slot="actions" variant="secondary" icon="refresh">Réessayer</ui-button></ui-empty-state></div>
+      </div>
+    </section>
+
+    <section class="gallery__section">
+      <h2 class="t-headline-md">Recettes : RecipeCard, IngredientRow, Step</h2>
+      <div class="gallery__row">
+        <div class="gallery__item gallery__frame"><code>ui-recipe-card selected</code><ui-recipe-card title="Poulet basquaise" time="35 min" selected><ui-badge slot="badge" tone="warning" icon="sparkles">Proposition IA</ui-badge><span slot="meta"><span>4 pers.</span><span>8 ingrédients</span></span></ui-recipe-card></div>
+        <div class="gallery__item gallery__frame"><code>ui-recipe-card</code><ui-recipe-card title="Wok de nouilles soba" time="20 min"><ui-badge slot="badge" tone="success">Validée DCCM</ui-badge><span slot="meta"><span>2 pers.</span><span>6 ingrédients</span></span></ui-recipe-card></div>
+        <div class="gallery__item gallery__frame--wide"><code>ui-ingredient-row tone</code><div class="ingredient-table"><ui-ingredient-row qty="600" unit="g" name="Blancs de poulet" product="Préféré : Label Rouge" status="En stock" tone="success"></ui-ingredient-row><ui-ingredient-row qty="2" unit="pièces" name="Poivrons" product="Préféré : bio" status="À acheter (0)" tone="warning"></ui-ingredient-row></div></div>
+        <div class="gallery__item gallery__frame"><code>ui-step duration</code><ui-step n="2" title="Saisie de la piperade" duration="10 min">Faire chauffer l'huile.</ui-step></div>
+      </div>
+    </section>
+
+    <section class="gallery__section">
+      <h2 class="t-headline-md">Icon</h2>
+      <div class="gallery__row c-variant">
+        <ui-icon name="home"></ui-icon><ui-icon name="grid"></ui-icon><ui-icon name="calendar"></ui-icon><ui-icon name="dumbbell"></ui-icon><ui-icon name="utensils"></ui-icon><ui-icon name="book"></ui-icon><ui-icon name="archive"></ui-icon><ui-icon name="cart"></ui-icon><ui-icon name="wallet"></ui-icon><ui-icon name="folder"></ui-icon><ui-icon name="building"></ui-icon><ui-icon name="rocket"></ui-icon><ui-icon name="briefcase"></ui-icon><ui-icon name="file"></ui-icon><ui-icon name="backup"></ui-icon><ui-icon name="hub"></ui-icon><ui-icon name="settings"></ui-icon><ui-icon name="server"></ui-icon><ui-icon name="route"></ui-icon><ui-icon name="timer"></ui-icon><ui-icon name="mountain"></ui-icon><ui-icon name="sparkles"></ui-icon><ui-icon name="merge"></ui-icon><ui-icon name="shield-check"></ui-icon><ui-icon name="leaf"></ui-icon><ui-icon name="cake"></ui-icon><ui-icon name="receipt"></ui-icon>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

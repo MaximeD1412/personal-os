@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accueil — Personal OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="../../tokens.css">
+  <link rel="stylesheet" href="../../components.css">
+  <script defer src="../../components.js"></script>
+  <style>
+    .accueil { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gutter); grid-template-areas: "head" "todo" "week" "modules" "node"; }
+    .accueil__head { grid-area: head; display: grid; gap: var(--space-sm); }
+    .accueil__status { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+    .accueil__modules { grid-area: modules; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gutter-compact); }
+    .accueil__week { grid-area: week; }
+    .accueil__todo { grid-area: todo; }
+    .accueil__node { grid-area: node; }
+    .accueil__day-title { display: flex; justify-content: space-between; gap: var(--space-sm); padding: var(--space-sm) var(--space-sm) 0; }
+    .accueil__list { display: grid; gap: var(--space-xs); }
+    .accueil__tasks { display: grid; gap: var(--space-md); }
+    .node { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md) var(--space-xl); }
+    .node__name { display: flex; align-items: center; gap: var(--space-md); flex: 1 1 auto; min-width: 0; }
+    .node__metrics { display: flex; gap: var(--space-xl); }
+    .node__metrics div { display: grid; gap: var(--space-3xs); }
+    @media (min-width: 1280px) {
+      .accueil {
+        grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+        grid-template-rows: auto auto auto 1fr;
+        grid-template-areas: "head head" "modules modules" "week todo" "node todo";
+        align-items: start;
+      }
+      .accueil__modules { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--gutter); }
+      .accueil__head { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+      .accueil__head-actions { grid-row: span 2; display: flex; align-items: center; gap: var(--space-md); }
+    }
+    .accueil__head-actions { display: none; }
+    @media (min-width: 1280px) { .accueil__head-actions { display: flex; } }
+  </style>
+</head>
+<body>
+  <ui-app-shell active="accueil">
+    <div class="accueil" data-name="Accueil / Contenu">
+      <!-- exemple : prénom, date et données de la journée -->
+      <header class="accueil__head" data-name="Accueil / En-tête">
+        <div class="accueil__status t-label">
+          <ui-badge tone="success" dot>Écosystème foyer opérationnel · Synchro locale en direct</ui-badge>
+          <ui-tag>Espace Personnel (Maxime)</ui-tag>
+        </div>
+        <div class="accueil__head-actions">
+          <ui-segmented label="Affichage">
+            <ui-segment pressed>Vue active</ui-segment>
+            <ui-segment>État à jour</ui-segment>
+            <ui-segment>Chargement</ui-segment>
+          </ui-segmented>
+          <ui-button size="lg" icon="plus">Nouveau</ui-button>
+        </div>
+        <div>
+          <h1 class="t-headline-lg">Bonjour Maxime</h1>
+          <p class="t-body c-muted">Vendredi 30 mai 2025 · Synthèse des activités consolidées du cockpit souverain</p>
+        </div>
+      </header>
+
+      <div class="accueil__modules" data-name="Accueil / Modules">
+        <ui-module-tile icon="dumbbell" label="Sport" tone="secondary" badge="3/4" value="3 séances sur 4" value-tone="secondary" detail="Haut du corps ce soir" meta="Cycle PPL force" link="Voir sport"></ui-module-tile>
+        <ui-module-tile icon="utensils" label="Repas" tone="tertiary" badge="11/14" value="11 approuvés sur 14" value-tone="tertiary" detail="Planning de la semaine" meta="Foyer partagé" link="Voir repas"></ui-module-tile>
+        <ui-module-tile icon="cart" label="Courses" tone="secondary" badge="12" value="12 articles restants" detail="Rayon frais & épicerie" meta="Liste active" link="Voir liste"></ui-module-tile>
+        <ui-module-tile icon="archive" label="Stock" tone="tertiary" badge="Alerte" value="2 ingrédients" value-tone="tertiary" detail="Périment bientôt" meta="Frigo & garde-manger" link="Inventaire"></ui-module-tile>
+        <ui-module-tile icon="receipt" label="Échéances" tone="primary" badge="J-5" value="Prochaine dans 5 jours" detail="Déclaration de revenus" meta="Administratif" link="Échéancier"></ui-module-tile>
+        <ui-module-tile icon="backup" label="Sauvegardes" tone="secondary" value="Il y a 3 h" detail="Alerte si plus de 26 h" meta="BorgBackup" link="Statut"></ui-module-tile>
+        <ui-module-tile icon="rocket" label="Projets" tone="primary" badge="2 actifs" value="2 en cours" detail="Dashboard DCCM & Infra" meta="Sprint 22" link="Voir chantiers"></ui-module-tile>
+      </div>
+
+      <div class="accueil__week">
+        <ui-card title="Les 7 prochains jours" icon="calendar" tone="primary">
+          <span slot="aside" class="t-label c-muted tnum">30 mai — 5 juin 2025</span>
+          <ui-week-strip>
+            <ui-day label="Auj." date="30" marks="primary secondary tertiary" today></ui-day>
+            <ui-day label="Sam" date="31" marks="tertiary"></ui-day>
+            <ui-day label="Dim" date="01" marks="secondary"></ui-day>
+            <ui-day label="Lun" date="02" marks="primary"></ui-day>
+            <ui-day label="Mar" date="03" marks="secondary"></ui-day>
+            <ui-day label="Mer" date="04" marks="tertiary"></ui-day>
+            <ui-day label="Jeu" date="05" marks="primary"></ui-day>
+          </ui-week-strip>
+          <div class="accueil__day-title t-label"><span>Aujourd'hui · Vendredi 30 mai</span><span class="c-secondary">3 entrées planifiées</span></div>
+          <div class="accueil__list">
+            <ui-agenda-item icon="calendar" time="09:30" title="Dentiste" kind="Événement" tone="primary" meta="Cabinet Dr. Martin · Contrôle annuel"></ui-agenda-item>
+            <ui-agenda-item icon="dumbbell" time="18:30" title="Sortie longue 14 km" kind="Séance" tone="secondary" meta="Parcours Berges du canal · Zone 2 endurance"></ui-agenda-item>
+            <ui-agenda-item icon="utensils" time="19:30" title="Poulet basquaise" kind="Repas planifié" tone="tertiary" meta="Dîner maison · 2 parts (Foyer partagé)"></ui-agenda-item>
+          </div>
+          <div class="accueil__day-title t-label"><span>Samedi 31 mai</span><span class="c-muted">1 entrée</span></div>
+          <div class="accueil__list">
+            <ui-agenda-item icon="cake" time="19:00" title="Anniversaire Claire" kind="Événement" tone="tertiary" meta="Restaurant Le Belvédère · Réservation confirmée" trailing="J-1"></ui-agenda-item>
+          </div>
+        </ui-card>
+      </div>
+
+      <div class="accueil__todo">
+        <ui-card title="À faire" subtitle="Calculé par vos modules · lecture seule" icon="list" tone="tertiary">
+          <ui-badge slot="aside" tone="warning">4 alertes</ui-badge>
+          <div class="accueil__tasks">
+            <ui-task-card tone="tertiary" pillar="Repas & Planning" space="Espace Foyer" status="En attente" status-tone="warning" title="3 repas attendent ta décision" foot="Décision requise" action="Aller au module Repas">3 propositions générées selon vos préférences restent à valider pour débloquer le panier de courses.</ui-task-card>
+            <ui-task-card tone="secondary" pillar="Courses" space="Foyer" status="À traiter" status-tone="success" title="La liste de courses n'est pas clôturée" foot="Liste en attente de clôture" action="Ouvrir les Courses">12 articles requis dont 6 ingrédients nécessaires aux repas du week-end attendent confirmation.</ui-task-card>
+            <ui-task-card tone="error" pillar="Stock & Frigo" space="Alerte péremption" status="J-2" status-tone="error" title="Crème fraîche : périme dans 2 jours" foot="Consommation recommandée" action="Consulter le Stock">1 pot entamé au réfrigérateur. Suggéré pour le dîner de samedi.</ui-task-card>
+            <ui-task-card tone="primary" pillar="Échéances & Gestion" space="Fiscalité" status="5 juin 2025" status-tone="neutral" title="Déclaration de revenus dans 5 jours" foot="Date butoir proche" action="Ouvrir Gestion & Échéances">Date limite de télé-déclaration pour la zone 2. Pièces justificatives prêtes dans Documents.</ui-task-card>
+          </div>
+        </ui-card>
+      </div>
+
+      <div class="accueil__node">
+        <ui-card>
+          <div class="node" data-name="Accueil / Nœud homelab">
+            <div class="node__name">
+              <span class="card__icon tone-secondary"><ui-icon name="server" size="lg"></ui-icon></span>
+              <div>
+                <p class="t-title-sm">Nœud homelab DCCM-PROXMOX-01</p>
+                <p class="t-label c-muted">14 conteneurs sains · 0 alerte matérielle · ZFS scrub OK</p>
+              </div>
+            </div>
+            <div class="node__metrics">
+              <div><span class="t-micro c-muted">Stockage NAS</span><span class="t-title-sm tnum">2,48 / 9,18 To (27 %)</span></div>
+              <div><span class="t-micro c-muted">Charge CPU</span><span class="t-title-sm tnum c-secondary">28 % moyen</span></div>
+            </div>
+          </div>
+        </ui-card>
+      </div>
+    </div>
+  </ui-app-shell>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maquettes — Personal OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    body { margin: 0; background: var(--surface-container-lowest); color: var(--on-surface); font-family: Inter, sans-serif; }
+    main { padding: 24px; display: grid; gap: 40px; }
+    h1 { margin: 0; font-size: var(--font-headline-lg-size); }
+    p { margin: 4px 0 0; color: var(--outline); }
+    section { display: grid; gap: 12px; }
+    h2 { margin: 0; font-size: var(--font-headline-md-size); }
+    h2 a { color: var(--primary); text-decoration: none; }
+    .frames { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+    .frame { display: grid; gap: 6px; color: var(--outline); font-size: var(--font-label-regular-size); }
+    .frame iframe { border: 1px solid var(--surface-container-highest); border-radius: 12px; background: var(--surface); }
+    .w390 iframe { width: 390px; height: 844px; }
+    .w1280 { width: 640px; height: 444px; }
+    .w1280 .box { width: 640px; height: 422px; overflow: hidden; }
+    .w1280 iframe { width: 1280px; height: 844px; transform: scale(0.5); transform-origin: 0 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Maquettes Personal OS</h1>
+      <p>Essai des maquettes en code (DESIGN-5) : trois écrans de <code>personalos.pen</code> redessinés. <a href="components.html" style="color: var(--primary)">Composants</a></p>
+    </header>
+    <section>
+      <h2><a href="screens/personalos/accueil.html">Accueil</a></h2>
+      <div class="frames">
+        <div class="frame w390">390<iframe src="screens/personalos/accueil.html" title="Accueil 390"></iframe></div>
+        <div class="frame w1280">1280<div class="box"><iframe src="screens/personalos/accueil.html" title="Accueil 1280"></iframe></div></div>
+      </div>
+    </section>
+    <section>
+      <h2><a href="screens/personalos/sport.html">Sport</a></h2>
+      <div class="frames">
+        <div class="frame w390">390<iframe src="screens/personalos/sport.html" title="Sport 390"></iframe></div>
+        <div class="frame w1280">1280<div class="box"><iframe src="screens/personalos/sport.html" title="Sport 1280"></iframe></div></div>
+      </div>
+    </section>
+    <section>
+      <h2><a href="screens/personalos/sport-vide.html">Sport — Aucune séance cette semaine</a></h2>
+      <div class="frames">
+        <div class="frame w390">390<iframe src="screens/personalos/sport-vide.html" title="Sport vide 390"></iframe></div>
+        <div class="frame w1280">1280<div class="box"><iframe src="screens/personalos/sport-vide.html" title="Sport vide 1280"></iframe></div></div>
+      </div>
+    </section>
+    <section>
+      <h2><a href="screens/personalos/recettes-ingredients.html">Recettes et ingrédients</a></h2>
+      <div class="frames">
+        <div class="frame w390">390<iframe src="screens/personalos/recettes-ingredients.html" title="Recettes 390"></iframe></div>
+        <div class="frame w1280">1280<div class="box"><iframe src="screens/personalos/recettes-ingredients.html" title="Recettes 1280"></iframe></div></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

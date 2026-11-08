@@ -48,6 +48,12 @@ colors:
   background: '#10141a'
   on-background: '#dfe2eb'
   surface-variant: '#31353c'
+  topbar-scrim: '#0a0e14e6'
+  primary-tint-20: '#adc6ff33'
+  primary-tint-10: '#adc6ff1a'
+  secondary-tint-15: '#4edea326'
+  tertiary-tint-15: '#ffb95f26'
+  error-tint-20: '#93000a33'
 typography:
   display-hero:
     fontFamily: Inter
@@ -128,6 +134,27 @@ spacing:
   space-lg: 1.25rem
   space-xl: 1.75rem
   space-2xl: 2.5rem
+  space-3xs: 0.125rem
+  space-2xs: 0.375rem
+  icon-sm: 1rem
+  icon-md: 1.125rem
+  icon-lg: 1.25rem
+  icon-xl: 1.5rem
+  icon-hero: 2rem
+  dot: 0.375rem
+  control-sm: 1.75rem
+  control-md: 2.25rem
+  control-lg: 2.5rem
+  touch-target: 2.75rem
+  topbar-height: 4rem
+  mobile-header-height: 3.5rem
+  tabbar-height: 4rem
+  sidebar-width: 15rem
+  tile-min-height: 8.75rem
+  block-min-height: 17.5rem
+  thumb-size: 5rem
+  content-max: 90rem
+  focus-ring: 2px
 ---
 
 ## Brand & Style

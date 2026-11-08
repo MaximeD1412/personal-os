@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sport — Aucune séance cette semaine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="../../tokens.css">
+  <link rel="stylesheet" href="../../components.css">
+  <script defer src="../../components.js"></script>
+  <style>
+    .sport { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gutter); }
+    .sport__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-md); }
+    .sport__week { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); padding: var(--space-3xs); border-radius: var(--radius); background: var(--surface-container-lowest); border: 1px solid var(--surface-container-highest); }
+    .sport__week-label { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; gap: var(--space-sm); padding: 0 var(--space-sm); }
+    .sport__kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gutter-compact); }
+    .sport__empty-foot { display: flex; justify-content: space-between; gap: var(--space-sm); margin-top: var(--space-md); color: var(--outline); }
+    @media (min-width: 1280px) {
+      .sport__week { flex: 0 1 auto; }
+      .sport__week-label { flex: 0 1 auto; }
+      .sport__kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gutter); }
+    }
+  </style>
+</head>
+<body>
+  <ui-app-shell active="sport">
+    <div class="sport" data-name="Sport / Contenu">
+      <ui-page-header crumbs="Organisation|Entraînement physique & métriques" title="Sport & Athlétisme" subtitle="Journal de bord d'entraînement · Synchronisation locale" icon="dumbbell" data-name="Sport / En-tête">
+        <ui-button variant="secondary" icon="bolt">Sortie non planifiée</ui-button>
+        <ui-button icon="plus-circle">Nouvelle séance</ui-button>
+      </ui-page-header>
+
+      <div class="sport__bar" data-name="Sport / Filtres">
+        <ui-segmented label="Vue">
+          <ui-segment pressed icon="calendar" count="0">Séances par semaine</ui-segment>
+          <ui-segment icon="flag" count="1 actif">Objectifs</ui-segment>
+        </ui-segmented>
+        <div class="sport__week t-label" data-name="Sport / Semaine">
+          <ui-icon-button icon="chevron-left" label="Semaine précédente" size="sm"></ui-icon-button>
+          <span class="sport__week-label tnum"><ui-icon name="calendar" size="sm"></ui-icon>Semaine du 2 au 8 juin 2025</span>
+          <ui-icon-button icon="chevron-right" label="Semaine suivante" size="sm"></ui-icon-button>
+          <ui-button variant="ghost" size="sm">Aujourd'hui</ui-button>
+        </div>
+      </div>
+
+      <!-- exemple : une semaine sans séance (la semaine 23) -->
+      <div class="sport__kpis" data-name="Sport / Indicateurs">
+        <ui-kpi label="Statut séances" icon="chart" value="0" unit="/ 0 faite" progress="0" tone="secondary">Aucune séance planifiée</ui-kpi>
+        <ui-kpi label="Volume distance" icon="route" value="0" unit="km" progress="0" tone="primary">—</ui-kpi>
+        <ui-kpi label="Temps d'effort" icon="timer" value="0 h 00" unit="total" progress="0" tone="tertiary">—</ui-kpi>
+        <ui-kpi label="Dénivelé cumulé" icon="mountain" value="0" unit="m D+" progress="0" tone="secondary">—</ui-kpi>
+      </div>
+
+      <ui-empty-state icon="dumbbell" title="Aucune séance cette semaine" data-name="Sport / Vide">
+        Ton planning d'entraînement pour la semaine 23 ne contient aucune séance planifiée ou synchronisée.
+        <ui-button slot="actions" icon="plus">Nouvelle séance</ui-button>
+        <ui-button slot="actions" variant="secondary" icon="bolt">Sortie non planifiée</ui-button>
+      </ui-empty-state>
+    </div>
+  </ui-app-shell>
+</body>
+</html>

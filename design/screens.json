@@ -1,140 +1,33 @@
 {
   "version": 1,
-  "library": "design/personalos.lib.pen",
+  "tool": "code",
+  "library": "design/components.js",
   "screens": [
     {
       "id": "accueil",
       "title": "Accueil",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/accueil-390.png",
-        "1024": "design/captures/ecrans/accueil-1024.png",
-        "1424": "design/captures/ecrans/accueil-1424.png"
-      }
-    },
-    {
-      "id": "agenda",
-      "title": "Agenda",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/agenda-390.png",
-        "1424": "design/captures/ecrans/agenda-1424.png"
-      }
-    },
-    {
-      "id": "barre-de-commande",
-      "title": "Barre de commande",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/barre-de-commande-390.png",
-        "1424": "design/captures/ecrans/barre-de-commande-1424.png"
-      }
-    },
-    {
-      "id": "calendrier",
-      "title": "Calendrier",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/calendrier-390.png",
-        "1424": "design/captures/ecrans/calendrier-1424.png"
-      }
-    },
-    {
-      "id": "etats-interactifs",
-      "title": "États interactifs (planche)",
-      "file": "design/personalos.pen",
-      "captures": {
-        "1424": "design/captures/ecrans/etats-interactifs-1424.png"
-      }
-    },
-    {
-      "id": "liste-de-courses",
-      "title": "Liste de courses",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/liste-de-courses-390.png",
-        "1424": "design/captures/ecrans/liste-de-courses-1424.png"
-      }
-    },
-    {
-      "id": "motifs-transverses",
-      "title": "Motifs transverses (planche)",
-      "file": "design/personalos.pen",
-      "captures": {
-        "1424": "design/captures/ecrans/motifs-transverses-1424.png"
-      }
-    },
-    {
-      "id": "planning-de-repas",
-      "title": "Planning de repas",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/planning-de-repas-390.png",
-        "1424": "design/captures/ecrans/planning-de-repas-1424.png"
-      }
-    },
-    {
-      "id": "portfolio-cockpit",
-      "title": "Portfolio (cockpit)",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/portfolio-cockpit-390.png",
-        "1424": "design/captures/ecrans/portfolio-cockpit-1424.png"
-      }
-    },
-    {
-      "id": "portfolio-public",
-      "title": "Portfolio public",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/portfolio-public-390.png",
-        "1424": "design/captures/ecrans/portfolio-public-1424.png"
-      }
-    },
-    {
-      "id": "preferences-alimentaires",
-      "title": "Préférences alimentaires",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/preferences-alimentaires-390.png",
-        "1424": "design/captures/ecrans/preferences-alimentaires-1424.png"
-      }
-    },
-    {
-      "id": "projets",
-      "title": "Projets",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/projets-390.png",
-        "1424": "design/captures/ecrans/projets-1424.png"
-      }
-    },
-    {
-      "id": "recettes-ingredients",
-      "title": "Recettes et ingrédients",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/recettes-ingredients-390.png",
-        "1424": "design/captures/ecrans/recettes-ingredients-1424.png"
-      }
+      "html": "design/screens/personalos/accueil.html",
+      "captures": { "390": "design/screens/personalos/accueil-390.png", "1280": "design/screens/personalos/accueil-1280.png" }
     },
     {
       "id": "sport",
       "title": "Sport",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/sport-390.png",
-        "1424": "design/captures/ecrans/sport-1424.png"
-      }
+      "html": "design/screens/personalos/sport.html",
+      "captures": { "390": "design/screens/personalos/sport-390.png", "1280": "design/screens/personalos/sport-1280.png" },
+      "states": [
+        {
+          "id": "vide",
+          "title": "Aucune séance cette semaine",
+          "html": "design/screens/personalos/sport-vide.html",
+          "captures": { "390": "design/screens/personalos/sport-vide-390.png", "1280": "design/screens/personalos/sport-vide-1280.png" }
+        }
+      ]
     },
     {
-      "id": "stock-domestique",
-      "title": "Stock domestique",
-      "file": "design/personalos.pen",
-      "captures": {
-        "390": "design/captures/ecrans/stock-domestique-390.png",
-        "1424": "design/captures/ecrans/stock-domestique-1424.png"
-      }
+      "id": "recettes-ingredients",
+      "title": "Recettes et ingrédients",
+      "html": "design/screens/personalos/recettes-ingredients.html",
+      "captures": { "390": "design/screens/personalos/recettes-ingredients-390.png", "1280": "design/screens/personalos/recettes-ingredients-1280.png" }
     }
   ]
 }

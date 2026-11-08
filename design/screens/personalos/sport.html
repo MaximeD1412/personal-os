@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sport — Personal OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="../../tokens.css">
+  <link rel="stylesheet" href="../../components.css">
+  <script defer src="../../components.js"></script>
+  <style>
+    .sport { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gutter); }
+    .sport__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-md); }
+    .sport__week { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); padding: var(--space-3xs); border-radius: var(--radius); background: var(--surface-container-lowest); border: 1px solid var(--surface-container-highest); }
+    .sport__week-label { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; gap: var(--space-sm); padding: 0 var(--space-sm); }
+    .sport__kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gutter-compact); }
+    .sport__list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gutter-compact); }
+    .rating { display: inline-flex; align-items: center; gap: var(--space-xs); padding: var(--space-3xs) var(--space-sm); border-radius: var(--radius-full); border: 1px solid var(--surface-container-highest); color: var(--on-surface-variant); }
+    @media (min-width: 1280px) {
+      .sport__week { flex: 0 1 auto; }
+      .sport__week-label { flex: 0 1 auto; }
+      .sport__kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gutter); }
+      .sport__list { gap: var(--gutter); }
+    }
+  </style>
+</head>
+<body>
+  <ui-app-shell active="sport">
+    <div class="sport" data-name="Sport / Contenu">
+      <ui-page-header crumbs="Organisation|Entraînement physique & métriques" title="Sport & Athlétisme" subtitle="Journal de bord d'entraînement · Synchronisation locale" icon="dumbbell" data-name="Sport / En-tête">
+        <ui-button variant="secondary" icon="bolt">Sortie non planifiée</ui-button>
+        <ui-button icon="plus-circle">Nouvelle séance</ui-button>
+      </ui-page-header>
+
+      <div class="sport__bar" data-name="Sport / Filtres">
+        <ui-segmented label="Vue">
+          <ui-segment pressed icon="calendar" count="4">Séances par semaine</ui-segment>
+          <ui-segment icon="flag" count="1 actif">Objectifs</ui-segment>
+        </ui-segmented>
+        <div class="sport__week t-label" data-name="Sport / Semaine">
+          <ui-icon-button icon="chevron-left" label="Semaine précédente" size="sm"></ui-icon-button>
+          <span class="sport__week-label tnum"><ui-icon name="calendar" size="sm"></ui-icon>Semaine du 26 mai au 1er juin 2025</span>
+          <ui-icon-button icon="chevron-right" label="Semaine suivante" size="sm"></ui-icon-button>
+          <ui-button variant="ghost" size="sm">Aujourd'hui</ui-button>
+        </div>
+      </div>
+
+      <!-- exemple : métriques de la semaine du 26 mai 2025 -->
+      <div class="sport__kpis" data-name="Sport / Indicateurs">
+        <ui-kpi label="Statut séances" icon="chart" value="3" unit="/ 4 faites" progress="75" tone="secondary"><span class="c-secondary">75 % complété · 1 à venir</span></ui-kpi>
+        <ui-kpi label="Volume distance" icon="route" value="38,4" unit="km" progress="100" tone="primary"><span class="c-secondary">+3,4 km</span> vs. 35,0 km prévus</ui-kpi>
+        <ui-kpi label="Temps d'effort" icon="timer" value="3 h 25" unit="total" progress="80" tone="tertiary">Allure moyenne : 5:20 /km</ui-kpi>
+        <ui-kpi label="Dénivelé cumulé" icon="mountain" value="+320" unit="m D+" progress="60" tone="secondary"><span class="c-secondary">Effort régulier préservé</span></ui-kpi>
+      </div>
+
+      <div class="sport__list" data-name="Sport / Séances">
+        <ui-session-card weekday="Mar" day="27" title="Footing aérobie & lignes droites" state="done" cols="4">
+          <span slot="badges"><ui-tag variant="category" tone="primary">Endurance fondamentale</ui-tag></span>
+          <span slot="badges"><ui-badge tone="success" dot>Réalisée</ui-badge></span>
+          <span slot="badges" class="tnum">07:15 du matin</span>
+          <span slot="aside" class="rating"><ui-icon name="smile" size="sm"></ui-icon><span class="rating-label">Très bon</span> 4/5</span>
+          <ui-icon-button slot="aside" icon="pencil" label="Modifier la séance" size="sm"></ui-icon-button>
+          <ui-metric label="Distance" value="11,2 km" delta="+1,2 km" sub="Prévu : 10,0 km"></ui-metric>
+          <ui-metric label="Durée" value="1 h 04" delta="+4 min" sub="Prévue : 1 h 00"></ui-metric>
+          <ui-metric label="Allure moyenne" value="5:43 /km" delta="−17 s" sub="Prévue : 6:00 /km"></ui-metric>
+          <ui-metric label="Cardio moyen" value="142 bpm" delta="Zone 2" delta-tone="primary" sub="Cible : &lt; 148 bpm"></ui-metric>
+          <span slot="notes">Notes terrain : bonnes sensations sur les 4 derniers km malgré le vent de face le long du canal. Hydratation optimale.</span>
+        </ui-session-card>
+
+        <ui-session-card weekday="Mer" day="28" title="PPG membres inférieurs + mobilité hanches" state="done" cols="3">
+          <span slot="badges"><ui-tag variant="category" tone="tertiary">Renforcement & gainage</ui-tag></span>
+          <span slot="badges"><ui-badge tone="warning" icon="bolt">Non planifiée</ui-badge></span>
+          <span slot="badges"><ui-badge tone="success" dot>Réalisée</ui-badge></span>
+          <span slot="aside" class="rating"><ui-icon name="thumbs-up" size="sm"></ui-icon><span class="rating-label">Solide</span> 4/5</span>
+          <ui-icon-button slot="aside" icon="pencil" label="Modifier la séance" size="sm"></ui-icon-button>
+          <ui-metric label="Volume effectif" value="45 minutes" sub="Séance ajoutée a posteriori" sub-tone="tertiary"></ui-metric>
+          <ui-metric label="Exercices clés" value="Fentes, squats bulgares, mollets" sub="4 séries / exercice"></ui-metric>
+          <ui-metric label="Intensité perçue" value="RPE 6/10" sub="Excellente récupération active" sub-tone="secondary"></ui-metric>
+          <span slot="notes">Notes terrain : séance spontanée effectuée au salon avant le dîner pour soulager les tensions aux ischios.</span>
+        </ui-session-card>
+
+        <ui-session-card weekday="Jeu" day="29" title="8 × 800 m allure spécifique (10k/semi) r=1'30" state="done" cols="4">
+          <span slot="badges"><ui-tag variant="category" tone="error">Fractionné</ui-tag></span>
+          <span slot="badges"><ui-badge tone="success" dot>Réalisée</ui-badge></span>
+          <span slot="badges">Piste d'athlétisme Parilly</span>
+          <span slot="aside" class="rating"><ui-icon name="smile" size="sm"></ui-icon><span class="rating-label">Exigeant</span> 3/5</span>
+          <ui-icon-button slot="aside" icon="pencil" label="Modifier la séance" size="sm"></ui-icon-button>
+          <ui-metric label="Distance totale" value="12,2 km" delta="+0,2 km" sub="Prévu : 12,0 km"></ui-metric>
+          <ui-metric label="Durée globale" value="58 min 12" delta="−1 min 48" sub="Prévue : 1 h 00"></ui-metric>
+          <ui-metric label="Allure sur fractions" value="3:52 /km" delta="−3 s" sub="Prévue : 3:55 /km"></ui-metric>
+          <ui-metric label="Pic de fréquence cardiaque" value="178 bpm" delta="Zone 5" delta-tone="error" sub="Moyenne séance : 158 bpm"></ui-metric>
+          <span slot="notes">Notes terrain : les 5 premières fractions passent facilement en 3:05 par 800 m. Les deux dernières ont demandé un vrai engagement mental.</span>
+        </ui-session-card>
+
+        <ui-session-card weekday="Ven" day="30" title="Routine décompression & rouleau de massage" state="missed">
+          <span slot="badges"><ui-tag variant="category">Récupération & mobilité</ui-tag></span>
+          <span slot="badges"><ui-badge tone="error" icon="x-circle">Manquée</ui-badge></span>
+          <span slot="badges">Prévu 30 min d'étirements</span>
+          <span slot="aside" class="session-card__aside-text">Contrainte professionnelle imprévue</span>
+          <ui-button slot="aside" variant="secondary" size="sm">Reprogrammer</ui-button>
+        </ui-session-card>
+
+        <ui-session-card weekday="Dim" day="01" title="Sortie longue 15,0 km avec 3 × 2000 m tempo allure cible" state="planned" cols="4">
+          <span slot="badges"><ui-tag variant="category" tone="secondary">Sortie longue</ui-tag></span>
+          <span slot="badges"><ui-badge tone="info" dot>Prévue aujourd'hui</ui-badge></span>
+          <span slot="badges" class="c-tertiary">Objectif : semi de Lyon</span>
+          <ui-button slot="aside" variant="success" size="sm" icon="check-circle">Marquer réalisée</ui-button>
+          <ui-metric label="Distance cible" value="15,0 km" tone="primary"></ui-metric>
+          <ui-metric label="Durée estimée" value="1 h 25"></ui-metric>
+          <ui-metric label="Allure de croisière" value="5:40 /km"></ui-metric>
+          <ui-metric label="Blocs spécifiques" value="3 × 2 km @ 4:45" tone="tertiary"></ui-metric>
+        </ui-session-card>
+      </div>
+    </div>
+  </ui-app-shell>
+</body>
+</html>

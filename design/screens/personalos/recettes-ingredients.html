@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recettes et ingrédients — Personal OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="../../tokens.css">
+  <link rel="stylesheet" href="../../components.css">
+  <script defer src="../../components.js"></script>
+  <style>
+    .recettes { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gutter); }
+    .recettes__split { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gutter); align-items: start; }
+    .recettes__list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gutter-compact); }
+    .recettes__filters { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+    .detail__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+    .detail__badges { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+    .detail__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gutter); padding: var(--space-md); border-radius: var(--radius); background: var(--surface-container-lowest); }
+    .detail__fact { display: grid; gap: var(--space-xs); align-content: start; }
+    .detail__section { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-sm); padding-top: var(--space-sm); }
+    .detail__section h3 { display: flex; align-items: center; gap: var(--space-sm); }
+    .detail__steps { display: grid; gap: var(--space-lg); }
+    .demo__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-sm); align-items: end; }
+    .demo__row ui-button { grid-column: 1 / -1; }
+    .demo__choices { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+    .recettes__pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gutter); align-items: start; }
+    .canon__facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(var(--thumb-size) * 2.5), 1fr)); gap: var(--gutter); }
+    .canon__aliases { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+    .product { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-xs) var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius); background: var(--surface-container-lowest); }
+    .product__name { display: inline-flex; align-items: center; gap: var(--space-sm); }
+    .merge { display: grid; gap: var(--space-sm); padding: var(--space-md); border-radius: var(--radius); background: var(--surface-container-lowest); }
+    .merge__line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); border-radius: var(--radius); background: var(--surface-container-high); }
+    .merge__arrow { justify-self: center; display: grid; place-items: center; width: var(--control-sm); height: var(--control-sm); border-radius: var(--radius-full); background: var(--primary-tint-20); color: var(--primary); }
+    @media (min-width: 1280px) {
+      .recettes__split { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+      .detail__facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .demo__row { grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) auto; }
+      .demo__row ui-button { grid-column: auto; }
+      .recettes__pair { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <ui-app-shell active="recettes" space="foyer">
+    <div class="recettes" data-name="Recettes et ingrédients / Contenu">
+      <ui-page-header crumbs="Organisation|Repas|Recettes & ingrédients" title="Recettes & Ingrédients" subtitle="Normalisation des grammages et arbitrage canonique du garde-manger." data-name="Recettes et ingrédients / En-tête">
+        <ui-button variant="secondary" icon="merge">Fusionner des doublons</ui-button>
+        <ui-button variant="secondary" icon="plus-circle">Nouvel ingrédient</ui-button>
+        <ui-button icon="plus">Nouvelle recette</ui-button>
+      </ui-page-header>
+
+      <ui-tabs label="Sections">
+        <ui-tab selected count="42">Recettes</ui-tab>
+        <ui-tab hint="/nouvelle">Saisie d'une recette</ui-tab>
+        <ui-tab count="184">Catalogue d'ingrédients</ui-tab>
+      </ui-tabs>
+
+      <!-- exemple : recettes, quantités et produits -->
+      <div class="recettes__split">
+        <div class="recettes__list" data-name="Recettes et ingrédients / Liste">
+          <ui-card>
+            <ui-search placeholder="Rechercher une recette, un ingrédient, un tag…" shortcut="⌘F"></ui-search>
+            <ui-segmented label="Filtres" scroll>
+              <ui-segment pressed count="42">Toutes</ui-segment>
+              <ui-segment icon="sparkles" count="12">IA</ui-segment>
+              <ui-segment icon="star" count="18">Coups de cœur</ui-segment>
+              <ui-segment icon="leaf" count="15">Végétarien</ui-segment>
+              <ui-segment icon="timer" count="9">&lt; 25 min</ui-segment>
+            </ui-segmented>
+          </ui-card>
+
+          <ui-recipe-card title="Poulet basquaise traditionnel & riz" time="35 min" selected>
+            <ui-badge slot="badge" tone="warning" icon="sparkles">Proposition IA · Provisoire</ui-badge>
+            <ui-icon slot="trailing" name="check-circle" class="c-primary"></ui-icon>
+            <span slot="meta"><span>4 pers.</span><span>8 ingrédients</span><span class="c-secondary">Sans allergène déclaré</span></span>
+            <span slot="footer"><span class="c-tertiary">Non consolidée dans DCCM</span></span>
+          </ui-recipe-card>
+          <ui-recipe-card title="Wok de nouilles soba, tofu & sésame" time="20 min">
+            <ui-badge slot="badge" tone="success">Validée DCCM</ui-badge>
+            <ui-icon slot="trailing" name="heart" class="c-muted"></ui-icon>
+            <span slot="meta"><span>2 pers.</span><span>6 ingrédients</span><span class="c-tertiary">Sésame (allergène)</span></span>
+          </ui-recipe-card>
+          <ui-recipe-card title="Bowl lentilles corail & patate douce" time="30 min">
+            <ui-badge slot="badge" tone="success">Validée DCCM</ui-badge>
+            <ui-icon slot="trailing" name="bookmark" class="c-muted"></ui-icon>
+            <span slot="meta"><span>4 pers.</span><span>7 ingrédients</span><span class="c-secondary">Végétalien</span></span>
+          </ui-recipe-card>
+          <ui-recipe-card title="Curry crémeux de pois chiches" time="25 min">
+            <ui-badge slot="badge" tone="neutral">Archive</ui-badge>
+            <ui-icon slot="trailing" name="help" class="c-muted"></ui-icon>
+            <span slot="meta"><span>3 pers.</span><span>9 ingrédients</span><span class="c-secondary">Sans gluten</span></span>
+          </ui-recipe-card>
+        </div>
+
+        <ui-card data-name="Recettes et ingrédients / Détail">
+          <div class="detail__head">
+            <div class="detail__badges">
+              <ui-badge tone="warning" icon="sparkles">Recette issue d'un tour IA</ui-badge>
+              <ui-tag class="t-mono">ID #REC-8841</ui-tag>
+            </div>
+            <ui-button variant="warning" size="sm" icon="star">Garder cette recette</ui-button>
+          </div>
+          <div>
+            <h2 class="t-headline-lg">Poulet basquaise traditionnel & riz</h2>
+            <p class="t-body c-muted">Mijoté basque fondant aux poivrons tricolores, concassé de tomates et piment d'Espelette AOP.</p>
+          </div>
+          <div class="detail__facts">
+            <div class="detail__fact"><span class="t-micro c-muted">Préparation</span><span class="t-metric">15 min</span></div>
+            <div class="detail__fact"><span class="t-micro c-muted">Cuisson</span><span class="t-metric">35 min</span></div>
+            <div class="detail__fact"><span class="t-micro c-muted">Difficulté</span><span class="t-metric c-secondary">Facile</span></div>
+            <div class="detail__fact"><span class="t-micro c-muted">Portions</span><ui-stepper value="4" label="Portions"></ui-stepper></div>
+          </div>
+          <ui-callout tone="success" icon="shield-check" title="Préférences alimentaires respectées">
+            <p class="t-body-dense c-variant">Profil de Maxime : aucun allergène interdit détecté (fruits à coque). Macro estimée : 640 kcal par portion.</p>
+          </ui-callout>
+
+          <div class="detail__section">
+            <h3 class="t-headline-md"><ui-icon name="list" size="lg"></ui-icon>Ingrédients canoniques rattachés</h3>
+            <span class="t-label c-muted">Recalcul en temps réel</span>
+          </div>
+          <div class="ingredient-table" role="table" aria-label="Ingrédients" data-name="IngredientTable">
+            <div class="ingredient-table__head t-micro" role="row"><span role="columnheader">Quantité</span><span role="columnheader">Ingrédient canonique & produit</span><span role="columnheader">Garde-manger</span></div>
+            <ui-ingredient-row qty="600" unit="g" name="Blancs de poulet fermier" product="Préféré : Loué Label Rouge (origine France)" status="En stock (850 g)" tone="success"></ui-ingredient-row>
+            <ui-ingredient-row qty="2" unit="pièces" name="Poivrons rouges & verts" product="Préféré : frais bio de saison" status="À acheter (0)" tone="warning"></ui-ingredient-row>
+            <ui-ingredient-row qty="400" unit="g" name="Pulpe de tomates en dés" product="Préféré : Mutti boîte 400 g" status="En stock (3 boîtes)" tone="success"></ui-ingredient-row>
+            <ui-ingredient-row qty="2" unit="gousses" name="Ail" product="Préféré : ail blanc de la Drôme" status="En stock" tone="success"></ui-ingredient-row>
+            <ui-ingredient-row qty="200" unit="g" name="Riz basmati demi-complet" product="Préféré : vrac Biocoop" status="En stock (1,2 kg)" tone="success"></ui-ingredient-row>
+            <ui-ingredient-row qty="2" unit="c. à soupe" name="Huile d'olive vierge extra" product="Préféré : première pression à froid" status="En stock" tone="success"></ui-ingredient-row>
+            <ui-ingredient-row qty="1" unit="pincée" name="Piment d'Espelette AOP" product="Préféré : terroir basque en pot" status="En stock" tone="success"></ui-ingredient-row>
+          </div>
+
+          <div class="detail__section">
+            <h3 class="t-headline-md"><ui-icon name="list" size="lg"></ui-icon>Étapes de préparation</h3>
+            <span class="t-label c-muted">3 étapes</span>
+          </div>
+          <div class="detail__steps">
+            <ui-step n="1" title="Découpe et parage des volailles & légumes">Couper les blancs de poulet en gros cubes réguliers. Émincer les poivrons en lanières de 5 mm après avoir ôté les graines. Hacher finement l'ail.</ui-step>
+            <ui-step n="2" title="Saisie et coloration de la piperade" duration="10 min">Faire chauffer 1 c. à soupe d'huile d'olive dans une sauteuse à fond épais. Y jeter les poivrons et l'ail. Suer à feu moyen pendant 10 minutes.</ui-step>
+            <ui-step n="3" title="Mijotage basquaise" duration="25 min">Ajouter la pulpe de tomates, le piment d'Espelette et le poulet doré. Couvrir et laisser mijoter à feu doux 25 minutes. Cuire le riz en parallèle.</ui-step>
+          </div>
+        </ui-card>
+      </div>
+
+      <ui-card title="Saisie d'une ligne d'ingrédient" subtitle="Interception d'un libellé ambigu du catalogue" icon="pencil" tone="primary" data-name="Recettes et ingrédients / Saisie canonique">
+        <ui-badge slot="aside" tone="neutral">Normalisation</ui-badge>
+        <div class="demo__row">
+          <ui-input label="Quantité" value="300"></ui-input>
+          <ui-input label="Libellé" value="tomate" state="error" icon="alert"></ui-input>
+          <ui-button variant="primary">Analyser</ui-button>
+        </div>
+        <ui-callout tone="warning" icon="help" title="Libellé non résolu dans le catalogue : « tomate »">
+          <p class="t-body-dense c-variant">Ce terme est trop générique pour la liste de courses. Choisis la référence exacte du catalogue ou déclare-la :</p>
+          <div class="demo__choices">
+            <ui-choice hint="[Conserve]">Tomate en conserve (Mutti 400 g)</ui-choice>
+            <ui-choice hint="[Légume frais]">Tomate fraîche ronde (vrac)</ui-choice>
+            <ui-choice hint="[Barquette]">Tomates cerises</ui-choice>
+          </div>
+          <div><ui-button variant="warning" size="sm" icon="sparkles">Créer l'ingrédient « Tomate » dans le catalogue</ui-button></div>
+        </ui-callout>
+      </ui-card>
+
+      <div class="recettes__pair">
+        <ui-card title="Ingrédient canonique référencé" subtitle="Fiche de l'ingrédient" icon="check-circle" tone="secondary" data-name="Recettes et ingrédients / Ingrédient">
+          <ui-badge slot="aside" tone="success">Validé</ui-badge>
+          <div class="detail__head">
+            <h3 class="t-headline-lg">Tomate en conserve</h3>
+            <span class="t-label c-primary">Unité canonique : grammes (g)</span>
+          </div>
+          <div class="canon__facts">
+            <div class="detail__fact"><span class="t-label c-muted">Allergènes déclarés</span><span class="t-title-sm c-secondary">Aucun parmi les 14 familles UE</span></div>
+            <div class="detail__fact"><span class="t-label c-muted">Conservation</span><span class="t-title-sm">Non périssable (DLUO 2027)</span></div>
+          </div>
+          <div class="detail__fact">
+            <span class="t-label c-muted">Alias reconnus</span>
+            <div class="canon__aliases"><ui-tag>tomates pelées</ui-tag><ui-tag>pulpe de tomate</ui-tag><ui-tag>coulis</ui-tag><ui-tag>purée de tomate</ui-tag><ui-tag>tomate concassée</ui-tag></div>
+          </div>
+          <div class="detail__fact">
+            <span class="t-label c-muted">Produits rattachés</span>
+            <div class="product t-body-dense"><span class="product__name"><ui-icon name="star" size="sm" class="c-tertiary"></ui-icon>Mutti pulpe en dés 400 g <ui-badge tone="success">Produit préféré</ui-badge></span><span class="c-muted tnum">1,39 € (Monoprix)</span></div>
+            <div class="product t-body-dense"><span class="product__name"><ui-icon name="help" size="sm" class="c-muted"></ui-icon>Cirio tomates entières pelées 800 g</span><span class="c-muted tnum">2,15 € (Biocoop)</span></div>
+          </div>
+        </ui-card>
+
+        <ui-card title="Fusion de doublons" subtitle="Nettoyage du catalogue" icon="merge" tone="tertiary" data-name="Recettes et ingrédients / Fusion">
+          <ui-badge slot="aside" tone="warning">1 détection</ui-badge>
+          <div class="merge">
+            <div class="detail__head t-micro"><span class="c-muted">Doublon à absorber</span><ui-badge tone="error">Sera supprimé</ui-badge></div>
+            <div class="merge__line"><span class="t-title-sm">Noix de cajou grillées</span><span class="t-label c-muted">Lié à 2 recettes</span></div>
+            <span class="merge__arrow"><ui-icon name="arrow-down" size="sm"></ui-icon></span>
+            <div class="detail__head t-micro"><span class="c-muted">Ingrédient canonique cible</span><ui-badge tone="success">Conservé</ui-badge></div>
+            <div class="merge__line"><span class="t-title-sm c-primary">Noix de cajou</span><span class="t-label c-secondary">Unité : g · 5 recettes</span></div>
+            <p class="t-label c-variant">« Noix de cajou grillées » deviendra un alias de « Noix de cajou ». Les 2 recettes dépendantes seront remappées sans perte de grammage.</p>
+          </div>
+          <ui-button block icon="check">Confirmer la fusion des ingrédients</ui-button>
+        </ui-card>
+      </div>
+    </div>
+  </ui-app-shell>
+</body>
+</html>
